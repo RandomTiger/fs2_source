@@ -6,4 +6,10 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArguments>-window</LocalDebuggerCommandArguments>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LocalDebuggerCommand>$(PATH_FS2)\$(TargetName)</LocalDebuggerCommand>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>$(PATH_FS2)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>-window</LocalDebuggerCommandArguments>
+  </PropertyGroup>
 </Project>

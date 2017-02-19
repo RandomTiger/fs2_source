@@ -55,12 +55,13 @@
     <OutDir>.\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2vs2015.exe</TargetName>
+    <TargetName>FS2vs2015d.exe</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <TargetName>FS2vs2015r.exe</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -147,9 +148,10 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <OutputFile>E:\games\freespace2\FS2.exe</OutputFile>
+      <OutputFile>$(PATH_FS2)\$(TargetName)</OutputFile>
       <AdditionalLibraryDirectories>release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
