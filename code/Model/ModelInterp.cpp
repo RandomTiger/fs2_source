@@ -2793,11 +2793,8 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 					g3_rotate_vertex( &p, &bank->pnt[j] );
 					gr_set_bitmap( Interp_thrust_glow_bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, d );
 					{
-						extern int Gr_scaler_zbuffering;
-						Gr_scaler_zbuffering = 1;
 						g3_draw_bitmap(&p,0,w*0.5f, TMAP_FLAG_TEXTURED );
 						//g3_draw_rotated_bitmap(&p,0.0f,w,w, TMAP_FLAG_TEXTURED );
-						Gr_scaler_zbuffering = 0;
 					}
 				}
 

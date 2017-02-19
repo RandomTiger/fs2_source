@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="res">
+      <UniqueIdentifier>{606e3f82-2f78-43b6-b1e3-06dd17868f39}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="code\HelpEd\res\HelpEd.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\HelpEd\res\HelpEdDoc.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\HelpEd\res\Toolbar.bmp">
+      <Filter>res</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="code\HelpEd\HelpEd.cpp" />
+    <ClCompile Include="code\HelpEd\HelpEdDoc.cpp" />
+    <ClCompile Include="code\HelpEd\HelpEdLine.cpp" />
+    <ClCompile Include="code\HelpEd\HelpEdView.cpp" />
+    <ClCompile Include="code\HelpEd\MainFrm.cpp" />
+    <ClCompile Include="code\HelpEd\StdAfx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="code\HelpEd\HelpEd.h" />
+    <ClInclude Include="code\HelpEd\HelpEdDoc.h" />
+    <ClInclude Include="code\HelpEd\HelpEdLine.h" />
+    <ClInclude Include="code\HelpEd\HelpEdView.h" />
+    <ClInclude Include="code\HelpEd\MainFrm.h" />
+    <ClInclude Include="code\HelpEd\Resource.h" />
+    <ClInclude Include="code\HelpEd\StdAfx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="code\HelpEd\HelpEd.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="code\HelpEd\res\HelpEd.rc2">
+      <Filter>res</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

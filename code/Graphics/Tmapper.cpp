@@ -306,30 +306,7 @@ float Light_table[256];
 
 
 //====================== 8-BPP SCANLINES ========================
-tmap_scan_desc tmap_scanlines8[] = {
-	{ 0, tmapscan_flat8 },
-	{ TMAP_FLAG_TEXTURED, tmapscan_lnn8 },
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_XPARENT, tmapscan_lnt8 },
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP, tmapscan_lln8 },
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP|TMAP_FLAG_CORRECT, tmapscan_pln8 },
-	
-	{ TMAP_FLAG_RAMP|TMAP_FLAG_GOURAUD, tmapscan_flat_gouraud },
-
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP|TMAP_FLAG_GOURAUD, tmapscan_lln8 },
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP|TMAP_FLAG_GOURAUD|TMAP_FLAG_CORRECT, tmapscan_pln8 },
-
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP|TMAP_FLAG_CORRECT|TMAP_FLAG_TILED, tmapscan_pln8_tiled },
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_RAMP|TMAP_FLAG_CORRECT|TMAP_FLAG_GOURAUD|TMAP_FLAG_TILED, tmapscan_pln8_tiled },
-
-	{ TMAP_FLAG_RAMP|TMAP_FLAG_GOURAUD|TMAP_FLAG_NEBULA, tmapscan_nebula8 },
-
-//	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_TILED, tmapscan_lnn8_tiled_256x256 },
-	// Totally non-general specific inner loop for subspace effect
-	{ TMAP_FLAG_TEXTURED|TMAP_FLAG_CORRECT|TMAP_FLAG_TILED, tmapscan_pnn8_tiled_256x256_subspace },
-	
-
-	{ 0, NULL },	// Dummy element to mark the end of fast scanlines.
-};
+// deleted
 
 
 pscanline tmap_scanline_table[TMAP_MAX_SCANLINES];
@@ -344,8 +321,6 @@ pscanline tmap_scanline_table[TMAP_MAX_SCANLINES];
 void tmapper_setup()
 {
 	int i;
-	tmap_scan_desc * func_table = NULL;
-
 	Tmap_screen_flags = gr_screen.mode;
 
 	// Some constants for the inner loop
@@ -358,18 +333,9 @@ void tmapper_setup()
 		tmap_scanline_table[i] = NULL;
 	}
 
-	func_table = tmap_scanlines8;
-
-	while(func_table->scan_func != NULL)	{
-		tmap_scanline_table[func_table->flags] = func_table->scan_func;
-		func_table++;
-	}
-
 	for (i=0; i<256; i++ )	{
 		Light_table[i] = i2fl(i)/255.0f;
 	}
-
-
 }
 
 // Sets up flat-shaded lighting

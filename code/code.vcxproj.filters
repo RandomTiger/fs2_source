@@ -1,0 +1,1627 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Anim">
+      <UniqueIdentifier>{bff85353-ffaf-44f3-b918-c41bcaa963be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Asteroid">
+      <UniqueIdentifier>{5e18a7e2-ae5b-46b9-af8a-759d05f3b62e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bmpman">
+      <UniqueIdentifier>{50b627ec-3025-4d6a-958b-762fe357e29a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CFile">
+      <UniqueIdentifier>{1cd9fab4-fd19-44e0-945b-16b31df0ec37}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Cmdline">
+      <UniqueIdentifier>{4cde5b2a-6bd4-4118-8cc7-55f3794e1c35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CMeasure">
+      <UniqueIdentifier>{99f42ce6-c6ab-4efb-a540-b6a2e94e5f08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ControlConfig">
+      <UniqueIdentifier>{30487253-8a5b-46c1-ae2a-95c99daefbbc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Cutscene">
+      <UniqueIdentifier>{e64dff9d-9ede-4e96-b523-92b99388e92b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Debris">
+      <UniqueIdentifier>{f2588d53-c780-4a41-9131-5fad1e185126}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DebugConsole">
+      <UniqueIdentifier>{b34fab4b-3fb1-4caa-ae1c-2332ca25c7c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DirectX">
+      <UniqueIdentifier>{b8780077-9915-40ce-859e-7345682018a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fireball">
+      <UniqueIdentifier>{47157d54-f3f8-4b88-8642-2b6fde76f3d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameHelp">
+      <UniqueIdentifier>{d2cd359f-12a1-4267-a1a8-9c9229ac29d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameSequence">
+      <UniqueIdentifier>{6a8e52d9-d430-4611-99a5-aee801c8d1bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameSnd">
+      <UniqueIdentifier>{7860fcc9-755c-421d-aed2-116763b12862}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Glide">
+      <UniqueIdentifier>{33bc9d21-f511-4c47-af99-999ded889360}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GlobalIncs">
+      <UniqueIdentifier>{8d39cbc8-b3ab-4eec-b11c-8a6bc5ccc7bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics">
+      <UniqueIdentifier>{9c15936a-6b2f-4b1d-a17d-1f3153df2044}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Hud">
+      <UniqueIdentifier>{f463c59e-7ab8-41a0-8c23-a281e5181ff3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Io">
+      <UniqueIdentifier>{d3052293-dfbb-43b8-ba80-d0ef27d6417f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="JumpNode">
+      <UniqueIdentifier>{71022486-1f71-4c28-ab0b-f91e8b2f8b7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lighting">
+      <UniqueIdentifier>{ba2301fc-1f77-4e05-a398-4cde211c55c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{05d0be93-e3d7-4dfc-8081-12e51d185418}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MenuUI">
+      <UniqueIdentifier>{ce0e47b0-0342-4053-bdc2-77e7016ac812}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Mission">
+      <UniqueIdentifier>{1bb8ddf6-8c77-47f5-94aa-75e764d171f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MissionUI">
+      <UniqueIdentifier>{d471d970-1eb9-43d6-bede-247a22853c40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{f9ed230d-9019-4514-909f-552761d50379}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object">
+      <UniqueIdentifier>{884013f3-7a64-4105-a5a0-351549df8ad8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Observer">
+      <UniqueIdentifier>{1328de3d-2091-4739-8eca-5dbf1eae5bec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OsApi">
+      <UniqueIdentifier>{e146ebd8-b440-4b71-a4f4-6f83e41b74b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Palman">
+      <UniqueIdentifier>{c75fd902-bdb1-4e4d-8819-f7c97554fb59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Parse">
+      <UniqueIdentifier>{99636005-294e-43e2-b591-6fb59818238c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Particle">
+      <UniqueIdentifier>{b6ac100e-9232-4e1c-b45e-8ee98fe7c118}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PcxUtils">
+      <UniqueIdentifier>{014fb162-c578-446d-b170-8366924bb648}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{3f3f7894-49d2-46c1-a7ba-92e7a5489388}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Playerman">
+      <UniqueIdentifier>{a4e2d2e5-fd1c-451a-b6ad-7efd6ac96dad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Popup">
+      <UniqueIdentifier>{85788969-8188-4100-988e-fe8db67183c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Radar">
+      <UniqueIdentifier>{68266c50-5e1d-49d8-a57d-f33a67379f3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render">
+      <UniqueIdentifier>{17b32e6b-ef6e-465a-aa18-3e185799a770}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ship">
+      <UniqueIdentifier>{761791d0-5549-4ad1-8ede-242515c7192e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sound">
+      <UniqueIdentifier>{36f61c78-e766-4269-8479-c75689c503c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Starfield">
+      <UniqueIdentifier>{4a3540d3-8269-43a0-aa00-32437ccad2ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Stats">
+      <UniqueIdentifier>{c648768f-0517-4f09-aa1b-792d5c93da28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ui">
+      <UniqueIdentifier>{a383ee8b-bed2-43dc-9fb1-bafa0684ec53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VCodec">
+      <UniqueIdentifier>{af51d686-7f5d-4269-abc9-4435ca7cd17d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Weapon">
+      <UniqueIdentifier>{b083f0ee-ae7d-4056-96e7-800dbc46386a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Nebula">
+      <UniqueIdentifier>{cdbff1e7-229e-4e62-a04d-7ed060c31ab5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Localization">
+      <UniqueIdentifier>{e209b9c7-3d61-4e16-b216-d4c5d6459ec0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TgaUtils">
+      <UniqueIdentifier>{7b5d42c3-dbe7-4726-93aa-d8d03ca621ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Demo">
+      <UniqueIdentifier>{8ba6d5b8-6811-4fd3-9701-60da89029ea6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="InetFile">
+      <UniqueIdentifier>{bdb7ef44-08b1-4ebd-9ac1-7a4e08593e53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ExceptionHandler">
+      <UniqueIdentifier>{e6446a41-8a67-4e5e-bebd-765cdfa699ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Network">
+      <UniqueIdentifier>{fe574423-fbb7-4b31-aaef-225070c846fd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Anim\AnimPlay.cpp">
+      <Filter>Anim</Filter>
+    </ClCompile>
+    <ClCompile Include="Anim\PackUnpack.cpp">
+      <Filter>Anim</Filter>
+    </ClCompile>
+    <ClCompile Include="Asteroid\Asteroid.cpp">
+      <Filter>Asteroid</Filter>
+    </ClCompile>
+    <ClCompile Include="Bmpman\BmpMan.cpp">
+      <Filter>Bmpman</Filter>
+    </ClCompile>
+    <ClCompile Include="CFile\cfile.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
+    <ClCompile Include="CFile\CfileArchive.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
+    <ClCompile Include="CFile\CfileList.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
+    <ClCompile Include="CFile\CfileSystem.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
+    <ClCompile Include="Cmdline\cmdline.cpp">
+      <Filter>Cmdline</Filter>
+    </ClCompile>
+    <ClCompile Include="CMeasure\CMeasure.cpp">
+      <Filter>CMeasure</Filter>
+    </ClCompile>
+    <ClCompile Include="ControlConfig\ControlsConfig.cpp">
+      <Filter>ControlConfig</Filter>
+    </ClCompile>
+    <ClCompile Include="ControlConfig\ControlsConfigCommon.cpp">
+      <Filter>ControlConfig</Filter>
+    </ClCompile>
+    <ClCompile Include="Cutscene\Cutscenes.cpp">
+      <Filter>Cutscene</Filter>
+    </ClCompile>
+    <ClCompile Include="Debris\Debris.cpp">
+      <Filter>Debris</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugConsole\Console.cpp">
+      <Filter>DebugConsole</Filter>
+    </ClCompile>
+    <ClCompile Include="Fireball\FireBalls.cpp">
+      <Filter>Fireball</Filter>
+    </ClCompile>
+    <ClCompile Include="Fireball\WarpInEffect.cpp">
+      <Filter>Fireball</Filter>
+    </ClCompile>
+    <ClCompile Include="GameHelp\ContextHelp.cpp">
+      <Filter>GameHelp</Filter>
+    </ClCompile>
+    <ClCompile Include="GameHelp\GameplayHelp.cpp">
+      <Filter>GameHelp</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSequence\GameSequence.cpp">
+      <Filter>GameSequence</Filter>
+    </ClCompile>
+    <ClCompile Include="Gamesnd\EventMusic.cpp">
+      <Filter>GameSnd</Filter>
+    </ClCompile>
+    <ClCompile Include="Gamesnd\GameSnd.cpp">
+      <Filter>GameSnd</Filter>
+    </ClCompile>
+    <ClCompile Include="Glide\Glide.cpp">
+      <Filter>Glide</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalIncs\AlphaColors.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalIncs\crypt.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalIncs\SystemVars.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalIncs\version.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalIncs\WinDebug.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\2d.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\aaline.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Bitblt.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Circle.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Colors.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Font.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Gradient.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrD3D.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrD3DRender.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrD3DTexture.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrDirectDraw.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrGlide.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrGlideTexture.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrOpenGL.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrSoft.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrZbuffer.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Line.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Pixel.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Rect.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Shade.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\TmapGenericScans.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Tmapper.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUD.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HudArtillery.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDbrackets.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDconfig.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDescort.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDets.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDlock.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDmessage.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDObserver.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDreticle.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDshield.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDsquadmsg.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDtarget.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDtargetbox.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Hud\HUDWingmanStatus.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\Joy.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\Joy_ff.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\Key.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\KeyControl.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\Mouse.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\swff_lib.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Io\Timer.cpp">
+      <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="JumpNode\JumpNode.cpp">
+      <Filter>JumpNode</Filter>
+    </ClCompile>
+    <ClCompile Include="Lighting\Lighting.cpp">
+      <Filter>Lighting</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Fix.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Floating.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\Fvi.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\spline.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\StaticRand.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Math\VecMat.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\Barracks.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\Credits.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\fishtank.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\MainHallMenu.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\MainHallTemp.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\OptionsMenu.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\OptionsMenuMulti.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\PlayerMenu.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\ReadyRoom.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\SnazzyUI.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\TechMenu.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\TrainingMenu.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionBriefCommon.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionCampaign.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionGoals.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionGrid.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionHotKey.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionLoad.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionLog.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionMessage.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionParse.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="Mission\MissionTraining.cpp">
+      <Filter>Mission</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\Chatbox.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionBrief.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionCmdBrief.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionDebrief.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionLoopBrief.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionPause.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionRecommend.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionScreenCommon.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionShipChoice.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionStats.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\MissionWeaponChoice.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MissionUI\RedAlert.cpp">
+      <Filter>MissionUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelCollide.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelInterp.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelOctant.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\ModelRead.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\CollideDebrisShip.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\CollideDebrisWeapon.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\CollideShipShip.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\CollideShipWeapon.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\CollideWeaponWeapon.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\ObjCollide.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\Object.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\ObjectSnd.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Object\ObjectSort.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
+    <ClCompile Include="Observer\Observer.cpp">
+      <Filter>Observer</Filter>
+    </ClCompile>
+    <ClCompile Include="OsApi\OsApi.cpp">
+      <Filter>OsApi</Filter>
+    </ClCompile>
+    <ClCompile Include="OsApi\OsRegistry.cpp">
+      <Filter>OsApi</Filter>
+    </ClCompile>
+    <ClCompile Include="OsApi\OutWnd.cpp">
+      <Filter>OsApi</Filter>
+    </ClCompile>
+    <ClCompile Include="Palman\PalMan.cpp">
+      <Filter>Palman</Filter>
+    </ClCompile>
+    <ClCompile Include="Parse\Encrypt.cpp">
+      <Filter>Parse</Filter>
+    </ClCompile>
+    <ClCompile Include="Parse\PARSELO.CPP">
+      <Filter>Parse</Filter>
+    </ClCompile>
+    <ClCompile Include="Parse\SEXP.CPP">
+      <Filter>Parse</Filter>
+    </ClCompile>
+    <ClCompile Include="Particle\Particle.cpp">
+      <Filter>Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="PcxUtils\pcxutils.cpp">
+      <Filter>PcxUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\Physics.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Playerman\ManagePilot.cpp">
+      <Filter>Playerman</Filter>
+    </ClCompile>
+    <ClCompile Include="Playerman\PlayerControl.cpp">
+      <Filter>Playerman</Filter>
+    </ClCompile>
+    <ClCompile Include="Popup\Popup.cpp">
+      <Filter>Popup</Filter>
+    </ClCompile>
+    <ClCompile Include="Popup\PopupDead.cpp">
+      <Filter>Popup</Filter>
+    </ClCompile>
+    <ClCompile Include="Radar\Radar.cpp">
+      <Filter>Radar</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\3dClipper.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\3ddraw.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\3dLaser.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\3dMath.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\3dSetup.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\Afterburner.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\ai.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\AiBig.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\AiCode.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\AiGoals.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\AWACS.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\Shield.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\Ship.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\ShipContrails.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\ShipFX.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Ship\ShipHit.cpp">
+      <Filter>Ship</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\acm.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\AudioStr.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\ds.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\ds3d.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\dscap.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\midifile.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\RBAudio.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\rtvoice.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\Sound.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\WinMIDI.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound\winmidi_base.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Starfield\Nebula.cpp">
+      <Filter>Starfield</Filter>
+    </ClCompile>
+    <ClCompile Include="Starfield\StarField.cpp">
+      <Filter>Starfield</Filter>
+    </ClCompile>
+    <ClCompile Include="Starfield\Supernova.cpp">
+      <Filter>Starfield</Filter>
+    </ClCompile>
+    <ClCompile Include="Stats\Medals.cpp">
+      <Filter>Stats</Filter>
+    </ClCompile>
+    <ClCompile Include="Stats\Scoring.cpp">
+      <Filter>Stats</Filter>
+    </ClCompile>
+    <ClCompile Include="Stats\Stats.cpp">
+      <Filter>Stats</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\BUTTON.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CHECKBOX.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\GADGET.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\icon.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\INPUTBOX.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\KEYTRAP.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\LISTBOX.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\RADIO.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\SCROLL.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\slider.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\SLIDER2.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UIDRAW.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UIMOUSE.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\WINDOW.cpp">
+      <Filter>Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="VCodec\CODEC1.CPP">
+      <Filter>VCodec</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Beam.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Corkscrew.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Emp.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Flak.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\MuzzleFlash.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Shockwave.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Swarm.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Trails.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Weapon\Weapons.cpp">
+      <Filter>Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Nebula\Neb.cpp">
+      <Filter>Nebula</Filter>
+    </ClCompile>
+    <ClCompile Include="Nebula\NebLightning.cpp">
+      <Filter>Nebula</Filter>
+    </ClCompile>
+    <ClCompile Include="Localization\fhash.cpp">
+      <Filter>Localization</Filter>
+    </ClCompile>
+    <ClCompile Include="Localization\localize.cpp">
+      <Filter>Localization</Filter>
+    </ClCompile>
+    <ClCompile Include="TgaUtils\TgaUtils.cpp">
+      <Filter>TgaUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="Demo\Demo.cpp">
+      <Filter>Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="Inetfile\CFtp.cpp">
+      <Filter>InetFile</Filter>
+    </ClCompile>
+    <ClCompile Include="Inetfile\Chttpget.cpp">
+      <Filter>InetFile</Filter>
+    </ClCompile>
+    <ClCompile Include="Inetfile\inetgetfile.cpp">
+      <Filter>InetFile</Filter>
+    </ClCompile>
+    <ClCompile Include="ExceptionHandler\ExceptionHandler.cpp">
+      <Filter>ExceptionHandler</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\Multi.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_campaign.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_data.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_dogfight.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_endgame.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_ingame.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_kick.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_log.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_obj.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_observer.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_oo.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_options.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_pause.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_pinfo.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_ping.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_pmsg.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_rate.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_respawn.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_team.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_update.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_voice.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multi_xfer.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\multilag.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\MultiMsgs.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\MultiTeamSelect.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\MultiUI.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\MultiUtil.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\PsNet.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\Psnet2.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\stand_gui.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Anim\AnimPlay.h">
+      <Filter>Anim</Filter>
+    </ClInclude>
+    <ClInclude Include="Anim\PackUnpack.h">
+      <Filter>Anim</Filter>
+    </ClInclude>
+    <ClInclude Include="Asteroid\Asteroid.h">
+      <Filter>Asteroid</Filter>
+    </ClInclude>
+    <ClInclude Include="Bmpman\BmpMan.h">
+      <Filter>Bmpman</Filter>
+    </ClInclude>
+    <ClInclude Include="CFile\cfile.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
+    <ClInclude Include="CFile\CfileArchive.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
+    <ClInclude Include="CFile\CfileSystem.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
+    <ClInclude Include="Cmdline\cmdline.h">
+      <Filter>Cmdline</Filter>
+    </ClInclude>
+    <ClInclude Include="CMeasure\CMeasure.h">
+      <Filter>CMeasure</Filter>
+    </ClInclude>
+    <ClInclude Include="ControlConfig\ControlsConfig.h">
+      <Filter>ControlConfig</Filter>
+    </ClInclude>
+    <ClInclude Include="Cutscene\Cutscenes.h">
+      <Filter>Cutscene</Filter>
+    </ClInclude>
+    <ClInclude Include="Debris\Debris.h">
+      <Filter>Debris</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vasync.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vD3d.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vD3dcaps.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vd3di.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vd3drm.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vd3drmdef.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vd3drmobj.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vd3drmwin.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vD3dtypes.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vDdraw.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vDinput.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vdplay.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vdplobby.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vdsetup.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vDsound.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\vdvp.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="Fireball\FireBalls.h">
+      <Filter>Fireball</Filter>
+    </ClInclude>
+    <ClInclude Include="GameHelp\ContextHelp.h">
+      <Filter>GameHelp</Filter>
+    </ClInclude>
+    <ClInclude Include="GameHelp\GameplayHelp.h">
+      <Filter>GameHelp</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSequence\GameSequence.h">
+      <Filter>GameSequence</Filter>
+    </ClInclude>
+    <ClInclude Include="Gamesnd\EventMusic.h">
+      <Filter>GameSnd</Filter>
+    </ClInclude>
+    <ClInclude Include="Gamesnd\GameSnd.h">
+      <Filter>GameSnd</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\3DFX.H">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\FXDLL.H">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\FXGLOB.H">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\FXOS.H">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\glide.h">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\glidesys.h">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\glideutl.h">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="Glide\SST1VID.H">
+      <Filter>Glide</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\AlphaColors.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\crypt.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\LinkList.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\PsTypes.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\SystemVars.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\version.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\2d.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Bitblt.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Circle.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Colors.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Font.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Gradient.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrD3D.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrD3DInternal.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrDirectDraw.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrGlide.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrGlideInternal.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrInternal.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrOpenGL.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrSoft.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrZbuffer.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Line.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Pixel.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Rect.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Shade.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\TMAPPER.H">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUD.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HudArtillery.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDbrackets.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDconfig.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDescort.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDets.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDgauges.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDlock.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDmessage.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDObserver.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDreticle.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDshield.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDsquadmsg.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDtarget.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDtargetbox.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Hud\HUDWingmanStatus.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\Joy.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\Joy_ff.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\Key.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\KeyControl.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\Mouse.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\sw_error.hpp">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\sw_force.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\sw_guid.hpp">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Io\Timer.h">
+      <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="JumpNode\JumpNode.h">
+      <Filter>JumpNode</Filter>
+    </ClInclude>
+    <ClInclude Include="Lighting\Lighting.h">
+      <Filter>Lighting</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\fix.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Floating.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\Fvi.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\spline.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\StaticRand.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\VecMat.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\Barracks.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\Credits.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\fishtank.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\MainHallMenu.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\MainHallTemp.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\OptionsMenu.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\OptionsMenuMulti.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\PlayerMenu.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\ReadyRoom.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\SnazzyUI.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\TechMenu.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\TrainingMenu.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionBriefCommon.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionCampaign.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionGoals.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionGrid.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionHotKey.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionLoad.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionLog.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionMessage.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionParse.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="Mission\MissionTraining.h">
+      <Filter>Mission</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\Chatbox.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionBrief.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionCmdBrief.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionDebrief.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionLoopBrief.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionPause.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionRecommend.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionScreenCommon.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionShipChoice.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionStats.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\MissionWeaponChoice.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MissionUI\RedAlert.h">
+      <Filter>MissionUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\MODEL.H">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelsInc.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Object\ObjCollide.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Object\Object.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Object\ObjectSnd.h">
+      <Filter>Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Observer\Observer.h">
+      <Filter>Observer</Filter>
+    </ClInclude>
+    <ClInclude Include="OsApi\MONOPUB.H">
+      <Filter>OsApi</Filter>
+    </ClInclude>
+    <ClInclude Include="OsApi\OsApi.h">
+      <Filter>OsApi</Filter>
+    </ClInclude>
+    <ClInclude Include="OsApi\OsRegistry.h">
+      <Filter>OsApi</Filter>
+    </ClInclude>
+    <ClInclude Include="OsApi\OutWnd.h">
+      <Filter>OsApi</Filter>
+    </ClInclude>
+    <ClInclude Include="Palman\PalMan.h">
+      <Filter>Palman</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse\Encrypt.h">
+      <Filter>Parse</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse\parselo.h">
+      <Filter>Parse</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse\SEXP.H">
+      <Filter>Parse</Filter>
+    </ClInclude>
+    <ClInclude Include="Particle\Particle.h">
+      <Filter>Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="PcxUtils\pcxutils.h">
+      <Filter>PcxUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\Physics.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Playerman\ManagePilot.h">
+      <Filter>Playerman</Filter>
+    </ClInclude>
+    <ClInclude Include="Playerman\Player.h">
+      <Filter>Playerman</Filter>
+    </ClInclude>
+    <ClInclude Include="Popup\Popup.h">
+      <Filter>Popup</Filter>
+    </ClInclude>
+    <ClInclude Include="Popup\PopupDead.h">
+      <Filter>Popup</Filter>
+    </ClInclude>
+    <ClInclude Include="Radar\Radar.h">
+      <Filter>Radar</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\3D.H">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\3dInternal.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\Afterburner.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\ai.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\AiBig.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\AiGoals.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\AiLocal.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\AWACS.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\Ship.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\ShipContrails.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\ShipFX.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\ShipHit.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Ship\SubsysDamage.h">
+      <Filter>Ship</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\acm.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\AudioStr.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\channel.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\ds.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\ds3d.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\dscap.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\midifile.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\midiseq.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\RBAudio.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\rtvoice.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\Sound.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound\WinMIDI.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Starfield\Nebula.h">
+      <Filter>Starfield</Filter>
+    </ClInclude>
+    <ClInclude Include="Starfield\StarField.h">
+      <Filter>Starfield</Filter>
+    </ClInclude>
+    <ClInclude Include="Starfield\Supernova.h">
+      <Filter>Starfield</Filter>
+    </ClInclude>
+    <ClInclude Include="Stats\Medals.h">
+      <Filter>Stats</Filter>
+    </ClInclude>
+    <ClInclude Include="Stats\Scoring.h">
+      <Filter>Stats</Filter>
+    </ClInclude>
+    <ClInclude Include="Stats\Stats.h">
+      <Filter>Stats</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UI.H">
+      <Filter>Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UiDefs.h">
+      <Filter>Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="VCodec\CODEC1.H">
+      <Filter>VCodec</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Beam.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Corkscrew.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Emp.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Flak.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\MuzzleFlash.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Shockwave.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Swarm.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Trails.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Weapon\Weapon.h">
+      <Filter>Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Nebula\Neb.h">
+      <Filter>Nebula</Filter>
+    </ClInclude>
+    <ClInclude Include="Nebula\NebLightning.h">
+      <Filter>Nebula</Filter>
+    </ClInclude>
+    <ClInclude Include="Localization\fhash.h">
+      <Filter>Localization</Filter>
+    </ClInclude>
+    <ClInclude Include="Localization\localize.h">
+      <Filter>Localization</Filter>
+    </ClInclude>
+    <ClInclude Include="TgaUtils\TgaUtils.h">
+      <Filter>TgaUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="Demo\Demo.h">
+      <Filter>Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="Inetfile\CFtp.h">
+      <Filter>InetFile</Filter>
+    </ClInclude>
+    <ClInclude Include="Inetfile\Chttpget.h">
+      <Filter>InetFile</Filter>
+    </ClInclude>
+    <ClInclude Include="Inetfile\inetgetfile.h">
+      <Filter>InetFile</Filter>
+    </ClInclude>
+    <ClInclude Include="ExceptionHandler\ExceptionHandler.h">
+      <Filter>ExceptionHandler</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\Multi.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_campaign.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_data.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_dogfight.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_endgame.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_ingame.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_kick.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_log.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_obj.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_observer.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_oo.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_options.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_pause.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_pinfo.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_ping.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_pmsg.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_rate.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_respawn.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_team.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_update.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_voice.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multi_xfer.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multilag.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\multimsgs.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\MultiTeamSelect.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\MultiUI.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\MultiUtil.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\PsNet.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\Psnet2.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\stand_gui.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="DirectX\vDdraw.lib">
+      <Filter>DirectX</Filter>
+    </Library>
+    <Library Include="DirectX\vDinput.lib">
+      <Filter>DirectX</Filter>
+    </Library>
+    <Library Include="DirectX\vDsound.lib">
+      <Filter>DirectX</Filter>
+    </Library>
+    <Library Include="DirectX\vDxguid.lib">
+      <Filter>DirectX</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="DirectX\vd3dvec.inl">
+      <Filter>DirectX</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

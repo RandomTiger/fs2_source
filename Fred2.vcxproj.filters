@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="res">
+      <UniqueIdentifier>{21ab8659-7ded-423f-bb56-7d2b1f4897fa}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="code\fred2\res\bitmap1.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\FRED2\res\black_do.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\bmp00001.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\chained.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\chained_directive.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\data.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\FRED2\res\FRED.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\FRED2\res\FREDDoc.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\FRED2\res\green_do.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\root.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\root_directive.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\Toolbar.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\toolbar1.bmp">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\fred2\res\variable.bmp">
+      <Filter>res</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="code\FRED2\FRED.rc">
+      <Filter>res</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="code\FRED2\resource.h">
+      <Filter>res</Filter>
+    </ClInclude>
+    <ClInclude Include="code\FRED2\AddVariableDlg.h" />
+    <ClInclude Include="code\FRED2\AdjustGridDlg.h" />
+    <ClInclude Include="code\FRED2\AsteroidEditorDlg.h" />
+    <ClInclude Include="code\FRED2\BgBitmapDlg.h" />
+    <ClInclude Include="code\FRED2\BriefingEditorDlg.h" />
+    <ClInclude Include="code\FRED2\CampaignEditorDlg.h" />
+    <ClInclude Include="code\FRED2\CampaignFilelistBox.h" />
+    <ClInclude Include="code\FRED2\CampaignTreeView.h" />
+    <ClInclude Include="code\FRED2\CampaignTreeWnd.h" />
+    <ClInclude Include="code\FRED2\CmdBrief.h" />
+    <ClInclude Include="code\FRED2\CreateWingDlg.h" />
+    <ClInclude Include="code\FRED2\DebriefingEditorDlg.h" />
+    <ClInclude Include="code\FRED2\dialog1.h" />
+    <ClInclude Include="code\fred2\DumpStats.h" />
+    <ClInclude Include="code\FRED2\editor.h" />
+    <ClInclude Include="code\FRED2\EventEditor.h" />
+    <ClInclude Include="code\FRED2\FRED.h" />
+    <ClInclude Include="code\FRED2\FREDDoc.h" />
+    <ClInclude Include="code\FRED2\FredRender.h" />
+    <ClInclude Include="code\FRED2\FREDView.h" />
+    <ClInclude Include="code\FRED2\Grid.h" />
+    <ClInclude Include="code\FRED2\IgnoreOrdersDlg.h" />
+    <ClInclude Include="code\FRED2\InitialShips.h" />
+    <ClInclude Include="code\FRED2\InitialStatus.h" />
+    <ClInclude Include="code\FRED2\MainFrm.h" />
+    <ClInclude Include="code\FRED2\Management.h" />
+    <ClInclude Include="code\FRED2\MessageEditorDlg.h" />
+    <ClInclude Include="code\FRED2\MissionGoalsDlg.h" />
+    <ClInclude Include="code\FRED2\MissionNotesDlg.h" />
+    <ClInclude Include="code\FRED2\MissionSave.h" />
+    <ClInclude Include="code\FRED2\ModifyVariableDlg.h" />
+    <ClInclude Include="code\FRED2\OperatorArgTypeSelect.h" />
+    <ClInclude Include="code\FRED2\OrientEditor.h" />
+    <ClInclude Include="code\FRED2\PlayerStartEditor.h" />
+    <ClInclude Include="code\FRED2\PrefsDlg.h" />
+    <ClInclude Include="code\FRED2\ReinforcementEditorDlg.h" />
+    <ClInclude Include="code\FRED2\Sexp_tree.h" />
+    <ClInclude Include="code\FRED2\ShieldSysDlg.h" />
+    <ClInclude Include="code\FRED2\ship_select.h" />
+    <ClInclude Include="code\FRED2\ShipCheckListBox.h" />
+    <ClInclude Include="code\FRED2\ShipClassEditorDlg.h" />
+    <ClInclude Include="code\FRED2\ShipEditorDlg.h" />
+    <ClInclude Include="code\FRED2\ShipFlagsDlg.h" />
+    <ClInclude Include="code\FRED2\ShipGoalsDlg.h" />
+    <ClInclude Include="code\FRED2\ShipSpecialDamage.h" />
+    <ClInclude Include="code\FRED2\StarfieldEditor.h" />
+    <ClInclude Include="code\FRED2\stdafx.h" />
+    <ClInclude Include="code\FRED2\TextViewDlg.h" />
+    <ClInclude Include="code\FRED2\WaypointPathDlg.h" />
+    <ClInclude Include="code\FRED2\WeaponEditorDlg.h" />
+    <ClInclude Include="code\FRED2\wing.h" />
+    <ClInclude Include="code\FRED2\wing_editor.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="code\FRED2\AddVariableDlg.cpp" />
+    <ClCompile Include="code\FRED2\AdjustGridDlg.cpp" />
+    <ClCompile Include="code\FRED2\AsteroidEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\BgBitmapDlg.cpp" />
+    <ClCompile Include="code\FRED2\BriefingEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\CampaignEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\CampaignFilelistBox.cpp" />
+    <ClCompile Include="code\FRED2\CampaignTreeView.cpp" />
+    <ClCompile Include="code\FRED2\CampaignTreeWnd.cpp" />
+    <ClCompile Include="code\FRED2\CmdBrief.cpp" />
+    <ClCompile Include="code\FRED2\CreateWingDlg.cpp" />
+    <ClCompile Include="code\FRED2\DebriefingEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\dialog1.cpp" />
+    <ClCompile Include="code\fred2\DumpStats.cpp" />
+    <ClCompile Include="code\FRED2\EventEditor.cpp" />
+    <ClCompile Include="code\FRED2\FRED.cpp" />
+    <ClCompile Include="code\FRED2\FREDDoc.cpp" />
+    <ClCompile Include="code\FRED2\FredRender.cpp" />
+    <ClCompile Include="code\FRED2\FredStubs.cpp" />
+    <ClCompile Include="code\FRED2\FREDView.cpp" />
+    <ClCompile Include="code\FRED2\Grid.cpp" />
+    <ClCompile Include="code\FRED2\IgnoreOrdersDlg.cpp" />
+    <ClCompile Include="code\FRED2\InitialShips.cpp" />
+    <ClCompile Include="code\FRED2\InitialStatus.cpp" />
+    <ClCompile Include="code\FRED2\MainFrm.cpp" />
+    <ClCompile Include="code\FRED2\Management.cpp" />
+    <ClCompile Include="code\FRED2\MessageEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\MissionGoalsDlg.cpp" />
+    <ClCompile Include="code\FRED2\MissionNotesDlg.cpp" />
+    <ClCompile Include="code\FRED2\MissionSave.cpp" />
+    <ClCompile Include="code\FRED2\ModifyVariableDlg.cpp" />
+    <ClCompile Include="code\FRED2\OperatorArgTypeSelect.cpp" />
+    <ClCompile Include="code\FRED2\OrientEditor.cpp" />
+    <ClCompile Include="code\FRED2\PlayerStartEditor.cpp" />
+    <ClCompile Include="code\FRED2\PrefsDlg.cpp" />
+    <ClCompile Include="code\FRED2\ReinforcementEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\Sexp_tree.cpp" />
+    <ClCompile Include="code\FRED2\ShieldSysDlg.cpp" />
+    <ClCompile Include="code\FRED2\ship_select.cpp" />
+    <ClCompile Include="code\FRED2\ShipCheckListBox.cpp" />
+    <ClCompile Include="code\FRED2\ShipClassEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\ShipEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\ShipFlagsDlg.cpp" />
+    <ClCompile Include="code\FRED2\ShipGoalsDlg.cpp" />
+    <ClCompile Include="code\FRED2\ShipSpecialDamage.cpp" />
+    <ClCompile Include="code\FRED2\StarfieldEditor.cpp" />
+    <ClCompile Include="code\FRED2\StdAfx.cpp" />
+    <ClCompile Include="code\FRED2\TextViewDlg.cpp" />
+    <ClCompile Include="code\FRED2\WaypointPathDlg.cpp" />
+    <ClCompile Include="code\FRED2\WeaponEditorDlg.cpp" />
+    <ClCompile Include="code\FRED2\wing.cpp" />
+    <ClCompile Include="code\FRED2\wing_editor.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="code\FRED2\res\cursor1.cur">
+      <Filter>res</Filter>
+    </CustomBuild>
+    <CustomBuild Include="code\FRED2\res\cursor2.cur">
+      <Filter>res</Filter>
+    </CustomBuild>
+    <CustomBuild Include="code\fred2\res\FRED.rc2">
+      <Filter>res</Filter>
+    </CustomBuild>
+    <CustomBuild Include="code\fred2\resource.hm">
+      <Filter>res</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

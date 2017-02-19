@@ -1510,6 +1510,14 @@ void gr8_set_gamma(float gamma)
 	gr_screen.signature = Gr_signature++;
 }
 
+void gr8_scaler(vertex *va, vertex *vb)
+{
+}
+
+void gr8_aascaler(vertex *va, vertex *vb)
+{
+}
+
 void gr_soft_init()
 {
 //	int i;

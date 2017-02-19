@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="res">
+      <UniqueIdentifier>{7cd82dd1-0728-4f66-b1e9-4b22b2696ed9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="code\pofview\res\PofView.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\pofview\res\PofViewDoc.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="code\pofview\res\Toolbar.bmp">
+      <Filter>res</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="code\pofview\ChildFrm.cpp" />
+    <ClCompile Include="code\pofview\MainFrm.cpp" />
+    <ClCompile Include="code\pofview\ObjectTree.cpp" />
+    <ClCompile Include="code\pofview\PofView.cpp" />
+    <ClCompile Include="code\pofview\PofViewDoc.cpp" />
+    <ClCompile Include="code\pofview\PofViewStubs.cpp" />
+    <ClCompile Include="code\pofview\PofViewView.cpp" />
+    <ClCompile Include="code\pofview\StdAfx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="code\pofview\ChildFrm.h" />
+    <ClInclude Include="code\pofview\MainFrm.h" />
+    <ClInclude Include="code\pofview\ObjectTree.h" />
+    <ClInclude Include="code\pofview\PofView.h" />
+    <ClInclude Include="code\pofview\PofViewDoc.h" />
+    <ClInclude Include="code\pofview\PofViewView.h" />
+    <ClInclude Include="code\pofview\resource.h" />
+    <ClInclude Include="code\pofview\StdAfx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="code\pofview\PofView.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="code\pofview\res\PofView.rc2">
+      <Filter>res</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

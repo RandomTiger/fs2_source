@@ -362,6 +362,7 @@ void mono_init()
 		return;
 	}
 
+	/*
 	_outp( 0x3b4, 0x0f );
 	_outp( 0x3b4+1, 0x55 );
 
@@ -372,7 +373,7 @@ void mono_init()
 		mono_found = 0;
 		return;
 	}
-
+	*/
 
 	for (i=0; i<80*25; i++ )	{
 		mono_ram[i*2+0] = ' ';
