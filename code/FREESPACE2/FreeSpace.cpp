@@ -2103,7 +2103,7 @@ void game_init()
 	
 	ptr = os_config_read_string(NULL, NOX("Videocard"), NULL);	
 	if (ptr == NULL) {
-		MessageBox((HWND)os_get_window(), XSTR("Please configure your system in the Launcher before running FS2.\n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), MB_OK);
+		MessageBox((HWND)os_get_window(), XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), MB_OK);
 
 		// fire up the UpdateLauncher executable
 		STARTUPINFO si;

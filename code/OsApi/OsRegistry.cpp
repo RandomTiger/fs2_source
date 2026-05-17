@@ -302,9 +302,9 @@ char * os_config_read_string( char *section, char *name, char *default_value )
 	}
 
 	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
+		sprintf( keyname, "Software\\WOW6432Node\\%s\\Free\\%s", szCompanyName, szAppName, section );
 	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
+		sprintf( keyname, "Software\\WOW6432Node\\%s\\Free", szCompanyName, szAppName );
 	}
 
 	lResult = RegOpenKeyEx( HKEY_LOCAL_MACHINE,							// Where it is
