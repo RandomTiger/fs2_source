@@ -37,6 +37,55 @@ char *Osreg_title = "Freespace 2";
 
 int Os_reg_inited = 0;
 
+// Some installs (GOG) keep the launcher's settings under "Volition\Free" instead of
+// "Volition\FreeSpace2", so reads fall back to that name.
+static char *Osreg_launcher_app_name = "Free";
+
+// open keyname under root if it holds the value 'name' (or just exists, if name is NULL)
+static LONG os_reg_try_open( HKEY root, char *keyname, HKEY *hKey, char *name )
+{
+	LONG lResult;
+
+	lResult = RegOpenKeyEx( root, keyname, NULL, KEY_QUERY_VALUE, hKey );
+	if ( lResult != ERROR_SUCCESS )	{
+		*hKey = NULL;
+		return lResult;
+	}
+	if ( name && (RegQueryValueEx( *hKey, name, NULL, NULL, NULL, NULL ) != ERROR_SUCCESS) )	{
+		RegCloseKey( *hKey );
+		*hKey = NULL;
+		return ERROR_FILE_NOT_FOUND;
+	}
+	return ERROR_SUCCESS;
+}
+
+// Settings the game writes go to HKEY_CURRENT_USER, which needs no admin rights.  The launcher's
+// settings are in HKEY_LOCAL_MACHINE.  A read takes the value from the first place that has it:
+// HKEY_CURRENT_USER, then HKEY_LOCAL_MACHINE, then HKEY_LOCAL_MACHINE under the launcher's
+// alternative key name.
+static LONG os_reg_open_read( char *keyname, HKEY *hKey, char *name )
+{
+	char prefix[256], alt_keyname[1024];
+	int len;
+
+	if ( os_reg_try_open( HKEY_CURRENT_USER, keyname, hKey, name ) == ERROR_SUCCESS )	{
+		return ERROR_SUCCESS;
+	}
+	if ( os_reg_try_open( HKEY_LOCAL_MACHINE, keyname, hKey, name ) == ERROR_SUCCESS )	{
+		return ERROR_SUCCESS;
+	}
+
+	// same key with the application part of the name swapped for the launcher's
+	sprintf( prefix, "Software\\%s\\%s", szCompanyName, szAppName );
+	len = strlen( prefix );
+	if ( strnicmp( keyname, prefix, len ) || ((keyname[len] != 0) && (keyname[len] != '\\')) )	{
+		return ERROR_FILE_NOT_FOUND;
+	}
+	sprintf( alt_keyname, "Software\\%s\\%s%s", szCompanyName, Osreg_launcher_app_name, keyname + len );
+
+	return os_reg_try_open( HKEY_LOCAL_MACHINE, alt_keyname, hKey, name );
+}
+
 
 // ------------------------------------------------------------------------------------------------------------
 // REGISTRY FUNCTIONS
@@ -92,12 +141,12 @@ void os_config_remove( char *section, char *name )
 		if ( !section )	{			
 			goto Cleanup;
 		}
-		lResult = RegDeleteKey( HKEY_LOCAL_MACHINE, keyname );
+		lResult = RegDeleteKey( HKEY_CURRENT_USER, keyname );
 		if ( lResult != ERROR_SUCCESS )	{			
 			goto Cleanup;
 		}
 	} else	{
-		lResult = RegCreateKeyEx( HKEY_LOCAL_MACHINE,						// Where to add it
+		lResult = RegCreateKeyEx( HKEY_CURRENT_USER,						// Where to add it
 												 keyname,								// name of key
 												 NULL,									// DWORD reserved
 												 "",										// Object class
@@ -142,7 +191,7 @@ void os_config_write_string( char *section, char *name, char *value )
 		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
 	}
 
-	lResult = RegCreateKeyEx( HKEY_LOCAL_MACHINE,					// Where to add it
+	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,					// Where to add it
 											 keyname,							// name of key
 											 NULL,								// DWORD reserved
 											 "",									// Object class
@@ -195,7 +244,7 @@ void os_config_write_string2( char *section, char *name, char *value )
 		sprintf( keyname, "Software\\%s", szCompanyName );
 	}
 
-	lResult = RegCreateKeyEx( HKEY_LOCAL_MACHINE,					// Where to add it
+	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,					// Where to add it
 											 keyname,							// name of key
 											 NULL,								// DWORD reserved
 											 "",									// Object class
@@ -248,7 +297,7 @@ void os_config_write_uint( char *section, char *name, uint value )
 		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
 	}
 
-	lResult = RegCreateKeyEx( HKEY_LOCAL_MACHINE,						// Where to add it
+	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,						// Where to add it
 											 keyname,								// name of key
 											 NULL,									// DWORD reserved
 											 "",										// Object class
@@ -302,16 +351,12 @@ char * os_config_read_string( char *section, char *name, char *default_value )
 	}
 
 	if ( section )	{
-		sprintf( keyname, "Software\\WOW6432Node\\%s\\Free\\%s", szCompanyName, szAppName, section );
+		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
 	} else {
-		sprintf( keyname, "Software\\WOW6432Node\\%s\\Free", szCompanyName, szAppName );
+		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
 	}
 
-	lResult = RegOpenKeyEx( HKEY_LOCAL_MACHINE,							// Where it is
-											 keyname,								// name of key
-											 NULL,									// DWORD reserved
-											 KEY_QUERY_VALUE,						// Allows all changes
-											 &hKey );								// Location to store key
+	lResult = os_reg_open_read( keyname, &hKey, name );
 
 	if ( lResult != ERROR_SUCCESS )	{		
 		goto Cleanup;
@@ -360,11 +405,7 @@ char * os_config_read_string2( char *section, char *name, char *default_value )
 		sprintf( keyname, "Software\\%s", szCompanyName );
 	}
 
-	lResult = RegOpenKeyEx( HKEY_LOCAL_MACHINE,							// Where it is
-											 keyname,								// name of key
-											 NULL,									// DWORD reserved
-											 KEY_QUERY_VALUE,						// Allows all changes
-											 &hKey );								// Location to store key
+	lResult = os_reg_open_read( keyname, &hKey, name );
 
 	if ( lResult != ERROR_SUCCESS )	{		
 		goto Cleanup;
@@ -415,11 +456,7 @@ uint  os_config_read_uint( char *section, char *name, uint default_value )
 		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
 	}
 
-	lResult = RegOpenKeyEx( HKEY_LOCAL_MACHINE,							// Where it is
-											 keyname,								// name of key
-											 NULL,									// DWORD reserved
-											 KEY_QUERY_VALUE,						// Allows all changes
-											 &hKey );								// Location to store key
+	lResult = os_reg_open_read( keyname, &hKey, name );
 
 	if ( lResult != ERROR_SUCCESS )	{		
 		goto Cleanup;

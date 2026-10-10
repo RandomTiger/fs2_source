@@ -567,6 +567,19 @@ int joy_init()
 			if (rs == JOYERR_NOERROR)
 				break;
 		}
+
+		// the configured joystick isn't there (or none was configured): use the first one that answers
+		if (rs != JOYERR_NOERROR) {
+			for (i=0; i<n; i++) {
+				rs = joyGetPosEx(i, &ji);
+				if (rs == JOYERR_NOERROR) {
+					mprintf(("Joystick %d not found, using joystick %d\n", Cur_joystick, i));
+					Cur_joystick = i;
+					joy_get_caps(n);
+					break;
+				}
+			}
+		}
 			
 		if (rs == JOYERR_NOERROR) {
 			joy_num_sticks++;
