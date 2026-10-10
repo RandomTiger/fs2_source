@@ -313,6 +313,7 @@
 #include "UiDefs.h"
 #include "multiutil.h"
 #include "AlphaColors.h"
+#include "Replay.h"
 
 #define NUM_SYSTEM_KEYS			14
 #define NUM_BUTTONS				19
@@ -2430,7 +2431,7 @@ int check_control(int id, int key)
 }
 
 // get heading, pitch, bank, throttle abs. and throttle rel. values.
-void control_get_axes_readings(int *h, int *p, int *b, int *ta, int *tr)
+static void control_get_axes_readings_live(int *h, int *p, int *b, int *ta, int *tr)
 {
 	int axes_values[JOY_NUM_AXES];
 
@@ -2469,6 +2470,27 @@ void control_get_axes_readings(int *h, int *p, int *b, int *ta, int *tr)
 		*tr = -(*tr);
 
 	return;
+}
+
+// the axes after calibration, dead zone, sensitivity and inversion
+void control_get_axes_readings(int *h, int *p, int *b, int *ta, int *tr)
+{
+	int vals[5];
+
+	if (replay_should_read()) {
+		replay_read_ints(RT_AXES, vals, 5);
+	} else {
+		replay_push();
+		control_get_axes_readings_live(&vals[0], &vals[1], &vals[2], &vals[3], &vals[4]);
+		replay_pop();
+		replay_write_ints(RT_AXES, vals, 5);
+	}
+
+	*h = vals[0];
+	*p = vals[1];
+	*b = vals[2];
+	*ta = vals[3];
+	*tr = vals[4];
 }
 
 void control_used(int id)

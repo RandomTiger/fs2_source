@@ -126,6 +126,7 @@
 #include "Mouse.h"
 #include "2d.h"
 #include "OsApi.h"
+#include "Replay.h"
 
 #define MOUSE_MODE_DI	0
 #define MOUSE_MODE_WIN	1
@@ -165,6 +166,26 @@ int di_init();
 void di_cleanup();
 void mouse_force_pos(int x, int y);
 void mouse_eval_deltas_di();
+
+// Windows cursor position in client coordinates
+static void mouse_get_cursor_pos(POINT *pnt)
+{
+	int xy[2];
+
+	if (replay_should_read()) {
+		replay_read_ints(RT_MOUSE_POS, xy, 2);
+		pnt->x = xy[0];
+		pnt->y = xy[1];
+		return;
+	}
+
+	GetCursorPos(pnt);
+	ScreenToClient((HWND)os_get_window(), pnt);
+
+	xy[0] = pnt->x;
+	xy[1] = pnt->y;
+	replay_write_ints(RT_MOUSE_POS, xy, 2);
+}
 
 int mouse_is_visible()
 {
@@ -222,6 +243,8 @@ void mouse_init()
 void mouse_mark_button( uint flags, int set)
 {
 	if ( !mouse_inited ) return;
+
+	if ( !replay_event_mouse(flags, set) ) return;
 
 	ENTER_CRITICAL_SECTION(&mouse_lock);
 
@@ -470,8 +493,7 @@ void mouse_eval_deltas()
 	ENTER_CRITICAL_SECTION(&mouse_lock);
 
 	POINT pnt;
-	GetCursorPos(&pnt);
-	ScreenToClient((HWND)os_get_window(), &pnt);
+	mouse_get_cursor_pos(&pnt);
 	tmp_x = pnt.x;
 	tmp_y = pnt.y;
 
@@ -577,8 +599,7 @@ int mouse_get_pos(int *xpos, int *ypos)
 	}
 
 	POINT pnt;
-	GetCursorPos(&pnt);
-	ScreenToClient((HWND)os_get_window(), &pnt);
+	mouse_get_cursor_pos(&pnt);
 
 //	EnterCriticalSection(&mouse_lock);
 
@@ -624,8 +645,7 @@ void mouse_get_real_pos(int *mx, int *my)
 	}
 
 	POINT pnt;
-	GetCursorPos(&pnt);
-	ScreenToClient((HWND)os_get_window(), &pnt);
+	mouse_get_cursor_pos(&pnt);
 	
 	*mx = pnt.x;
 	*my = pnt.y;

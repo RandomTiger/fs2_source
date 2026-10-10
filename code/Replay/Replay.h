@@ -1,0 +1,101 @@
+/*
+ * Gameplay recorder / replayer.
+ *
+ * Records every value the game reads from the OS during one mission (clock reads on the
+ * main thread, keyboard / mouse / focus events, joystick reads, sound device state) as one
+ * ordered stream, and feeds the same values back on replay.  With no -record / -replay
+ * flag every hook is a pass-through and the game behaves exactly as before.
+ *
+ * Usage:
+ *   -record <file.fs2rec> [-trace <file.trace>]
+ *   -replay <file.fs2rec> [-trace <file.trace>] [-trace_full]
+ *
+ * See docs/REPLAY.md for the file format and workflow.
+ */
+
+#ifndef _FS2_REPLAY_H
+#define _FS2_REPLAY_H
+
+#define REPLAY_OFF		0
+#define REPLAY_RECORD	1
+#define REPLAY_PLAY		2
+
+extern int Replay_mode;
+
+// entry tags in the value stream
+#define RT_TIMER_FIX				1
+#define RT_TIMER_MS				2
+#define RT_TIMER_US				3
+#define RT_OSPOLL					4
+#define RT_FOREGROUND			5
+#define RT_EV_KEY					6
+#define RT_EV_MOUSE				7
+#define RT_EV_LOSTFOCUS			8
+#define RT_EV_GOTFOCUS			9
+#define RT_MOUSE_POS				10
+#define RT_JOY_DOWN				11
+#define RT_JOY_DOWN_COUNT		12
+#define RT_JOY_UP_COUNT			13
+#define RT_JOY_DOWN_TIME		14
+#define RT_JOY_RAW_AXIS			15
+#define RT_JOY_POS				16
+#define RT_AXES					17
+#define RT_SND_PLAY				18
+#define RT_SND_PLAY_3D			19
+#define RT_SND_PLAY_LOOPING	20
+#define RT_SND_IS_PLAYING		21
+#define RT_SND_TIME_REMAINING	22
+#define RT_SND_PITCH				23
+#define RT_SND_NUM_PLAYING		24
+#define RT_STREAM_IS_PLAYING	25
+#define RT_STREAM_IS_PAUSED	26
+#define RT_STREAM_DONE_READING	27
+#define RT_ENTER_GAME			28
+#define RT_END						29
+#define RT_STREAM_BYTES			30
+#define RT_NUM_TAGS				31
+
+// command line (called from parse_cmdline)
+void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
+
+// lifecycle, called from FreeSpace.cpp
+void replay_startup();					// after parse_cmdline, before game_init
+void replay_game_init_done();			// end of game_init
+int  replay_level_seed(int seed);	// game_level_init: returns the seed to use
+void replay_load_begin();				// start of game_start_mission
+void replay_load_end();					// end of game_start_mission
+void replay_enter_game();				// GS_EVENT_ENTER_GAME
+void replay_mission_over();			// left gameplay (main menu, debrief, quit)
+void replay_shutdown();					// game_shutdown
+int  replay_load_pilot();				// GS_EVENT_GAME_INIT: 1 if replay loaded its own pilot
+void replay_drive_state(int state);	// called each frame from game_do_state; drives menus in replay
+void replay_sim_frame_end();			// end of game_simulation_frame: writes the state trace
+
+// nesting: hooked functions called from inside other hooked functions are not recorded
+void replay_push();
+void replay_pop();
+
+// value hooks.  replay_should_read() is true when the value must come from the recording.
+int   replay_should_read();
+int   replay_read_int(int tag);
+float replay_read_float(int tag);
+int   replay_write_int(int tag, int val);
+float replay_write_float(int tag, float val);
+void  replay_read_ints(int tag, int *vals, int count);
+void  replay_write_ints(int tag, int *vals, int count);
+
+// sound handles: the live handle is kept unless the recorded call failed or succeeded differently
+int replay_snd_handle(int tag, int live_handle);
+
+// events.  Return 0 if the live event must be ignored (during replay).
+int  replay_event_key(unsigned int code, int state, unsigned int latency);
+int  replay_event_mouse(unsigned int flags, int set);
+int  replay_event_focus(int got_focus);
+void replay_os_poll();
+
+// wrap a function returning int / float.  The live expression is evaluated only when the
+// value is not coming from the recording.
+#define REPLAY_WRAP_INT(tag, expr)	{ if (replay_should_read()) return replay_read_int(tag); replay_push(); int replay_r_ = (expr); replay_pop(); return replay_write_int(tag, replay_r_); }
+#define REPLAY_WRAP_FLOAT(tag, expr)	{ if (replay_should_read()) return replay_read_float(tag); replay_push(); float replay_r_ = (expr); replay_pop(); return replay_write_float(tag, replay_r_); }
+
+#endif

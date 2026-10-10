@@ -1,0 +1,9 @@
+# TraceDiff tolerances: kind value.  Values not listed are 0 (exact).
+# Placeholders until the threshold experiments (docs/REPLAY_THRESHOLDS.md) set real values.
+pos 0
+orient 0
+vel 0
+rotvel 0
+health 0
+energy 0
+control 0

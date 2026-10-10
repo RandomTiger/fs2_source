@@ -73,6 +73,7 @@
 #include "Timer.h"
 #include "2d.h"
 #include "Alphacolors.h"
+#include "Replay.h"
 
 #ifndef NDEBUG
 	#define USE_TIMING
@@ -137,7 +138,7 @@ static void timer_get(LARGE_INTEGER * out)
 	LeaveCriticalSection(&Timer_lock);
 }
 
-fix timer_get_fixed_seconds()
+static fix timer_get_fixed_seconds_live()
 {
 	int tmp;
 	LARGE_INTEGER temp_large;
@@ -172,6 +173,11 @@ sub_again:
 	return tmp;
 }
 
+fix timer_get_fixed_seconds()
+{
+	REPLAY_WRAP_INT(RT_TIMER_FIX, timer_get_fixed_seconds_live());
+}
+
 fix timer_get_fixed_secondsX()
 {
 	return timer_get_fixed_seconds();
@@ -182,7 +188,7 @@ fix timer_get_approx_seconds()
 	return timer_get_fixed_seconds();
 }
 
-int timer_get_milliseconds()
+static int timer_get_milliseconds_live()
 {
 	int tmp;
 	LARGE_INTEGER temp_large;
@@ -218,7 +224,12 @@ sub_again:
 	return tmp;
 }
 
-int timer_get_microseconds()
+int timer_get_milliseconds()
+{
+	REPLAY_WRAP_INT(RT_TIMER_MS, timer_get_milliseconds_live());
+}
+
+static int timer_get_microseconds_live()
 {
 	int tmp;
 	LARGE_INTEGER temp_large;
@@ -252,6 +263,11 @@ sub_again:
 	_asm mov tmp, eax
 
 	return tmp;
+}
+
+int timer_get_microseconds()
+{
+	REPLAY_WRAP_INT(RT_TIMER_US, timer_get_microseconds_live());
 }
 
 // 0 means invalid,

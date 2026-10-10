@@ -99,6 +99,7 @@
 #include "freespace.h"
 #include "OsRegistry.h"
 #include "cmdline.h"
+#include "Replay.h"
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI DEFINES/VARS
@@ -213,7 +214,7 @@ void os_cleanup()
 // Returns 1 if app is not the foreground app.
 int os_foreground()
 {
-	return fAppActive;
+	REPLAY_WRAP_INT(RT_FOREGROUND, fAppActive);
 }
 
 // Returns the handle to the main window
@@ -689,6 +690,8 @@ void os_poll()
 	}
 	LeaveCriticalSection(&Os_lock);
 #endif
+
+	replay_os_poll();
 }
 
 void debug_int3()

@@ -42,3 +42,7 @@ UpgradeLog\.htm
 Release/
 /.vs/freespace2/v17
 /.vs
+/tools/bin/
+/tools/obj/
+/replays/
+*.fs2rec.*.log

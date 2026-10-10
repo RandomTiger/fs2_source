@@ -211,6 +211,7 @@
 #include "Joy_ff.h"
 #include "vdinput.h"
 #include "OsApi.h"
+#include "Replay.h"
 
 #define PRECALIBRATED 1
 
@@ -741,7 +742,7 @@ int joy_get_pos_old(int * x, int * y )
 //
 //	returns:		number of times button 'btn' has gone down since last call
 //
-int joy_down_count(int btn, int reset_count)
+static int joy_down_count_live(int btn, int reset_count)
 {
 	int tmp;
 
@@ -758,6 +759,11 @@ int joy_down_count(int btn, int reset_count)
 	return tmp;
 }
 
+int joy_down_count(int btn, int reset_count)
+{
+	REPLAY_WRAP_INT(RT_JOY_DOWN_COUNT, joy_down_count_live(btn, reset_count));
+}
+
 
 // --------------------------------------------------------------
 //	joy_down()
@@ -769,7 +775,7 @@ int joy_down_count(int btn, int reset_count)
 //	returns:		0		=>		not pressed
 //					1		=>		pressed
 //
-int joy_down(int btn)
+static int joy_down_live(int btn)
 {
 	int tmp;
 
@@ -783,6 +789,11 @@ int joy_down(int btn)
 	return tmp;
 }
 
+int joy_down(int btn)
+{
+	REPLAY_WRAP_INT(RT_JOY_DOWN, joy_down_live(btn));
+}
+
 // --------------------------------------------------------------
 //	joy_up_count()
 //
@@ -793,7 +804,7 @@ int joy_down(int btn)
 //
 //	returns:		number of times button 'btn' has gone up since last call
 //
-int joy_up_count(int btn)
+static int joy_up_count_live(int btn)
 {
 	int tmp;
 
@@ -808,6 +819,11 @@ int joy_up_count(int btn)
 	return tmp;
 }
 
+int joy_up_count(int btn)
+{
+	REPLAY_WRAP_INT(RT_JOY_UP_COUNT, joy_up_count_live(btn));
+}
+
 // --------------------------------------------------------------
 //	joy_down_time()
 //
@@ -817,7 +833,7 @@ int joy_up_count(int btn)
 //	input:		btn	=>		button number to check
 //	returns:		value between 0 and 1
 //
-float joy_down_time(int btn)
+static float joy_down_time_live(int btn)
 {
 	float				rval;
 	unsigned int	now;
@@ -850,6 +866,11 @@ float joy_down_time(int btn)
 		rval = 1.0f;
 
 	return rval;
+}
+
+float joy_down_time(int btn)
+{
+	REPLAY_WRAP_FLOAT(RT_JOY_DOWN_TIME, joy_down_time_live(btn));
 }
 
 // --------------------------------------------------------------
@@ -907,7 +928,7 @@ void joy_set_cal_vals(int *axis_min, int *axis_center, int *axis_max)
 //
 //				axis		=>		an array of at least 4 ints to hold axis data
 //
-int joystick_read_raw_axis(int num_axes, int *axis)
+static int joystick_read_raw_axis_live(int num_axes, int *axis)
 {
 	MMRESULT		rs;
 	JOYINFOEX	ji;
@@ -998,6 +1019,28 @@ int joystick_read_raw_axis(int num_axes, int *axis)
 	}
 
 	return 1;
+}
+
+// the return value followed by the axis values
+int joystick_read_raw_axis(int num_axes, int *axis)
+{
+	int vals[JOY_NUM_AXES + 1];
+	int i;
+
+	if (replay_should_read()) {
+		replay_read_ints(RT_JOY_RAW_AXIS, vals, num_axes + 1);
+		for (i = 0; i < num_axes; i++)
+			axis[i] = vals[i + 1];
+		return vals[0];
+	}
+
+	replay_push();
+	vals[0] = joystick_read_raw_axis_live(num_axes, axis);
+	replay_pop();
+	for (i = 0; i < num_axes; i++)
+		vals[i + 1] = axis[i];
+	replay_write_ints(RT_JOY_RAW_AXIS, vals, num_axes + 1);
+	return vals[0];
 }
 
 // --------------------------------------------------------------
@@ -1135,7 +1178,7 @@ int joy_get_scaled_reading(int raw, int axn)
 //	return:	success	=> 1
 //				failure	=> 0
 //
-int joy_get_pos(int *x, int *y, int *z, int *rx)
+static int joy_get_pos_live(int *x, int *y, int *z, int *rx)
 {
 	int axis[JOY_NUM_AXES];
 
@@ -1165,6 +1208,32 @@ int joy_get_pos(int *x, int *y, int *z, int *rx)
 		Joy_last_x_reading = *y;
 
 	return 1;
+}
+
+// the return value followed by x, y, z, rx
+int joy_get_pos(int *x, int *y, int *z, int *rx)
+{
+	int vals[5], out[4];
+
+	if (replay_should_read()) {
+		replay_read_ints(RT_JOY_POS, vals, 5);
+	} else {
+		replay_push();
+		vals[0] = joy_get_pos_live(&out[0], &out[1], &out[2], &out[3]);
+		replay_pop();
+		vals[1] = out[0];
+		vals[2] = out[1];
+		vals[3] = out[2];
+		vals[4] = out[3];
+		replay_write_ints(RT_JOY_POS, vals, 5);
+	}
+
+	if (x) *x = vals[1];
+	if (y) *y = vals[2];
+	if (z) *z = vals[3];
+	if (rx) *rx = vals[4];
+
+	return vals[0];
 }
 
 // change in joy position since last call

@@ -192,6 +192,7 @@
 #include "systemvars.h"
 #include "multi.h"
 #include "cfile.h"
+#include "Replay.h"
 
 // variables
 class cmdline_parm {
@@ -231,6 +232,10 @@ cmdline_parm d3d_32bit("-32bit", NULL);
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
+cmdline_parm record_arg("-record", NULL);
+cmdline_parm replay_arg("-replay", NULL);
+cmdline_parm trace_arg("-trace", NULL);
+cmdline_parm fulltrace_arg("-fulltrace", NULL);
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -586,6 +591,12 @@ int parse_cmdline(char *cmdline)
 	// d3d windowed
 	if(d3d_window.found()){
 		Cmdline_window = 1;
+	}
+
+	// gameplay recorder
+	if(record_arg.found() || replay_arg.found()){
+		replay_set_cmdline(record_arg.found() ? record_arg.str() : NULL, replay_arg.found() ? replay_arg.str() : NULL,
+			trace_arg.found() ? trace_arg.str() : NULL, fulltrace_arg.found());
 	}
 
 	return 1;

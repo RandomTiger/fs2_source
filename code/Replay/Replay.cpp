@@ -1,0 +1,1065 @@
+/*
+ * Gameplay recorder / replayer.  See Replay.h and docs/REPLAY.md.
+ */
+
+#include <windows.h>
+#include <stdio.h>
+#include <direct.h>
+
+#include "pstypes.h"
+#include "Replay.h"
+#include "StateTrace.h"
+#include "FreeSpace.h"
+#include "GameSequence.h"
+#include "SystemVars.h"
+#include "timer.h"
+#include "key.h"
+#include "mouse.h"
+#include "2d.h"
+#include "cfile.h"
+#include "CfileSystem.h"
+#include "StaticRand.h"
+#include "Sound.h"
+#include "EventMusic.h"
+#include "Player.h"
+#include "ManagePilot.h"
+#include "MissionParse.h"
+#include "MissionCampaign.h"
+#include "MissionScreenCommon.h"
+#include "RedAlert.h"
+
+#define REPLAY_FILE_VERSION		1
+#define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
+#define REPLAY_MAX_BLOB				(1024*1024)
+
+int Replay_mode = REPLAY_OFF;
+
+static char Replay_file[MAX_PATH_LEN];
+static char Replay_trace_file[MAX_PATH_LEN];
+static int Replay_trace_full = 0;
+
+static int Replay_active = 0;				// stream is being recorded / consumed
+static int Replay_done = 0;				// the recorded mission is over
+static int Replay_depth = 0;				// nesting of hooked calls
+static int Replay_injecting = 0;			// replay is feeding a recorded event into the live handler
+static DWORD Replay_main_thread = 0;
+static int Replay_load_count = 0;
+static int Replay_in_game = 0;			// past GS_EVENT_ENTER_GAME
+static int Replay_frame = 0;
+static int Replay_entries = 0;
+static int Replay_entries_by_tag[RT_NUM_TAGS];
+static int Replay_snd_mismatch = 0;
+static int Replay_last_int[RT_NUM_TAGS];
+static FILE *Replay_log = NULL;
+
+// driving the menus during replay
+static int Replay_started_mission = 0;
+static int Replay_briefing_started = 0;
+static int Replay_committed = 0;
+
+// the header.  Only int32 and char fields, so the layout has no padding.
+typedef struct replay_header {
+	char	magic[8];
+	int	version;
+	char	build[64];
+	char	mission[64];
+	char	mission_modified[64];
+	uint	mission_checksum;
+	int	game_mode;
+	char	campaign[64];
+	char	callsign[64];
+	int	level_seed;
+	int	semirand_inited;
+	int	semirand[SEMIRAND_MAX];
+	int	skill_level;
+	int	detail_size;
+	int	detail[64];
+	int	screen_w, screen_h;
+	int	sound_enabled;
+	int	snd_inited;
+	int	event_music_enabled;
+	float	master_sound_volume;
+	float	master_voice_volume;
+	float	master_event_music_volume;
+	int	loadout_size;
+	int	timestamp_ticker;
+	int	last_time;
+	int	last_delta_time;
+	int	saved_timestamp_ticker;
+	int	missiontime;
+	int	pilot_size;
+	int	campaign_size;
+} replay_header;
+
+static replay_header Hdr;
+static loadout_data Hdr_loadout;
+static ubyte *Hdr_pilot = NULL;
+static ubyte *Hdr_campaign = NULL;
+
+// write side
+static FILE *Wfile = NULL;
+static ubyte *Wbuf = NULL;
+static int Wbuf_size = 0, Wbuf_len = 0;
+static int Whead_written = 0;
+
+// read side
+static ubyte *Rdata = NULL;
+static int Rsize = 0, Rpos = 0;
+
+extern int Semirand_inited;
+extern fix Last_time;
+extern fix Last_delta_time;
+extern int saved_timestamp_ticker;
+extern int Event_music_enabled;
+
+static const char *Replay_tag_names[RT_NUM_TAGS] = {
+	"none", "timer_fix", "timer_ms", "timer_us", "os_poll", "foreground", "ev_key", "ev_mouse",
+	"ev_lostfocus", "ev_gotfocus", "mouse_pos", "joy_down", "joy_down_count", "joy_up_count",
+	"joy_down_time", "joy_raw_axis", "joy_pos", "axes", "snd_play", "snd_play_3d", "snd_play_looping",
+	"snd_is_playing", "snd_time_remaining", "snd_pitch", "snd_num_playing", "stream_is_playing",
+	"stream_is_paused", "stream_done_reading", "enter_game", "end", "stream_bytes"
+};
+
+// -----------------------------------------------------------------------------------------
+// log
+//
+
+static void replay_logf(char *format, ...)
+{
+	va_list args;
+	char buf[1024];
+
+	va_start(args, format);
+	_vsnprintf(buf, sizeof(buf) - 1, format, args);
+	va_end(args);
+	buf[sizeof(buf) - 1] = 0;
+
+	if (Replay_log) {
+		fputs(buf, Replay_log);
+		fflush(Replay_log);
+	}
+	mprintf(("REPLAY: %s", buf));
+}
+
+static void replay_open_log()
+{
+	char name[MAX_PATH_LEN + 8];
+
+	sprintf(name, "%s.%s.log", Replay_file, (Replay_mode == REPLAY_RECORD) ? "record" : "replay");
+	Replay_log = fopen(name, "wt");
+}
+
+static void replay_log_stats()
+{
+	int i;
+
+	replay_logf("frames %d, entries %d, sound handle mismatches %d\n", Replay_frame, Replay_entries, Replay_snd_mismatch);
+	for (i = 1; i < RT_NUM_TAGS; i++) {
+		if (Replay_entries_by_tag[i]) {
+			replay_logf("  %-20s %d\n", Replay_tag_names[i], Replay_entries_by_tag[i]);
+		}
+	}
+}
+
+// a recorded value or event did not match what this run asked for.  Nothing after this point
+// can be trusted, so stop the process.
+static void replay_desync(char *format, ...)
+{
+	va_list args;
+	char buf[512];
+
+	va_start(args, format);
+	_vsnprintf(buf, sizeof(buf) - 1, format, args);
+	va_end(args);
+	buf[sizeof(buf) - 1] = 0;
+
+	replay_logf("DESYNC at frame %d, entry %d (byte %d): %s\n", Replay_frame, Replay_entries, Rpos, buf);
+	replay_log_stats();
+	replay_logf("REPLAY FAILED\n");
+	trace_close();
+	if (Replay_log) {
+		fclose(Replay_log);
+		Replay_log = NULL;
+	}
+	TerminateProcess(GetCurrentProcess(), 3);
+}
+
+static void replay_fatal(char *format, ...)
+{
+	va_list args;
+	char buf[512];
+
+	va_start(args, format);
+	_vsnprintf(buf, sizeof(buf) - 1, format, args);
+	va_end(args);
+	buf[sizeof(buf) - 1] = 0;
+
+	replay_logf("ERROR: %s\n", buf);
+	replay_logf("REPLAY FAILED\n");
+	trace_close();
+	if (Replay_log) {
+		fclose(Replay_log);
+		Replay_log = NULL;
+	}
+	MessageBox(NULL, buf, "FS2 replay", MB_OK);
+	TerminateProcess(GetCurrentProcess(), 4);
+}
+
+// -----------------------------------------------------------------------------------------
+// encoding: each entry is a tag byte followed by its values.  Single ints are stored as a
+// zigzag varint of the difference from the previous value with the same tag.
+//
+
+static void wbuf_put(ubyte b)
+{
+	if (Wbuf_len >= Wbuf_size) {
+		Wbuf_size = Wbuf_size ? Wbuf_size * 2 : 65536;
+		Wbuf = (ubyte *)realloc(Wbuf, Wbuf_size);
+	}
+	Wbuf[Wbuf_len++] = b;
+}
+
+static void wbuf_flush()
+{
+	if (Wfile && Whead_written && Wbuf_len) {
+		fwrite(Wbuf, 1, Wbuf_len, Wfile);
+		Wbuf_len = 0;
+	}
+}
+
+static void w_varint(int v)
+{
+	uint u = ((uint)v << 1) ^ (uint)(v >> 31);
+	while (u >= 0x80) {
+		wbuf_put((ubyte)(u | 0x80));
+		u >>= 7;
+	}
+	wbuf_put((ubyte)u);
+}
+
+static void w_float(float f)
+{
+	ubyte *p = (ubyte *)&f;
+	wbuf_put(p[0]); wbuf_put(p[1]); wbuf_put(p[2]); wbuf_put(p[3]);
+}
+
+static void w_tag(int tag)
+{
+	wbuf_put((ubyte)tag);
+	Replay_entries++;
+	Replay_entries_by_tag[tag]++;
+}
+
+static void w_done()
+{
+	if (Wbuf_len > 65536) {
+		wbuf_flush();
+	}
+}
+
+static int r_varint()
+{
+	uint u = 0;
+	int shift = 0;
+	ubyte b;
+
+	do {
+		if (Rpos >= Rsize) {
+			replay_desync("recording ended in the middle of an entry");
+		}
+		b = Rdata[Rpos++];
+		u |= (uint)(b & 0x7f) << shift;
+		shift += 7;
+	} while (b & 0x80);
+
+	return (int)(u >> 1) ^ -(int)(u & 1);
+}
+
+static float r_float()
+{
+	float f;
+
+	if (Rpos + 4 > Rsize) {
+		replay_desync("recording ended in the middle of an entry");
+	}
+	memcpy(&f, Rdata + Rpos, 4);
+	Rpos += 4;
+	return f;
+}
+
+static int r_peek_tag()
+{
+	if (Rpos >= Rsize) {
+		return 0;
+	}
+	return Rdata[Rpos];
+}
+
+static void replay_drain_events();
+
+static void r_tag(int tag)
+{
+	int got;
+
+	replay_drain_events();
+
+	if (Rpos >= Rsize) {
+		replay_desync("recording ended, this run asked for '%s'", Replay_tag_names[tag]);
+	}
+	got = Rdata[Rpos++];
+	if (got != tag) {
+		replay_desync("this run asked for '%s', the recording has '%s'", Replay_tag_names[tag], (got > 0 && got < RT_NUM_TAGS) ? Replay_tag_names[got] : "?");
+	}
+	Replay_entries++;
+	Replay_entries_by_tag[tag]++;
+}
+
+// -----------------------------------------------------------------------------------------
+// hooks
+//
+
+static int replay_hook_live()
+{
+	return Replay_active && (Replay_depth == 0) && (GetCurrentThreadId() == Replay_main_thread);
+}
+
+void replay_push()
+{
+	Replay_depth++;
+}
+
+void replay_pop()
+{
+	Replay_depth--;
+}
+
+int replay_should_read()
+{
+	return (Replay_mode == REPLAY_PLAY) && replay_hook_live();
+}
+
+static int replay_should_write()
+{
+	return (Replay_mode == REPLAY_RECORD) && replay_hook_live();
+}
+
+int replay_read_int(int tag)
+{
+	r_tag(tag);
+	Replay_last_int[tag] += r_varint();
+	return Replay_last_int[tag];
+}
+
+float replay_read_float(int tag)
+{
+	r_tag(tag);
+	return r_float();
+}
+
+int replay_write_int(int tag, int val)
+{
+	if (replay_should_write()) {
+		w_tag(tag);
+		w_varint(val - Replay_last_int[tag]);
+		Replay_last_int[tag] = val;
+		w_done();
+	}
+	return val;
+}
+
+float replay_write_float(int tag, float val)
+{
+	if (replay_should_write()) {
+		w_tag(tag);
+		w_float(val);
+		w_done();
+	}
+	return val;
+}
+
+void replay_read_ints(int tag, int *vals, int count)
+{
+	int i, n;
+
+	r_tag(tag);
+	n = r_varint();
+	if (n != count) {
+		replay_desync("'%s' has %d values, this run asked for %d", Replay_tag_names[tag], n, count);
+	}
+	for (i = 0; i < count; i++) {
+		vals[i] = r_varint();
+	}
+}
+
+void replay_write_ints(int tag, int *vals, int count)
+{
+	int i;
+
+	if (replay_should_write()) {
+		w_tag(tag);
+		w_varint(count);
+		for (i = 0; i < count; i++) {
+			w_varint(vals[i]);
+		}
+		w_done();
+	}
+}
+
+int replay_snd_handle(int tag, int live_handle)
+{
+	int recorded;
+
+	if (replay_should_read()) {
+		recorded = replay_read_int(tag);
+		if ((recorded == -1) && (live_handle != -1)) {
+			// the recorded run could not play this sound, so neither may this one
+			snd_stop(live_handle);
+			Replay_snd_mismatch++;
+			return -1;
+		}
+		if ((recorded != -1) && (live_handle == -1)) {
+			// the recorded run played it; hand back its handle, which no live sound will match
+			Replay_snd_mismatch++;
+			return recorded;
+		}
+		return live_handle;
+	}
+
+	return replay_write_int(tag, live_handle);
+}
+
+// -----------------------------------------------------------------------------------------
+// events.  Recorded where the OS delivers them; replayed at the same point in the stream.
+//
+
+int replay_event_key(uint code, int state, uint latency)
+{
+	if (Replay_mode == REPLAY_PLAY) {
+		return Replay_active ? Replay_injecting : 1;
+	}
+	if ((Replay_mode == REPLAY_RECORD) && Replay_active && (GetCurrentThreadId() == Replay_main_thread)) {
+		w_tag(RT_EV_KEY);
+		w_varint((int)code);
+		w_varint(state);
+		w_varint((int)latency);
+		w_done();
+	}
+	return 1;
+}
+
+int replay_event_mouse(uint flags, int set)
+{
+	if (Replay_mode == REPLAY_PLAY) {
+		return Replay_active ? Replay_injecting : 1;
+	}
+	if ((Replay_mode == REPLAY_RECORD) && Replay_active && (GetCurrentThreadId() == Replay_main_thread)) {
+		w_tag(RT_EV_MOUSE);
+		w_varint((int)flags);
+		w_varint(set);
+		w_done();
+	}
+	return 1;
+}
+
+int replay_event_focus(int got_focus)
+{
+	if (Replay_mode == REPLAY_PLAY) {
+		return Replay_active ? Replay_injecting : 1;
+	}
+	if ((Replay_mode == REPLAY_RECORD) && Replay_active && (GetCurrentThreadId() == Replay_main_thread)) {
+		w_tag(got_focus ? RT_EV_GOTFOCUS : RT_EV_LOSTFOCUS);
+		w_done();
+	}
+	return 1;
+}
+
+static void replay_drain_events()
+{
+	int tag;
+	uint code, latency;
+	int state;
+
+	if (Replay_injecting) {
+		return;
+	}
+
+	for (;;) {
+		tag = r_peek_tag();
+		if ((tag != RT_EV_KEY) && (tag != RT_EV_MOUSE) && (tag != RT_EV_LOSTFOCUS) && (tag != RT_EV_GOTFOCUS)) {
+			return;
+		}
+
+		Rpos++;
+		Replay_entries++;
+		Replay_entries_by_tag[tag]++;
+		Replay_injecting = 1;
+		switch (tag) {
+			case RT_EV_KEY:
+				code = (uint)r_varint();
+				state = r_varint();
+				latency = (uint)r_varint();
+				key_mark(code, state, latency);		// reads the clock, which comes from the stream
+				break;
+
+			case RT_EV_MOUSE:
+				code = (uint)r_varint();
+				state = r_varint();
+				mouse_mark_button(code, state);
+				break;
+
+			case RT_EV_LOSTFOCUS:
+				key_lost_focus();
+				break;
+
+			case RT_EV_GOTFOCUS:
+				key_got_focus();
+				break;
+		}
+		Replay_injecting = 0;
+	}
+}
+
+void replay_os_poll()
+{
+	if (!replay_hook_live()) {
+		return;
+	}
+
+	if (Replay_mode == REPLAY_RECORD) {
+		w_tag(RT_OSPOLL);
+		w_done();
+	} else {
+		r_tag(RT_OSPOLL);
+	}
+}
+
+// -----------------------------------------------------------------------------------------
+// file
+//
+
+static void replay_write_header()
+{
+	Hdr.loadout_size = sizeof(loadout_data);
+
+	fwrite(&Hdr, sizeof(Hdr), 1, Wfile);
+	fwrite(&Hdr_loadout, sizeof(Hdr_loadout), 1, Wfile);
+	if (Hdr.pilot_size) {
+		fwrite(Hdr_pilot, 1, Hdr.pilot_size, Wfile);
+	}
+	if (Hdr.campaign_size) {
+		fwrite(Hdr_campaign, 1, Hdr.campaign_size, Wfile);
+	}
+	Whead_written = 1;
+}
+
+static void replay_read_file()
+{
+	FILE *fp;
+	int pos;
+
+	fp = fopen(Replay_file, "rb");
+	if (!fp) {
+		replay_fatal("Cannot open recording '%s'", Replay_file);
+	}
+	fseek(fp, 0, SEEK_END);
+	Rsize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	Rdata = (ubyte *)malloc(Rsize);
+	if (!Rdata || ((int)fread(Rdata, 1, Rsize, fp) != Rsize)) {
+		replay_fatal("Cannot read recording '%s'", Replay_file);
+	}
+	fclose(fp);
+
+	if (Rsize < (int)sizeof(Hdr)) {
+		replay_fatal("'%s' is not a recording", Replay_file);
+	}
+	memcpy(&Hdr, Rdata, sizeof(Hdr));
+	if (memcmp(Hdr.magic, "FS2REC", 6) || (Hdr.version != REPLAY_FILE_VERSION)) {
+		replay_fatal("'%s' is not a version %d recording", Replay_file, REPLAY_FILE_VERSION);
+	}
+	if (Hdr.loadout_size != (int)sizeof(loadout_data)) {
+		replay_fatal("Recording loadout size %d does not match this build (%d)", Hdr.loadout_size, sizeof(loadout_data));
+	}
+
+	pos = sizeof(Hdr);
+	memcpy(&Hdr_loadout, Rdata + pos, sizeof(Hdr_loadout));
+	pos += sizeof(Hdr_loadout);
+	Hdr_pilot = Rdata + pos;
+	pos += Hdr.pilot_size;
+	Hdr_campaign = Rdata + pos;
+	pos += Hdr.campaign_size;
+	if (pos > Rsize) {
+		replay_fatal("Recording '%s' is truncated", Replay_file);
+	}
+	Rpos = pos;
+}
+
+// read a file from the pilot directory into a malloc'd blob
+static int replay_read_player_file(char *filename, ubyte **blob)
+{
+	CFILE *fp;
+	int size;
+
+	*blob = NULL;
+	fp = cfopen(filename, "rb", CFILE_NORMAL, CF_TYPE_SINGLE_PLAYERS);
+	if (!fp) {
+		return 0;
+	}
+	size = cfilelength(fp);
+	if ((size <= 0) || (size > REPLAY_MAX_BLOB)) {
+		cfclose(fp);
+		return 0;
+	}
+	*blob = (ubyte *)malloc(size);
+	cfread(*blob, 1, size, fp);
+	cfclose(fp);
+	return size;
+}
+
+static void replay_write_pilot_blob(char *filename, ubyte *blob, int size)
+{
+	char path[MAX_PATH_LEN];
+	FILE *fp;
+
+	sprintf(path, "%s\\%s", REPLAY_PILOT_DIR, filename);
+	fp = fopen(path, "wb");
+	if (!fp) {
+		replay_fatal("Cannot write '%s'", path);
+	}
+	fwrite(blob, 1, size, fp);
+	fclose(fp);
+}
+
+static void replay_campaign_save_name(char *filename)
+{
+	char base[_MAX_FNAME];
+
+	_splitpath(Hdr.campaign, NULL, NULL, base, NULL);
+	sprintf(filename, "%s.%s.csg", Hdr.callsign, base);
+}
+
+// -----------------------------------------------------------------------------------------
+// lifecycle
+//
+
+void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full)
+{
+	if (record_file) {
+		Replay_mode = REPLAY_RECORD;
+		strncpy(Replay_file, record_file, MAX_PATH_LEN - 1);
+	} else if (replay_file) {
+		Replay_mode = REPLAY_PLAY;
+		strncpy(Replay_file, replay_file, MAX_PATH_LEN - 1);
+	}
+	if (trace_file) {
+		strncpy(Replay_trace_file, trace_file, MAX_PATH_LEN - 1);
+	}
+	Replay_trace_full = trace_full;
+}
+
+// name with "_n" put in front of the extension
+static void replay_numbered_name(char *out, char *name, int n)
+{
+	char *ext = strrchr(name, '.');
+	char *slash = strrchr(name, '\\');
+
+	if (!ext || (slash && (ext < slash))) {
+		sprintf(out, "%s_%d", name, n);
+	} else {
+		sprintf(out, "%.*s_%d%s", (int)(ext - name), name, n, ext);
+	}
+}
+
+static int replay_file_exists(char *name)
+{
+	return name[0] && (GetFileAttributes(name) != INVALID_FILE_ATTRIBUTES);
+}
+
+// never overwrite an earlier recording: if the names are taken, add the first free number
+static void replay_pick_free_names()
+{
+	char rec[MAX_PATH_LEN + 16], trace[MAX_PATH_LEN + 16];
+	int n;
+
+	if (!replay_file_exists(Replay_file) && !replay_file_exists(Replay_trace_file)) {
+		return;
+	}
+	for (n = 2; ; n++) {
+		replay_numbered_name(rec, Replay_file, n);
+		trace[0] = 0;
+		if (Replay_trace_file[0]) {
+			replay_numbered_name(trace, Replay_trace_file, n);
+		}
+		if (!replay_file_exists(rec) && !replay_file_exists(trace)) {
+			break;
+		}
+	}
+	strncpy(Replay_file, rec, MAX_PATH_LEN - 1);
+	strncpy(Replay_trace_file, trace, MAX_PATH_LEN - 1);
+}
+
+void replay_startup()
+{
+	char filename[MAX_FILENAME_LEN * 2];
+
+	if (Replay_mode == REPLAY_OFF) {
+		return;
+	}
+
+	Replay_main_thread = GetCurrentThreadId();
+	if (Replay_mode == REPLAY_RECORD) {
+		replay_pick_free_names();
+	}
+	replay_open_log();
+	replay_logf("%s '%s'\n", (Replay_mode == REPLAY_RECORD) ? "Recording" : "Replaying", Replay_file);
+
+	if (Replay_mode == REPLAY_PLAY) {
+		replay_read_file();
+		replay_logf("Recorded by build '%s'\n", Hdr.build);
+		replay_logf("Mission '%s', pilot '%s', campaign '%s', seed %d\n", Hdr.mission, Hdr.callsign, Hdr.campaign, Hdr.level_seed);
+
+		// pilot and campaign files come from the recording, in their own directory, so the
+		// player's own pilot is never read or written
+		_mkdir(REPLAY_PILOT_DIR);
+		sprintf(filename, "%s.plr", Hdr.callsign);
+		replay_write_pilot_blob(filename, Hdr_pilot, Hdr.pilot_size);
+		if (Hdr.campaign_size) {
+			replay_campaign_save_name(filename);
+			replay_write_pilot_blob(filename, Hdr_campaign, Hdr.campaign_size);
+		}
+		Pathtypes[CF_TYPE_SINGLE_PLAYERS].path = REPLAY_PILOT_DIR;
+	}
+}
+
+void replay_game_init_done()
+{
+}
+
+int replay_load_pilot()
+{
+	if (Replay_mode != REPLAY_PLAY) {
+		return 0;
+	}
+
+	Player = &Players[0];
+	if (read_pilot_file(Hdr.callsign, 1, Player)) {
+		replay_fatal("Cannot load the recorded pilot '%s'", Hdr.callsign);
+	}
+	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
+	return 1;
+}
+
+int replay_level_seed(int seed)
+{
+	if (Replay_mode == REPLAY_RECORD) {
+		Hdr.level_seed = seed;
+	} else if (Replay_mode == REPLAY_PLAY) {
+		seed = Hdr.level_seed;
+	}
+	return seed;
+}
+
+static uint replay_mission_checksum()
+{
+	char filename[MAX_FILENAME_LEN + 8], *ext;
+	uint chksum = 0;
+
+	strncpy(filename, Game_current_mission_filename, MAX_FILENAME_LEN - 1);
+	filename[MAX_FILENAME_LEN - 1] = 0;
+	ext = strchr(filename, '.');
+	if (ext) {
+		*ext = 0;
+	}
+	strcat(filename, FS_MISSION_FILE_EXT);
+	cf_chksum_long(filename, &chksum);
+	return chksum;
+}
+
+static void replay_check_int(char *what, int recorded, int now)
+{
+	if (recorded != now) {
+		replay_fatal("%s differs: recorded %d, this run %d", what, recorded, now);
+	}
+}
+
+static void replay_check_float(char *what, float recorded, float now)
+{
+	if (recorded != now) {
+		replay_fatal("%s differs: recorded %f, this run %f", what, recorded, now);
+	}
+}
+
+void replay_load_begin()
+{
+	int i;
+
+	if (Replay_mode == REPLAY_OFF) {
+		return;
+	}
+
+	Replay_load_count++;
+	if (Replay_load_count > 1) {
+		// function statics carry state from one mission to the next, so one process holds
+		// exactly one recorded mission
+		replay_mission_over();
+		return;
+	}
+
+	if (Replay_mode == REPLAY_RECORD) {
+		memset(&Hdr, 0, sizeof(Hdr));
+		memcpy(Hdr.magic, "FS2REC", 6);
+		Hdr.version = REPLAY_FILE_VERSION;
+#ifdef NDEBUG
+		sprintf(Hdr.build, "Release %s %s", __DATE__, __TIME__);
+#else
+		sprintf(Hdr.build, "Debug %s %s", __DATE__, __TIME__);
+#endif
+		strncpy(Hdr.mission, Game_current_mission_filename, sizeof(Hdr.mission) - 1);
+		Hdr.mission_checksum = replay_mission_checksum();
+		Hdr.game_mode = Game_mode;
+		if (Game_mode & GM_CAMPAIGN_MODE) {
+			strncpy(Hdr.campaign, Campaign.filename, sizeof(Hdr.campaign) - 1);
+		}
+		strncpy(Hdr.callsign, Player->callsign, sizeof(Hdr.callsign) - 1);
+		Hdr.semirand_inited = Semirand_inited;
+		for (i = 0; i < SEMIRAND_MAX; i++) {
+			Hdr.semirand[i] = Semirand[i];
+		}
+		Hdr.skill_level = Game_skill_level;
+		Hdr.detail_size = sizeof(Detail);
+		Assert(sizeof(Detail) <= sizeof(Hdr.detail));
+		memcpy(Hdr.detail, &Detail, sizeof(Detail));
+		Hdr.screen_w = gr_screen.max_w;
+		Hdr.screen_h = gr_screen.max_h;
+		Hdr.sound_enabled = Sound_enabled;
+		Hdr.snd_inited = snd_is_inited();
+		Hdr.event_music_enabled = Event_music_enabled;
+		Hdr.master_sound_volume = Master_sound_volume;
+		Hdr.master_voice_volume = Master_voice_volume;
+		Hdr.master_event_music_volume = Master_event_music_volume;
+		replay_logf("Mission '%s', pilot '%s', campaign '%s'\n", Hdr.mission, Hdr.callsign, Hdr.campaign);
+	} else {
+		if (stricmp(Hdr.mission, Game_current_mission_filename)) {
+			replay_fatal("Recorded mission is '%s', this run is loading '%s'", Hdr.mission, Game_current_mission_filename);
+		}
+		if ((Hdr.game_mode & GM_CAMPAIGN_MODE) != (Game_mode & GM_CAMPAIGN_MODE)) {
+			replay_fatal("Campaign mode differs from the recording");
+		}
+		if (Hdr.mission_checksum != replay_mission_checksum()) {
+			replay_fatal("Mission file '%s' differs from the recorded one", Hdr.mission);
+		}
+		replay_check_int("Skill level", Hdr.skill_level, Game_skill_level);
+		replay_check_int("Screen width", Hdr.screen_w, gr_screen.max_w);
+		replay_check_int("Screen height", Hdr.screen_h, gr_screen.max_h);
+		replay_check_int("Sound enabled", Hdr.sound_enabled, Sound_enabled);
+		replay_check_int("Sound initialised", Hdr.snd_inited, snd_is_inited());
+		replay_check_int("Event music enabled", Hdr.event_music_enabled, Event_music_enabled);
+		replay_check_float("Sound volume", Hdr.master_sound_volume, Master_sound_volume);
+		replay_check_float("Voice volume", Hdr.master_voice_volume, Master_voice_volume);
+		replay_check_float("Music volume", Hdr.master_event_music_volume, Master_event_music_volume);
+		replay_check_int("Detail settings size", Hdr.detail_size, sizeof(Detail));
+
+		// these were set before the mission from the clock or the registry
+		memcpy(&Detail, Hdr.detail, sizeof(Detail));
+		Semirand_inited = Hdr.semirand_inited;
+		for (i = 0; i < SEMIRAND_MAX; i++) {
+			Semirand[i] = Hdr.semirand[i];
+		}
+	}
+}
+
+void replay_load_end()
+{
+	char filename[MAX_FILENAME_LEN * 2];
+
+	if ((Replay_mode == REPLAY_OFF) || (Replay_load_count != 1) || Replay_in_game) {
+		return;
+	}
+
+	if (Replay_mode == REPLAY_RECORD) {
+		// mission_load() has just saved the pilot, so the files on disk match the pilot that
+		// loaded this mission
+		sprintf(filename, "%s.plr", Hdr.callsign);
+		Hdr.pilot_size = replay_read_player_file(filename, &Hdr_pilot);
+		if (!Hdr.pilot_size) {
+			replay_fatal("Cannot read pilot file '%s'", filename);
+		}
+		if (Hdr.campaign[0]) {
+			replay_campaign_save_name(filename);
+			Hdr.campaign_size = replay_read_player_file(filename, &Hdr_campaign);
+		}
+	} else {
+		if (red_alert_mission()) {
+			replay_fatal("Red alert missions are not supported by replay yet");
+		}
+
+		// the loadout the player committed in the recorded run.  The briefing restores it
+		// through the same path as a player re-flying a mission.
+		Player_loadout = Hdr_loadout;
+	}
+}
+
+void replay_enter_game()
+{
+	if ((Replay_mode == REPLAY_OFF) || (Replay_load_count != 1) || Replay_in_game) {
+		return;
+	}
+
+	if (Replay_mode == REPLAY_RECORD) {
+		Hdr_loadout = Player_loadout;
+		Hdr.timestamp_ticker = timestamp_ticker;
+		Hdr.last_time = Last_time;
+		Hdr.last_delta_time = Last_delta_time;
+		Hdr.saved_timestamp_ticker = saved_timestamp_ticker;
+		Hdr.missiontime = Missiontime;
+
+		// the file is only created once there is a mission to put in it
+		Wfile = fopen(Replay_file, "wb");
+		if (!Wfile) {
+			replay_fatal("Cannot create recording '%s'", Replay_file);
+		}
+
+		// header first, then the stream
+		replay_write_header();
+		wbuf_flush();
+	} else {
+		if (memcmp(&Player_loadout, &Hdr_loadout, sizeof(loadout_data))) {
+			replay_fatal("Loadout differs from the recording");
+		}
+
+		// the time spent in the briefing advanced these
+		timestamp_ticker = Hdr.timestamp_ticker;
+		Last_time = Hdr.last_time;
+		Last_delta_time = Hdr.last_delta_time;
+		saved_timestamp_ticker = Hdr.saved_timestamp_ticker;
+		Missiontime = Hdr.missiontime;
+	}
+
+	// the briefing consumed random numbers for as long as the player stayed in it
+	srand(Hdr.level_seed);
+
+	Replay_in_game = 1;
+	Replay_active = 1;
+
+	if (Replay_mode == REPLAY_RECORD) {
+		w_tag(RT_ENTER_GAME);
+		w_done();
+	} else {
+		r_tag(RT_ENTER_GAME);
+	}
+
+	if (Replay_trace_file[0]) {
+		trace_open(Replay_trace_file, Replay_trace_full);
+	}
+	replay_logf("Entered mission\n");
+}
+
+void replay_mission_over()
+{
+	if ((Replay_mode == REPLAY_OFF) || Replay_done) {
+		return;
+	}
+	if (!Replay_in_game) {
+		return;
+	}
+
+	Replay_done = 1;
+	if (Replay_mode == REPLAY_RECORD) {
+		w_tag(RT_END);
+		wbuf_flush();
+		fclose(Wfile);
+		Wfile = NULL;
+	} else {
+		r_tag(RT_END);
+		if (Rpos != Rsize) {
+			replay_desync("mission ended with %d bytes of the recording unused", Rsize - Rpos);
+		}
+	}
+	Replay_active = 0;
+
+	trace_close();
+	replay_log_stats();
+	replay_logf((Replay_mode == REPLAY_RECORD) ? "RECORD OK\n" : "REPLAY OK\n");
+
+	if (Replay_mode == REPLAY_PLAY) {
+		gameseq_post_event(GS_EVENT_QUIT_GAME);
+	}
+}
+
+void replay_shutdown()
+{
+	if (Replay_mode == REPLAY_OFF) {
+		return;
+	}
+
+	if (!Replay_done && Replay_in_game) {
+		replay_mission_over();
+	}
+	if ((Replay_mode == REPLAY_RECORD) && !Replay_in_game) {
+		// quit before the mission started; no file was created
+		replay_logf("No mission was recorded\n");
+	}
+	trace_close();
+	if (Replay_log) {
+		fclose(Replay_log);
+		Replay_log = NULL;
+	}
+}
+
+void replay_drive_state(int state)
+{
+	if (Replay_mode == REPLAY_OFF) {
+		return;
+	}
+
+	// back out of the mission: the recording ends here
+	if (Replay_in_game && !Replay_done && ((state == GS_STATE_MAIN_MENU) || (state == GS_STATE_DEBRIEF))) {
+		replay_mission_over();
+		return;
+	}
+
+	if (Replay_mode != REPLAY_PLAY) {
+		return;
+	}
+
+	switch (state) {
+		case GS_STATE_MAIN_MENU:
+			if (!Replay_started_mission) {
+				Replay_started_mission = 1;
+				if (Hdr.game_mode & GM_CAMPAIGN_MODE) {
+					// the same path as the ready room's continue campaign
+					gameseq_post_event(GS_EVENT_NEW_CAMPAIGN);
+				} else {
+					// the same path as the simulator room
+					strncpy(Game_current_mission_filename, Hdr.mission, MAX_FILENAME_LEN - 1);
+					Game_mode &= ~(GM_CAMPAIGN_MODE);
+					gameseq_post_event(GS_EVENT_START_GAME);
+				}
+			}
+			break;
+
+		case GS_STATE_CMD_BRIEF:
+			if (!Replay_briefing_started) {
+				Replay_briefing_started = 1;
+				gameseq_post_event(GS_EVENT_START_BRIEFING);
+			}
+			break;
+
+		case GS_STATE_BRIEFING:
+			if (!Replay_committed) {
+				Replay_committed = 1;
+				commit_pressed();
+			}
+			break;
+	}
+}
+
+void replay_sim_frame_end()
+{
+	if (!Replay_in_game || !Replay_active) {
+		return;
+	}
+
+	trace_frame(Replay_frame);
+	Replay_frame++;
+}

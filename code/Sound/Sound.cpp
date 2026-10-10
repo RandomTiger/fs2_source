@@ -314,6 +314,7 @@
 #include "ds3d.h"
 #include "acm.h"
 #include "dscap.h"
+#include "Replay.h"
 		
 #define SND_F_USED			(1<<0)		// Sounds[] element is used
 
@@ -730,7 +731,7 @@ MONITOR( NumSoundsLoaded );
 // returns:		-1		=>		sound could not be played
 //					n		=>		handle for instance of sound
 //
-int snd_play( game_snd *gs, float pan, float vol_scale, int priority, bool is_voice_msg )
+static int snd_play_live( game_snd *gs, float pan, float vol_scale, int priority, bool is_voice_msg )
 {
 	float volume;
 	sound	*snd;
@@ -778,6 +779,17 @@ int snd_play( game_snd *gs, float pan, float vol_scale, int priority, bool is_vo
 	return handle;
 }
 
+// whether a sound gets a channel depends on what the sound device is still playing
+int snd_play( game_snd *gs, float pan, float vol_scale, int priority, bool is_voice_msg )
+{
+	int handle;
+
+	replay_push();
+	handle = snd_play_live(gs, pan, vol_scale, priority, is_voice_msg);
+	replay_pop();
+	return replay_snd_handle(RT_SND_PLAY, handle);
+}
+
 MONITOR( Num3DSoundsStarted );
 MONITOR( Num3DSoundsLoaded );
 
@@ -804,7 +816,7 @@ MONITOR( Num3DSoundsLoaded );
 // returns:		-1		=>		sound could not be played
 //					n		=>		handle for instance of sound
 //
-int snd_play_3d(game_snd *gs, vector *source_pos, vector *listen_pos, float radius, vector *source_vel, int looping, float vol_scale, int priority, vector *sound_fvec, float range_factor, int force )
+static int snd_play_3d_live(game_snd *gs, vector *source_pos, vector *listen_pos, float radius, vector *source_vel, int looping, float vol_scale, int priority, vector *sound_fvec, float range_factor, int force )
 {
 	int		handle, min_range, max_range;
 	vector	vector_to_sound;
@@ -899,6 +911,16 @@ int snd_play_3d(game_snd *gs, vector *source_pos, vector *listen_pos, float radi
 	}
 
 	return handle;
+}
+
+int snd_play_3d(game_snd *gs, vector *source_pos, vector *listen_pos, float radius, vector *source_vel, int looping, float vol_scale, int priority, vector *sound_fvec, float range_factor, int force )
+{
+	int handle;
+
+	replay_push();
+	handle = snd_play_3d_live(gs, source_pos, listen_pos, radius, source_vel, looping, vol_scale, priority, sound_fvec, range_factor, force);
+	replay_pop();
+	return replay_snd_handle(RT_SND_PLAY_3D, handle);
 }
 
 // update the given 3d sound with a new position
@@ -1002,7 +1024,7 @@ int snd_get_3d_vol_and_pan(game_snd *gs, vector *pos, float* vol, float *pan, fl
 // returns:		-1		=>		sound could not be played
 //					n		=>		handle for instance of sound
 //
-int snd_play_looping( game_snd *gs, float pan, int start_loop, int stop_loop, float vol_scale, int priority, int force )
+static int snd_play_looping_live( game_snd *gs, float pan, int start_loop, int stop_loop, float vol_scale, int priority, int force )
 {	
 	float volume;
 	int	handle = -1;
@@ -1041,6 +1063,16 @@ int snd_play_looping( game_snd *gs, float pan, int start_loop, int stop_loop, fl
 	}
 
 	return handle;
+}
+
+int snd_play_looping( game_snd *gs, float pan, int start_loop, int stop_loop, float vol_scale, int priority, int force )
+{
+	int handle;
+
+	replay_push();
+	handle = snd_play_looping_live(gs, pan, start_loop, stop_loop, vol_scale, priority, force);
+	replay_pop();
+	return replay_snd_handle(RT_SND_PLAY_LOOPING, handle);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1129,7 +1161,7 @@ void snd_set_pan( int sig, float pan )
 //
 // parameters:		sig	=> handle to sound, what is returned from snd_play()
 //
-int snd_get_pitch(int sig)
+static int snd_get_pitch_live(int sig)
 {
 	int channel, pitch=10000;
 
@@ -1148,6 +1180,11 @@ int snd_get_pitch(int sig)
 	pitch = ds_get_pitch(channel);
 
 	return pitch;
+}
+
+int snd_get_pitch(int sig)
+{
+	REPLAY_WRAP_INT(RT_SND_PITCH, snd_get_pitch_live(sig));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1184,7 +1221,7 @@ void snd_set_pitch( int sig, int pitch )
 //
 // parameters:		sig	=> signature of sound, what is returned from snd_play()
 //
-int snd_is_playing( int sig )
+static int snd_is_playing_live( int sig )
 {
 	int	channel, is_playing;
 
@@ -1204,6 +1241,11 @@ int snd_is_playing( int sig )
 	}
 
 	return 0;
+}
+
+int snd_is_playing( int sig )
+{
+	REPLAY_WRAP_INT(RT_SND_IS_PLAYING, snd_is_playing_live(sig));
 }
 
 
@@ -1376,7 +1418,7 @@ void snd_set_pos(int snd_handle, game_snd *gs, float val,int as_pct)
 // Return the number of sounds currently playing
 int snd_num_playing()
 {
-	return ds_get_number_channels();
+	REPLAY_WRAP_INT(RT_SND_NUM_PLAYING, ds_get_number_channels());
 }
 
 // Stop the first channel found that is playing a sound
@@ -1429,7 +1471,7 @@ void snd_get_format(int handle, int *bits_per_sample, int *frequency)
 }
 
 // return the time for the sound to play in milliseconds
-int snd_time_remaining(int handle, int bits_per_sample, int frequency)
+static int snd_time_remaining_live(int handle, int bits_per_sample, int frequency)
 {
 	int channel, is_playing, time_remaining = 0;
 
@@ -1461,6 +1503,11 @@ int snd_time_remaining(int handle, int bits_per_sample, int frequency)
 
 //	mprintf(("time_remaining: %d\n", time_remaining));	
 	return time_remaining;
+}
+
+int snd_time_remaining(int handle, int bits_per_sample, int frequency)
+{
+	REPLAY_WRAP_INT(RT_SND_TIME_REMAINING, snd_time_remaining_live(handle, bits_per_sample, frequency));
 }
 
 

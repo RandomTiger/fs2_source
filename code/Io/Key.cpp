@@ -134,6 +134,7 @@
 #include "timer.h"
 #include "OsApi.h"
 #include "Localize.h"
+#include "Replay.h"
 
 #define KEY_BUFFER_SIZE 16
 
@@ -589,6 +590,8 @@ void key_mark( uint code, int state, uint latency )
 
 	if ( !key_inited ) return;
 
+	if ( !replay_event_key(code, state, latency) ) return;
+
 	ENTER_CRITICAL_SECTION(&key_lock);		
 
 	// If running in the UK, need to translate their wacky slash scancode to ours
@@ -829,12 +832,16 @@ void key_lost_focus()
 {
 	if ( !key_inited ) return;
 
+	if ( !replay_event_focus(0) ) return;
+
 	key_flush();	
 }
 
 void key_got_focus()
 {
 	if ( !key_inited ) return;
+
+	if ( !replay_event_focus(1) ) return;
 	
 	key_flush();	
 }

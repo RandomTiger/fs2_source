@@ -182,6 +182,7 @@
 #include "Sound.h"		/* for Snd_sram */
 #include "acm.h"
 #include "ds.h"
+#include "Replay.h"
 
 // Constants
 #ifndef SUCCESS
@@ -1755,7 +1756,7 @@ void audiostream_stop(int i, int rewind, int paused)
 		Audio_streams[i].Stop(paused);
 }
 
-int audiostream_is_playing(int i)
+static int audiostream_is_playing_live(int i)
 {
 	if ( i == -1 )
 		return 0;
@@ -1765,6 +1766,11 @@ int audiostream_is_playing(int i)
 		return 0;
 
 	return Audio_streams[i].Is_Playing();
+}
+
+int audiostream_is_playing(int i)
+{
+	REPLAY_WRAP_INT(RT_STREAM_IS_PLAYING, audiostream_is_playing_live(i));
 }
 
 
@@ -1802,7 +1808,7 @@ void audiostream_set_volume(int i, float volume)
 }
 
 
-int audiostream_is_paused(int i)
+static int audiostream_is_paused_live(int i)
 {
 	if ( i == -1 )
 		return 0;
@@ -1814,6 +1820,11 @@ int audiostream_is_paused(int i)
 	BOOL is_paused;
 	is_paused = Audio_streams[i].Is_Paused();
 	return is_paused;
+}
+
+int audiostream_is_paused(int i)
+{
+	REPLAY_WRAP_INT(RT_STREAM_IS_PAUSED, audiostream_is_paused_live(i));
 }
 
 
@@ -1832,7 +1843,7 @@ void audiostream_set_byte_cutoff(int i, unsigned int cutoff)
 }
 
 
-unsigned int audiostream_get_bytes_committed(int i)
+static unsigned int audiostream_get_bytes_committed_live(int i)
 {
 	if ( i == -1 )
 		return 0;
@@ -1847,7 +1858,12 @@ unsigned int audiostream_get_bytes_committed(int i)
 	return num_bytes_committed;
 }
 
-int audiostream_done_reading(int i)
+unsigned int audiostream_get_bytes_committed(int i)
+{
+	REPLAY_WRAP_INT(RT_STREAM_BYTES, (int)audiostream_get_bytes_committed_live(i));
+}
+
+static int audiostream_done_reading_live(int i)
 {
 	if ( i == -1 )
 		return 0;
@@ -1860,6 +1876,11 @@ int audiostream_done_reading(int i)
 	int done_reading;
 	done_reading = Audio_streams[i].Is_Past_Limit();
 	return done_reading;
+}
+
+int audiostream_done_reading(int i)
+{
+	REPLAY_WRAP_INT(RT_STREAM_DONE_READING, audiostream_done_reading_live(i));
 }
 
 

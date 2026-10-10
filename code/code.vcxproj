@@ -67,7 +67,7 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level4</WarningLevel>
-      <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;replay;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
@@ -102,7 +102,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;replay;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
@@ -141,6 +141,8 @@
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Demo\Demo.cpp" />
+    <ClCompile Include="Replay\Replay.cpp" />
+    <ClCompile Include="Replay\StateTrace.cpp" />
     <ClCompile Include="ExceptionHandler\ExceptionHandler.cpp" />
     <ClCompile Include="Fireball\FireBalls.cpp" />
     <ClCompile Include="Fireball\WarpInEffect.cpp" />
@@ -380,6 +382,9 @@
     <ClInclude Include="Cutscene\Cutscenes.h" />
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Demo\Demo.h" />
+    <ClInclude Include="Replay\Replay.h" />
+    <ClInclude Include="Replay\StateTrace.h" />
+    <ClInclude Include="Replay\TraceFormat.h" />
     <ClInclude Include="DirectX\vasync.h" />
     <ClInclude Include="DirectX\vD3d.h" />
     <ClInclude Include="DirectX\vD3dcaps.h" />

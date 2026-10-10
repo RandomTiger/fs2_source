@@ -554,6 +554,7 @@
 #include "Muzzleflash.h"
 #include "Encrypt.h"
 #include "Demo.h"
+#include "Replay.h"
 #include "version.h"
 #include "MainHalltemp.h"
 #include "ExceptionHandler.h"
@@ -1397,6 +1398,7 @@ void game_level_init(int seed)
 		Assert( !(Game_mode & GM_MULTIPLAYER) );
 		Game_level_seed = seed;
 	}
+	Game_level_seed = replay_level_seed( Game_level_seed );
 	srand( Game_level_seed );
 
 	// semirand function needs to get re-initted every time in multiplayer
@@ -1761,6 +1763,8 @@ int game_start_mission()
 {	
 	mprintf(( "=================== STARTING LEVEL LOAD ==================\n" ));
 	
+	replay_load_begin();
+
 	load_gl_init = time(NULL);
 	game_level_init();
 	load_gl_init = time(NULL) - load_gl_init;
@@ -1810,6 +1814,8 @@ int game_start_mission()
 	load_mission_stuff = time(NULL);
 	freespace_mission_load_stuff();
 	load_mission_stuff = time(NULL) - load_mission_stuff;
+
+	replay_load_end();
 
 	return 1;
 }
@@ -3877,6 +3883,8 @@ void game_simulation_frame()
 		}
 #endif
 	}		
+
+	replay_sim_frame_end();
 }
 
 // Maybe render and process the dead-popup
@@ -4897,6 +4905,8 @@ void game_process_event( int current_state, int event )
 			break;
 
 		case GS_EVENT_ENTER_GAME:		
+			replay_enter_game();
+
 #ifdef DEMO_SYSTEM
 			// maybe start recording a demo
 			if(Demo_make){
@@ -5232,7 +5242,7 @@ void game_process_event( int current_state, int event )
 			gameseq_set_state(GS_STATE_INITIAL_PLAYER_SELECT);
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
-			if( player_select_get_last_pilot() ) {								
+			if( replay_load_pilot() || player_select_get_last_pilot() ) {
 				// always enter the main menu -- do the automatic network startup stuff elsewhere
 				// so that we still have valid checks for networking modes, etc.
 				gameseq_set_state(GS_STATE_MAIN_MENU);
@@ -6121,6 +6131,8 @@ void game_do_state_common(int state,int no_networking)
 int Game_do_state_should_skip = 0;
 void game_do_state(int state)
 {
+	replay_drive_state(state);
+
 	// always lets the do_state_common() function determine if the state should be skipped
 	Game_do_state_should_skip = 0;
 	
@@ -6697,6 +6709,7 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	#endif
 	
 	parse_cmdline(szCmdLine);	
+	replay_startup();
 
 #ifdef STANDALONE_ONLY_BUILD
 	Is_standalone = 1;
@@ -6848,6 +6861,8 @@ void game_launch_launcher_on_exit()
 //
 void game_shutdown(void)
 {
+	replay_shutdown();
+
 	timeEndPeriod(1);
 
 	// don't ever flip a page on the standalone!
