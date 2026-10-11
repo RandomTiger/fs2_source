@@ -973,6 +973,7 @@ void replay_enter_game()
 
 	// the briefing consumed random numbers for as long as the player stayed in it
 	srand(Hdr.level_seed);
+	cosmetic_srand(Hdr.level_seed);	// Claude: The briefing draws cosmetic numbers too, so reseed that stream as well.
 
 	Replay_in_game = 1;
 	Replay_active = 1;
