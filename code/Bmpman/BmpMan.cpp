@@ -474,6 +474,7 @@
 #include "GrInternal.h"
 #include "TgaUtils.h"
 #include "Ship.h"
+#include "Replay.h"
 
 #ifndef NDEBUG
 #define BMPMAN_NDEBUG
@@ -1785,7 +1786,10 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 
 		for ( i=0; i< bm_bitmaps[first].info.ani.num_frames; i++ )	{
 			// Mark all the bitmaps in this bitmap or animation as recently used
+			// Claude: Only reached when the texture must be uploaded, which depends on what is already cached, so it differs between record and replay.  last_used is never read, so keep this out of the recording.
+			replay_push();
 			bm_bitmaps[first+i].last_used = timer_get_milliseconds();
+			replay_pop();
 
 			// Mark all the bitmaps in this bitmap or animation as used for the usage tracker.
 			#ifdef BMPMAN_NDEBUG
@@ -1795,7 +1799,10 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 		}
 	} else {
 		// Mark all the bitmaps in this bitmap or animation as recently used
+		// Claude: As above, keep this out of the recording.
+		replay_push();
 		be->last_used = timer_get_milliseconds();
+		replay_pop();
 
 		// Mark all the bitmaps in this bitmap or animation as used for the usage tracker.
 		#ifdef BMPMAN_NDEBUG
