@@ -5850,7 +5850,10 @@ void game_enter_state( int old_state, int new_state )
 #ifndef NDEBUG
 			// required to truely make mouse deltas zeroed in debug mouse code
 void mouse_force_pos(int x, int y);
+			// Claude: Debug only, so keep its os_foreground() read out of the recording (replay_push bypasses the hooks).
+			replay_push();
 			mouse_force_pos(gr_screen.max_w / 2, gr_screen.max_h / 2);
+			replay_pop();
 #endif
 
 			game_flush();

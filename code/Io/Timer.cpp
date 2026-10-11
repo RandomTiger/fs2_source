@@ -404,6 +404,9 @@ int timing_event_lookup(char *event_name)
 #endif
 }
 
+// Claude: The timing_* profilers below only run in Debug (USE_TIMING), so they read the clock directly rather than
+// through the replay hook.  Otherwise Debug and Release recordings would differ.
+
 // start timing frame stuff
 void timing_frame_start()
 {
@@ -414,7 +417,7 @@ void timing_frame_start()
 
 	// restart the frame
 	Timing_event_count = 0;
-	Timing_frame.start = timer_get_microseconds();
+	Timing_frame.start = timer_get_microseconds_live();
 	for(idx=0; idx<MAX_TIMING_EVENTS; idx++){
 		Timing_events[idx].microseconds_total = 0;
 		strcpy(Timing_events[idx].name, "");
@@ -432,7 +435,7 @@ void timing_frame_stop()
 	int stop_time;
 
 	// stop time
-	stop_time = timer_get_microseconds();
+	stop_time = timer_get_microseconds_live();
 
 	// calc times
 	Timing_frame.microseconds_total = stop_time - Timing_frame.start;	
@@ -468,14 +471,14 @@ void timing_event_start(char *event_name)
 	// if we already have one
 	if(event != -1){
 		Assert(Timing_events[event].ref_count == 0);
-		Timing_events[event].start = timer_get_microseconds();
+		Timing_events[event].start = timer_get_microseconds_live();
 		Timing_events[event].ref_count++;
 	}
 	// if we need to add a new one
 	else {
 		if(Timing_event_count < MAX_TIMING_EVENTS){
 			strcpy(Timing_events[Timing_event_count].name, event_name);
-			Timing_events[Timing_event_count].start = timer_get_microseconds();
+			Timing_events[Timing_event_count].start = timer_get_microseconds_live();
 			Timing_events[Timing_event_count++].ref_count++;
 		}
 	}
@@ -501,7 +504,7 @@ void timing_event_stop(char *event_name)
 	// if we already have one
 	if(event != -1){
 		Assert(Timing_events[event].ref_count == 1);
-		Timing_events[event].microseconds_total += timer_get_microseconds() - Timing_events[event].start;
+		Timing_events[event].microseconds_total += timer_get_microseconds_live() - Timing_events[event].start;
 		Timing_events[event].ref_count--;
 	}
 #endif

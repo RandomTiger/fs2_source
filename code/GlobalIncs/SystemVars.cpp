@@ -192,6 +192,7 @@
 #include "SystemVars.h"
 #include "Timer.h"
 #include "neb.h"
+#include "Replay.h"
 
 fix Missiontime;
 fix Frametime;
@@ -456,7 +457,10 @@ void monitor_update()
 	int i;
 	FILE * fp;
 
+	// Claude: Debug only, so keep its clock reads out of the recording (replay_push bypasses the hooks).
+	replay_push();
 	fix this_time = timer_get_fixed_seconds();
+	replay_pop();
 	fix frametime;
 
 	if ( monitor_last_time != -1 )	{
@@ -513,7 +517,9 @@ void monitor_update()
 		}
 	}
 
+	replay_push();
 	monitor_last_time = timer_get_fixed_seconds();
+	replay_pop();
 
 }
 #endif	//NDEBUG

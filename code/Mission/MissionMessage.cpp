@@ -383,6 +383,7 @@
 #include "localize.h"
 #include "Demo.h"
 #include "HUDconfig.h"
+#include "Replay.h"
 
 // here is a text list of the builtin message names.  These names are used to match against
 // names read in for builtin message radio bits to see what message to play.  These are
@@ -1507,7 +1508,10 @@ void message_queue_process()
 	// debug only -- if the message is a builtin message, put in parens whether or not the voice played
 	if ( Playing_messages[Num_messages_playing].wave == -1 ) {
 		strcat( buf, NOX("..(no wavefile for voice)"));
+		// Claude: Debug only, so keep this sound out of the recording (replay_push bypasses the hooks).
+		replay_push();
 		snd_play(&Snds[SND_CUE_VOICE]);
+		replay_pop();
 	}
 #endif
 
