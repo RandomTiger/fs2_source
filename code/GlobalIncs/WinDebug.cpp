@@ -113,6 +113,7 @@
 #include <crtdbg.h>
 
 #include "pstypes.h"
+#include "Autotest.h"
 
 //Uncomment SHOW_CALL_STACK to show the call stack in Asserts, Warnings, and Errors
 #define SHOW_CALL_STACK
@@ -831,6 +832,11 @@ void _cdecl WinAssert(char * text, char * filename, int linenum )
 {
 	int val;
 
+	// Claude: An autotest logs it and carries on, with no dialog.
+	if (autotest_report("Assert", text, filename, linenum)) {
+		return;
+	}
+
 	gr_force_windowed();
 
 
@@ -875,6 +881,11 @@ void _cdecl Error( char * filename, int line, char * format, ... )
 	va_end(args);
 	sprintf(AssertText2,"Error: %s\r\nFile:%s\r\nLine: %d", AssertText1, filename, line );
 
+	// Claude: An autotest logs it and exits, with no dialog.
+	if (autotest_report("Error", AssertText1, filename, line)) {
+		TerminateProcess(GetCurrentProcess(), 1);	// not exit(), whose atexit handlers would run from the failing state
+	}
+
 	#ifdef SHOW_CALL_STACK
 		dumpBuffer.Clear();
 		dumpBuffer.Printf( AssertText2 );
@@ -916,6 +927,11 @@ void _cdecl Warning( char * filename, int line, char * format, ... )
 	vsprintf(AssertText1,format,args);
 	va_end(args);
 	sprintf(AssertText2,"Warning: %s\r\nFile:%s\r\nLine: %d", AssertText1, filename, line );
+
+	// Claude: An autotest logs it and carries on, with no dialog.
+	if (autotest_report("Warning", AssertText1, filename, line)) {
+		return;
+	}
 
 
 	#ifdef SHOW_CALL_STACK

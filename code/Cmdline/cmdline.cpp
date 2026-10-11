@@ -193,6 +193,7 @@
 #include "multi.h"
 #include "cfile.h"
 #include "Replay.h"
+#include "Autotest.h"
 
 // variables
 class cmdline_parm {
@@ -236,6 +237,11 @@ cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
 cmdline_parm fulltrace_arg("-fulltrace", NULL);
+cmdline_parm autotest_arg("-autotest", NULL);			// Claude: autotest, see Autotest.h
+cmdline_parm autotest_mission_arg("-at_mission", NULL);
+cmdline_parm autotest_time_arg("-at_time", NULL);
+cmdline_parm autotest_speed_arg("-at_speed", NULL);
+cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -621,6 +627,12 @@ int parse_cmdline(char *cmdline)
 	if(record_arg.found() || replay_arg.found()){
 		replay_set_cmdline(record_arg.found() ? record_arg.str() : NULL, replay_arg.found() ? replay_arg.str() : NULL,
 			trace_arg.found() ? trace_arg.str() : NULL, fulltrace_arg.found());
+	}
+
+	// Claude: autotest.  The -at_ flags do nothing without -autotest.
+	if(autotest_arg.found()){
+		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
+			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL);
 	}
 
 	return 1;

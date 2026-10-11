@@ -555,6 +555,7 @@
 #include "Encrypt.h"
 #include "Demo.h"
 #include "Replay.h"
+#include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
 #include "ExceptionHandler.h"
@@ -4423,6 +4424,7 @@ void game_update_missiontime()
 
 void game_do_frame()
 {	
+	autotest_frame();	// Claude: Autotest time compression, invulnerability and time limit.  Does nothing without autotest rules.
 	game_set_frametime(GS_STATE_GAME_PLAY);
 	game_update_missiontime();
 
@@ -4558,7 +4560,8 @@ int game_poll()
 {
 	int k, state;
 
-	if (!os_foreground()) {		
+	// Claude: An autotest keeps playing when its window is not in front.  os_foreground() is still read first, so the recording is unchanged.
+	if (!os_foreground() && !Autotest_rules) {		
 		game_stop_time();
 		os_sleep(100);
 		game_start_time();
@@ -5242,7 +5245,7 @@ void game_process_event( int current_state, int event )
 			gameseq_set_state(GS_STATE_INITIAL_PLAYER_SELECT);
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
-			if( replay_load_pilot() || player_select_get_last_pilot() ) {
+			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
 				// always enter the main menu -- do the automatic network startup stuff elsewhere
 				// so that we still have valid checks for networking modes, etc.
 				gameseq_set_state(GS_STATE_MAIN_MENU);
@@ -6135,6 +6138,7 @@ int Game_do_state_should_skip = 0;
 void game_do_state(int state)
 {
 	replay_drive_state(state);
+	autotest_drive_state(state);	// Claude: drives the menus during an autotest
 
 	// always lets the do_state_common() function determine if the state should be skipped
 	Game_do_state_should_skip = 0;
@@ -6801,7 +6805,7 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 #endif
 
 	game_shutdown();
-	return 1;
+	return autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
 }
 
 int PASCAL WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)

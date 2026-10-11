@@ -268,6 +268,7 @@
 #include "Emp.h"
 #include "AlphaColors.h"
 #include "Multi.h"
+#include "Autotest.h"
 
 #define MAX_TRAINING_MSG_LINES		10
 //#define TRAINING_MSG_WINDOW_X			174
@@ -819,7 +820,8 @@ void message_translate_tokens(char *buf, char *text)
 							XSTR( "Warning\nYou have no control bound to the action \"%s\".  You must do so before you can continue with your training.", 426),
 							XSTR(Control_config[Failed_key_index].text, CONTROL_CONFIG_XSTR + Failed_key_index));
 
-						if (r) {  // do they want to abort the mission?
+						// Claude: an autotest cannot bind a control, and nothing would leave the control config screen, so it aborts.
+						if (r || Autotest_rules) {  // do they want to abort the mission?
 							gameseq_post_event(GS_EVENT_END_GAME);
 							return;
 						}

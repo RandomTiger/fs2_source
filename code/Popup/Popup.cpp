@@ -194,6 +194,7 @@
 #include "font.h"
 #include "AlphaColors.h"
 #include "OsApi.h"
+#include "Autotest.h"
 
 #define POPUP_MAX_CHOICES			3					// max number of buttons allowed on popup
 
@@ -982,6 +983,18 @@ int popup_do(popup_info *pi, int flags)
 {
 	int screen_id, choice = -1, done = 0;
 
+	// Claude: An autotest answers with the first choice, so nothing waits for a player.
+	if (autotest_popup(pi->raw_text)) {
+		for (int i = 0; i < pi->nchoices; i++) {	// as popup_close does
+			if (pi->button_text[i] != NULL) {
+				free(pi->button_text[i]);
+				pi->button_text[i] = NULL;
+			}
+		}
+		Popup_is_active = 0;
+		return 0;
+	}
+
 	screen_id = gr_save_screen();
 
 	if ( popup_init(pi, flags) == -1 ){
@@ -1047,6 +1060,18 @@ int popup_do_with_condition(popup_info *pi, int flags, int(*condition)())
 {
 	int screen_id, choice = -1, done = 0;
 	int test;
+
+	// Claude: An autotest answers with the first choice, so nothing waits for a player.
+	if (autotest_popup(pi->raw_text)) {
+		for (int i = 0; i < pi->nchoices; i++) {	// as popup_close does
+			if (pi->button_text[i] != NULL) {
+				free(pi->button_text[i]);
+				pi->button_text[i] = NULL;
+			}
+		}
+		Popup_is_active = 0;
+		return 0;
+	}
 	screen_id = gr_save_screen();
 	if ( popup_init(pi, flags) == -1 )
 		return -1;

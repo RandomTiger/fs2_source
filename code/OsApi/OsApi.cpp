@@ -100,6 +100,7 @@
 #include "OsRegistry.h"
 #include "cmdline.h"
 #include "Replay.h"
+#include "Autotest.h"
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI DEFINES/VARS
@@ -696,6 +697,10 @@ void os_poll()
 
 void debug_int3()
 {
+	// Claude: An autotest logs it and carries on.  With no debugger attached, int 3 ends the process.
+	if (autotest_report("Int3", "", NULL, 0)) {
+		return;
+	}
 	gr_activate(0);
 	_asm { int 3 };
 	gr_activate(1);

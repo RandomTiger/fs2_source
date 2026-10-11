@@ -13,7 +13,12 @@ FS2vs2022d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.tra
 3. It ends when the mission ends: debriefing, a quit back to the main hall, a restart from the death popup, or closing the game. One process records one mission. Quit and relaunch to record another.
 4. `NAME.fs2rec.record.log` reports `RECORD OK` and counts every recorded value by type.
 
-**File names must not contain `-`.** The game's command-line parser treats `-` as the start of the next option.
+To make a recording with nobody playing, use the autotest (`docs/AUTOTEST.md`):
+```
+FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+```
+
+Put a file name in double quotes if it contains a space.
 
 ## Replaying
 
@@ -53,11 +58,13 @@ The stream starts at `GS_EVENT_ENTER_GAME`. The mission load, briefing and loado
 
 A hooked function called from inside another hooked function is not recorded on its own. For example, the clock read inside `joy_down_time` is covered by `joy_down_time`'s own value.
 
-## File format (`.fs2rec`, version 1)
+## File format (`.fs2rec`, version 2)
+
+Version 1 files, which have no autotest settings, still replay.
 
 All values are little-endian.
 
-1. `replay_header` (`code/Replay/Replay.cpp`): magic `FS2REC`, version, build, mission name and checksum, game mode, campaign, callsign, level seed, `Semirand`, skill, detail, screen size, sound settings, loadout size, time state at mission entry, and the pilot and campaign file sizes.
+1. `replay_header` (`code/Replay/Replay.cpp`): magic `FS2REC`, version, build, mission name and checksum, game mode, campaign, callsign, level seed, `Semirand`, skill, detail, screen size, sound settings, loadout size, time state at mission entry, the autotest settings (version 2), and the pilot and campaign file sizes.
 2. `loadout_data`, as raw bytes.
 3. The pilot file (`.plr`) and the campaign save file (`.csg`), as they were on disk when the mission loaded.
 4. The stream. Each entry is a tag byte (`RT_*` in `Replay.h`) and then its values:

@@ -29,8 +29,9 @@
 #include "MissionCampaign.h"
 #include "MissionScreenCommon.h"
 #include "RedAlert.h"
+#include "Autotest.h"
 
-#define REPLAY_FILE_VERSION		1
+#define REPLAY_FILE_VERSION		2	// Claude: 2 adds the autotest settings
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
 #define REPLAY_MAX_BLOB				(1024*1024)
 
@@ -91,7 +92,12 @@ typedef struct replay_header {
 	int	missiontime;
 	int	pilot_size;
 	int	campaign_size;
+	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h)
+	int	autotest_time;
+	int	autotest_speed;
 } replay_header;
+
+#define REPLAY_HEADER_V1_SIZE		(sizeof(replay_header) - 3 * sizeof(int))	// Claude: a version 1 header ends before the autotest settings
 
 static replay_header Hdr;
 static loadout_data Hdr_loadout;
@@ -237,7 +243,9 @@ static void replay_fatal(char *format, ...)
 		fclose(Replay_log);
 		Replay_log = NULL;
 	}
-	MessageBox(NULL, buf, "FS2 replay", MB_OK);
+	if (!Autotest_harness) {	// Claude: nobody is there to close a dialog
+		MessageBox(NULL, buf, "FS2 replay", MB_OK);
+	}
 	TerminateProcess(GetCurrentProcess(), 4);
 }
 
@@ -591,7 +599,7 @@ static void replay_write_header()
 static void replay_read_file()
 {
 	FILE *fp;
-	int pos;
+	int pos, hdr_size;
 
 	fp = fopen(Replay_file, "rb");
 	if (!fp) {
@@ -606,18 +614,25 @@ static void replay_read_file()
 	}
 	fclose(fp);
 
-	if (Rsize < (int)sizeof(Hdr)) {
+	// Claude: version 1 recordings have no autotest settings, so they replay with them off
+	if (Rsize < (int)REPLAY_HEADER_V1_SIZE) {
 		replay_fatal("'%s' is not a recording", Replay_file);
 	}
-	memcpy(&Hdr, Rdata, sizeof(Hdr));
-	if (memcmp(Hdr.magic, "FS2REC", 6) || (Hdr.version != REPLAY_FILE_VERSION)) {
-		replay_fatal("'%s' is not a version %d recording", Replay_file, REPLAY_FILE_VERSION);
+	memset(&Hdr, 0, sizeof(Hdr));
+	memcpy(&Hdr, Rdata, REPLAY_HEADER_V1_SIZE);
+	if (memcmp(Hdr.magic, "FS2REC", 6) || (Hdr.version < 1) || (Hdr.version > REPLAY_FILE_VERSION)) {
+		replay_fatal("'%s' is not a version 1 to %d recording", Replay_file, REPLAY_FILE_VERSION);
 	}
+	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : sizeof(Hdr));
+	if (Rsize < hdr_size) {
+		replay_fatal("'%s' is not a recording", Replay_file);
+	}
+	memcpy(&Hdr, Rdata, hdr_size);
 	if (Hdr.loadout_size != (int)sizeof(loadout_data)) {
 		replay_fatal("Recording loadout size %d does not match this build (%d)", Hdr.loadout_size, sizeof(loadout_data));
 	}
 
-	pos = sizeof(Hdr);
+	pos = hdr_size;	// Claude: was sizeof(Hdr)
 	memcpy(&Hdr_loadout, Rdata + pos, sizeof(Hdr_loadout));
 	pos += sizeof(Hdr_loadout);
 	Hdr_pilot = Rdata + pos;
@@ -754,6 +769,12 @@ void replay_startup()
 		replay_logf("Recorded by build '%s'\n", Hdr.build);
 		replay_logf("Mission '%s', pilot '%s', campaign '%s', seed %d\n", Hdr.mission, Hdr.callsign, Hdr.campaign, Hdr.level_seed);
 
+		// Claude: the mission plays under the rules it was recorded with, whatever the command line says
+		autotest_set_from_recording(Hdr.autotest, Hdr.autotest_time, Hdr.autotest_speed);
+		if (Hdr.autotest) {
+			replay_logf("Autotest rules: %d s of mission time at %dx\n", Hdr.autotest_time, Hdr.autotest_speed);
+		}
+
 		// pilot and campaign files come from the recording, in their own directory, so the
 		// player's own pilot is never read or written
 		_mkdir(REPLAY_PILOT_DIR);
@@ -873,7 +894,11 @@ void replay_load_begin()
 		Hdr.master_sound_volume = Master_sound_volume;
 		Hdr.master_voice_volume = Master_voice_volume;
 		Hdr.master_event_music_volume = Master_event_music_volume;
+		autotest_get_settings(&Hdr.autotest, &Hdr.autotest_time, &Hdr.autotest_speed);	// Claude: so the replay plays under the same rules
 		replay_logf("Mission '%s', pilot '%s', campaign '%s'\n", Hdr.mission, Hdr.callsign, Hdr.campaign);
+		if (Hdr.autotest) {
+			replay_logf("Autotest rules: %d s of mission time at %dx\n", Hdr.autotest_time, Hdr.autotest_speed);
+		}
 	} else {
 		if (stricmp(Hdr.mission, Game_current_mission_filename)) {
 			replay_fatal("Recorded mission is '%s', this run is loading '%s'", Hdr.mission, Game_current_mission_filename);
