@@ -2765,7 +2765,9 @@ void gr_d3d_init()
 	// set clear color
 	gr_screen.gf_set_clear_color = gr_d3d_set_clear_color;
 	
-	uint tmp = os_config_read_uint( NULL, "D3DTextureOrigin", 0xFFFF );
+	// Claude: The startup test for this reads the front buffer, which on modern Windows is not reliably the game's
+	// own pixels, and ani frames came out offset.  Default to 1 (the half-texel offset D3D7 needs) instead.
+	uint tmp = os_config_read_uint( NULL, "D3DTextureOrigin", 1 );
 
 	if ( tmp != 0xFFFF )	{
 		if ( tmp )	{
@@ -2781,6 +2783,8 @@ void gr_d3d_init()
 		}
 	}
 
+	// Claude: Left on the startup test (same front buffer read as D3DTextureOrigin above).  0 would match the
+	// texture default, but no line problem has been seen, so it is unchanged.
 	tmp = os_config_read_uint( NULL, "D3DLineOffset", 0xFFFF );
 
 	if ( tmp != 0xFFFF )	{
