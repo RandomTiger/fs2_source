@@ -163,6 +163,17 @@ float frand_range(float min, float max)
 	return rval;
 }
 
+// Claude: Cosmetic random stream versions of frand() and frand_range().
+float cosmetic_frand()
+{
+	return ((float) cosmetic_rand()) / (RAND_MAX + 1);
+}
+
+float cosmetic_frand_range(float min, float max)
+{
+	return cosmetic_frand() * (max - min) + min;
+}
+
 //	Call this in the frame interval to get TRUE chance times per second.
 //	If you want it to return TRUE 3 times per second, call it in the frame interval like so:
 //		rand_chance(flFrametime, 3.0f);

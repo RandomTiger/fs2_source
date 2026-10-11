@@ -640,8 +640,8 @@ void radar_blip_draw_distorted(blip *b)
 {
 	int xdiff, ydiff;
 	float scale;
-	xdiff = -10 + rand()%20;
-	ydiff = -10 + rand()%20;
+	xdiff = -10 + cosmetic_rand()%20;
+	ydiff = -10 + cosmetic_rand()%20;
 
 	// maybe scale the effect if EMP is active
 	if(emp_active_local()){
@@ -666,7 +666,7 @@ void radar_blip_draw_flicker(blip *b)
 	}
 
 	if ( timestamp_elapsed(Radar_flicker_timer[flicker_index]) ) {
-		Radar_flicker_timer[flicker_index] = timestamp_rand(50,1000);
+		Radar_flicker_timer[flicker_index] = cosmetic_timestamp_rand(50,1000);
 		Radar_flicker_on[flicker_index] ^= 1;
 	}
 
@@ -674,9 +674,9 @@ void radar_blip_draw_flicker(blip *b)
 		return;
 	}
 
-	if ( rand() & 1 ) {
-		xdiff = -2 + rand()%4;
-		ydiff = -2 + rand()%4;
+	if ( cosmetic_rand() & 1 ) {
+		xdiff = -2 + cosmetic_rand()%4;
+		ydiff = -2 + cosmetic_rand()%4;
 	}
 
 	radar_draw_circle( b->x+xdiff, b->y+ydiff, b->rad ); 
@@ -823,7 +823,7 @@ void radar_frame_render(float frametime)
 
 	if ( timestamp_elapsed(Radar_static_next) ) {
 		Radar_static_playing ^= 1;
-		Radar_static_next = timestamp_rand(50, 750);
+		Radar_static_next = cosmetic_timestamp_rand(50, 750);
 	}
 
 	// if the emp effect is active, always draw the radar wackily

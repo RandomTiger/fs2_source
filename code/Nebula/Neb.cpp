@@ -811,9 +811,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[src][idx1][idx2].pt;
 
-				v->x = h_incw + (ws * (float)src) + frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)idx1) + frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)src) + cosmetic_frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)idx1) + cosmetic_frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 
 				// set the bitmap
@@ -821,7 +821,7 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 
 				// set the rotation speed
 				Neb2_cubes[src][idx1][idx2].rot = 0.0f;
-				Neb2_cubes[src][idx1][idx2].rot_speed = frand_range(-max_rotation, max_rotation);
+				Neb2_cubes[src][idx1][idx2].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);
 				Neb2_cubes[src][idx1][idx2].flash = 0.0f;
 			}
 		}
@@ -831,9 +831,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[idx1][src][idx2].pt;
 				
-				v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)src) + frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)src) + cosmetic_frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 
 				// set the bitmap
@@ -841,7 +841,7 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 
 				// set the rotation speed
 				Neb2_cubes[idx1][src][idx2].rot = 0.0f;
-				Neb2_cubes[idx1][src][idx2].rot_speed = frand_range(-max_rotation, max_rotation);
+				Neb2_cubes[idx1][src][idx2].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);
 				Neb2_cubes[src][idx1][idx2].flash = 0.0f;
 			}
 		}
@@ -851,9 +851,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[idx1][idx2][src].pt;
 
-				v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)idx2) + frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)src) + frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)idx2) + cosmetic_frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)src) + cosmetic_frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 				
 				// set the bitmap
@@ -861,7 +861,7 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 
 				// set the rotation speed
 				Neb2_cubes[idx1][idx2][src].rot = 0.0f;
-				Neb2_cubes[idx1][idx2][src].rot_speed = frand_range(-max_rotation, max_rotation);
+				Neb2_cubes[idx1][idx2][src].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);
 				Neb2_cubes[src][idx1][idx2].flash = 0.0f;
 			}
 		}
@@ -1379,7 +1379,7 @@ int neb2_get_bitmap()
 	static int neb2_choose = 0;
 
 	// get a random count
-	count = (int)frand_range(1.0f, 5.0f);
+	count = (int)cosmetic_frand_range(1.0f, 5.0f);
 
 	// very ad-hoc
 	while(count > 0){
@@ -1758,23 +1758,23 @@ void neb2_add_inner(neb2 *neb, int num_poofs, matrix *orient, float ang)
 	for(idx=neb->num_poofs; idx<final_index; idx++){
 		if(orient != NULL){
 			// put a point directly in front of the player, between 0 and inner_radius distance away
-			vm_vec_copy_scale(&pt, &orient->fvec, frand_range(neb->magic_num, neb->inner_radius));
+			vm_vec_copy_scale(&pt, &orient->fvec, cosmetic_frand_range(neb->magic_num, neb->inner_radius));
 
 			// rotate the point by -ang <-> ang around the up vector
-			vm_rot_point_around_line(&pt2, &pt, fl_radian(frand_range(-ang, ang)), &vmd_zero_vector, &orient->uvec);
+			vm_rot_point_around_line(&pt2, &pt, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_zero_vector, &orient->uvec);
 
 			// rotate the point by -ang <-> ang around the right vector
-			vm_rot_point_around_line(&pt3, &pt2, fl_radian(frand_range(-ang, ang)), &vmd_zero_vector, &orient->rvec);
+			vm_rot_point_around_line(&pt3, &pt2, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_zero_vector, &orient->rvec);
 
 			// now add in the center of the nebula so its placed properly (ie, not around the origin)
 			vm_vec_add(&neb->pts[idx], &pt3, &Objects[neb->objnum].pos);
 		} else {
-			neb->pts[idx].x = frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.x;
-			neb->pts[idx].y = frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.y;
-			neb->pts[idx].z = frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.z;
+			neb->pts[idx].x = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.x;
+			neb->pts[idx].y = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.y;
+			neb->pts[idx].z = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + Objects[neb->objnum].pos.z;
 		}
 
-		neb->bmaps[idx] = (int)frand_range(0.0f, (float)2);
+		neb->bmaps[idx] = (int)cosmetic_frand_range(0.0f, (float)2);
 		neb->num_poofs++;
 	}
 }
@@ -1796,17 +1796,17 @@ void neb2_add_outer(neb2 *neb, int num_poofs, matrix *orient, float ang)
 			vm_vec_copy_scale(&pt, &orient->fvec, neb->outer_radius);
 
 			// rotate the point by -ang <-> ang around the up vector
-			vm_rot_point_around_line(&pt2, &pt, fl_radian(frand_range(-ang, ang)), &vmd_zero_vector, &orient->uvec);
+			vm_rot_point_around_line(&pt2, &pt, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_zero_vector, &orient->uvec);
 
 			// rotate the point by -ang <-> ang around the right vector
-			vm_rot_point_around_line(&pt3, &pt2, fl_radian(frand_range(-ang, ang)), &vmd_zero_vector, &orient->rvec);
+			vm_rot_point_around_line(&pt3, &pt2, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_zero_vector, &orient->rvec);
 
 			// now add in the center of the nebula so its placed properly (ie, not around the origin)
 			vm_vec_add(&neb->pts[idx], &pt, &Objects[neb->objnum].pos);
 		} else {
 			// get a random point on the very outer radius, using spherical coords
-			phi = fl_radian(frand_range(0.0f, 360.0f));
-			theta = fl_radian(frand_range(0.0f, 360.f));
+			phi = fl_radian(cosmetic_frand_range(0.0f, 360.0f));
+			theta = fl_radian(cosmetic_frand_range(0.0f, 360.f));
 	
 			neb->pts[idx].x = neb->outer_radius * (float)sin(phi) * (float)cos(theta);
 			neb->pts[idx].y = neb->outer_radius * (float)sin(phi) * (float)sin(theta);
@@ -1814,7 +1814,7 @@ void neb2_add_outer(neb2 *neb, int num_poofs, matrix *orient, float ang)
 		}
 
 		// pick a random bitmap and increment the # of poofs
-		neb->bmaps[idx] = (int)frand_range(0.0f, (float)2);
+		neb->bmaps[idx] = (int)cosmetic_frand_range(0.0f, (float)2);
 		neb->num_poofs++;
 	}
 }

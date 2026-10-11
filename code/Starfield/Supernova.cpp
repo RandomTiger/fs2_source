@@ -168,7 +168,7 @@ void supernova_do_particles()
 
 		// emit
 		for(idx=0; idx<10; idx++){			
-			submodel_get_two_random_points(Player_ship->modelnum, 0, &ta, &tb);
+			submodel_get_two_random_points_cosmetic(Player_ship->modelnum, 0, &ta, &tb);
 
 			// rotate into world space
 			vm_vec_unrotate(&a, &ta, &Player_obj->orient);			
@@ -326,8 +326,8 @@ void supernova_apply_shake(matrix *eye_orient, float intensity)
 	tangles.b = 0.0f;	
 
 	// Make eye shake due to engine wash		
-	int r1 = myrand();
-	int r2 = myrand();
+	int r1 = cosmetic_rand();
+	int r2 = cosmetic_rand();
 	tangles.p += 0.07f * intensity * (float) (r1-RAND_MAX/2)/RAND_MAX;
 	tangles.h += 0.07f * intensity * (float) (r2-RAND_MAX/2)/RAND_MAX;			
 
