@@ -5,6 +5,8 @@
 #include <windows.h>
 #include <stdio.h>
 #include <direct.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
 
 #include "pstypes.h"
 #include "Replay.h"
@@ -161,6 +163,39 @@ static void replay_log_stats()
 	}
 }
 
+// log the call stack, so a desync names the code that asked for the value
+static void replay_log_stack()
+{
+	void *frames[24];
+	char symbuf[sizeof(SYMBOL_INFO) + 256];
+	SYMBOL_INFO *sym = (SYMBOL_INFO *)symbuf;
+	IMAGEHLP_LINE64 line;
+	DWORD disp;
+	HANDLE proc = GetCurrentProcess();
+	int i, count;
+
+	SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
+	if (!SymInitialize(proc, NULL, TRUE)) {
+		return;
+	}
+	count = CaptureStackBackTrace(1, 24, frames, NULL);
+	for (i = 0; i < count; i++) {
+		memset(symbuf, 0, sizeof(symbuf));
+		sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+		sym->MaxNameLen = 255;
+		memset(&line, 0, sizeof(line));
+		line.SizeOfStruct = sizeof(line);
+		if (SymFromAddr(proc, (DWORD64)frames[i], NULL, sym) && SymGetLineFromAddr64(proc, (DWORD64)frames[i], &disp, &line)) {
+			replay_logf("  %s  %s:%d\n", sym->Name, line.FileName, line.LineNumber);
+		} else if (SymFromAddr(proc, (DWORD64)frames[i], NULL, sym)) {
+			replay_logf("  %s\n", sym->Name);
+		} else {
+			replay_logf("  %p\n", frames[i]);
+		}
+	}
+	SymCleanup(proc);
+}
+
 // a recorded value or event did not match what this run asked for.  Nothing after this point
 // can be trusted, so stop the process.
 static void replay_desync(char *format, ...)
@@ -174,6 +209,7 @@ static void replay_desync(char *format, ...)
 	buf[sizeof(buf) - 1] = 0;
 
 	replay_logf("DESYNC at frame %d, entry %d (byte %d): %s\n", Replay_frame, Replay_entries, Rpos, buf);
+	replay_log_stack();
 	replay_log_stats();
 	replay_logf("REPLAY FAILED\n");
 	trace_close();
