@@ -482,7 +482,9 @@ int check_inside_radius_for_big_ships( object *ship, object *weapon, obj_pair *p
 	}
 
 	// Note:  when estimated hit time is less than 200 ms, look at every frame
-	int hit_time;	// estimated time of hit in ms
+	// Claude: Initialised to -1.  A homing missile's proximity detonation returns a hit without setting it, and the
+	// branch below then used stack garbage.  -1 treats it as a hit this frame; the missile detonates next frame either way.
+	int hit_time = -1;	// estimated time of hit in ms
 
 	// modify ship_weapon_check_collision to do damage if hit_time is negative (ie, hit occurs in this frame)
 	if ( ship_weapon_check_collision( ship, weapon, limit_time, &hit_time ) ) {
