@@ -1459,7 +1459,7 @@ void player_level_init()
 	Player->locking_subsys_parent=-1;
 
 	Player->killer_objtype=-1;					// type of object that killed player
-	Player->killer_weapon_index;				// weapon used to kill player (if applicable)
+	Player->killer_weapon_index=-1;				// weapon used to kill player (if applicable)  Claude: the =-1 was missing
 	Player->killer_parent_name[0]=0;			// name of parent object that killed the player
 
 	Player_all_alone_msg_inited=0;
