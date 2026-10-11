@@ -356,7 +356,7 @@ static char *parm_find(char *cmdline, char *name)
 	for (p = cmdline; *p; p++) {
 		if (*p == '"') {
 			in_quote = !in_quote;
-		} else if (!in_quote && ((p == cmdline) || is_extra_space(p[-1])) && !strncmp(p, name, len) && ((p[len] == 0) || is_extra_space(p[len]))) {
+		} else if (!in_quote && ((p == cmdline) || is_extra_space(p[-1]) || (p[-1] == ',')) && !strncmp(p, name, len) && ((p[len] == 0) || is_extra_space(p[len]) || (p[len] == ','))) {	// Claude: ',' separates parameters too, as in os_validate_parms
 			return p;
 		}
 	}
