@@ -1161,7 +1161,7 @@ void nebl_generate_section(bolt_type *bi, float width, l_node *a, l_node *b, l_s
 		g3_project_vertex(&c->vex[idx]);		
 
 		// if first frame, keep track of the average screen pos
-		if((c->vex[idx].sx >= 0) && (c->vex[idx].sx < gr_screen.max_w) && (c->vex[idx].sy >= 0) && (c->vex[idx].sy < gr_screen.max_h)){
+		if(!(c->vex[idx].flags & PF_OVERFLOW) && (c->vex[idx].sx >= 0) && (c->vex[idx].sx < gr_screen.max_w) && (c->vex[idx].sy >= 0) && (c->vex[idx].sy < gr_screen.max_h)){	// Claude: sx and sy are not set when the vertex is behind the eye
 			Nebl_flash_x += c->vex[idx].sx;
 			Nebl_flash_y += c->vex[idx].sy;
 			Nebl_flash_count++;
@@ -1192,7 +1192,8 @@ void nebl_generate_section(bolt_type *bi, float width, l_node *a, l_node *b, l_s
 			g3_project_vertex(&cap->vex[idx]);			
 
 			// if first frame, keep track of the average screen pos			
-			if( (c->vex[idx].sx >= 0) && (c->vex[idx].sx < gr_screen.max_w) && (c->vex[idx].sy >= 0) && (c->vex[idx].sy < gr_screen.max_h)){
+			// Claude: original bug, this tests c->vex where cap->vex was meant, so the start section is counted again. Left as is: fixing it changes gameplay (the flash count gates frand_range and emp_apply).
+			if( !(c->vex[idx].flags & PF_OVERFLOW) && (c->vex[idx].sx >= 0) && (c->vex[idx].sx < gr_screen.max_w) && (c->vex[idx].sy >= 0) && (c->vex[idx].sy < gr_screen.max_h)){	// Claude: sx and sy are not set when the vertex is behind the eye
 				Nebl_flash_x += c->vex[idx].sx;
 				Nebl_flash_y += c->vex[idx].sy;
 				Nebl_flash_count++;
