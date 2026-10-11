@@ -367,6 +367,10 @@ void supernova_set_view(vector *eye_pos, matrix *eye_orient)
 	vm_vec_sub(&sun, &sun_temp, &Player_obj->pos);
 	vm_vec_normalize(&sun);
 
+	// Claude: move was used below before being set.  The else branch always sets it to -sun, so set that here.
+	move = sun;
+	vm_vec_negate(&move);
+
 	// always set the camera pos
 	matrix whee;
 	vm_vector_2_matrix(&whee, &move, NULL, NULL);
