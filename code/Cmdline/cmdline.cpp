@@ -287,7 +287,7 @@ char *drop_extra_chars(char *str)
 		e--;
 	}
 
-	if (e > s){
+	if (e >= s){	// Claude: was e > s, which left a one-character value unmoved (" 3" became " ")
 		memmove(str, str + s, e - s + 1);
 	}
 
@@ -302,10 +302,16 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 	char buffer[1024];
 	memset(buffer, 0, 1024);
 	char *dest = buffer;
+	int in_quote = 0;
 
 	cmdline += strlen(parm->name);
 
-	while ((*cmdline != 0) && (*cmdline != '-')) {
+	// Claude: Stop at the next parameter, not at any '-', so values such as "sm1-03.fs2" are kept whole.
+	// A parameter is a '-' that starts a token outside quotes.  Also stop before the buffer overflows.
+	while ((*cmdline != 0) && (in_quote || (*cmdline != '-') || !is_extra_space(cmdline[-1])) && (dest < buffer + sizeof(buffer) - 1)) {
+		if (*cmdline == '"') {
+			in_quote = !in_quote;
+		}
 		*dest++ = *cmdline++;
 	}
 
@@ -328,6 +334,24 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 }
 
 
+// Claude: Find a parameter only as a whole token outside quotes.  strstr also matched it inside a longer
+// parameter ("-cat" in "-catfish") or inside a value or path ("-replay" in "c:\my-replay.fs2rec").
+static char *parm_find(char *cmdline, char *name)
+{
+	int len = strlen(name);
+	int in_quote = 0;
+	char *p;
+
+	for (p = cmdline; *p; p++) {
+		if (*p == '"') {
+			in_quote = !in_quote;
+		} else if (!in_quote && ((p == cmdline) || is_extra_space(p[-1])) && !strncmp(p, name, len) && ((p[len] == 0) || is_extra_space(p[len]))) {
+			return p;
+		}
+	}
+	return NULL;
+}
+
 // internal function - parse the command line, extracting parameter arguements if they exist
 // cmdline - command line string passed to the application
 void os_parse_parms(char *cmdline)
@@ -337,7 +361,7 @@ void os_parse_parms(char *cmdline)
 	char *cmdline_offset;
 
 	for (parmp = GET_FIRST(&Parm_list); parmp !=END_OF_LIST(&Parm_list); parmp = GET_NEXT(parmp) ) {
-		cmdline_offset = strstr(cmdline, parmp->name);
+		cmdline_offset = parm_find(cmdline, parmp->name);	// Claude: was strstr
 		if (cmdline_offset) {
 			parmp->name_found = 1;
 			parm_stuff_args(parmp, cmdline_offset);
