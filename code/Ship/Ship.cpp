@@ -8022,10 +8022,9 @@ char *ship_return_orders(char *outbuf, ship *sp)
 			break;
 
 		case AI_GOAL_DESTROY_SUBSYSTEM: {
-			char name[NAME_LENGTH];
 			if ( aip->targeted_subsys != NULL ) {
 				sprintf(outbuf, XSTR( "atk %s %s", 496), aigp->ship_name, hud_targetbox_truncate_subsys_name(aip->targeted_subsys->system_info->name));
-				strcat(outbuf, name);
+				// Claude: Removed strcat(outbuf, name); name was never set, so it appended stack garbage.
 			} else {
 				strcpy(outbuf, XSTR( "no orders", 495) );
 			}
