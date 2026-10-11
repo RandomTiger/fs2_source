@@ -1944,6 +1944,9 @@ void audiostream_unpause_all()
 		if ( Audio_streams[i].status == ASF_FREE )
 			continue;
 
+		// Claude: The audio timer thread frees a stream when its fade-out ends, so which streams are still open here depends on thread timing.  Unpausing only affects sound, so keep its reads out of the recording.
+		replay_push();
 		audiostream_unpause(i);
+		replay_pop();
 	}
 }
