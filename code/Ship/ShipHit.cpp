@@ -1327,9 +1327,10 @@ int choose_next_spark(object *ship_obj, vector *hitpos)
 	}
 
 	// initialize spark pairs
-	for (i=0; i<num_spark_pairs; i++) {
-		spark_pairs[i].index1 = 0;
-		spark_pairs[i].index2 = 0;
+	// Claude: Initialise every entry, not just num_spark_pairs.  -1 matches no spark slot.
+	for (i=0; i<MAX_SPARK_PAIRS; i++) {
+		spark_pairs[i].index1 = -1;
+		spark_pairs[i].index2 = -1;
 		spark_pairs[i].dist = FLT_MAX;
 	}
 
@@ -1354,7 +1355,9 @@ int choose_next_spark(object *ship_obj, vector *hitpos)
 	int count1 = 0;
 	int count2 = 0;
 
-	for (i=1; i<6; i++) {
+	// Claude: Stop at count.  With 3 sparks there are only 3 pairs, so entries 3-5 were uninitialised stack:
+	// Debug (0xCC) never matched, Release could, so the two builds recycled different sparks.
+	for (i=1; i<6 && i<count; i++) {
 		if (spark_pairs[i].index1 == index1) {
 			count1++;
 		}
