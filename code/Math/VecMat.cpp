@@ -1751,12 +1751,14 @@ void vm_matrix_to_rot_axis_and_angle(matrix *m, float *theta, vector *rot_axis)
 			largest_diagonal_index = 2;
 		}
 
+		// Claude: Each case divided by the axis component before setting it, so it used whatever was in the caller's
+		// uninitialised rot_axis (stack-dependent in Release).  Set the component first, then take its reciprocal.
 		switch (largest_diagonal_index) {
 		case 0:
 			float ix;
+			rot_axis->x = fl_sqrt(m->a2d[0][0] + 1.0f);
 			ix = 1.0f / rot_axis->x;
 
-			rot_axis->x = fl_sqrt(m->a2d[0][0] + 1.0f);
 			rot_axis->y = m->a2d[0][1] * ix;
 			rot_axis->z = m->a2d[0][2] * ix;
 			vm_vec_normalize(rot_axis);
@@ -1764,9 +1766,9 @@ void vm_matrix_to_rot_axis_and_angle(matrix *m, float *theta, vector *rot_axis)
 
 		case 1:
 			float iy;
+			rot_axis->y = fl_sqrt(m->a2d[1][1] + 1.0f);
 			iy = 1.0f / rot_axis->y;
 
-			rot_axis->y = fl_sqrt(m->a2d[1][1] + 1.0f);
 			rot_axis->x = m->a2d[1][0] * iy;
 			rot_axis->z = m->a2d[1][2] * iy;
 			vm_vec_normalize(rot_axis);
@@ -1774,9 +1776,9 @@ void vm_matrix_to_rot_axis_and_angle(matrix *m, float *theta, vector *rot_axis)
 
 		case 2:
 			float iz;
+			rot_axis->z = fl_sqrt(m->a2d[2][2] + 1.0f);
 			iz = 1.0f / rot_axis->z;
 
-			rot_axis->z = fl_sqrt(m->a2d[2][2] + 1.0f);
 			rot_axis->x = m->a2d[2][0] * iz;
 			rot_axis->y = m->a2d[2][1] * iz;
 			break;
