@@ -291,11 +291,12 @@ int get_char_width(ubyte c1,ubyte c2,int *width,int *spacing)
 
 			if ((letter2>=0) && (letter2<Current_font->num_chars) ) {				//not in font, draw as space
 				font_kernpair	*k = &Current_font->kern_data[i];
-				while( (k->c1 == letter) && (k->c2<letter2) && (i<Current_font->num_kern_pairs) )	{
+				// Claude: bounds check moved first; it came after the reads, so the last pair read past the end of kern_data
+				while( (i<Current_font->num_kern_pairs) && (k->c1 == letter) && (k->c2<letter2) )	{
 					i++;
 					k++;
 				}
-				if ( k->c2 == letter2 )	{
+				if ( (i<Current_font->num_kern_pairs) && (k->c2 == letter2) )	{
 					*spacing += k->offset;
 				}
 			}
