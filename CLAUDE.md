@@ -11,9 +11,11 @@ The recorder records a person playing a mission. It replays the same inputs into
 - Surgical edits; no whitespace churn or refactors of code you only passed through.
 - FSO (FreeSpace Open) is not a reference.
 - Game assets are never committed. Recordings (`recordings/`) and traces are fine.
+- New features branch off `RecordPlayback`, so they are verified against the recordings from the start.
+- Original source files are Latin-1 with LF line endings. Edit them byte-safely so no character or line ending changes, and keep the UTF-8 BOM on `.vcxproj` files.
 
-## Paths (this machine: DESKTOP-MAIN)
-- Game install (`PATH_FS2`): `U:\SteamLibrary\steamapps\common\Freespace 2`
+## Paths
+- Game install: the `PATH_FS2` environment variable. It differs per machine; never hard-code it.
 - Built exes go to `PATH_FS2`, named `FS2vs2022d.exe` (Debug) and `FS2vs2022r.exe` (Release). The fs2_source_ue repo builds the same names into the same folder, so whichever repo built last is the exe there.
 - `TraceDiff.exe` goes to `tools\bin\`.
 - MSBuild: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe`
@@ -31,3 +33,5 @@ FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 ```
 Run with the working directory set to `PATH_FS2`, and pass absolute paths to the recording. `NAME.fs2rec.replay.log` must say `REPLAY OK`, and TraceDiff must exit with 0. On a divergence, report the frame and fields to Tom and let him decide. Never change thresholds or re-record to make a test pass.
+
+Replay with both `FS2vs2022d.exe` and `FS2vs2022r.exe`. If the change has an off switch, replay each with it on and off.
