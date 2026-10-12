@@ -38,4 +38,21 @@ void d3d_glow_frame();
 // texture cache ran out of VRAM, glow stays off until the next level.
 void d3d_glow_flush();
 
+// Queue the glow pass for one ship polygon: the vertices of its lit pass, which
+// are copied and turned white (keeping their alpha). Queued polygons are drawn
+// in batches by d3d_glow_draw_queued(), so the render state switches to the glow
+// state once per batch instead of twice per polygon. zbuffer_type is a
+// gr_zbuffer_type (GrD3DRender.cpp).
+void d3d_glow_queue_poly(D3DTEXTUREHANDLE glow_handle, int zbuffer_type, D3DTLVERTEX *verts, int nverts);
+
+// Draw and empty the glow queue. Called before anything else changes the
+// texture or render state (d3d_tcache_set, gr_d3d_set_state), when the z bias
+// changes and at the frame flip, so the glow still lands before whatever is drawn
+// next. Does nothing while D3D_glow_hold is set.
+void d3d_glow_draw_queued();
+
+// Set while a ship polygon's lit pass is drawn (gr_d3d_tmapper), so its own
+// texture and state changes don't flush the queue, and while the queue is drawn.
+extern int D3D_glow_hold;
+
 #endif

@@ -79,6 +79,22 @@ with a separate texture:
 3. Pass 2 only runs for normal opaque textured polys: not for bitmap sections,
    additive/filter blending (`MR_ALL_XPARENT` never sets the flag anyway), or
    textures with no glowing pixels.
+4. **Batching.** Pass 2 polys are queued (`d3d_glow_queue_poly`) instead of
+   drawn straight away, and drawn as triangle lists, one state change per run of
+   the same glow texture and z mode (`d3d_glow_draw_queued`). Drawing each one
+   straight after its pass 1 switched texture and render state twice per poly:
+   on SM1-04 that made a Release replay take 128 s instead of 88 s. Batched, it
+   takes 93 s.
+   - The queue is drawn before anything else changes the texture or render
+     state (`d3d_tcache_set`, `gr_d3d_set_state`), when the z bias changes
+     (`d3d_zbias`) and at the frame flip. Ship polys hold it
+     (`D3D_glow_hold`, set in `gr_d3d_tmapper`), so a model's glow is drawn
+     after its lit polys and before whatever comes next.
+   - Pass 2 only reads z, so drawing it after the polys that follow it gives
+     the same picture, apart from a few pixels at poly edges (3 pixels in 22
+     sampled SM1-04 frames).
+   - Polys with pixel fog (full nebula) are still drawn straight away, because
+     their fog colour is set per poly.
 
 Glow textures (`code/Graphics/GrD3DGlow.cpp`):
 - **Never built during play.** They are built:
@@ -173,14 +189,15 @@ Glide is untouched: its own path still handles nondarkening there.
 ### Gameplay and record/playback safety
 The glow is render-only:
 - It runs only inside the D3D tmapper, the texture cache flush and frame flip,
-  and the end of level load.
+  the end of level load, and (to draw the queue) at the start of
+  `d3d_tcache_set`, `gr_d3d_set_state` and `d3d_zbias`.
 - It reads tables (`Ship_info`, palman's default list), the PCX files, the
   loaded models' texture lists and `Game_mode`.
 - It writes only its own glow cache and D3D render state.
 - It does not touch the RNG, timers, `Ship_info`, palman's current list,
   bmpman's bitmaps or the texture cache's slots. The only cross-module effects
   are an extra `gr_tcache_set(-1, ...)` (makes the next draw rebind its base
-  texture) and the three hook calls above.
+  texture) and the hook calls above.
 - PCX reads happen at level load or in menus, never mid-mission, so there is no
   frame-time hitch during play.
 - `-noshipglow` and the console toggle change only what is drawn.

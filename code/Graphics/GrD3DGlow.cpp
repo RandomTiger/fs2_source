@@ -123,9 +123,13 @@ static void d3d_glow_init_slots()
 	Glow_slots_inited = 1;
 }
 
+static void d3d_glow_queue_clear();
+
 void d3d_glow_flush()
 {
 	int i;
+
+	d3d_glow_queue_clear();		// queued polys use the glow textures freed below
 
 	if ( !Glow_slots_inited )	{
 		d3d_glow_init_slots();
@@ -531,4 +535,121 @@ D3DTEXTUREHANDLE d3d_glow_get_texture(int bitmap_handle)
 		return g->texture_handle;
 	}
 	return NULL;
+}
+
+// ------------------------------------------------------------------------------
+// Batching. Drawing each glow polygon straight after its lit pass switched the
+// texture and render state twice per polygon, which cost more than the glow
+// draws themselves. The glow pass only reads the z buffer, so it can be drawn
+// after the polygons that follow it, as long as it is drawn before anything that
+// is not a ship polygon (see d3d_glow_draw_queued).
+
+#define GLOW_QUEUE_POLYS	2048
+#define GLOW_QUEUE_VERTS	(GLOW_QUEUE_POLYS * 8)
+#define GLOW_BATCH_VERTS	3072					// triangle list vertices per draw call, a multiple of 3
+
+typedef struct glow_poly {
+	D3DTEXTUREHANDLE	handle;
+	int					zbuffer_type;
+	int					first;						// into Glow_queue_verts
+	int					count;
+} glow_poly;
+
+static glow_poly Glow_queue_polys[GLOW_QUEUE_POLYS];
+static D3DTLVERTEX Glow_queue_verts[GLOW_QUEUE_VERTS];
+static D3DTLVERTEX Glow_batch_verts[GLOW_BATCH_VERTS];
+static int Glow_queue_num_polys = 0;
+static int Glow_queue_num_verts = 0;
+int D3D_glow_hold = 0;
+
+extern int DrawPrim;
+void gr_d3d_set_glow_state(int zbuffer_type);
+
+static void d3d_glow_queue_clear()
+{
+	Glow_queue_num_polys = 0;
+	Glow_queue_num_verts = 0;
+}
+
+void d3d_glow_queue_poly(D3DTEXTUREHANDLE glow_handle, int zbuffer_type, D3DTLVERTEX *verts, int nverts)
+{
+	int i;
+
+	if ( nverts < 3 )	{
+		return;
+	}
+
+	// full: draw what is queued now (the caller's lit pass is already drawn)
+	if ( (Glow_queue_num_polys >= GLOW_QUEUE_POLYS) || (Glow_queue_num_verts + nverts > GLOW_QUEUE_VERTS) )	{
+		int hold = D3D_glow_hold;
+		D3D_glow_hold = 0;
+		d3d_glow_draw_queued();
+		D3D_glow_hold = hold;
+	}
+
+	glow_poly *p = &Glow_queue_polys[Glow_queue_num_polys++];
+	p->handle = glow_handle;
+	p->zbuffer_type = zbuffer_type;
+	p->first = Glow_queue_num_verts;
+	p->count = nverts;
+
+	D3DTLVERTEX *dst = &Glow_queue_verts[Glow_queue_num_verts];
+	for ( i=0; i<nverts; i++ )	{
+		dst[i] = verts[i];
+		dst[i].color = RGBA_MAKE(255, 255, 255, RGBA_GETALPHA(verts[i].color));
+	}
+	Glow_queue_num_verts += nverts;
+}
+
+void d3d_glow_draw_queued()
+{
+	int i, k, nb;
+
+	if ( D3D_glow_hold || (Glow_queue_num_polys == 0) )	{
+		return;
+	}
+	D3D_glow_hold = 1;		// the state and texture calls below must not flush again
+
+	i = 0;
+	while ( i < Glow_queue_num_polys )	{
+		// one state change for each run of polygons with the same glow texture and z buffer mode
+		glow_poly *first = &Glow_queue_polys[i];
+		gr_d3d_set_glow_state( first->zbuffer_type );
+		d3d_SetRenderState(D3DRENDERSTATE_TEXTUREHANDLE, first->handle );
+
+		nb = 0;
+		for ( ; i < Glow_queue_num_polys; i++ )	{
+			glow_poly *p = &Glow_queue_polys[i];
+			if ( (p->handle != first->handle) || (p->zbuffer_type != first->zbuffer_type) )	{
+				break;
+			}
+			D3DTLVERTEX *v = &Glow_queue_verts[p->first];
+
+			// execute buffers only take fans
+			if ( !DrawPrim )	{
+				d3d_DrawPrimitive(D3DPT_TRIANGLEFAN, D3DVT_TLVERTEX, (LPVOID)v, p->count, NULL);
+				continue;
+			}
+
+			// fan to triangle list, same winding
+			if ( nb + 3 * (p->count - 2) > GLOW_BATCH_VERTS )	{
+				d3d_DrawPrimitive(D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, (LPVOID)Glow_batch_verts, nb, NULL);
+				nb = 0;
+			}
+			for ( k=1; k<p->count-1; k++ )	{
+				Glow_batch_verts[nb++] = v[0];
+				Glow_batch_verts[nb++] = v[k];
+				Glow_batch_verts[nb++] = v[k+1];
+			}
+		}
+		if ( nb > 0 )	{
+			d3d_DrawPrimitive(D3DPT_TRIANGLELIST, D3DVT_TLVERTEX, (LPVOID)Glow_batch_verts, nb, NULL);
+		}
+	}
+	d3d_glow_queue_clear();
+
+	// the base texture is no longer bound, so make the texture cache rebind it next time
+	gr_tcache_set(-1, -1, NULL, NULL );
+
+	D3D_glow_hold = 0;
 }

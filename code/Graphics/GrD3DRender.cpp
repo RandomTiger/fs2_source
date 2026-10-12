@@ -351,6 +351,8 @@ void gr_d3d_set_state( gr_texture_source ts, gr_alpha_blend ab, gr_zbuffer_type 
 {
 	int current_state = 0;
 
+	d3d_glow_draw_queued();	// Claude: ship glow: draw queued glow polys before anything else is drawn
+
 	current_state = current_state | (ts<<0);
 	current_state = current_state | (ab<<5);
 	current_state = current_state | (zt<<10);
@@ -455,8 +457,15 @@ void gr_d3d_set_state( gr_texture_source ts, gr_alpha_blend ab, gr_zbuffer_type 
 }
 
 extern int D3D_zbias;
+// Claude: ship glow: the glow pass state, for the queued glow polys (GrD3DGlow.cpp)
+void gr_d3d_set_glow_state(int zbuffer_type)
+{
+	gr_d3d_set_state( TEXTURE_SOURCE_DECAL, ALPHA_BLEND_ALPHA_BLEND_ALPHA, (gr_zbuffer_type)zbuffer_type );
+}
+
 void d3d_zbias(int bias)
 {
+	d3d_glow_draw_queued();	// Claude: ship glow: queued glow polys keep the z bias of their lit pass
 	if(D3D_zbias){
 		d3d_SetRenderState(D3DRENDERSTATE_ZBIAS, bias);
 	}
@@ -974,7 +983,11 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 	// Claude: See GrD3DGlow.cpp and docs/SHIVAN_GLOW.md.
 	if ( (flags & TMAP_FLAG_NONDARKENING) && (flags & TMAP_FLAG_TEXTURED) && (tmap_type == TCACHE_TYPE_NORMAL) && (alpha_blend != ALPHA_BLEND_ALPHA_ADDITIVE) )	{
 		D3DTEXTUREHANDLE glow_handle = d3d_glow_get_texture(gr_screen.current_bitmap);
-		if ( glow_handle )	{
+		if ( glow_handle && !(flags & TMAP_FLAG_PIXEL_FOG) )	{
+			// Claude: queued and drawn in batches (d3d_glow_draw_queued). Fogged polys are drawn
+			// Claude: straight away below, as the fog colour is set per poly.
+			d3d_glow_queue_poly( glow_handle, (zbuffer_type == ZBUFFER_TYPE_FULL) ? ZBUFFER_TYPE_READ : zbuffer_type, d3d_verts, nverts );
+		} else if ( glow_handle )	{
 			gr_d3d_set_state( TEXTURE_SOURCE_DECAL, ALPHA_BLEND_ALPHA_BLEND_ALPHA, (zbuffer_type == ZBUFFER_TYPE_FULL) ? ZBUFFER_TYPE_READ : zbuffer_type );
 			d3d_SetRenderState(D3DRENDERSTATE_TEXTUREHANDLE, glow_handle );
 			// the base texture is no longer bound, so make the texture cache rebind it next time
@@ -994,7 +1007,9 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 void gr_d3d_tmapper( int nverts, vertex **verts, uint flags )	
 {
+	D3D_glow_hold = (flags & TMAP_FLAG_NONDARKENING) ? 1 : 0;	// Claude: ship glow: a ship poly doesn't flush the glow queue
 	gr_d3d_tmapper_internal( nverts, verts, flags, 0 );
+	D3D_glow_hold = 0;	// Claude: ship glow
 }
 
 #define FIND_SCALED_NUM(x,x0,x1,y0,y1) (((((x)-(x0))*((y1)-(y0)))/((x1)-(x0)))+(y0))

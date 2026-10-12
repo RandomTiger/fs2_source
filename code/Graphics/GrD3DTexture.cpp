@@ -938,6 +938,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 extern int bm_get_cache_slot( int bitmap_id, int separate_ani_frames );
 int d3d_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int fail_on_full, int sx, int sy, int force )
 {
+	d3d_glow_draw_queued();	// Claude: ship glow: draw queued glow polys before the texture changes
 	bitmap *bmp = NULL;
 	int idx, s_idx;	
 	int ret_val = 1;
