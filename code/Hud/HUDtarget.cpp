@@ -4177,7 +4177,9 @@ void hud_target_change_check()
 			Player_ai->current_target_dist_trend = NO_CHANGE;
 		}
 
-		current_speed = Objects[Player_ai->target_objnum].phys_info.speed;
+		if ( Player_ai->target_objnum >= 0 ) {	// Claude: with no target this read Objects[-1]
+			current_speed = Objects[Player_ai->target_objnum].phys_info.speed;
+		}
 
 		if (current_speed < Player_ai->last_speed-0.01){
 			Player_ai->current_target_speed_trend = DECREASING;
