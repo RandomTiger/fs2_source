@@ -6589,6 +6589,8 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 {
 	int state;		
 
+	replay_wait_for_restart();	// Claude: -autorecord restarts the game; let the old instance close first
+
 	// Don't let more than one instance of Freespace run.
 	HWND hwnd = FindWindow( NOX( "FreeSpaceClass" ), NULL );
 	if ( hwnd )	{
@@ -6805,6 +6807,7 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 #endif
 
 	game_shutdown();
+	replay_restart();	// Claude: -autorecord restarts the game after each mission
 	return autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
 }
 

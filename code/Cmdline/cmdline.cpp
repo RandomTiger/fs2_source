@@ -237,6 +237,7 @@ cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
 cmdline_parm fulltrace_arg("-fulltrace", NULL);
+cmdline_parm autorecord_arg("-autorecord", NULL);		// Claude: record every mission played, see Replay.h
 cmdline_parm autotest_arg("-autotest", NULL);			// Claude: autotest, see Autotest.h
 cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
@@ -627,6 +628,11 @@ int parse_cmdline(char *cmdline)
 	if(record_arg.found() || replay_arg.found()){
 		replay_set_cmdline(record_arg.found() ? record_arg.str() : NULL, replay_arg.found() ? replay_arg.str() : NULL,
 			trace_arg.found() ? trace_arg.str() : NULL, fulltrace_arg.found());
+	}
+
+	// Claude: -autorecord.  -record and -replay take precedence.
+	if(autorecord_arg.found() && !record_arg.found() && !replay_arg.found()){
+		replay_set_autorecord(autorecord_arg.str());
 	}
 
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.

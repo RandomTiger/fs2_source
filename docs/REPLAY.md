@@ -20,6 +20,17 @@ FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2r
 
 Put a file name in double quotes if it contains a space.
 
+### Recording every mission you play
+
+```
+FS2vs2022d.exe -window -autorecord DIRECTORY
+```
+
+- Each mission is recorded to `DIRECTORY\MISSION.fs2rec`, with `MISSION.trace` and `MISSION.fs2rec.record.log` next to it. With no directory, it is `Recordings` in the game directory.
+- A recording replaces any earlier recording of the same mission, but only if the mission ends properly: debriefing, a quit back to the main hall, or a restart from the death popup. If the game crashes or is closed during the mission, the earlier recording is kept.
+- Only the first mission since the game started can be replayed, because some state carries over from one mission to the next. So, back in the main hall after a mission, a message says so and the game restarts itself with the same command line.
+- A mission started without going back to the main hall, for example by restarting from the death popup, is not recorded, and a message says so.
+
 ## Replaying
 
 ```

@@ -9,6 +9,12 @@
  * Usage:
  *   -record <file.fs2rec> [-trace <file.trace>]
  *   -replay <file.fs2rec> [-trace <file.trace>] [-trace_full]
+ *   -autorecord <directory>
+ *
+ * -autorecord records each mission played to <directory>\<mission>.fs2rec and .trace, replacing
+ * any earlier recording of it, but only if the mission ends properly (debriefing, quit to the
+ * main hall, or restart from the death popup).  Only the first mission since the game started
+ * can be replayed, so back in the main hall the game restarts itself.
  *
  * See docs/REPLAY.md for the file format and workflow.
  */
@@ -57,6 +63,11 @@ extern int Replay_mode;
 
 // command line (called from parse_cmdline)
 void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
+void replay_set_autorecord(char *dir);
+
+// -autorecord restart, called from WinMainSub
+void replay_wait_for_restart();		// first thing: wait for the instance that started this one to close
+void replay_restart();					// after game_shutdown: start a new instance if one is due
 
 // lifecycle, called from FreeSpace.cpp
 void replay_startup();					// after parse_cmdline, before game_init

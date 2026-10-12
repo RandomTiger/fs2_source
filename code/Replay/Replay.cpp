@@ -30,16 +30,27 @@
 #include "MissionScreenCommon.h"
 #include "RedAlert.h"
 #include "Autotest.h"
+#include "Popup.h"
 
 #define REPLAY_FILE_VERSION		2	// Claude: 2 adds the autotest settings
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
 #define REPLAY_MAX_BLOB				(1024*1024)
+#define REPLAY_PATH_LEN			MAX_PATH	// Claude: MAX_PATH_LEN (128) is too short for full paths
 
 int Replay_mode = REPLAY_OFF;
 
-static char Replay_file[MAX_PATH_LEN];
-static char Replay_trace_file[MAX_PATH_LEN];
+static char Replay_file[REPLAY_PATH_LEN];
+static char Replay_trace_file[REPLAY_PATH_LEN];
 static int Replay_trace_full = 0;
+
+// -autorecord
+#define REPLAY_RESTART_ENV			"FS2_AUTORECORD_RESTART_PID"
+static int Replay_auto = 0;				// record each mission to its own name in Replay_auto_dir
+static char Replay_auto_dir[REPLAY_PATH_LEN];
+static int Replay_auto_saved = 0;		// the recording was kept
+static int Replay_auto_told = 0;			// the player was told this mission is not recorded
+static int Replay_auto_menu_frames = 0;
+static int Replay_auto_restarting = 0;
 
 static int Replay_active = 0;				// stream is being recorded / consumed
 static int Replay_done = 0;				// the recorded mission is over
@@ -151,9 +162,9 @@ static void replay_logf(char *format, ...)
 
 static void replay_open_log()
 {
-	char name[MAX_PATH_LEN + 8];
+	char name[REPLAY_PATH_LEN + 32];
 
-	sprintf(name, "%s.%s.log", Replay_file, (Replay_mode == REPLAY_RECORD) ? "record" : "replay");
+	sprintf(name, "%s.%s.log%s", Replay_file, (Replay_mode == REPLAY_RECORD) ? "record" : "replay", Replay_auto ? ".tmp" : "");
 	Replay_log = fopen(name, "wt");
 }
 
@@ -669,7 +680,7 @@ static int replay_read_player_file(char *filename, ubyte **blob)
 
 static void replay_write_pilot_blob(char *filename, ubyte *blob, int size)
 {
-	char path[MAX_PATH_LEN];
+	char path[REPLAY_PATH_LEN];
 	FILE *fp;
 
 	sprintf(path, "%s\\%s", REPLAY_PILOT_DIR, filename);
@@ -697,15 +708,140 @@ void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, 
 {
 	if (record_file) {
 		Replay_mode = REPLAY_RECORD;
-		strncpy(Replay_file, record_file, MAX_PATH_LEN - 1);
+		strncpy(Replay_file, record_file, REPLAY_PATH_LEN - 1);
 	} else if (replay_file) {
 		Replay_mode = REPLAY_PLAY;
-		strncpy(Replay_file, replay_file, MAX_PATH_LEN - 1);
+		strncpy(Replay_file, replay_file, REPLAY_PATH_LEN - 1);
 	}
 	if (trace_file) {
-		strncpy(Replay_trace_file, trace_file, MAX_PATH_LEN - 1);
+		strncpy(Replay_trace_file, trace_file, REPLAY_PATH_LEN - 1);
 	}
 	Replay_trace_full = trace_full;
+}
+
+void replay_set_autorecord(char *dir)
+{
+	int len;
+
+	Replay_mode = REPLAY_RECORD;
+	Replay_auto = 1;
+	strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
+	_mkdir(Replay_auto_dir);
+	len = strlen(Replay_auto_dir);
+	if ((len > 0) && ((Replay_auto_dir[len - 1] == '\\') || (Replay_auto_dir[len - 1] == '/'))) {
+		Replay_auto_dir[len - 1] = 0;
+	}
+}
+
+// -autorecord writes to "<name>.tmp" and only replaces the real files once the mission has ended
+// properly, so an earlier recording survives a crash or the game being closed mid-mission
+static void replay_auto_finish(int keep)
+{
+	char names[3][REPLAY_PATH_LEN + 32], tmp[REPLAY_PATH_LEN + 32];
+	int i;
+
+	if (Wfile) {
+		fclose(Wfile);
+		Wfile = NULL;
+	}
+	trace_close();
+	if (Replay_log) {
+		fclose(Replay_log);
+		Replay_log = NULL;
+	}
+
+	strcpy(names[0], Replay_file);
+	strcpy(names[1], Replay_trace_file);
+	sprintf(names[2], "%s.record.log", Replay_file);
+	for (i = 0; i < 3; i++) {
+		sprintf(tmp, "%s.tmp", names[i]);
+		if (keep) {
+			MoveFileEx(tmp, names[i], MOVEFILE_REPLACE_EXISTING);
+		} else {
+			DeleteFile(tmp);
+		}
+	}
+	Replay_auto_saved = keep;
+}
+
+// the command line as started.  Parsing writes into the process's own copy, so GetCommandLine()
+// at shutdown returns only the first parameter.
+static char Replay_cmdline[4096];
+
+void replay_wait_for_restart()
+{
+	char pid[32];
+	HANDLE proc;
+
+	strncpy(Replay_cmdline, GetCommandLine(), sizeof(Replay_cmdline) - 1);
+	if (!GetEnvironmentVariable(REPLAY_RESTART_ENV, pid, sizeof(pid))) {
+		return;
+	}
+	SetEnvironmentVariable(REPLAY_RESTART_ENV, NULL);
+	proc = OpenProcess(SYNCHRONIZE, FALSE, (DWORD)atoi(pid));
+	if (proc) {
+		WaitForSingleObject(proc, 30000);
+		CloseHandle(proc);
+	}
+}
+
+void replay_restart()
+{
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+	char pid[32];
+
+	if (!Replay_auto_restarting) {
+		return;
+	}
+
+	// the same command line and directory.  The new instance waits for this one to close, since
+	// only one may run.
+	sprintf(pid, "%u", GetCurrentProcessId());
+	SetEnvironmentVariable(REPLAY_RESTART_ENV, pid);
+	memset(&si, 0, sizeof(si));
+	si.cb = sizeof(si);
+	if (CreateProcess(NULL, Replay_cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+		CloseHandle(pi.hThread);
+		CloseHandle(pi.hProcess);
+	}
+}
+
+// after a mission, back in the main hall, the game restarts so that the next mission is the
+// first one of its process, which is the only kind replay can reproduce
+static void replay_auto_drive_state(int state)
+{
+	char *name;
+
+	// an autotest runs its own missions and quits; restarting would run them again
+	if (Replay_auto_restarting || Autotest_harness) {
+		return;
+	}
+
+	if ((state == GS_STATE_MAIN_MENU) && (Replay_load_count > 0)) {
+		// let the main hall draw once before the popup
+		if (++Replay_auto_menu_frames < 2) {
+			return;
+		}
+		if (!Replay_in_game) {
+			// a mission was loaded but not flown
+			replay_auto_finish(0);
+		}
+		if (Replay_auto_saved) {
+			name = strrchr(Replay_file, '\\');
+			popup(PF_USE_AFFIRMATIVE_ICON, 1, POPUP_OK, "Recording saved as %s\n\nThe game will now restart. A recording can only be replayed if its mission was the first one played since the game started.", name ? name + 1 : Replay_file);
+		} else {
+			popup(PF_USE_AFFIRMATIVE_ICON, 1, POPUP_OK, "No recording was saved.\n\nThe game will now restart, so the next mission is the first one since the game started and can be recorded.");
+		}
+		Replay_auto_restarting = 1;
+		gameseq_post_event(GS_EVENT_QUIT_GAME);
+		return;
+	}
+
+	if (((state == GS_STATE_CMD_BRIEF) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_RED_ALERT)) && (Replay_load_count > 1) && !Replay_auto_told) {
+		Replay_auto_told = 1;
+		popup(PF_USE_AFFIRMATIVE_ICON, 1, POPUP_OK, "This mission will not be recorded.\n\nOnly the first mission since the game started can be recorded. Go back to the main hall and the game will restart.");
+	}
 }
 
 // name with "_n" put in front of the extension
@@ -729,7 +865,7 @@ static int replay_file_exists(char *name)
 // never overwrite an earlier recording: if the names are taken, add the first free number
 static void replay_pick_free_names()
 {
-	char rec[MAX_PATH_LEN + 16], trace[MAX_PATH_LEN + 16];
+	char rec[REPLAY_PATH_LEN + 32], trace[REPLAY_PATH_LEN + 32];
 	int n;
 
 	if (!replay_file_exists(Replay_file) && !replay_file_exists(Replay_trace_file)) {
@@ -745,8 +881,8 @@ static void replay_pick_free_names()
 			break;
 		}
 	}
-	strncpy(Replay_file, rec, MAX_PATH_LEN - 1);
-	strncpy(Replay_trace_file, trace, MAX_PATH_LEN - 1);
+	strncpy(Replay_file, rec, REPLAY_PATH_LEN - 1);
+	strncpy(Replay_trace_file, trace, REPLAY_PATH_LEN - 1);
 }
 
 void replay_startup()
@@ -758,6 +894,10 @@ void replay_startup()
 	}
 
 	Replay_main_thread = GetCurrentThreadId();
+	if (Replay_auto) {
+		// the file names come from the mission, in replay_load_begin
+		return;
+	}
 	if (Replay_mode == REPLAY_RECORD) {
 		replay_pick_free_names();
 	}
@@ -863,6 +1003,15 @@ void replay_load_begin()
 	}
 
 	if (Replay_mode == REPLAY_RECORD) {
+		if (Replay_auto) {
+			char base[_MAX_FNAME];
+
+			_splitpath(Game_current_mission_filename, NULL, NULL, base, NULL);
+			_snprintf(Replay_file, REPLAY_PATH_LEN - 1, "%s\\%s.fs2rec", Replay_auto_dir, base);
+			_snprintf(Replay_trace_file, REPLAY_PATH_LEN - 1, "%s\\%s.trace", Replay_auto_dir, base);
+			replay_open_log();
+			replay_logf("Recording '%s'\n", Replay_file);
+		}
 		memset(&Hdr, 0, sizeof(Hdr));
 		memcpy(Hdr.magic, "FS2REC", 6);
 		Hdr.version = REPLAY_FILE_VERSION;
@@ -962,6 +1111,8 @@ void replay_load_end()
 
 void replay_enter_game()
 {
+	char name[REPLAY_PATH_LEN + 32];
+
 	if ((Replay_mode == REPLAY_OFF) || (Replay_load_count != 1) || Replay_in_game) {
 		return;
 	}
@@ -975,7 +1126,12 @@ void replay_enter_game()
 		Hdr.missiontime = Missiontime;
 
 		// the file is only created once there is a mission to put in it
-		Wfile = fopen(Replay_file, "wb");
+		if (Replay_auto) {
+			sprintf(name, "%s.tmp", Replay_file);
+			Wfile = fopen(name, "wb");
+		} else {
+			Wfile = fopen(Replay_file, "wb");
+		}
 		if (!Wfile) {
 			replay_fatal("Cannot create recording '%s'", Replay_file);
 		}
@@ -1009,7 +1165,10 @@ void replay_enter_game()
 		r_tag(RT_ENTER_GAME);
 	}
 
-	if (Replay_trace_file[0]) {
+	if (Replay_auto) {
+		sprintf(name, "%s.tmp", Replay_trace_file);
+		trace_open(name, Replay_trace_full);
+	} else if (Replay_trace_file[0]) {
 		trace_open(Replay_trace_file, Replay_trace_full);
 	}
 	replay_logf("Entered mission\n");
@@ -1042,6 +1201,9 @@ void replay_mission_over()
 	replay_log_stats();
 	replay_logf((Replay_mode == REPLAY_RECORD) ? "RECORD OK\n" : "REPLAY OK\n");
 
+	if (Replay_auto) {
+		replay_auto_finish(1);
+	}
 	if (Replay_mode == REPLAY_PLAY) {
 		gameseq_post_event(GS_EVENT_QUIT_GAME);
 	}
@@ -1053,6 +1215,12 @@ void replay_shutdown()
 		return;
 	}
 
+	if (Replay_auto && !Replay_done && (Replay_load_count > 0)) {
+		// closed during the mission or its briefing: not a proper end, so keep any earlier recording
+		replay_logf("The game was closed before the mission ended; the recording was not kept\n");
+		Replay_done = 1;
+		replay_auto_finish(0);
+	}
 	if (!Replay_done && Replay_in_game) {
 		replay_mission_over();
 	}
@@ -1079,6 +1247,10 @@ void replay_drive_state(int state)
 		return;
 	}
 
+	if (Replay_auto) {
+		replay_auto_drive_state(state);
+		return;
+	}
 	if (Replay_mode != REPLAY_PLAY) {
 		return;
 	}
