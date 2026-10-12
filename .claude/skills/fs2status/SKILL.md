@@ -24,7 +24,13 @@ Report on the branch this session is working in. Read-only: change nothing, merg
 ## 4. Report
 Keep it short. Tom is new to git and thinks in Perforce terms (merge = integrate, push = submit).
 
-**If there are decisions**, list them numbered, most important first. For each: one line on what needs deciding, the options, and the recommendation. Decisions include:
+**If there are decisions**, first give a two or three line status in text, then put the decisions to Tom with the AskUserQuestion tool, most important first:
+- One question per decision, up to 4 per call; if there are more, ask the rest in a second call after the first is answered.
+- 2 to 4 options each. The recommended option goes first, with "(Recommended)" at the end of its label. Each option's description says what will happen if he picks it.
+- The question text names the branch and the commit or file, so it stands on its own.
+- After he answers, carry out what he chose (merges up, pushes and so on, following `docs/BRANCHES.md`), or say what the chosen option needs that only he can do.
+
+Decisions include:
 - parent updates to merge in
 - unpushed commits or uncommitted work
 - anything the check script or the steward flags as breaking or bending a rule
