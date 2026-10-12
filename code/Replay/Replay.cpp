@@ -141,7 +141,7 @@ static const char *Replay_tag_names[RT_NUM_TAGS] = {
 	"ev_lostfocus", "ev_gotfocus", "mouse_pos", "joy_down", "joy_down_count", "joy_up_count",
 	"joy_down_time", "joy_raw_axis", "joy_pos", "axes", "snd_play", "snd_play_3d", "snd_play_looping",
 	"snd_is_playing", "snd_time_remaining", "snd_pitch", "snd_num_playing", "stream_is_playing",
-	"stream_is_paused", "stream_done_reading", "enter_game", "end", "stream_bytes"
+	"stream_is_paused", "stream_done_reading", "enter_game", "end", "stream_bytes", "input_device"
 };
 
 // -----------------------------------------------------------------------------------------
@@ -472,6 +472,33 @@ void replay_write_ints(int tag, int *vals, int count)
 		}
 		w_done();
 	}
+}
+
+int replay_input_device(int *vals, int count, int max)
+{
+	int i, n;
+
+	if (!replay_should_read()) {
+		replay_write_ints(RT_INPUT_DEVICE, vals, count);
+		return count;
+	}
+
+	// no entry here: the recording was made by a build without this device, so it is not connected
+	replay_drain_events();
+	if ((Rpos >= Rsize) || (Rdata[Rpos] != RT_INPUT_DEVICE)) {
+		return 0;
+	}
+
+	r_tag(RT_INPUT_DEVICE);
+	n = r_varint();
+	if ((n < 0) || (n > max)) {
+		replay_desync("'%s' has %d values, this run takes at most %d", Replay_tag_names[RT_INPUT_DEVICE], n, max);
+		return 0;
+	}
+	for (i = 0; i < n; i++) {
+		vals[i] = r_varint();
+	}
+	return n;
 }
 
 int replay_snd_handle(int tag, int live_handle)
