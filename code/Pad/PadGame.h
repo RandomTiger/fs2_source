@@ -25,4 +25,11 @@ int	pad_pause_pressed();
 // (it would otherwise read the same pad, with the D-pad as view controls).
 int	pad_owns_joystick();
 
+// From the HUD render (PadHud.cpp): draws the open pad tree options.
+void	pad_hud_render();
+
+// For PadHud.cpp: the pad's output from this frame.
+struct pad_output;
+const struct pad_output	*pad_game_output();
+
 #endif

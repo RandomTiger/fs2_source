@@ -207,6 +207,7 @@
     <ClCompile Include="Io\Timer.cpp" />
     <ClCompile Include="Pad\PadCore.cpp" />
     <ClCompile Include="Pad\PadGame.cpp" />
+    <ClCompile Include="Pad\PadHud.cpp" />
     <ClCompile Include="Pad\PadXInput.cpp" />
     <ClCompile Include="JumpNode\JumpNode.cpp" />
     <ClCompile Include="Lighting\Lighting.cpp" />

@@ -920,6 +920,134 @@ int hud_squadmsg_get_key()
 	return -1;
 }
 
+// Claude: control pad. The pad drives this menu with a highlighted row: move, select, back.
+// The row is on the visible page; -1 = the pad is not driving the menu.
+LOCAL int Squadmsg_pad_row = -1;
+LOCAL int Squadmsg_pad_mode = -1;
+LOCAL int Squadmsg_pad_first = -1;
+
+static int hud_squadmsg_pad_rows()
+{
+	int rows;
+
+	if ( Num_menu_items <= 0 )
+		return 0;
+
+	rows = Num_menu_items - First_menu_item;
+	return (rows > MAX_MENU_DISPLAY) ? MAX_MENU_DISPLAY : rows;
+}
+
+// back to the first row when the menu changes under the pad (new mode, new page)
+static void hud_squadmsg_pad_sync()
+{
+	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) ) {
+		Squadmsg_pad_row = -1;
+		return;
+	}
+
+	if ( (Squadmsg_pad_row >= 0) && ((Squadmsg_pad_mode != Squad_msg_mode) || (Squadmsg_pad_first != First_menu_item)) )
+		Squadmsg_pad_row = 0;
+
+	Squadmsg_pad_mode = Squad_msg_mode;
+	Squadmsg_pad_first = First_menu_item;
+}
+
+// highlighted row for the menu drawing, -1 = none
+static int hud_squadmsg_pad_highlight()
+{
+	hud_squadmsg_pad_sync();
+	return Squadmsg_pad_row;
+}
+
+void hud_squadmsg_pad_open()
+{
+	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
+		hud_squadmsg_toggle();
+
+	if ( Player->flags & PLAYER_FLAGS_MSG_MODE ) {
+		Squadmsg_pad_row = 0;
+		Squadmsg_pad_mode = Squad_msg_mode;
+		Squadmsg_pad_first = First_menu_item;
+	}
+}
+
+void hud_squadmsg_pad_close()
+{
+	hud_squadmsg_pad_sync();
+	if ( Squadmsg_pad_row >= 0 )
+		hud_squadmsg_toggle();
+	Squadmsg_pad_row = -1;
+}
+
+// dir: -1 up, 1 down. Runs on to the next or previous page, and wraps.
+void hud_squadmsg_pad_move( int dir )
+{
+	int rows;
+
+	hud_squadmsg_pad_sync();
+	rows = hud_squadmsg_pad_rows();
+	if ( (Squadmsg_pad_row < 0) || (rows <= 0) )
+		return;
+
+	Squadmsg_pad_row += dir;
+	if ( Squadmsg_pad_row >= rows ) {
+		if ( (First_menu_item + MAX_MENU_DISPLAY) < Num_menu_items )
+			First_menu_item += MAX_MENU_DISPLAY;
+		else
+			First_menu_item = 0;
+		Squadmsg_pad_row = 0;
+	} else if ( Squadmsg_pad_row < 0 ) {
+		if ( First_menu_item > 0 ) {
+			First_menu_item -= MAX_MENU_DISPLAY;
+		} else {
+			while ( (First_menu_item + MAX_MENU_DISPLAY) < Num_menu_items )
+				First_menu_item += MAX_MENU_DISPLAY;
+		}
+		Squadmsg_pad_row = hud_squadmsg_pad_rows() - 1;
+	}
+
+	Squadmsg_pad_first = First_menu_item;
+	Msg_mode_timestamp = timestamp(DEFAULT_MSG_TIMEOUT);
+}
+
+// selects the highlighted row, as if its number key was pressed
+void hud_squadmsg_pad_select()
+{
+	hud_squadmsg_pad_sync();
+	if ( (Squadmsg_pad_row < 0) || (Squadmsg_pad_row >= hud_squadmsg_pad_rows()) )
+		return;
+
+	Msg_key = keys_used[Squadmsg_pad_row];
+}
+
+// one menu back; closes the menu from the top
+void hud_squadmsg_pad_back()
+{
+	hud_squadmsg_pad_sync();
+	if ( Squadmsg_pad_row < 0 )
+		return;
+
+	switch ( Squad_msg_mode ) {
+	case SM_MODE_TYPE_SELECT:
+		hud_squadmsg_pad_close();
+		return;
+
+	case SM_MODE_SHIP_COMMAND:
+		hud_squadmsg_do_mode( (Msg_instance == MESSAGE_ALL_FIGHTERS) ? SM_MODE_TYPE_SELECT : SM_MODE_SHIP_SELECT );
+		break;
+
+	case SM_MODE_WING_COMMAND:
+		hud_squadmsg_do_mode( SM_MODE_WING_SELECT );
+		break;
+
+	default:
+		hud_squadmsg_do_mode( SM_MODE_TYPE_SELECT );
+		break;
+	}
+
+	Msg_mode_timestamp = timestamp(DEFAULT_MSG_TIMEOUT);
+}
+
 // function which will essentially print out the contents of the current state of the messaging
 // menu.  Parameters will be a title.  The menu items and the number of items will be
 // in global vars since they don't get recomputed every frame.
@@ -984,6 +1112,11 @@ void hud_squadmsg_display_menu( char *title )
 			*/
 
 			hud_set_gauge_color(HUD_MESSAGE_BOX, HUD_C_DIM);
+		}
+
+		// Claude: control pad highlight
+		if ( i == hud_squadmsg_pad_highlight() ) {
+			gr_string(sx - 9, sy, ">");
 		}
 
 		// first do the number

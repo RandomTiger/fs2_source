@@ -26,6 +26,7 @@ enum {
 // A binding is live when its layer is the current layer, or PAD_LAYER_ANY.
 #define PAD_LAYER_ANY		-1
 #define PAD_LAYER_BASE		0
+#define PAD_LAYER_TREE		1			// set by the core while a pad tree category is open
 
 typedef struct pad_binding {
 	int	input;		// PAD_* button or PAD_INPUT_*TRIGGER
@@ -65,7 +66,47 @@ typedef struct pad_output {
 	float	pitch;						// +nose up,  -1..1
 	float	roll;							// +right,    -1..1
 	float	throttle_rate;				// percent per second, >= 0
+
+	// pad tree
+	int	tree_category;				// open category, -1 = closed
+	int	tree_node;					// node shown, -1 = closed
+	int	tree_depth;					// 1 = category root
+	int	tree_show;					// 1 once the category has been held for PAD_TREE_SHOW_MS
 } pad_output;
+
+// Pad tree: hold a category's face button and the D-pad picks one of four options. An
+// option is a leaf (fires its action, the node stays open so it can be repeated) or a
+// branch (opens a child node). Below the root, Left is always Back. Releasing the face
+// button closes the tree. While open, bindings on PAD_LAYER_BASE are off, so the D-pad
+// does not also do its base action.
+enum {
+	PAD_TREE_UP,
+	PAD_TREE_RIGHT,
+	PAD_TREE_DOWN,
+	PAD_TREE_LEFT,
+	PAD_TREE_NUM_DIRS
+};
+
+#define PAD_TREE_MAX_DEPTH		8
+#define PAD_TREE_SHOW_MS		200		// hold this long before the options are shown
+
+typedef struct pad_tree_option {
+	const char	*label;		// NULL = empty slot
+	int			action;		// fired by a leaf, -1 = none
+	int			child;		// node index for a branch, -1 = leaf
+} pad_tree_option;
+
+typedef struct pad_tree_node {
+	const char			*title;
+	pad_tree_option	option[PAD_TREE_NUM_DIRS];		// indexed by PAD_TREE_*
+} pad_tree_node;
+
+typedef struct pad_tree_category {
+	int	button;				// PAD_* face button that opens it
+	int	root;					// node index
+	int	open_action;		// fired when it opens, -1 = none
+	int	close_action;		// fired when it closes, -1 = none
+} pad_tree_category;
 
 void	pad_core_default_settings(pad_settings *s);
 
@@ -76,6 +117,10 @@ int	pad_core_parse_settings(pad_settings *s, const char *text);
 void	pad_core_set_settings(const pad_settings *s);
 void	pad_core_set_bindings(const pad_binding *bindings, int count);	// table is not copied
 void	pad_core_set_layer(int layer);
+
+// Tables are not copied.
+void	pad_core_set_tree(const pad_tree_category *categories, int num_categories, const pad_tree_node *nodes, int num_nodes);
+const pad_tree_node	*pad_core_tree_node(int index);		// NULL if out of range
 
 // Call once per game frame. now_ms is any millisecond clock.
 // After a gap of more than PAD_CORE_STALE_MS, inputs already held count as held, not pressed,

@@ -19,6 +19,19 @@ extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is read
 #define PAD_SETTINGS_FILE		"pad.cfg"		// in the game folder; optional
 #define PAD_ACTION_PAUSE		1000				// not a Control_config id
 #define PAD_ACTION_SLOW		1001				// held: lower the throttle
+#define PAD_ACTION_MENU_OPEN		1002			// squad message menu, driven by the pad
+#define PAD_ACTION_MENU_CLOSE		1003
+#define PAD_ACTION_MENU_UP			1004
+#define PAD_ACTION_MENU_DOWN		1005
+#define PAD_ACTION_MENU_SELECT	1006
+#define PAD_ACTION_MENU_BACK		1007
+
+// HUDsquadmsg.cpp
+extern void hud_squadmsg_pad_open();
+extern void hud_squadmsg_pad_close();
+extern void hud_squadmsg_pad_move(int dir);
+extern void hud_squadmsg_pad_select();
+extern void hud_squadmsg_pad_back();
 
 // Core layout. Everything else stays on the keyboard for now.
 static const pad_binding Pad_game_bindings[] = {
@@ -32,6 +45,64 @@ static const pad_binding Pad_game_bindings[] = {
 	{ PAD_LSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_SLOW },
 	{ PAD_LSHOULDER,			PAD_G_DOUBLE_TAP,			PAD_LAYER_BASE,	ZERO_THROTTLE },
 	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_ANY,		PAD_ACTION_PAUSE },
+};
+
+// Pad tree: hold a face button, the D-pad picks. Options are Up, Right, Down, Left.
+// Below the root, Left is Back (set by the core).
+enum {
+	PAD_NODE_TARGETING,
+	PAD_NODE_HOSTILE,
+	PAD_NODE_SUBSYSTEM,
+	PAD_NODE_OTHER,
+	PAD_NODE_WEAPONS,
+	PAD_NODE_COMMANDS,
+	PAD_NODE_FLIGHT,
+	PAD_NUM_NODES
+};
+
+static const pad_tree_node Pad_game_nodes[PAD_NUM_NODES] = {
+	{ "Targeting", {
+		{ "In reticle",		TARGET_SHIP_IN_RETICLE,					-1 },
+		{ "Hostile",			-1,											PAD_NODE_HOSTILE },
+		{ "Subsystem",			-1,											PAD_NODE_SUBSYSTEM },
+		{ "Other",				-1,											PAD_NODE_OTHER } } },
+	{ "Hostile", {
+		{ "Next",				TARGET_NEXT_CLOSEST_HOSTILE,			-1 },
+		{ "Attacking me",		TARGET_CLOSEST_SHIP_ATTACKING_SELF,	-1 },
+		{ "Previous",			TARGET_PREV_CLOSEST_HOSTILE,			-1 },
+		{ NULL,					-1,											-1 } } },
+	{ "Subsystem", {
+		{ "Next",				TARGET_NEXT_SUBOBJECT,					-1 },
+		{ "In reticle",		TARGET_SUBOBJECT_IN_RETICLE,			-1 },
+		{ "Previous",			TARGET_PREV_SUBOBJECT,					-1 },
+		{ NULL,					-1,											-1 } } },
+	{ "Other", {
+		{ "Next cargo",		TARGET_NEXT_UNINSPECTED_CARGO,		-1 },
+		{ "Next friendly",	TARGET_NEXT_CLOSEST_FRIENDLY,			-1 },
+		{ "Next turret",		TARGET_NEXT_LIVE_TURRET,				-1 },
+		{ NULL,					-1,											-1 } } },
+	{ "Weapons", {
+		{ "Cycle primary",	CYCLE_NEXT_PRIMARY,						-1 },
+		{ "Missile link",		CYCLE_NUM_MISSLES,						-1 },
+		{ "Cycle secondary",	CYCLE_SECONDARY,							-1 },
+		{ "Countermeasure",	LAUNCH_COUNTERMEASURE,					-1 } } },
+	{ "Commands", {
+		{ "Up",					PAD_ACTION_MENU_UP,						-1 },
+		{ "Select",				PAD_ACTION_MENU_SELECT,					-1 },
+		{ "Down",				PAD_ACTION_MENU_DOWN,					-1 },
+		{ "Back",				PAD_ACTION_MENU_BACK,					-1 } } },
+	{ "Flight", {
+		{ "Match speed",		MATCH_TARGET_SPEED,						-1 },
+		{ NULL,					-1,											-1 },
+		{ NULL,					-1,											-1 },
+		{ NULL,					-1,											-1 } } },
+};
+
+static const pad_tree_category Pad_game_categories[] = {
+	{ PAD_WEST,		PAD_NODE_TARGETING,	-1,							-1 },
+	{ PAD_NORTH,	PAD_NODE_WEAPONS,		-1,							-1 },
+	{ PAD_EAST,		PAD_NODE_COMMANDS,	PAD_ACTION_MENU_OPEN,	PAD_ACTION_MENU_CLOSE },
+	{ PAD_SOUTH,	PAD_NODE_FLIGHT,		-1,							-1 },
 };
 
 static int				Pad_game_inited = 0;
@@ -59,6 +130,7 @@ static void pad_game_init()
 	Pad_game_settings = s;
 	pad_core_set_settings(&s);
 	pad_core_set_bindings(Pad_game_bindings, sizeof(Pad_game_bindings) / sizeof(Pad_game_bindings[0]));
+	pad_core_set_tree(Pad_game_categories, sizeof(Pad_game_categories) / sizeof(Pad_game_categories[0]), Pad_game_nodes, PAD_NUM_NODES);
 }
 
 static void pad_game_update()
@@ -87,12 +159,26 @@ void pad_frame()
 	for (i = 0; i < Pad_game_out.num_fired; i++) {
 		int action = Pad_game_out.fired[i];
 
-		if (action == PAD_ACTION_PAUSE) {
-			game_process_pause_key();
-		} else if ((action >= 0) && (action < CCFG_MAX)) {
-			button_info_set(&Player->bi, action);
+		switch (action) {
+		case PAD_ACTION_PAUSE:			game_process_pause_key();		break;
+		case PAD_ACTION_MENU_OPEN:		hud_squadmsg_pad_open();		break;
+		case PAD_ACTION_MENU_CLOSE:	hud_squadmsg_pad_close();		break;
+		case PAD_ACTION_MENU_UP:		hud_squadmsg_pad_move(-1);		break;
+		case PAD_ACTION_MENU_DOWN:		hud_squadmsg_pad_move(1);		break;
+		case PAD_ACTION_MENU_SELECT:	hud_squadmsg_pad_select();		break;
+		case PAD_ACTION_MENU_BACK:		hud_squadmsg_pad_back();		break;
+		default:
+			if ((action >= 0) && (action < CCFG_MAX)) {
+				button_info_set(&Player->bi, action);
+			}
+			break;
 		}
 	}
+}
+
+const pad_output *pad_game_output()
+{
+	return &Pad_game_out;
 }
 
 int pad_control_held(int id)

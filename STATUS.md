@@ -23,10 +23,7 @@ code also read the pad; it is now off while an XInput pad is connected (hook in
 `joy_init`). LB hold = slow, LB double tap = hard stop, RB hold = fire secondary.
 Match speed is unassigned until the pad tree.
 
-## Next
-- Tom retests with the 360 pad.
-
-## Proposed batch 2: face button D-pad overrides (pad tree), waiting for go-ahead
+## Batch 2: face button D-pad overrides (pad tree) (built, not yet tested in game)
 1. Core: hold a face button = its category; the D-pad picks; Left = back below the top
    level; releasing the face button closes. The action fires on the D-pad press. With
    no face button held, the D-pad stays shields.
@@ -42,6 +39,13 @@ Match speed is unassigned until the pad tree.
    sends, Left back. Needs a small marked hook in the squad menu to draw the highlight.
 6. South = Flight: Up match speed; the rest empty for now.
 7. Tap (press and release under 200 ms, no D-pad used) does nothing yet.
+
+Code: tree in `PadCore` (data tables in `PadGame.cpp`), drawing in `PadHud.cpp`, hook in
+`HUD.cpp` after the supernova gauge. The squad menu driver is a marked block in
+`HUDsquadmsg.cpp` (it needs that file's statics) plus a ">" highlight in its menu drawing.
+
+## Next
+- Tom tests batch 2 with the 360 pad.
 
 ## Later batches (not proposed yet)
 - Tier 1 controls not in the core layout.

@@ -387,6 +387,9 @@
     <ClCompile Include="Pad\PadGame.cpp">
       <Filter>Pad</Filter>
     </ClCompile>
+    <ClCompile Include="Pad\PadHud.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
     <ClCompile Include="Pad\PadXInput.cpp">
       <Filter>Pad</Filter>
     </ClCompile>

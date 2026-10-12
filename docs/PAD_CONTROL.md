@@ -50,6 +50,9 @@ of FS2 (and the recorder, later) sees no difference:
 4. `check_control()` (ControlsConfig.cpp): return 1 if the pad holds that action.
 5. `read_keyboard_controls()` (PlayerControl.cpp): add the pad's analog values.
 6. `joy_init()` (Joy.cpp): legacy joystick off while an XInput pad is connected.
+7. HUD render (HUD.cpp): `pad_hud_render()` draws the open pad tree options.
+8. Squad menu (HUDsquadmsg.cpp): a block of `hud_squadmsg_pad_*` functions (open, close,
+   move, select, back) and a ">" on the highlighted row.
 
 Read every frame. The original joystick code reads only 10 times a second ("like we did
 in Descent"); that is too coarse for a thumbstick.
