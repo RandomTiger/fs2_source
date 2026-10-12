@@ -64,6 +64,7 @@ The stream starts at `GS_EVENT_ENTER_GAME`. The mission load, briefing and loado
 - **The random number stream.** It is re-seeded with `srand(level seed)` in both record and replay, because the briefing consumes `rand()` for as long as the player stays in it. This is the only change to how the game plays while recording.
 - **Time state** that the briefing advanced: `timestamp_ticker`, `Last_time`, `Last_delta_time` and `Missiontime`. These come from the recording header.
 - **The loadout.** `Player_loadout` comes from the header. Replay commits it through the normal briefing path.
+- **The view position.** `View_position` is left by whatever the menus last drew in 3D, so it depends on the path the player took through them. Until the player enters the mission nothing updates it, and engine sounds start for the ships within hearing range of it. It comes from the header (version 3); older recordings replay without it and may desync on the first frames.
 
 The stream ends in `game_enter_state` when the game enters the main menu or the debriefing, before that state's init runs. The main hall's init moves the cursor, and that reads the window focus only when the cursor is not already in place, so it can differ between builds. Recordings made before this change end one step later and may not replay.
 
@@ -71,13 +72,13 @@ The stream ends in `game_enter_state` when the game enters the main menu or the 
 
 A hooked function called from inside another hooked function is not recorded on its own. For example, the clock read inside `joy_down_time` is covered by `joy_down_time`'s own value.
 
-## File format (`.fs2rec`, version 2)
+## File format (`.fs2rec`, version 3)
 
-Version 1 files, which have no autotest settings, still replay.
+Version 1 files, which have no autotest settings, and version 2 files, which have no view position, still replay.
 
 All values are little-endian.
 
-1. `replay_header` (`code/Replay/Replay.cpp`): magic `FS2REC`, version, build, mission name and checksum, game mode, campaign, callsign, level seed, `Semirand`, skill, detail, screen size, sound settings, loadout size, time state at mission entry, the autotest settings (version 2), and the pilot and campaign file sizes.
+1. `replay_header` (`code/Replay/Replay.cpp`): magic `FS2REC`, version, build, mission name and checksum, game mode, campaign, callsign, level seed, `Semirand`, skill, detail, screen size, sound settings, loadout size, time state at mission entry, the autotest settings (version 2), the pilot and campaign file sizes, and the view position at mission entry (version 3).
 2. `loadout_data`, as raw bytes.
 3. The pilot file (`.plr`) and the campaign save file (`.csg`), as they were on disk when the mission loaded.
 4. The stream. Each entry is a tag byte (`RT_*` in `Replay.h`) and then its values:

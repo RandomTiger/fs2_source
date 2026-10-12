@@ -32,7 +32,7 @@
 #include "Autotest.h"
 #include "Popup.h"
 
-#define REPLAY_FILE_VERSION		2	// Claude: 2 adds the autotest settings
+#define REPLAY_FILE_VERSION		3	// Claude: 2 adds the autotest settings, 3 the view position
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
 #define REPLAY_MAX_BLOB				(1024*1024)
 #define REPLAY_PATH_LEN			MAX_PATH	// Claude: MAX_PATH_LEN (128) is too short for full paths
@@ -106,9 +106,11 @@ typedef struct replay_header {
 	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h)
 	int	autotest_time;
 	int	autotest_speed;
+	float	view_position[3];			// Claude: version 3.  Left by whatever the menus last drew in 3D; engine sounds use it until the player enters
 } replay_header;
 
-#define REPLAY_HEADER_V1_SIZE		(sizeof(replay_header) - 3 * sizeof(int))	// Claude: a version 1 header ends before the autotest settings
+#define REPLAY_HEADER_V2_SIZE		(sizeof(replay_header) - 3 * sizeof(float))	// Claude: a version 2 header ends before the view position
+#define REPLAY_HEADER_V1_SIZE		(REPLAY_HEADER_V2_SIZE - 3 * sizeof(int))	// Claude: a version 1 header ends before the autotest settings
 
 static replay_header Hdr;
 static loadout_data Hdr_loadout;
@@ -130,6 +132,7 @@ extern fix Last_time;
 extern fix Last_delta_time;
 extern int saved_timestamp_ticker;
 extern int Event_music_enabled;
+extern vector View_position;
 
 static const char *Replay_tag_names[RT_NUM_TAGS] = {
 	"none", "timer_fix", "timer_ms", "timer_us", "os_poll", "foreground", "ev_key", "ev_mouse",
@@ -634,7 +637,7 @@ static void replay_read_file()
 	if (memcmp(Hdr.magic, "FS2REC", 6) || (Hdr.version < 1) || (Hdr.version > REPLAY_FILE_VERSION)) {
 		replay_fatal("'%s' is not a version 1 to %d recording", Replay_file, REPLAY_FILE_VERSION);
 	}
-	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : sizeof(Hdr));
+	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : (Hdr.version == 2) ? REPLAY_HEADER_V2_SIZE : sizeof(Hdr));
 	if (Rsize < hdr_size) {
 		replay_fatal("'%s' is not a recording", Replay_file);
 	}
@@ -1124,6 +1127,9 @@ void replay_enter_game()
 		Hdr.last_delta_time = Last_delta_time;
 		Hdr.saved_timestamp_ticker = saved_timestamp_ticker;
 		Hdr.missiontime = Missiontime;
+		Hdr.view_position[0] = View_position.x;
+		Hdr.view_position[1] = View_position.y;
+		Hdr.view_position[2] = View_position.z;
 
 		// the file is only created once there is a mission to put in it
 		if (Replay_auto) {
@@ -1150,6 +1156,13 @@ void replay_enter_game()
 		Last_delta_time = Hdr.last_delta_time;
 		saved_timestamp_ticker = Hdr.saved_timestamp_ticker;
 		Missiontime = Hdr.missiontime;
+
+		// the menus left this, and it differs with the path taken through them.  Older recordings don't have it
+		if (Hdr.version >= 3) {
+			View_position.x = Hdr.view_position[0];
+			View_position.y = Hdr.view_position[1];
+			View_position.z = Hdr.view_position[2];
+		}
 	}
 
 	// the briefing consumed random numbers for as long as the player stayed in it
