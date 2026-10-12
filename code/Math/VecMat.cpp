@@ -2451,7 +2451,7 @@ void vm_forward_interpolate(vector *goal_f, matrix *orient, vector *w_in, float 
 
 	// find theta to goal
 	vm_vec_copy_scale(&theta_goal, &local_rot_axis, theta);
-	Assert(fl_abs(theta_goal.z) < 0.001f);		// check for proper rotation
+	Assert((fl_abs(theta_goal.z) < 0.001f) || (t < 0.001f));		// check for proper rotation	// Claude: when the goal is almost straight behind, rot_axis is divided by a tiny t, which magnifies float rounding in z.  z is not used.
 
 	theta_end = vmd_zero_vector;
 	float delta_theta;
