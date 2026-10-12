@@ -214,19 +214,23 @@ int HUD_wingman_right_coords[GR_NUM_RESOLUTIONS][5][2] = {
 };
 
 // special coordinates if only one wing is present
-int HUD_wingman_status_single_coords[GR_NUM_RESOLUTIONS][4][2] = 
+int HUD_wingman_status_single_coords[GR_NUM_RESOLUTIONS][HUD_WINGMAN_MAX_SHIPS_PER_WINGS][2] = 	// Claude: was [4], but the dots are drawn for up to 6 ships
 {
 	{ // GR_640
 		{589,159},				// where to draw dots 1 - 4 if we have only one wing present (special case)
 		{582,167},
 		{596,167},
 		{589,175},
+		{578,175},				// Claude: ships 5 and 6, offset from ship 1 as in HUD_wingman_status_coords
+		{600,175},
 	}, 
 	{ // GR_1024
 		{971,159},
 		{964,167},
 		{978,167},
 		{971,175},
+		{960,175},
+		{982,175},
 	}
 };
 
