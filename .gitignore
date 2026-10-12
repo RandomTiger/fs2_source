@@ -46,3 +46,4 @@ Release/
 /tools/obj/
 /replays/
 *.fs2rec.*.log
+recordings/**/*.autotest.log
