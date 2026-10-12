@@ -1112,7 +1112,7 @@ void d3d_tcache_init(int use_sections)
 		*/
 
 		// setup texture divider
-		uint tmp_val = os_config_read_uint( NULL, NOX("D3DFast"), 1 );
+		uint tmp_val = os_config_read_uint( NULL, NOX("D3DFast"), 0 );	// Claude: default to full size textures (1, a quarter of the size, was the default)
 		D3D_texture_divider = 1;
 		if(tmp_val){
 			D3D_texture_divider = 4;
