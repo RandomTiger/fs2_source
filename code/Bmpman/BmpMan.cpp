@@ -2138,6 +2138,7 @@ void bm_page_in_start()
 
 extern void gr_d3d_preload_init();
 extern int gr_d3d_preload(int bitmap_num, int is_aabitmap );
+extern void d3d_glow_level_load();	// Claude: ship glow
 
 void bm_page_in_stop()
 {	
@@ -2215,6 +2216,8 @@ void bm_page_in_stop()
 
 	mprintf(( "Bmpman: %d/%d bitmap slots in use.\n", total_bitmaps, MAX_BITMAPS ));
 	//mprintf(( "Bmpman: Usage went from %d KB to %d KB.\n", usage_before/1024, usage_after/1024 ));
+
+	d3d_glow_level_load();		// Claude: build ship glow textures now, not during play
 
 	Bm_paging = 0;
 }

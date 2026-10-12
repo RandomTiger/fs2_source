@@ -273,6 +273,9 @@
     <ClCompile Include="Graphics\GrD3DRender.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics\GrD3DGlow.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
     <ClCompile Include="Graphics\GrD3DTexture.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
@@ -1047,6 +1050,9 @@
       <Filter>Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\GrD3D.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\GrD3DGlow.h">
       <Filter>Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\GrD3DInternal.h">

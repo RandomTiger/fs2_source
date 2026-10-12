@@ -317,6 +317,7 @@
 #include "Cfile.h"
 #include "Neb.h"
 #include "3d.h"
+#include "GrD3DGlow.h"		// Claude: ship glow
 
 typedef enum gr_texture_source {
 	TEXTURE_SOURCE_NONE,
@@ -967,6 +968,23 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 	}					
 
 	d3d_DrawPrimitive(D3DPT_TRIANGLEFAN, D3DVT_TLVERTEX, (LPVOID)d3d_verts, nverts, NULL);
+
+	// Claude: ship glow, the D3D version of Glide's nondarkening pixels. Redraw the poly
+	// Claude: unlit with its glow mask texture, alpha blended over the lit pass above.
+	// Claude: See GrD3DGlow.cpp and docs/SHIVAN_GLOW.md.
+	if ( (flags & TMAP_FLAG_NONDARKENING) && (flags & TMAP_FLAG_TEXTURED) && (tmap_type == TCACHE_TYPE_NORMAL) && (alpha_blend != ALPHA_BLEND_ALPHA_ADDITIVE) )	{
+		D3DTEXTUREHANDLE glow_handle = d3d_glow_get_texture(gr_screen.current_bitmap);
+		if ( glow_handle )	{
+			gr_d3d_set_state( TEXTURE_SOURCE_DECAL, ALPHA_BLEND_ALPHA_BLEND_ALPHA, (zbuffer_type == ZBUFFER_TYPE_FULL) ? ZBUFFER_TYPE_READ : zbuffer_type );
+			d3d_SetRenderState(D3DRENDERSTATE_TEXTUREHANDLE, glow_handle );
+			// the base texture is no longer bound, so make the texture cache rebind it next time
+			gr_tcache_set(-1, -1, NULL, NULL );
+			for (i=0; i<nverts; i++ )	{
+				d3d_verts[i].color = RGBA_MAKE(255, 255, 255, RGBA_GETALPHA(d3d_verts[i].color));
+			}
+			d3d_DrawPrimitive(D3DPT_TRIANGLEFAN, D3DVT_TLVERTEX, (LPVOID)d3d_verts, nverts, NULL);
+		}
+	}
 
 	// turn off fog
 	// if(flags & TMAP_FLAG_PIXEL_FOG){

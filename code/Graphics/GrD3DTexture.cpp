@@ -233,6 +233,7 @@
 #include "OsRegistry.h"
 
 #include "multi_log.h"
+#include "GrD3DGlow.h"		// Claude: ship glow
 
 typedef struct tcache_slot_d3d {
 	LPDIRECTDRAWSURFACE		vram_texture_surface;
@@ -1280,6 +1281,8 @@ void d3d_tcache_flush()
 	D3D_last_bitmap_id = -1;
 	D3D_last_section_x = -1;
 	D3D_last_section_y = -1;
+
+	d3d_glow_flush();		// Claude: ship glow textures share the texture cache lifetime
 }
 
 void d3d_tcache_cleanup()
@@ -1332,6 +1335,8 @@ void d3d_tcache_frame()
 		d3d_tcache_flush();
 		vram_full = 0;
 	}
+
+	d3d_glow_frame();		// Claude: rebuild ship glow textures after a flush
 }
 
 

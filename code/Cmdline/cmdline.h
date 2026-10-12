@@ -181,5 +181,7 @@ extern int Cmdline_mouse_coords;
 extern int Cmdline_timeout;
 
 extern int Cmdline_window;
+extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
+extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 
 #endif
