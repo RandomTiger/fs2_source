@@ -1776,12 +1776,14 @@ void gr_d3d_flip()
 		view_rect.right = gr_screen.max_w - 1;
 		view_rect.bottom = gr_screen.max_h - 1;
 
-		// Claude: restore lost surfaces, as the fullscreen flip below does
+		// Claude: restore lost surfaces, as the fullscreen flip below does.  The textures were lost with them, so reload them
 		if ( lpFrontBuffer->IsLost() == DDERR_SURFACELOST )	{
 			lpFrontBuffer->Restore();
+			d3d_tcache_flush();
 		}
 		if ( lpBackBuffer->IsLost() == DDERR_SURFACELOST )	{
 			lpBackBuffer->Restore();
+			d3d_tcache_flush();
 		}
 
 		// do the blit

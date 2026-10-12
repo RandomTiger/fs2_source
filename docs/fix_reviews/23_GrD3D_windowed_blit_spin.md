@@ -17,6 +17,7 @@ The fullscreen path a few lines below already restores lost surfaces before flip
 ## Proposed fix
 - Wait only while `GetBltStatus` says `DDERR_WASSTILLDRAWING`.
 - Before the blit, restore the front and back buffers if they are lost, as the fullscreen path does.
+- After a restore, flush the texture cache. The textures in video memory were lost with the surfaces; without the flush the game carries on but draws the HUD and menus with garbage textures. The fullscreen path gets this from the flush on reactivation; in a window the surface can be lost without the game losing focus.
 
 ## Effect on mission flow
 None. The flip only puts the frame on screen. With the fix, a frame drawn while the surface is lost is not shown and the game carries on; before, the game hung.
