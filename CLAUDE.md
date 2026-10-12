@@ -12,6 +12,7 @@ The recorder records a person playing a mission. It replays the same inputs into
 - FSO (FreeSpace Open) is not a reference.
 - Game assets are never committed. Recordings (`recordings/`) and traces are fine.
 - New features branch off `RecordPlayback`, so they are verified against the recordings from the start.
+- Branch layers and merge rules: `docs/BRANCHES.md`. Fix bugs on the lowest layer that has them and merge upward.
 - Original source files are Latin-1 with LF line endings. Edit them byte-safely so no character or line ending changes, and keep the UTF-8 BOM on `.vcxproj` files.
 
 ## Paths
