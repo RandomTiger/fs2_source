@@ -64,6 +64,8 @@ static int Replay_entries = 0;
 static int Replay_entries_by_tag[RT_NUM_TAGS];
 static int Replay_snd_mismatch = 0;
 static int Replay_last_int[RT_NUM_TAGS];
+static int Replay_clock_offset[RT_NUM_TAGS];	// after the replay, added to the live clocks so they carry on from the recorded ones
+static int Replay_clock_set[RT_NUM_TAGS];
 static FILE *Replay_log = NULL;
 
 // driving the menus during replay
@@ -421,6 +423,15 @@ int replay_write_int(int tag, int val)
 		w_varint(val - Replay_last_int[tag]);
 		Replay_last_int[tag] = val;
 		w_done();
+	}
+	// the live clock is behind the recorded one when the replay ran faster than the recording.
+	// Going back in time makes the frame cap sleep for the difference, so carry on from the recorded clock.
+	if ((Replay_mode == REPLAY_PLAY) && Replay_done && ((tag == RT_TIMER_FIX) || (tag == RT_TIMER_MS) || (tag == RT_TIMER_US)) && (Replay_entries_by_tag[tag] > 0)) {
+		if (!Replay_clock_set[tag]) {
+			Replay_clock_set[tag] = 1;
+			Replay_clock_offset[tag] = Replay_last_int[tag] - val;
+		}
+		val += Replay_clock_offset[tag];
 	}
 	return val;
 }
