@@ -103,6 +103,7 @@ int replay_snd_handle(int tag, int live_handle);
 int  replay_event_key(unsigned int code, int state, unsigned int latency);
 int  replay_event_mouse(unsigned int flags, int set);
 int  replay_event_focus(int got_focus);
+int  replay_live_focus();		// 0 while a replay is feeding the mission: live focus changes must not change game state
 void replay_os_poll();
 
 // wrap a function returning int / float.  The live expression is evaluated only when the
