@@ -1328,7 +1328,9 @@ void player_set_squad_bitmap(player *p, char *fname)
 	p->insignia_texture = -1;
 
 	// try and set the new one
-	strncpy(p->squad_filename, fname, MAX_FILENAME_LEN);
+	if(fname != p->squad_filename){	// Claude: read_pilot_file passes the player's own squad_filename, and strncpy onto itself is undefined
+		strncpy(p->squad_filename, fname, MAX_FILENAME_LEN);
+	}
 	if(strlen(p->squad_filename) > 0){
 		p->insignia_texture = bm_load_duplicate(fname);
 		
