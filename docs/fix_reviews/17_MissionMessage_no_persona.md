@@ -27,3 +27,5 @@ Add `(persona_index >= 0) &&` to both checks, so a message with no persona takes
 
 ## Effect on mission flow
 None. Only the head animation can change: a message with no persona now always gets head `a` or `b` from the fallback, where before the data read could pick the wingman or command head set.
+
+Loading and playing a head animation reads the clock, and a different head can read it a different number of times. In the campaign autotest this changed sm2-02, whose recording desynced at frame 91 and had to be re-recorded. The other missions with persona-less messages replayed unchanged.
