@@ -1776,9 +1776,18 @@ void gr_d3d_flip()
 		view_rect.right = gr_screen.max_w - 1;
 		view_rect.bottom = gr_screen.max_h - 1;
 
+		// Claude: restore lost surfaces, as the fullscreen flip below does
+		if ( lpFrontBuffer->IsLost() == DDERR_SURFACELOST )	{
+			lpFrontBuffer->Restore();
+		}
+		if ( lpBackBuffer->IsLost() == DDERR_SURFACELOST )	{
+			lpBackBuffer->Restore();
+		}
+
 		// do the blit
 		lpFrontBuffer->Blt(&rect, lpBackBuffer, &view_rect, 0, NULL );
-		while(lpFrontBuffer->GetBltStatus(DDGBS_ISBLTDONE) != DD_OK){}  
+		// Claude: was != DD_OK, which spun forever when the blit failed (surface lost)
+		while(lpFrontBuffer->GetBltStatus(DDGBS_ISBLTDONE) == DDERR_WASSTILLDRAWING){}  
 	} else {
 	TryFlipAgain:
 		if ( lpFrontBuffer->IsLost() == DDERR_SURFACELOST )	{
