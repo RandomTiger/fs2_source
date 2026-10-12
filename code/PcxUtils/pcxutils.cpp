@@ -245,7 +245,7 @@ int pcx_read_bitmap_8bpp( char * real_filename, ubyte *org_data, ubyte *palette 
 	return PCX_ERROR_NONE;
 }
 
-int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data )
+int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data, int bytes_per_pixel )	// Claude: bytes_per_pixel 4 for 32 bit textures
 {
 	PCXHeader header;
 	CFILE * PCXfile;
@@ -345,12 +345,16 @@ int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data )
 				
 				// stuff the pixel
 				*((ushort*)pixdata) = bit_16;				
-				pixdata += 2;
+				// Claude: 32 bit textures are ARGB 8888, with transparent pixels all 0 as in the 1555 path
+				if(bytes_per_pixel == 4){
+					*((uint*)pixdata) = al ? (0xff000000 | (r << 16) | (g << 8) | b) : 0;
+				}
+				pixdata += bytes_per_pixel;	// Claude: was 2
 			}
 			count--;
 		}
 
-		org_data += (xsize * 2);
+		org_data += (xsize * bytes_per_pixel);	// Claude: was 2
 	}
 	cfclose(PCXfile);
 	return PCX_ERROR_NONE;

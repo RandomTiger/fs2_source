@@ -229,7 +229,7 @@ cmdline_parm multilog_arg("-multilog", NULL);
 cmdline_parm server_firing_arg("-oldfire", NULL);
 cmdline_parm client_dodamage("-clientdamage", NULL);
 cmdline_parm pof_spew("-pofspew", NULL);
-cmdline_parm d3d_32bit("-32bit", NULL);
+cmdline_parm force_16bit("-force_16bit", NULL);	// Claude: was -32bit, now that 32 bit is the default
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
@@ -265,6 +265,7 @@ int Cmdline_server_firing = 0;
 int Cmdline_client_dodamage = 0;
 int Cmdline_spew_pof_info = 0;
 int Cmdline_force_32bit = 0;
+int Cmdline_force_16bit = 0;	// Claude: 16 bit screen and textures instead of the 32 bit default
 int Cmdline_mouse_coords = 0;
 int Cmdline_timeout = -1;
 
@@ -604,9 +605,9 @@ int parse_cmdline(char *cmdline)
 		Cmdline_spew_pof_info = 1;
 	}
 
-	// 32 bit
-	if(d3d_32bit.found()){
-		Cmdline_force_32bit = 1;
+	// Claude: 16 bit screen and textures (32 bit is the default)
+	if(force_16bit.found()){
+		Cmdline_force_16bit = 1;
 	}
 
 	// mouse coords

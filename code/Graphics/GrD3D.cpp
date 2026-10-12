@@ -246,6 +246,8 @@ int DrawPrim = 0;
 int D3d_rendition_uvs = 0;	
 
 int D3D_32bit = 0;
+int D3D_32bit_textures = 0;			// Claude: ARGB 8888 textures; needs a 32 bit screen, off with -force_16bit
+DDPIXELFORMAT			TextureFormat_8888;	// Claude: 32 bit textures
 
 int D3D_zbias = 1;
 DCF(zbias, "")
@@ -815,6 +817,7 @@ static void d3d_dump_format(DDPIXELFORMAT *pf)
 
 int D3D_found_1555_tex = 0;
 int D3D_found_565_tex = 0;
+int D3D_found_8888_tex = 0;	// Claude: 32 bit textures
 static HRESULT WINAPI EnumTextureFormatsCallback(LPDDSURFACEDESC lpDDSD, LPVOID lpContext)
 {
 	if (lpDDSD->ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXEDTO8) {
@@ -887,6 +890,12 @@ static HRESULT WINAPI EnumTextureFormatsCallback(LPDDSURFACEDESC lpDDSD, LPVOID 
 					NonAlphaTextureFormat = lpDDSD->ddpfPixelFormat;
 				}
 			}		
+		}
+
+		// Claude: 32 bit textures, ARGB 8888 in the byte order the PCX loader writes
+		if ( (a == 8) && (lpDDSD->ddpfPixelFormat.dwRGBBitCount == 32) && (lpDDSD->ddpfPixelFormat.dwRBitMask == 0x00ff0000) && (lpDDSD->ddpfPixelFormat.dwGBitMask == 0x0000ff00) && (lpDDSD->ddpfPixelFormat.dwBBitMask == 0x000000ff) )	{
+			TextureFormat_8888 = lpDDSD->ddpfPixelFormat;
+			D3D_found_8888_tex = 1;
 		}
 
 		// HACK!!! Some 3dfx cards (Allender, Whiteside, Johnson) choose
@@ -1433,6 +1442,7 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 	Largest_rgb = 0;
 	D3D_found_1555_tex = 0;
 	D3D_found_565_tex = 0;
+	D3D_found_8888_tex = 0;	// Claude: 32 bit textures
 	ddrval = lpD3DDevice->EnumTextureFormats(EnumTextureFormatsCallback, NULL );
 	if ( ddrval != DD_OK )	{
 		// mprintf(( "GR_D3D_INIT: EnumTextureFormats failed.\n" ));
@@ -2659,6 +2669,12 @@ void gr_d3d_init()
 
 	// determine 32 bit status
 	D3D_32bit = gr_screen.bits_per_pixel == 32 ? 1 : 0;
+	// Claude: 32 bit textures go with a 32 bit screen, unless -force_16bit. 32 bit is the minimum spec, so no fallback.
+	D3D_32bit_textures = (D3D_32bit && !Cmdline_force_16bit) ? 1 : 0;
+	if ( D3D_inited && D3D_32bit_textures && !D3D_found_8888_tex )	{
+		Error( LOCATION, "No 32 bit ARGB texture format. Run with -force_16bit." );
+	}
+	mprintf(( "32 bit textures: %s\n", D3D_32bit_textures ? "on" : "off" ));
 	d3d_tcache_init(D3D_32bit ? 1 : 0);
 	Gr_bitmap_poly = D3D_32bit ? 1 : 0;	
 
