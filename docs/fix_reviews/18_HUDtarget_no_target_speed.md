@@ -18,4 +18,4 @@ Read the speed only when there is a target. Otherwise `current_speed` keeps its 
 None. The speed trend is only shown with a target, and acquiring a target resets the trend.
 
 ## Not changed
-`player_match_target_speed` (`PlayerControl.cpp`) also reads `Objects[Player_ai->target_objnum].type` before its own check for -1. It is reached here only with auto speed matching on and no target. AddressSanitizer did not report it, because the autotest does not turn auto speed matching on.
+`player_match_target_speed` (`PlayerControl.cpp`) also reads `Objects[Player_ai->target_objnum].type` before its own check for -1. It is reached here only with auto speed matching on and no target. AddressSanitizer did not report it, because the autotest does not turn auto speed matching on. Fixed separately in review 27.
