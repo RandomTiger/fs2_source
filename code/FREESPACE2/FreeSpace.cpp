@@ -5660,6 +5660,8 @@ void game_leave_state( int old_state, int new_state )
 
 void game_enter_state( int old_state, int new_state )
 {
+	replay_enter_state(new_state);	// Claude: ends the recording before the next state's init reads input
+
 	switch (new_state) {
 		case GS_STATE_MAIN_MENU:				
 			// in multiplayer mode, be sure that we are not doing networking anymore.

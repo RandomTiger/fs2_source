@@ -65,6 +65,8 @@ The stream starts at `GS_EVENT_ENTER_GAME`. The mission load, briefing and loado
 - **Time state** that the briefing advanced: `timestamp_ticker`, `Last_time`, `Last_delta_time` and `Missiontime`. These come from the recording header.
 - **The loadout.** `Player_loadout` comes from the header. Replay commits it through the normal briefing path.
 
+The stream ends in `game_enter_state` when the game enters the main menu or the debriefing, before that state's init runs. The main hall's init moves the cursor, and that reads the window focus only when the cursor is not already in place, so it can differ between builds. Recordings made before this change end one step later and may not replay.
+
 `Semirand[]`, which is filled from the clock at startup, and the detail settings come from the header at mission load.
 
 A hooked function called from inside another hooked function is not recorded on its own. For example, the clock read inside `joy_down_time` is covered by `joy_down_time`'s own value.

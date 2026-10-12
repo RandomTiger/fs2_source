@@ -79,6 +79,7 @@ void replay_enter_game();				// GS_EVENT_ENTER_GAME
 void replay_mission_over();			// left gameplay (main menu, debrief, quit)
 void replay_shutdown();					// game_shutdown
 int  replay_load_pilot();				// GS_EVENT_GAME_INIT: 1 if replay loaded its own pilot
+void replay_enter_state(int state);	// called from game_enter_state; ends the recording when the mission is left
 void replay_drive_state(int state);	// called each frame from game_do_state; drives menus in replay
 void replay_sim_frame_end();			// end of game_simulation_frame: writes the state trace
 

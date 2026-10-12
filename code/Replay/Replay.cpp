@@ -1235,15 +1235,22 @@ void replay_shutdown()
 	}
 }
 
-void replay_drive_state(int state)
+void replay_enter_state(int state)
 {
 	if (Replay_mode == REPLAY_OFF) {
 		return;
 	}
 
-	// back out of the mission: the recording ends here
+	// back out of the mission: the recording ends here, before the new state's init reads
+	// input (the main hall moves the cursor, which can read the focus)
 	if (Replay_in_game && !Replay_done && ((state == GS_STATE_MAIN_MENU) || (state == GS_STATE_DEBRIEF))) {
 		replay_mission_over();
+	}
+}
+
+void replay_drive_state(int state)
+{
+	if (Replay_mode == REPLAY_OFF) {
 		return;
 	}
 
