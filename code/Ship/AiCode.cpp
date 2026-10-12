@@ -10846,7 +10846,7 @@ void ai_fire_from_turret(ship *shipp, ship_subsys *ss, int parent_objnum)
 	}
 
 	// If beam weapon, check beam free
-	if ( (Weapon_info[tp->turret_weapon_type].wi_flags & WIF_BEAM) && !(ss->weapons.flags & SW_FLAG_BEAM_FREE) ) {
+	if ( (tp->turret_weapon_type >= 0) && (Weapon_info[tp->turret_weapon_type].wi_flags & WIF_BEAM) && !(ss->weapons.flags & SW_FLAG_BEAM_FREE) ) {	// Claude: added the >= 0 check; the turret with no weapon returns just below
 		return;
 	}
 
