@@ -23,6 +23,10 @@
 - [ ] Debug uses /MDd while code.lib uses /MTd.
 
 ## Recorder (RecordPlayback branch)
+- [ ] **Full replay check due.** Replay all 34 `recordings/autotest` missions and
+      `recordings/played/SM1-04` in Release and Debug, and TraceDiff each. Not run since
+      the focus fix (b82c40d) and the match-speed fix (review 27); the last full pass was
+      on the font fix. Push RecordPlayback and Latest, and tag Latest, once it passes.
 - [x] Fix the replay desync during mission load (test1_2: the recording has a mouse
       position where the replay reads the timer; likely focus/pause related).
 - [x] Commit the recorder work on RecordPlayback.
