@@ -441,6 +441,7 @@
 #include "HUDSquadMsg.h"
 #include "multi_obj.h"
 #include "observer.h"
+#include "../Pad/PadGame.h"	// Claude: control pad
 
 ////////////////////////////////////////////////////////////
 // Global object and other interesting player type things
@@ -1003,6 +1004,8 @@ void read_keyboard_controls( control_info * ci, float frame_time, physics_info *
 
 		if (Axis_map_to[JOY_REL_THROTTLE_AXIS] >= 0)
 			ci->forward_cruise_percent += f2fl(axis[JOY_REL_THROTTLE_AXIS]) * 100.0f * frame_time;
+
+		pad_read_flight(ci, frame_time);	// Claude: control pad
 
 		if ( ci->forward_cruise_percent > 100.0f )
 			ci->forward_cruise_percent = 100.0f;

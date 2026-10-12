@@ -49,6 +49,7 @@ of FS2 (and the recorder, later) sees no difference:
 3. `game_process_keys()` (KeyControl.cpp): `pad_frame()` after `button_info_clear`.
 4. `check_control()` (ControlsConfig.cpp): return 1 if the pad holds that action.
 5. `read_keyboard_controls()` (PlayerControl.cpp): add the pad's analog values.
+6. `joy_init()` (Joy.cpp): legacy joystick off while an XInput pad is connected.
 
 Read every frame. The original joystick code reads only 10 times a second ("like we did
 in Descent"); that is too coarse for a thumbstick.
@@ -62,13 +63,46 @@ in Descent"); that is too coarse for a thumbstick.
 | D-pad up/down/left/right | press | shield to front/rear/left/right (`SHIELD_XFER_*`) |
 | Left trigger | analog hold | raise throttle, rate scaled by pressure |
 | Left trigger | double tap and hold | afterburner |
-| Left shoulder | press | zero throttle |
-| Left shoulder | double tap | match target speed |
+| Left shoulder | hold | lower throttle (same rate as the left trigger) |
+| Left shoulder | double tap | zero throttle (hard stop) |
+| Right shoulder | hold | fire secondary |
 | Special button | press | pause |
 
-Gesture overlap: the first press of a double tap also does its single action (LB stops,
-then match speed takes over; LT raises throttle briefly, then afterburner). Waiting for
+Match target speed has no slot yet (was LB double tap); it goes in the pad tree.
+
+Gesture overlap: the first press of a double tap also does its single action (LB slows,
+then the second tap stops; LT raises throttle briefly, then afterburner). Waiting for
 the double-tap window instead would add ~250 ms lag to every stop. Proposed: no delay.
+
+## Pad tree (from Tom)
+Players won't remember dozens of combinations, so the less-used actions live in a
+tree driven by a held face button and the D-pad.
+
+- Hold a face button: its category opens. The D-pad's four directions show four options.
+- An option is a leaf (does the action) or a branch (shows four more options).
+- On every level below the top, one direction (Left) is reserved for back. The top
+  level has all four. Releasing the face button closes the tree at any depth.
+- With no face button held, the D-pad is shields as normal.
+- Sticks and triggers keep working while the tree is open, so the player keeps flying.
+- Muscle memory: the action fires on the D-pad press, and the HUD only draws the
+  options after a short delay (~200 ms). A practised player clicks through without
+  waiting and never sees it pop up.
+- Tap vs hold: a quick tap of the same face button can still do one direct action
+  (e.g. tap = target next hostile, hold = targeting tree).
+
+Categories:
+| Category | Notes |
+|---|---|
+| Commands | Drives the existing squad message menu. That menu has more than four items per page, so here Up/Down move through it, Right selects, Left goes back. It reuses the game's own menu and HUD. |
+| Targeting | Hostile, subsystem, cargo, turret, friendly branches. |
+| Weapons | Cycle primary, cycle secondary, missile link, etc. |
+| (4th face button) | Free: a direct action or a fourth category (ETS / power). |
+
+Which face button opens which category is just a table entry in `pad.cfg`. Default
+(arbitrary): West = Targeting, North = Weapons, East = Commands, South = free.
+
+The tree is data (`PadCore`), so it ports to Godot as is. Only the HUD drawing
+(`PadHud.cpp`, new file) is FS2-specific.
 
 ## What fits and what doesn't
 Tier 1, needed to play: on the base layer or a one-button layer.
@@ -79,27 +113,43 @@ Tier 1, needed to play: on the base layer or a one-button layer.
 - Squad message menu, with pad navigation of the menu while it is open (a layer).
 - Pause. Jump out at mission end (`END_MISSION`).
 
-Tier 2, useful: behind a modifier layer.
+Tier 2, useful: in the pad tree.
 - ETS up/down for weapons/shields/engines, equalise.
 - Target next/prev friendly, escort, next bomb, newest ship, target's target, stop targeting.
+- Subsystem targeting: prev subsystem, subsystem in reticle, stop targeting subsystem.
+- Cargo: next/prev uninspected cargo. Turrets: next/prev live turret.
 - Throttle down (no slot yet), missile link (`CYCLE_NUM_MISSLES`), chase view, padlock
   look (right stick Y is free), show goals, radar range.
 
 Tier 3, keyboard only.
 - Multiplayer messaging and net keys, time compression, HUD contrast, external camera,
-  view slew, navmap, damage popup, escort add/clear, cargo and turret targeting,
-  self-destruct, debug keys.
+  view slew, navmap, damage popup, escort add/clear, self-destruct, debug keys.
 - Front-end menus. The pad works in a mission only.
 
 ## Settings
-Prototype: a text file `pad.cfg` in the game folder, read at start-up. Not the pilot
-file, so the pilot format does not change. Keys:
-invert pitch, invert yaw, invert roll; sensitivity and response curve per stick;
-deadzone per stick; trigger threshold; double-tap window (ms); the action table itself.
-An in-game options screen is out of scope for the prototype.
+Prototype: an optional text file `pad.cfg` in the game folder, read the first time the
+pad is used. Not the pilot file, so the pilot format does not change. One
+`name = value` per line, `#` for comments. Names and defaults:
+
+```
+invert_pitch = 0         # 0: pull back = nose up
+invert_yaw = 0
+invert_roll = 0
+left_sensitivity = 1.0
+right_sensitivity = 1.0
+left_deadzone = 0.15     # radial, 0..1
+right_deadzone = 0.15
+curve = 2.0              # 1 = linear, higher = finer near centre
+trigger_deadzone = 0.05
+trigger_threshold = 0.3  # trigger counts as a button above this
+double_tap_ms = 250
+throttle_rate = 100      # percent per second at full left trigger
+```
+The binding table is in code (`PadGame.cpp`) for now. An in-game options screen is out
+of scope for the prototype.
 
 ## Known clash
-DirectInput also sees the 360 pad as a joystick (both triggers on one Z axis). If it is
-selected as FS2's joystick, its buttons and axes double up with the pad module. The pad
-module should skip legacy joystick reading for the pad it owns, or the joystick option
-is set to none for testing.
+The legacy joystick code also sees the 360 pad, and picks it even with the joystick
+option set to none; its hat is bound to the padlock views. So `joy_init()` turns the
+legacy joystick off when an XInput pad is connected at startup. Side effect: a real
+flight stick plugged in alongside the pad is ignored too.

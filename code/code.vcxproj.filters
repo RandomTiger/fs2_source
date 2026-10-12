@@ -61,6 +61,9 @@
     <Filter Include="Io">
       <UniqueIdentifier>{d3052293-dfbb-43b8-ba80-d0ef27d6417f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Pad">
+      <UniqueIdentifier>{6f2a8c41-3d5e-4b7a-9e1c-5a0d7b2f8e64}</UniqueIdentifier>
+    </Filter>
     <Filter Include="JumpNode">
       <UniqueIdentifier>{71022486-1f71-4c28-ab0b-f91e8b2f8b7a}</UniqueIdentifier>
     </Filter>
@@ -377,6 +380,15 @@
     </ClCompile>
     <ClCompile Include="Io\Timer.cpp">
       <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadCore.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadGame.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadXInput.cpp">
+      <Filter>Pad</Filter>
     </ClCompile>
     <ClCompile Include="JumpNode\JumpNode.cpp">
       <Filter>JumpNode</Filter>
@@ -1162,6 +1174,18 @@
     </ClInclude>
     <ClInclude Include="Io\Timer.h">
       <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadCore.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadGame.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadState.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadXInput.h">
+      <Filter>Pad</Filter>
     </ClInclude>
     <ClInclude Include="JumpNode\JumpNode.h">
       <Filter>JumpNode</Filter>
