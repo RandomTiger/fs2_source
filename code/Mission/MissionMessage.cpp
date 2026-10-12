@@ -1178,7 +1178,7 @@ void message_play_anim( message_q *q )
 			strcpy( ani_name, COMMAND_HEAD_PREFIX );
 		}
 
-		if ( Personas[persona_index].flags & (PERSONA_FLAG_WINGMAN | PERSONA_FLAG_SUPPORT) ) {
+		if ( (persona_index >= 0) && (Personas[persona_index].flags & (PERSONA_FLAG_WINGMAN | PERSONA_FLAG_SUPPORT)) ) {	// Claude: added the persona_index checks here and below; a message with no persona read Personas[-1]
 			// get a random head -- it's one of two.
 			if ( q->builtin_type == MESSAGE_WINGMAN_SCREAM ) {
 				rand_index=2;	// 3rd version is always death animation
@@ -1188,7 +1188,7 @@ void message_play_anim( message_q *q )
 			}
 			sprintf(ani_name, "%s%c", ani_name, 'a'+rand_index);
 			subhead_selected = TRUE;
-		} else if ( Personas[persona_index].flags & (PERSONA_FLAG_COMMAND | PERSONA_FLAG_LARGE) ) {
+		} else if ( (persona_index >= 0) && (Personas[persona_index].flags & (PERSONA_FLAG_COMMAND | PERSONA_FLAG_LARGE)) ) {
 			// get a random head -- it's one of two.
 			rand_index = (Missiontime % MAX_COMMAND_HEADS);
 			sprintf(ani_name, "%s%c", ani_name, 'a'+rand_index);

@@ -1268,6 +1268,17 @@ void neb2_get_pixel(int x, int y, int *r, int *g, int *b)
 	if(ys >= (this_esize - 1)){
 		ys--;
 	}
+	// Claude: x and y can be at or past the edge of the screen, which read past the end of tpixels
+	if(xs < 0){
+		xs = 0;
+	} else if(xs > (this_esize - 1)){
+		xs = this_esize - 1;
+	}
+	if(ys < 0){
+		ys = 0;
+	} else if(ys > (this_esize - 1)){
+		ys = this_esize - 1;
+	}
 
 	avg_count = 0;
 	bm_get_components(&tpixels[PIXEL_INDEX_SMALL(xs, ys)], &rv, &gv, &bv, NULL);

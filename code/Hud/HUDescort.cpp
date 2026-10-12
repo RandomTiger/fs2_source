@@ -905,9 +905,9 @@ void hud_escort_ship_hit(object *objp, int quadrant)
 	for ( i = 0; i < Num_escort_ships; i++ ) {
 		if ( Escort_ships[i].objnum == OBJ_INDEX(objp) ) {
 			shi = &Escort_ships[i].hit_info;
-			num = Quadrant_xlate[quadrant];
 			hud_gauge_popup_start(HUD_ESCORT_VIEW);
 			if ( quadrant >= 0 ) {
+				num = Quadrant_xlate[quadrant];	// Claude: moved inside the if; quadrant is -1 for a hull hit
 				shi->shield_hit_timers[num] = timestamp(SHIELD_HIT_DURATION);
 			} else {
 				shi->shield_hit_timers[HULL_HIT_OFFSET] = timestamp(SHIELD_HIT_DURATION);

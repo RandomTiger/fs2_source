@@ -6303,7 +6303,9 @@ void sexp_beam_fire(int node)
 
 	// see if the optional subsystem can be found	
 	fire_info.target_subsys = NULL;
-	fire_info.target_subsys = ship_get_subsys(&Ships[sindex], CTEXT(CDR(CDR(CDR(node)))));	
+	if (CDR(CDR(CDR(node))) >= 0) {	// Claude: the subsystem is optional; without it this read Sexp_nodes[-1]
+		fire_info.target_subsys = ship_get_subsys(&Ships[sindex], CTEXT(CDR(CDR(CDR(node)))));	
+	}
 
 	// if it has no primary weapons
 	if(fire_info.turret->weapons.num_primary_banks <= 0){

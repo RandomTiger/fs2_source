@@ -2092,8 +2092,9 @@ static void ship_do_damage(object *ship_obj, object *other_obj, vector *hitpos, 
 	}
 
 	// if this is not a laser, or i'm not a multiplayer client
+	// Claude: added the OBJ_WEAPON check.  other_obj can be a ship, beam, shockwave or asteroid, and its instance was read as a weapon
 	// apply pain to me
-	if((other_obj != NULL) && ((Weapon_info[Weapons[other_obj->instance].weapon_info_index].subtype != WP_LASER) || !MULTIPLAYER_CLIENT) && (Player_obj != NULL) && (ship_obj == Player_obj)){
+	if((other_obj != NULL) && ((other_obj->type != OBJ_WEAPON) || (Weapon_info[Weapons[other_obj->instance].weapon_info_index].subtype != WP_LASER) || !MULTIPLAYER_CLIENT) && (Player_obj != NULL) && (ship_obj == Player_obj)){
 		ship_hit_pain(damage);
 	}	
 
