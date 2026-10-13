@@ -134,6 +134,8 @@ int timestamp();
 // gets a timestamp randomly between a and b milliseconds in
 // the future.
 #define timestamp_rand(a,b) timestamp((myrand()%((b)-(a)+1))+(a))
+// Claude: Cosmetic random stream version.
+#define cosmetic_timestamp_rand(a,b) timestamp((cosmetic_rand()%((b)-(a)+1))+(a))
 
 // Example that makes a ship fire in 1/2 second
 

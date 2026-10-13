@@ -498,9 +498,9 @@ void stars_level_init()
 	for (i=0; i<MAX_STARS; i++) {
 		dist = dist_max;
 		while (dist >= dist_max) {
-			v.x = (float) ((myrand() & RND_MAX_MASK) - HALF_RND_MAX);
-			v.y = (float) ((myrand() & RND_MAX_MASK) - HALF_RND_MAX);
-			v.z = (float) ((myrand() & RND_MAX_MASK) - HALF_RND_MAX);
+			v.x = (float) ((cosmetic_rand() & RND_MAX_MASK) - HALF_RND_MAX);
+			v.y = (float) ((cosmetic_rand() & RND_MAX_MASK) - HALF_RND_MAX);
+			v.z = (float) ((cosmetic_rand() & RND_MAX_MASK) - HALF_RND_MAX);
 
 			dist = v.x * v.x + v.y * v.y + v.z * v.z;
 		}
@@ -1206,9 +1206,9 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 			vertex p;
 
 			if (!d->active)	{
-				d->pos.x = f2fl(myrand() - RAND_MAX/2);
-				d->pos.y = f2fl(myrand() - RAND_MAX/2);
-				d->pos.z = f2fl(myrand() - RAND_MAX/2);
+				d->pos.x = f2fl(cosmetic_rand() - RAND_MAX/2);
+				d->pos.y = f2fl(cosmetic_rand() - RAND_MAX/2);
+				d->pos.z = f2fl(cosmetic_rand() - RAND_MAX/2);
 
 				vm_vec_normalize(&d->pos);
 
@@ -1220,9 +1220,9 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 
 				// if we're in full neb mode
 				if((The_mission.flags & MISSION_FLAG_FULLNEB) && (Neb2_render_mode != NEB2_RENDER_NONE)){
-					d->size = i2fl(myrand() % 4)*BASE_SIZE_NEB;
+					d->size = i2fl(cosmetic_rand() % 4)*BASE_SIZE_NEB;
 				} else {
-					d->size = i2fl(myrand() % 4)*BASE_SIZE;
+					d->size = i2fl(cosmetic_rand() % 4)*BASE_SIZE;
 				}
 
 				vm_vec_sub( &d->last_pos, &d->pos, &Eye_position );

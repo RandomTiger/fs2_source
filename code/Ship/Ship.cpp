@@ -2518,7 +2518,7 @@ void ship_render(object * obj)
 
 			//	Add noise to thruster geometry.
 			ft = obj->phys_info.forward_thrust;
-			ft *= (1.0f + frand()/5.0f - 1.0f/10.0f);
+			ft *= (1.0f + cosmetic_frand()/5.0f - 1.0f/10.0f);
 			if (ft > 1.0f)
 				ft = 1.0f;
 
@@ -3034,7 +3034,7 @@ void ship_blow_up_area_apply_blast( object *exp_objp)
 		sci.blast = max_blast;
 		sci.damage = max_damage;
 		sci.speed = shockwave_speed;
-		sci.rot_angle = frand_range(0.0f, 359.0f);
+		sci.rot_angle = cosmetic_frand_range(0.0f, 359.0f);
 		shipfx_do_shockwave_stuff(&Ships[exp_objp->instance], &sci);
 		// shockwave_create(Ships[exp_objp->instance].objnum, &exp_objp->pos, shockwave_speed, inner_rad, outer_rad, max_damage, max_blast, SW_SHIP_DEATH);
 	} else {
@@ -9017,6 +9017,35 @@ int ship_get_random_ship()
 
 	// get a random ship on the list
 	rand_ship = (int)frand_range(0.0f, (float)(num_ships - 1));
+	if(rand_ship < 0){
+		rand_ship = 0;
+	} 
+	if(rand_ship > num_ships){
+		rand_ship = num_ships;
+	}
+
+	// find this guy
+	so = GET_FIRST(&Ship_obj_list);
+	for(idx=0; idx<rand_ship; idx++) {
+		so = GET_NEXT(so);
+	}
+
+	return Objects[so->objnum].instance;
+}
+
+// Claude: Cosmetic random stream version.
+int ship_get_random_ship_cosmetic()
+{
+	int num_ships;
+	int rand_ship;
+	int idx;
+	ship_obj *so;
+
+	// get the # of ships on the list
+	num_ships = ship_get_num_ships();
+
+	// get a random ship on the list
+	rand_ship = (int)cosmetic_frand_range(0.0f, (float)(num_ships - 1));
 	if(rand_ship < 0){
 		rand_ship = 0;
 	} 

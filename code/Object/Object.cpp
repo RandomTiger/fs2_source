@@ -1514,8 +1514,8 @@ void obj_move_all_post(object *objp, float frametime)
 						vm_vec_unrotate(&tmp2,&shipp->arc_pts[i][1],&objp->orient);
 						vm_vec_add2(&tmp2,&objp->pos);
 
-						light_add_point( &tmp1, 10.0f, 20.0f, frand(), 1.0f, 1.0f, 1.0f, -1 );
-						light_add_point( &tmp2, 10.0f, 20.0f, frand(), 1.0f, 1.0f, 1.0f, -1 );
+						light_add_point( &tmp1, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );
+						light_add_point( &tmp2, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );
 					}
 				}
 			}
@@ -1534,7 +1534,7 @@ void obj_move_all_post(object *objp, float frametime)
 			}
 			p *= 2.0f;
 			// P goes from 0 to 1 to 0 over the life of the explosion
-			float rad = p*(1.0f+frand()*0.05f)*objp->radius;
+			float rad = p*(1.0f+cosmetic_frand()*0.05f)*objp->radius;
 
 			light_add_point( &objp->pos, rad*2.0f, rad*5.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1 );
 		}
@@ -1563,8 +1563,8 @@ void obj_move_all_post(object *objp, float frametime)
 						vm_vec_unrotate(&tmp2,&db->arc_pts[i][1],&objp->orient);
 						vm_vec_add2(&tmp2,&objp->pos);
 
-						light_add_point( &tmp1, 10.0f, 20.0f, frand(), 1.0f, 1.0f, 1.0f, -1 );
-						light_add_point( &tmp2, 10.0f, 20.0f, frand(), 1.0f, 1.0f, 1.0f, -1 );
+						light_add_point( &tmp1, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );
+						light_add_point( &tmp2, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );
 					}
 				}
 			}

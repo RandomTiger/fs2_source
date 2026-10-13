@@ -578,8 +578,8 @@ void nebl_render_all()
 			}
 
 			// pick some cool alpha values
-			Nebl_alpha = frand();
-			Nebl_glow_alpha = frand();
+			Nebl_alpha = cosmetic_frand();
+			Nebl_glow_alpha = cosmetic_frand();
 
 			// otherwise render him
 			Nebl_flash_count = 0;
@@ -623,7 +623,7 @@ void nebl_render_all()
 						} else {
 							bang = 1.0f - (Nebl_bang / 400.0f);
 						}
-						if(frand_range(0.0f, 1.0f) < 0.5f){
+						if(cosmetic_frand_range(0.0f, 1.0f) < 0.5f){
 							snd_play(&Snds[SND_LIGHTNING_2], 0.0f, bang, SND_PRIORITY_DOUBLE_INSTANCE);
 						} else {
 							snd_play(&Snds[SND_LIGHTNING_1], 0.0f, bang, SND_PRIORITY_DOUBLE_INSTANCE);

@@ -524,7 +524,7 @@ void event_music_level_init(int force_soundtrack)
 /*
 		// okay, assign a random soundtrack if one exists
 		if ( Num_soundtracks > 0 ) {
-			Current_soundtrack_num = rand()%Num_soundtracks;
+			Current_soundtrack_num = cosmetic_rand()%Num_soundtracks;
 			nprintf(("EVENTMUSIC", "EVENTMUSIC ==> Picking random event music soundtrack: %s\n", Soundtracks[Current_soundtrack_num].name));
 		} else {
 			return;
