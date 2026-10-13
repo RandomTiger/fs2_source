@@ -1233,7 +1233,8 @@ void player_clear_speed_matching()
 //				match_on_text	=>	default parm (NULL), used to overide HUD output when matching toggled on
 void player_match_target_speed(char *no_target_text, char *match_off_text, char *match_on_text)
 {
-	if ( Objects[Player_ai->target_objnum].type != OBJ_SHIP ) {
+	// Claude: check target_objnum first; with no target this read Objects[-1]
+	if ( (Player_ai->target_objnum >= 0) && (Objects[Player_ai->target_objnum].type != OBJ_SHIP) ) {
 		return;
 	}
 

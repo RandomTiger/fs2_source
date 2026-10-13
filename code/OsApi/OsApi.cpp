@@ -539,7 +539,8 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 				} else {
 					//mprintf(( "Priority: LOW\n" ));
 					joy_unacquire_ff();
-					if (Mouse_hidden)	{
+					// Claude: during a replay this comes from the recorded lost-focus event instead (replay_drain_events), so live focus changes leave it alone
+					if (Mouse_hidden && replay_live_focus())	{
 						Mouse_hidden=0;
 						//ShowCursor(1);
 						//mprintf(( "Mouse:Alive\n" ));		

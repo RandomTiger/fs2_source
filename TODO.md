@@ -23,6 +23,12 @@
 - [ ] Debug uses /MDd while code.lib uses /MTd.
 
 ## Recorder (RecordPlayback branch)
+- [x] Replay check for reviews 28 and 29: all 34 `recordings/autotest` missions and
+      `recordings/played/SM1-04` and `SM1-05` match in Release and Debug. Tagged
+      latest-2026-10-13b.
+- [x] Full replay check after the focus fix (b82c40d) and the match-speed fix (review 27):
+      all 34 `recordings/autotest` missions and `recordings/played/SM1-04` match in Release
+      and Debug. Tagged latest-2026-10-13.
 - [x] Fix the replay desync during mission load (test1_2: the recording has a mouse
       position where the replay reads the timer; likely focus/pause related).
 - [x] Commit the recorder work on RecordPlayback.

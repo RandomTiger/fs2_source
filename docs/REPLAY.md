@@ -86,6 +86,7 @@ All values are little-endian.
    - several ints are a varint count followed by zigzag varints;
    - a float is 4 raw bytes.
 
+   `RT_INPUT_DEVICE` holds the state of an input device the original game did not have (such as a control pad), as a list of ints whose meaning belongs to that device's code (`replay_input_device`). A build without the device writes no such entries, and a build with it treats a missing entry as "not connected", so recordings replay across both and the format needs no change for each new device.
 ## Trace format
 
 See `code/Replay/TraceFormat.h`. Each frame has a header with the frame number, mission time, frame time, `timestamp_ticker`, `Rand_count` and a 64-bit hash of the full state. The full state is written every 60 frames, or every frame with `-fulltrace`.

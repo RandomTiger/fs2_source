@@ -59,7 +59,8 @@ extern int Replay_mode;
 #define RT_ENTER_GAME			28
 #define RT_END						29
 #define RT_STREAM_BYTES			30
-#define RT_NUM_TAGS				31
+#define RT_INPUT_DEVICE			31
+#define RT_NUM_TAGS				32
 
 // command line (called from parse_cmdline)
 void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
@@ -96,6 +97,13 @@ float replay_write_float(int tag, float val);
 void  replay_read_ints(int tag, int *vals, int count);
 void  replay_write_ints(int tag, int *vals, int count);
 
+// The state of an input device the original game did not have (for example a control pad), as
+// up to max ints.  In replay, fills vals from the recording and returns the count, or 0 when the
+// recording has no entry here (made by a build without the device): it then reads as not connected.  Otherwise
+// records vals[0..count-1] and returns count.  Pack the live state into vals only when
+// replay_should_read() is 0.
+int   replay_input_device(int *vals, int count, int max);
+
 // sound handles: the live handle is kept unless the recorded call failed or succeeded differently
 int replay_snd_handle(int tag, int live_handle);
 
@@ -103,6 +111,7 @@ int replay_snd_handle(int tag, int live_handle);
 int  replay_event_key(unsigned int code, int state, unsigned int latency);
 int  replay_event_mouse(unsigned int flags, int set);
 int  replay_event_focus(int got_focus);
+int  replay_live_focus();		// 0 while a replay is feeding the mission: live focus changes must not change game state
 void replay_os_poll();
 
 // wrap a function returning int / float.  The live expression is evaluated only when the
