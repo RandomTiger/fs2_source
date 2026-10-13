@@ -914,7 +914,11 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 		//	missile has somehow missed its target.  It gets its lifeleft set to 0.1 and then it detonates.
 		//	Unfortunately, the shockwave damage was cut by 4 above.  So boost it back up here.
 		if ((dist < 10.0f) && (other_obj->type == OBJ_SHOCKWAVE)) {
-			damage_left *= 4.0f * Weapon_info[weapon_info_index].subsystem_factor;;
+			if (weapon_info_index >= 0) {	// Claude: a ship's death shockwave has no weapon (index -1), which read Weapon_info[-1]
+				damage_left *= 4.0f * Weapon_info[weapon_info_index].subsystem_factor;;
+			} else {
+				damage_left *= 4.0f;
+			}
 		}
 
 //		if (damage_left > 100.0f)
