@@ -1,0 +1,76 @@
+<#
+Replays the checked-in recordings in Release and Debug and compares each replay's trace with the recorded one.
+
+  recordings\autotest\*.fs2rec   replayed with -autotest
+  recordings\played\*.fs2rec     hand-played recordings, replayed without it
+
+Usage (PowerShell, from anywhere):
+  tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r,d] [-GameDir <dir>]
+
+-Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
+The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
+Results go to <Out>\summary.txt, one line per recording; <Out> defaults to replays\check_<date-time>.
+A line passes when every config says "REPLAY OK" and "MATCH". Build both configs first, and don't
+build or run the game from another session while this runs: only one copy of the game can run.
+#>
+param(
+	[string]$Out,
+	[string[]]$Missions,
+	[string[]]$Configs = @('r', 'd'),
+	[string]$GameDir = $env:PATH_FS2
+)
+
+$repo = Split-Path $PSScriptRoot
+if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
+if (-not $Out) { $Out = Join-Path $repo ("replays\check_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
+$td = Join-Path $repo 'tools\bin\TraceDiff.exe'
+New-Item -ItemType Directory -Force $Out | Out-Null
+$summary = Join-Path $Out 'summary.txt'
+
+$recs = @()
+$recs += Get-ChildItem (Join-Path $repo 'recordings\autotest') -Filter *.fs2rec | ForEach-Object { @{ File = $_; Autotest = $true } }
+$recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec | ForEach-Object { @{ File = $_; Autotest = $false } }
+# powershell -File passes "a,b" as one string
+$Missions = $Missions | ForEach-Object { $_ -split ',' }
+$Configs = $Configs | ForEach-Object { $_ -split ',' }
+if ($Missions) { $recs = $recs | Where-Object { $Missions -contains $_.File.BaseName } }
+if (-not $recs) { throw "No recordings match: $Missions" }
+
+# One copy of the game at a time: a second one closes straight away and writes no trace
+function Wait-NoGame {
+	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+}
+
+Set-Location $GameDir
+$pass = 0; $fail = 0
+foreach ($r in $recs) {
+	$rec = $r.File.FullName
+	$name = $r.File.BaseName
+	$line = $name
+	$ok = $true
+	foreach ($e in $Configs) {
+		$trace = Join-Path $Out "${name}_$e.trace"
+		$log = Join-Path $Out "${name}_$e.replay.log"
+		Remove-Item $trace, "$rec.replay.log" -ErrorAction SilentlyContinue
+		$flags = "-window -replay `"$rec`" -trace `"$trace`""
+		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
+		Wait-NoGame
+		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += " | $e TIMEOUT"; $ok = $false; continue }
+		$res = 'NO LOG'
+		if (Test-Path "$rec.replay.log") {
+			Copy-Item "$rec.replay.log" $log
+			$res = (Select-String $log -Pattern 'REPLAY OK|DESYNC|ERROR' | Select-Object -First 1).Line
+		}
+		$diff = 'NO TRACE'
+		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
+		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
+		$line += " | $e exit=$($p.ExitCode) $res / $diff"
+	}
+	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
+	$line | Add-Content $summary
+	$line
+}
+"DONE pass=$pass fail=$fail" | Add-Content $summary
+"DONE pass=$pass fail=$fail"
+if ($fail) { exit 1 }

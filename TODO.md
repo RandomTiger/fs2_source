@@ -38,9 +38,8 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [ ] FRED only: `fhash.cpp` fhash_init clears `sizeof(fhash_node)` per entry of a pointer table.
 
 ## Recorder (RecordPlayback branch)
-- [ ] **ASan campaign run due.** Not run since the font fix; since then the focus fix,
-      reviews 27, 28 and 29. Move `fs2_godot_asan` to the current RecordPlayback (keeping
-      its local Timer.cpp / 2d.cpp edits) and run `asan_suite.ps1`.
+- [x] ASan campaign run at 6ee5ce3 (after the focus fix and reviews 27 to 29): all 34
+      missions, 0 reports.
 - [x] Replay check for reviews 28 and 29: all 34 `recordings/autotest` missions and
       `recordings/played/SM1-04` and `SM1-05` match in Release and Debug. Tagged
       latest-2026-10-13b.
