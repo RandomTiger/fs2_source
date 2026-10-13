@@ -3,7 +3,7 @@
 # Exit code 1 if a rule is broken (ERROR), 0 otherwise.  WARN lines are things to tidy, not breakages.
 param([switch]$NoFetch)
 
-$layers = 'master', 'VS2015', 'VS2022', 'OriginalSourceBugFixes', 'RecordPlayback', 'Latest', 'GodotPrep', 'Godot'
+$layers = 'master', 'VS2015', 'VS2022', 'OriginalSourceBugFixes', 'RecordPlayback', 'Enhanced', 'PrePort', 'Godot', 'GodotEnhanced'
 $errors = 0
 
 function Out-Error($msg) { Write-Output "ERROR  $msg"; $script:errors++ }
@@ -16,7 +16,8 @@ if (-not $NoFetch) { git fetch -q --prune origin }
 
 $remote = @(git for-each-ref --format='%(refname:short)' refs/remotes/origin | Where-Object { $_ -ne 'origin/HEAD' -and $_ -ne 'origin' } | ForEach-Object { $_.Substring(7) })
 $present = @($layers | Where-Object { $remote -contains $_ })
-$features = @($remote | Where-Object { $layers -notcontains $_ })
+# Latest is not a layer: it is moved forward to Enhanced when Enhanced passes the suite
+$features = @($remote | Where-Object { $layers -notcontains $_ -and $_ -ne 'Latest' })
 
 # commits made directly on a branch (its first-parent line) that are not on the first-parent line of another
 function Own-Commits($branch, $below) {
@@ -41,12 +42,21 @@ for ($i = 1; $i -lt $present.Count; $i++) {
 	if ($down.Count -gt 0) { Out-Error "$lo contains $($down.Count) commit(s) made on ${hi}: a merge went downward" }
 }
 
+if (($remote -contains 'Latest') -and ($present -contains 'Enhanced')) {
+	git merge-base --is-ancestor origin/Latest origin/Enhanced
+	if ($LASTEXITCODE -ne 0) { Out-Error "Latest is not part of Enhanced: Latest must only be moved forward to Enhanced" }
+	else {
+		$behind = Count "origin/Latest..origin/Enhanced"
+		if ($behind -gt 0) { Out-Warn "Latest is $behind commit(s) behind Enhanced: move it up once Enhanced passes the suite" } else { Out-Ok "Latest is at Enhanced" }
+	}
+}
+
 if ($present -contains 'RecordPlayback') {
 	# the first commit made on RecordPlayback itself; every feature must contain it
 	$rpRoot = (Own-Commits 'RecordPlayback' 'VS2022' | Select-Object -Last 1)
-	$latestFp = if ($present -contains 'Latest') { Set-Of (git rev-list --first-parent origin/Latest) } else { @{} }
-	$latestAll = if ($present -contains 'Latest') { Set-Of (git rev-list origin/Latest) } else { @{} }
-	$latestOwn = if ($present -contains 'Latest') { @(Own-Above 'Latest' 'RecordPlayback') } else { @() }
+	$enhFp = if ($present -contains 'Enhanced') { Set-Of (git rev-list --first-parent origin/Enhanced) } else { @{} }
+	$enhAll = if ($present -contains 'Enhanced') { Set-Of (git rev-list origin/Enhanced) } else { @{} }
+	$enhOwn = if ($present -contains 'Enhanced') { @(Own-Above 'Enhanced' 'RecordPlayback') } else { @() }
 	Write-Output "== Features: $($features -join ', ')"
 	foreach ($f in $features) {
 		$tip = git rev-parse "origin/$f"
@@ -58,19 +68,19 @@ if ($present -contains 'RecordPlayback') {
 		$ahead = Count "origin/RecordPlayback..origin/$f"
 		if ($behind -gt 0) { Out-Warn "$f is $behind commit(s) behind RecordPlayback ($ahead of its own)" } else { Out-Ok "$f is up to date with RecordPlayback ($ahead of its own)" }
 		$fAll = Set-Of (git rev-list "origin/$f")
-		$fromLatest = @($latestOwn | Where-Object { $fAll.ContainsKey($_) })
-		if ($fromLatest.Count -gt 0) { Out-Error "$f contains $($fromLatest.Count) commit(s) made on Latest: Latest was merged into a feature" }
+		$fromEnh = @($enhOwn | Where-Object { $fAll.ContainsKey($_) })
+		if ($fromEnh.Count -gt 0) { Out-Error "$f contains $($fromEnh.Count) commit(s) made on Enhanced: Enhanced was merged into a feature" }
 		foreach ($g in $features) {
 			if ($g -eq $f) { continue }
 			$gOwn = @(Own-Above $g 'RecordPlayback')
 			$mixed = @($gOwn | Where-Object { $fAll.ContainsKey($_) })
 			if ($mixed.Count -gt 0) { Out-Error "$f contains $($mixed.Count) commit(s) made on ${g}: features must not merge into each other" }
 		}
-		if ($latestFp.ContainsKey($tip) -and $ahead -gt 0) { Out-Error "$f was fast-forwarded into Latest: use git merge --no-ff" }
-		elseif ($latestAll.ContainsKey($tip) -and $ahead -gt 0) { Out-Ok "$f is fully merged into Latest" }
-		elseif ($ahead -gt 0 -and $present -contains 'Latest') {
-			$merged = @(git rev-list "origin/$f" --not origin/RecordPlayback | Where-Object { $latestAll.ContainsKey($_) }).Count
-			if ($merged -gt 0) { Out-Warn "$f has $($ahead - $merged) commit(s) not yet merged into Latest" }
+		if ($enhFp.ContainsKey($tip) -and $ahead -gt 0) { Out-Error "$f was fast-forwarded into Enhanced: use git merge --no-ff" }
+		elseif ($enhAll.ContainsKey($tip) -and $ahead -gt 0) { Out-Ok "$f is fully merged into Enhanced" }
+		elseif ($ahead -gt 0 -and $present -contains 'Enhanced') {
+			$merged = @(git rev-list "origin/$f" --not origin/RecordPlayback | Where-Object { $enhAll.ContainsKey($_) }).Count
+			if ($merged -gt 0) { Out-Warn "$f has $($ahead - $merged) commit(s) not yet merged into Enhanced" }
 		}
 	}
 }
