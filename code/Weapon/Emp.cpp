@@ -585,7 +585,7 @@ void emp_maybe_reformat_text(char *text, int max_len, int gauge_id)
 		case EG_ESCORT1: case EG_ESCORT2: case EG_ESCORT3:
 			// choose a random ship
 			int shipnum;
-			shipnum = ship_get_random_ship();
+			shipnum = ship_get_random_ship_cosmetic();
 			if(shipnum >= 0){
 				strcpy(wt->str, Ships[shipnum].ship_name);
 			}

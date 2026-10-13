@@ -811,9 +811,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[src][idx1][idx2].pt;
 
-				v->x = h_incw + (ws * (float)src) + cosmetic_frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)idx1) + cosmetic_frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)src) + frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)idx1) + frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 
 				// set the bitmap
@@ -831,9 +831,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[idx1][src][idx2].pt;
 				
-				v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)src) + cosmetic_frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)src) + frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 
 				// set the bitmap
@@ -851,9 +851,9 @@ void neb2_gen_slice(int xyz, int src, vector *cube_center)
 			for(idx2=0; idx2<Neb2_slices; idx2++){
 				v = &Neb2_cubes[idx1][idx2][src].pt;
 
-				v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);
-				v->y = h_inch + (hs * (float)idx2) + cosmetic_frand_range(-Nd->hj, Nd->hj);
-				v->z = h_incd + (ds * (float)src) + cosmetic_frand_range(-Nd->dj, Nd->dj);
+				v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);
+				v->y = h_inch + (hs * (float)idx2) + frand_range(-Nd->hj, Nd->hj);
+				v->z = h_incd + (ds * (float)src) + frand_range(-Nd->dj, Nd->dj);
 				vm_vec_add2(v, &cube_corner);
 				
 				// set the bitmap

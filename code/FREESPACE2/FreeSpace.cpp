@@ -3176,8 +3176,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 			dtime = timestamp_until(pi->afterburner_decay);
 			
-			int r1 = cosmetic_rand();
-			int r2 = cosmetic_rand();
+			int r1 = myrand();
+			int r2 = myrand();
 			tangles.p += 0.07f * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 			tangles.h += 0.07f * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 		}
@@ -3185,8 +3185,8 @@ void apply_hud_shake(matrix *eye_orient)
 		// Make eye shake due to engine wash
 		extern int Wash_on;
 		if (Player_obj->type == OBJ_SHIP && (Ships[Player_obj->instance].wash_intensity > 0) && Wash_on ) {
-			int r1 = cosmetic_rand();
-			int r2 = cosmetic_rand();
+			int r1 = myrand();
+			int r2 = myrand();
 			tangles.p += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r1-RAND_MAX/2)/RAND_MAX;
 			tangles.h += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r2-RAND_MAX/2)/RAND_MAX;
 
@@ -3214,8 +3214,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 				dtime = timestamp_until(Game_shudder_time);
 			
-				int r1 = cosmetic_rand();
-				int r2 = cosmetic_rand();
+				int r1 = myrand();
+				int r2 = myrand();
 				tangles.p += (Game_shudder_intensity / 200.0f) * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 				tangles.h += (Game_shudder_intensity / 200.0f) * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 			}
@@ -4816,7 +4816,7 @@ void camera_move()
 		// pick x and y velocities so they are always on a 
 		// circle with a 25 m radius.
 
-		float tmp_angle = cosmetic_frand()*PI2;
+		float tmp_angle = frand()*PI2;
 	
 		tmp.x = 22.0f * (float)sin(tmp_angle);
 		tmp.y = -22.0f * (float)cos(tmp_angle);

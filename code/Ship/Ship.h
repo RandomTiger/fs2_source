@@ -1135,6 +1135,8 @@ extern int ship_get_random_ship_in_wing(int wingnum, int flags = SHIP_GET_ANY_SH
 
 // return ship index
 int ship_get_random_ship();
+// Claude: Cosmetic random stream version.
+int ship_get_random_ship_cosmetic();
 
 extern int ship_get_by_signature(int signature);
 

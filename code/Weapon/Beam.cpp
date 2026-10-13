@@ -1438,7 +1438,7 @@ void beam_generate_muzzle_particles(beam *b)
 	vm_vector_2_matrix(&m, &turret_norm, NULL, NULL);
 	for(idx=0; idx<particle_count; idx++){
 		// get a random point in the cone
-		vm_vec_random_cone(&particle_dir, &turret_norm, wip->b_info.beam_particle_angle, &m);
+		vm_vec_random_cone_cosmetic(&particle_dir, &turret_norm, wip->b_info.beam_particle_angle, &m);
 		p_temp = turret_pos;
 		vm_vec_scale_add(&p_temp, &turret_pos, &particle_dir, wip->b_info.beam_muzzle_radius * cosmetic_frand_range(0.75f, 0.9f));
 

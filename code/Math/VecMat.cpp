@@ -2795,6 +2795,31 @@ void vm_vec_random_cone(vector *out, vector *in, float max_angle, matrix *orient
 	vm_rot_point_around_line(out, &t2, fl_radian(frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->uvec);
 }
 
+// Claude: Cosmetic random stream version.
+void vm_vec_random_cone_cosmetic(vector *out, vector *in, float max_angle, matrix *orient)
+{
+	vector t1, t2;
+	matrix *rot;
+	matrix m;
+
+	// get an orientation matrix
+	if(orient != NULL){
+		rot = orient;
+	} else {
+		vm_vector_2_matrix(&m, in, NULL, NULL);
+		rot = &m;
+	}
+	
+	// axis 1
+	vm_rot_point_around_line(&t1, in, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->fvec);
+	
+	// axis 2
+	vm_rot_point_around_line(&t2, &t1, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->rvec);
+
+	// axis 3
+	vm_rot_point_around_line(out, &t2, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->uvec);
+}
+
 // given a start vector, an orientation and a radius, give a point on the plane of the circle
 // if on_edge is 1, the point is on the very edge of the circle
 void vm_vec_random_in_circle(vector *out, vector *in, matrix *orient, float radius, int on_edge)

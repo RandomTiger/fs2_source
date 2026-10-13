@@ -2173,16 +2173,16 @@ static void maybe_fireball_wipe(clip_ship* half_ship, int* sound_handle)
 			vm_vec_make(&temp, 0.0f, 0.0f, half_ship->cur_clip_plane_pt);
 			vm_vec_unrotate(&model_clip_plane_pt, &temp, &half_ship->orient);
 			vm_vec_add2(&model_clip_plane_pt, &orig_ship_world_center);
-			vm_vec_rand_vec_quick_cosmetic(&temp);
-			vm_vec_scale(&temp, 0.1f*cosmetic_frand());
+			vm_vec_rand_vec_quick(&temp);
+			vm_vec_scale(&temp, 0.1f*frand());
 			vm_vec_add2(&model_clip_plane_pt, &temp);
 
 			float rad = get_model_cross_section_at_z(half_ship->cur_clip_plane_pt, pm);
 			if (rad < 1) {
-				rad = half_ship->parent_obj->radius * cosmetic_frand_range(0.4f, 0.6f);
+				rad = half_ship->parent_obj->radius * frand_range(0.4f, 0.6f);
 			} else {
 				// make fireball radius (1.5 +/- .1) * model_cross_section value
-				rad *= cosmetic_frand_range(1.4f, 1.6f);
+				rad *= frand_range(1.4f, 1.6f);
 			}
 
 			rad *= 1.5f;
@@ -2754,7 +2754,7 @@ void shipfx_do_shockwave_stuff(ship *shipp, shockwave_create_info *sci)
 		sci2.inner_rad = sci->inner_rad;
 		sci2.outer_rad = sci->outer_rad;
 		sci2.speed = sci->speed * frand_range(0.75f, 1.25f);
-		sci2.rot_angle = frand_range(0.0f, 359.0f);
+		sci2.rot_angle = cosmetic_frand_range(0.0f, 359.0f);
 
 		shockwave_create(shipp->objnum, &shockwave_pos, &sci2, SW_SHIP_DEATH, (int)frand_range(0.0f, 350.0f));
 		// shockwave_create(shipp->objnum, &objp->pos, sip->shockwave_speed, sip->inner_rad, sip->outer_rad, sip->damage, sip->blast, SW_SHIP_DEATH);
