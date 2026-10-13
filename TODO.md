@@ -56,7 +56,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 ## 32 bit rendering (32BitRendering branch)
 - [x] D3D 32 bit screen and textures by default (PCX: model textures, VFX, UI,
       backgrounds); `-force_16bit` gives the old 16 bit path.
-- [ ] Last pass: ANIs, including the UI menu animations. Show before/after images.
+- [x] Last pass: ANIs (in-mission animations, UI menu animations, loading screen).
 - [ ] Before Latest: replay every recording in Release and Debug, at 32 and 16 bit.
 
 ## Other

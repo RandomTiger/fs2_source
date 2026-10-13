@@ -1630,7 +1630,7 @@ void game_loading_callback_init()
 
 	Game_loading_ani = anim_load( Game_loading_ani_fname[gr_screen.res]);
 	Assert( Game_loading_ani != NULL );
-	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, 16);
+	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, anim_frame_bpp());	// Claude: was 16
 	Assert( Game_loading_ani_instance != NULL );
 	Game_loading_frame = -1;
 
