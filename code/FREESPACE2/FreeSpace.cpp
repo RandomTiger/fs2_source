@@ -2419,7 +2419,7 @@ void game_show_framerate()
 {	
 	float	cur_time;
 
-	cur_time = f2fl(timer_get_approx_seconds());
+	cur_time = f2fl(timer_get_fixed_seconds_unrecorded());	// Claude: timing display only, kept out of the recording
 	if (cur_time - Start_time > 30.0f) {
 		mprintf(("%i frames executed in %7.3f seconds, %7.3f frames per second.\n", Framecount, cur_time - Start_time, Framecount/(cur_time - Start_time)));
 		Start_time += 1000.0f;
@@ -3701,9 +3701,9 @@ void game_flip_page_and_time_it()
 {	
 	fix t1, t2,d;
 	int t;
-	t1 = timer_get_fixed_seconds();
+	t1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 	gr_flip();
-	t2 = timer_get_fixed_seconds();
+	t2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 	d = t2 - t1;
 	t = (gr_screen.max_w*gr_screen.max_h*gr_screen.bytes_per_pixel)/1024;
 	sprintf( transfer_text, NOX("%d MB/s"), fixmuldiv(t,65,d) );
@@ -4051,7 +4051,7 @@ void game_frame()
 	// start timing frame
 	timing_frame_start();
 
-	total_time1 = timer_get_fixed_seconds();
+	total_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 
 	// var to hold which state we are in
 	actually_playing = game_actually_playing();
@@ -4119,15 +4119,15 @@ void game_frame()
 
 	if (!Pre_player_entry) {
 		if (! (Game_mode & GM_STANDALONE_SERVER)) {
-			clear_time1 = timer_get_fixed_seconds();
+			clear_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			// clear the screen to black
 			gr_reset_clip();
 			if ( (Game_detail_flags & DETAIL_FLAG_CLEAR) ) {
 				gr_clear();
 			}
 
-			clear_time2 = timer_get_fixed_seconds();
-			render3_time1 = timer_get_fixed_seconds();
+			clear_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
+			render3_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			game_render_frame_setup(&eye_pos, &eye_orient);
 			game_render_frame( &eye_pos, &eye_orient );
 
@@ -4168,8 +4168,8 @@ void game_frame()
 				}
 			}
 	
-			render3_time2 = timer_get_fixed_seconds();
-			render2_time1 = timer_get_fixed_seconds();
+			render3_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
+			render2_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 
 			gr_reset_clip();
 			game_get_framerate();
@@ -4189,7 +4189,7 @@ void game_frame()
 
 			game_tst_frame();
 
-			render2_time2 = timer_get_fixed_seconds();
+			render2_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 
 			// maybe render and process the dead popup
 			game_maybe_do_dead_popup(flFrametime);
@@ -4200,9 +4200,9 @@ void game_frame()
 
 			// If a regular popup is active, don't flip (popup code flips)
 			if( !popup_running_state() ){
-				flip_time1 = timer_get_fixed_seconds();
+				flip_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 				game_flip_page_and_time_it();
-				flip_time2 = timer_get_fixed_seconds();
+				flip_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			}
 
 #ifndef NDEBUG
@@ -4219,7 +4219,7 @@ void game_frame()
 	// process lightning (nebula only)
 	nebl_process();
 
-	total_time2 = timer_get_fixed_seconds();
+	total_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 
 	// Got some timing numbers
 	Timing_total = f2fl( total_time2 - total_time1 ) * 1000.0f;
@@ -4935,7 +4935,7 @@ void game_process_event( int current_state, int event )
 			extern button_info Multi_ship_status_bi;
 			memset(&Multi_ship_status_bi, 0, sizeof(button_info));
 
-			Start_time = f2fl(timer_get_approx_seconds());
+			Start_time = f2fl(timer_get_fixed_seconds_unrecorded());	// Claude: timing display only, kept out of the recording
 			//Framecount = 0;
 			mprintf(("Entering game at time = %7.3f\n", Start_time));
 			break;

@@ -178,6 +178,16 @@ fix timer_get_fixed_seconds()
 	REPLAY_WRAP_INT(RT_TIMER_FIX, timer_get_fixed_seconds_live());
 }
 
+// Claude: the clock for profiling and timing displays. It is not recorded, so code that only times itself
+// (some of it while drawing) does not add reads to the recording.
+fix timer_get_fixed_seconds_unrecorded()
+{
+	replay_push();
+	fix t = timer_get_fixed_seconds();
+	replay_pop();
+	return t;
+}
+
 fix timer_get_fixed_secondsX()
 {
 	return timer_get_fixed_seconds();
