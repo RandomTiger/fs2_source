@@ -156,6 +156,13 @@
 int packer_code = PACKER_CODE;
 int transparent_code = 254;
 
+// Claude: 32 bit textures: anim frames are unpacked as ARGB 8888 instead of 16 bit
+int anim_frame_bpp()
+{
+	extern int D3D_32bit_textures;
+	return (D3D_32bit_textures && (gr_screen.mode == GR_DIRECT3D)) ? 32 : 16;
+}
+
 void anim_check_for_palette_change(anim_instance *instance) {
 	if ( instance->parent->screen_sig != gr_screen.signature ) {
 		instance->parent->screen_sig = gr_screen.signature;
@@ -195,7 +202,9 @@ anim_instance *init_anim_instance(anim *ptr, int bpp)
 	inst->stop_now = FALSE;
 	inst->aa_color = NULL;
 
-	if(bpp == 16){
+	if(bpp == 32){	// Claude: 32 bit textures
+		inst->frame = (ubyte *) malloc(inst->parent->width * inst->parent->height * 4);
+	} else if(bpp == 16){
 		inst->frame = (ubyte *) malloc(inst->parent->width * inst->parent->height * 2);
 	} else {
 		inst->frame = (ubyte *) malloc(inst->parent->width * inst->parent->height);
@@ -245,7 +254,7 @@ int anim_get_next_frame(anim_instance *inst)
 		bitmap_flags = 0;
 	}
 
-	bpp = 16;
+	bpp = anim_frame_bpp();	// Claude: was 16
 	if(inst->aa_color != NULL){
 		bitmap_flags |= BMP_AABITMAP;
 		aabitmap = 1;
@@ -769,6 +778,18 @@ int pack_frame(ubyte *frame, ubyte *frame2, ubyte *save, long size, long max, in
 	return packed_size;
 }
 
+// Claude: 32 bit textures: the ARGB 8888 value of a palette index, 0 (alpha 0) for the transparent colour
+static uint unpack_pixel_32(anim_instance *ai, ubyte pix)
+{
+	anim *a = ai->parent;
+	ubyte *p = &a->palette[pix * 3];
+
+	if ( (p[0] == a->xparent_r) && (p[1] == a->xparent_g) && (p[2] == a->xparent_b) ) {
+		return 0;
+	}
+	return 0xff000000 | (p[0] << 16) | (p[1] << 8) | p[2];
+}
+
 // unpack a pixel given the passed index and the anim_instance's palette, return bytes stuffed
 int unpack_pixel(anim_instance *ai, ubyte *data, ubyte pix, int aabitmap, int bpp)
 {
@@ -809,6 +830,11 @@ int unpack_pixel(anim_instance *ai, ubyte *data, ubyte pix, int aabitmap, int bp
 
 	// stuff the pixel
 	switch(bpp){
+	case 32 :	// Claude: 32 bit textures
+		bit_24 = (int)unpack_pixel_32(ai, pix);
+		memcpy(data, &bit_24, sizeof(uint));
+		return sizeof(uint);
+
 	case 16 :
 		memcpy(data, &bit_16, sizeof(ushort));
 		return sizeof(ushort);
@@ -862,8 +888,14 @@ int unpack_pixel_count(anim_instance *ai, ubyte *data, ubyte pix, int count, int
 	}
 	
 	// stuff the pixel
+	if(bpp == 32){	// Claude: 32 bit textures
+		bit_24 = (int)unpack_pixel_32(ai, pix);
+	}
 	for(idx=0; idx<count; idx++){
 		switch(bpp){
+		case 32 :	// Claude: 32 bit textures
+			memcpy(data + (idx*4), &bit_24, sizeof(uint));
+			break;
 		case 16 :
 			memcpy(data + (idx*2), &bit_16, sizeof(ushort));
 			break;
@@ -873,6 +905,9 @@ int unpack_pixel_count(anim_instance *ai, ubyte *data, ubyte pix, int count, int
 		}
 	}
 
+	if(bpp == 32){	// Claude: 32 bit textures
+		return sizeof(uint) * count;
+	}
 	if(bpp == 16){
 		return sizeof(ushort) * count;
 	}
@@ -887,7 +922,7 @@ ubyte	*unpack_frame(anim_instance *ai, ubyte *ptr, ubyte *frame, int size, ubyte
 {
 	int	xlate_pal, value, count = 0;
 	int stuffed;			
-	int pixel_size = (bpp == 16) ? 2 : 1;
+	int pixel_size = (bpp == 32) ? 4 : ((bpp == 16) ? 2 : 1);	// Claude: 32 bit textures
 
 	if ( pal_translate == NULL ) {
 		xlate_pal = 0;
@@ -1067,7 +1102,7 @@ int unpack_frame_from_file(anim_instance *ai, ubyte *frame, int size, ubyte *pal
 	int	xlate_pal, value, count = 0;
 	int	offset = 0;
 	int stuffed;	
-	int pixel_size = (bpp == 16) ? 2 : 1;
+	int pixel_size = (bpp == 32) ? 4 : ((bpp == 16) ? 2 : 1);	// Claude: 32 bit textures
 
 	if ( pal_translate == NULL ) {
 		xlate_pal = 0;

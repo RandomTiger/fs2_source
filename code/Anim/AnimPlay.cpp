@@ -357,7 +357,7 @@ anim_instance *anim_play(anim_play_struct *aps)
 	if ( anim_instance_is_streamed(instance) ) {
 		instance->file_offset = instance->parent->file_offset;
 	}
-	instance->frame = (ubyte *) malloc(instance->parent->width * instance->parent->height * 2);
+	instance->frame = (ubyte *) malloc(instance->parent->width * instance->parent->height * (anim_frame_bpp() / 8));	// Claude: was * 2
 	Assert( instance->frame != NULL );
 	instance->time_elapsed = 0.0f;
 	instance->stop_at = aps->stop_at;
@@ -579,7 +579,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 		// bitmap_flags = BMP_XPARENT;
 		bitmap_flags = 0;
 	} 
-	bpp = 16;
+	bpp = anim_frame_bpp();	// Claude: was 16
 	if(instance->aa_color != NULL){
 		bitmap_flags |= BMP_AABITMAP;
 		aabitmap = 1;
@@ -660,7 +660,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 		if ( instance->last_bitmap != -1 ){
 			bm_release(instance->last_bitmap);
 		}
-		bitmap_id = bm_create(16, instance->parent->width, instance->parent->height, instance->frame, bitmap_flags);
+		bitmap_id = bm_create((bpp == 32) ? 32 : 16, instance->parent->width, instance->parent->height, instance->frame, bitmap_flags);	// Claude: 32 bit textures
 	}
 	
 	if ( bitmap_id == -1 ) {

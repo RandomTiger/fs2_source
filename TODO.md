@@ -52,6 +52,12 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [x] Record a full mission and confirm the replay matches its trace (SM1-01).
 - [ ] Threshold experiments E1-E4 for TraceDiff tolerances.
 
+## 32 bit rendering (32BitRendering branch)
+- [x] D3D 32 bit screen and textures by default (PCX: model textures, VFX, UI,
+      backgrounds); `-force_16bit` gives the old 16 bit path.
+- [x] Last pass: ANIs (in-mission animations, UI menu animations, loading screen).
+- [ ] Before Latest: replay every recording in Release and Debug, at 32 and 16 bit.
+
 ## Other
 - [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT
       numbers from event 15 on (debug output only).

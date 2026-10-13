@@ -804,10 +804,8 @@ int bm_create( int bpp, int w, int h, void * data, int flags )
 	int i, n, first_slot = MAX_BITMAPS;
 
 	// Assert((bpp==32)||(bpp==8));
-	if(bpp != 16){
+	if((bpp != 16) && (bpp != 32)){	// Claude: 32 bit textures (anim frames)
 		Assert(flags & BMP_AABITMAP);
-	} else {
-		Assert(bpp == 16);
 	}
 
 	if ( !bm_inited ) bm_init();
@@ -1289,8 +1287,14 @@ static void bm_convert_format( int bitmapnum, bitmap *bmp, ubyte bpp, ubyte flag
 		if(flags & BMP_AABITMAP){
 			Assert(bmp->bpp == 8);
 		} else {
-			Assert(bmp->bpp == 16);
+			Assert((bmp->bpp == 16) || (bmp->bpp == 32));	// Claude: 32 bit textures
 		}
+	}
+
+	// Claude: 32 bit textures are loaded with transparent pixels already 0 (alpha 0)
+	if(bmp->bpp == 32){
+		bmp->flags |= (flags & BMP_TEX_XPARENT);
+		return;
 	}
 
 	// maybe swizzle to be an xparent texture
@@ -1373,11 +1377,12 @@ void bm_lock_pcx( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		bmp->palette = gr_palette;
 		memset( data, 0, bmp->w * bmp->h);
 	} else {
-		data = (ubyte*)bm_malloc(bitmapnum, bmp->w * bmp->h * 2);	
-		bmp->bpp = 16;
+		// Claude: bpp is 16, or 32 for 32 bit textures
+		data = (ubyte*)bm_malloc(bitmapnum, bmp->w * bmp->h * (bpp / 8));
+		bmp->bpp = bpp;									// Claude: was 16
 		bmp->data = (uint)data;
 		bmp->palette = NULL;
-		memset( data, 0, bmp->w * bmp->h * 2);
+		memset( data, 0, bmp->w * bmp->h * (bpp / 8));	// Claude: was 2
 	}	
 
 	Assert( &be->bm == bmp );
@@ -1411,7 +1416,7 @@ void bm_lock_pcx( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		} else if(flags & BMP_TEX_NONDARK){
 			pcx_error = pcx_read_bitmap_16bpp_nondark( be->filename, data );
 		} else {
-			pcx_error = pcx_read_bitmap_16bpp( be->filename, data );
+			pcx_error = pcx_read_bitmap_16bpp( be->filename, data, bpp / 8 );	// Claude: 32 bit textures
 		}
 		if ( pcx_error != PCX_ERROR_NONE )	{
 			// Error( LOCATION, "Couldn't open '%s'\n", be->filename );
@@ -1455,7 +1460,9 @@ void bm_lock_ani( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		can_drop_frames = 1;
 	}
 	bm = &bm_bitmaps[first_frame].bm;
-	if(bpp == 16){
+	if(bpp == 32){	// Claude: 32 bit textures
+		size = bm->w * bm->h * 4;
+	} else if(bpp == 16){
 		size = bm->w * bm->h * 2;
 	} else {
 		size = bm->w * bm->h;
@@ -1515,6 +1522,29 @@ void bm_lock_ani( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 					v += dv;
 				}			
 			}
+			// Claude: 32 bit textures
+			else if(bpp == 32){
+				int w,h;
+				fix u, utmp, v, du, dv;
+
+				u = v = 0;
+
+				du = ( the_anim->width*F1_0 ) / bm->w;
+				dv = ( the_anim->height*F1_0 ) / bm->h;
+
+				for (h = 0; h < bm->h; h++) {
+					uint *drow = &((uint*)dptr)[bm->w * h];
+					uint *srow = &((uint*)sptr)[f2i(v)*the_anim->width];
+
+					utmp = u;
+
+					for (w = 0; w < bm->w; w++) {
+						*drow++ = srow[f2i(utmp)];
+						utmp += du;
+					}
+					v += dv;
+				}
+			}
 			// 16 bpp
 			else {
 				int w,h;
@@ -1567,6 +1597,7 @@ void bm_lock_user( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, uby
 	bm_free_data( bitmapnum );	
 
 	switch( be->info.user.bpp )	{
+	case 32:			// Claude: 32 bit textures: ARGB 8888 user bitmap (anim frames)
 	case 16:			// user 16 bit bitmap
 		bmp->bpp = bpp;
 		bmp->flags = be->info.user.flags;		
@@ -1661,6 +1692,8 @@ MONITOR( SizeBitmapPage );
 // that can be accessed until you call bm_unlock.   Only lock
 // a bitmap when you need it!  This will convert it into the 
 // appropriate format also.
+extern int D3D_32bit_textures;	// Claude: 32 bit textures
+
 bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 {
 	bitmap			*bmp;
@@ -1691,6 +1724,13 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 				Assert( bpp == 16 );
 			}
 		}
+	}
+
+	// Claude: with 32 bit textures, a texture lock of a PCX loads it as ARGB 8888 instead of 16 bit. Every
+	// Claude: texture lock asks for 16, so preloads and the D3D texture cache agree and nothing loads twice.
+	// Claude: ANIs load the same way, and user bitmaps made at 32 bit (anim frames) stay 32 bit.
+	if ( (bpp == 16) && (flags & BMP_TEX_ANY) && D3D_32bit_textures && (gr_screen.mode == GR_DIRECT3D) && ((bm_bitmaps[bitmapnum].type == BM_TYPE_PCX) || (bm_bitmaps[bitmapnum].type == BM_TYPE_ANI) || ((bm_bitmaps[bitmapnum].type == BM_TYPE_USER) && (bm_bitmaps[bitmapnum].info.user.bpp == 32))) )	{
+		bpp = 32;
 	}
 
 	be = &bm_bitmaps[bitmapnum];
