@@ -59,7 +59,7 @@ The aim is to move the view setup, lock, cargo scan and view-cone test into the 
 `docs\BRANCHES.md` says recordings stop working at `Godot`. That may not be so. The recordings replay the game's reads of the clock, keys, mouse, joystick and sound device. If the Godot platform layer implements the same functions the recorder hooks (`timer_get_*`, `key_mark`, mouse, joystick and sound results), the recordings could referee the port itself. Untested; worth designing the platform layer around those hooks on PrePort.
 
 ## Plan
-1. CosmeticRandom into `RecordPlayback`; re-record; merge up to `Enhanced` and `PrePort`.
+1. Done: CosmeticRandom into `RecordPlayback` with a second pass over the call sites (`docs/random_call_sites.md`, which also lists all the gameplay that happens inside render code); autotest missions re-recorded; hand-played recordings removed; merged up to `Enhanced` (tag `latest-2026-10-13e`) and `PrePort`.
 2. Remove the Glide, OpenGL and DirectDraw backends.
 3. Move the view setup, lock, cargo scan and view-cone test into the simulation step, with no gameplay change.
 4. Headless (feature branch off `PrePort`).
