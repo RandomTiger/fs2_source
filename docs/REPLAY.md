@@ -87,6 +87,8 @@ All values are little-endian.
    - a float is 4 raw bytes.
 
    `RT_INPUT_DEVICE` holds the state of an input device the original game did not have (such as a control pad), as a list of ints whose meaning belongs to that device's code (`replay_input_device`). A build without the device writes no such entries, and a build with it treats a missing entry as "not connected", so recordings replay across both and the format needs no change for each new device.
+
+   `RT_JOY_PRESENT`, right after `RT_ENTER_GAME`, records whether the legacy joystick code had a joystick in use. Replay takes it from the recording instead of from what is plugged in, so a joystick recording replays on a machine with only a pad, or the other way round. Recordings made before it was added have no such entry and use what is plugged in, as before.
 ## Trace format
 
 See `code/Replay/TraceFormat.h`. Each frame has a header with the frame number, mission time, frame time, `timestamp_ticker`, `Rand_count` and a 64-bit hash of the full state. The full state is written every 60 frames, or every frame with `-fulltrace`.

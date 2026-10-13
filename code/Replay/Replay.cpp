@@ -135,13 +135,15 @@ extern fix Last_delta_time;
 extern int saved_timestamp_ticker;
 extern int Event_music_enabled;
 extern vector View_position;
+extern int joy_num_sticks;
+extern int joy_replay_set_sticks(int count);
 
 static const char *Replay_tag_names[RT_NUM_TAGS] = {
 	"none", "timer_fix", "timer_ms", "timer_us", "os_poll", "foreground", "ev_key", "ev_mouse",
 	"ev_lostfocus", "ev_gotfocus", "mouse_pos", "joy_down", "joy_down_count", "joy_up_count",
 	"joy_down_time", "joy_raw_axis", "joy_pos", "axes", "snd_play", "snd_play_3d", "snd_play_looping",
 	"snd_is_playing", "snd_time_remaining", "snd_pitch", "snd_num_playing", "stream_is_playing",
-	"stream_is_paused", "stream_done_reading", "enter_game", "end", "stream_bytes", "input_device"
+	"stream_is_paused", "stream_done_reading", "enter_game", "end", "stream_bytes", "input_device", "joy_present"
 };
 
 // -----------------------------------------------------------------------------------------
@@ -1221,6 +1223,22 @@ void replay_enter_game()
 		w_done();
 	} else {
 		r_tag(RT_ENTER_GAME);
+	}
+
+	// whether a joystick was in use changes which calls the joystick code makes, so replay takes it from
+	// the recording, not from what is plugged in now.  Older recordings don't have it: live as before
+	if (Replay_mode == REPLAY_RECORD) {
+		w_tag(RT_JOY_PRESENT);
+		w_varint(joy_num_sticks);
+		w_done();
+	} else if (r_peek_tag() == RT_JOY_PRESENT) {
+		int sticks;
+
+		r_tag(RT_JOY_PRESENT);
+		sticks = r_varint();
+		if (!joy_replay_set_sticks(sticks)) {
+			replay_fatal("The recording used a joystick, and this machine has no joystick driver");
+		}
 	}
 
 	if (Replay_auto) {
