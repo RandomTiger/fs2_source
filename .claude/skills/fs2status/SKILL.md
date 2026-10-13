@@ -17,11 +17,14 @@ Report on the branch this session is working in. Read-only: change nothing, merg
 - Also compare the branch with its own copy on GitHub: `git rev-list --count origin/<branch>..HEAD` (unpushed) and `HEAD..origin/<branch>` (someone else pushed; pull before working).
 - `git status -s` for uncommitted work.
 
-## 3. Check with the branch steward
-- Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools\branch_check.ps1 -NoFetch` and keep the lines that name this branch or its parent.
-- Then ask the `branch-steward` agent: "Is <branch> in line with docs/BRANCHES.md? List any decisions Tom needs to make about it, with options and your recommendation." Pass it what steps 1 and 2 found so it does not repeat them. If the agent type is not available (the session was started outside the repo), start a general-purpose agent and tell it to read `.claude/agents/branch-steward.md` first and act as that agent.
+## 3. Read the TODO
+- Read `TODO.md` and keep the open items (`- [ ]`) under this branch's heading, for example "Recorder (RecordPlayback branch)". Items in bold, or marked due, are decisions: do it now or later. List the other open items for this branch in the summary.
 
-## 4. Report
+## 4. Check with the branch steward
+- Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools\branch_check.ps1 -NoFetch` and keep the lines that name this branch or its parent.
+- Then ask the `branch-steward` agent: "Is <branch> in line with docs/BRANCHES.md? Look at <branch> and its parent only. List any decisions Tom needs to make about it, with options and your recommendation." Pass it what steps 1 to 3 found so it does not repeat them. If the agent type is not available (the session was started outside the repo), start a general-purpose agent and tell it to read `.claude/agents/branch-steward.md` first and act as that agent.
+
+## 5. Report
 Keep it short. Tom is new to git and thinks in Perforce terms (merge = integrate, push = submit).
 
 **If there are decisions**, first give a two or three line status in text, then put the decisions to Tom with the AskUserQuestion tool, most important first:
@@ -33,6 +36,7 @@ Keep it short. Tom is new to git and thinks in Perforce terms (merge = integrate
 Decisions include:
 - parent updates to merge in
 - unpushed commits or uncommitted work
+- TODO items for this branch that are marked due
 - anything the check script or the steward flags as breaking or bending a rule
 - whether the branch is ready to go into `Latest`, if it is a feature that looks finished
 - anything the steward says only Tom can decide
