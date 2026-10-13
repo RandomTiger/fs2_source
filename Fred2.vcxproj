@@ -103,6 +103,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;libcmtd.lib;nafxcwd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\Fred2.exe</OutputFile>
       <AdditionalLibraryDirectories>debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -148,6 +149,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;libcmtd.lib;nafxcwd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\Fred2.exe</OutputFile>
       <AdditionalLibraryDirectories>release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
