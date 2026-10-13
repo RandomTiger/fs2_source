@@ -43,7 +43,8 @@ Match speed is unassigned until the pad tree.
 First test fixes (built): menu drawn in the top quarter of the screen; Back at the
 Commands root no longer closes the squad menu; countermeasure on right stick down
 (removed from Weapons); South press = target in reticle; match speed moved to
-Targeting Up (Flight category removed).
+Targeting Up (Flight category removed). Then South press = nearest hostile (again: next
+closest), in place of target in reticle.
 
 Code: tree in `PadCore` (data tables in `PadGame.cpp`), drawing in `PadHud.cpp`, hook in
 `HUD.cpp` after the supernova gauge. The squad menu driver is a marked block in
