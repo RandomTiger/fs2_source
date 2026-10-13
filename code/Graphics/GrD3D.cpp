@@ -1723,6 +1723,8 @@ void gr_d3d_save_mouse_area(int x, int y, int w, int h )
 void gr_d3d_flip()
 {
 	int mx, my;
+	extern void d3d_glow_draw_queued();	// Claude: ship glow
+	d3d_glow_draw_queued();	// Claude: ship glow: nothing queued is left for the next frame
 	HRESULT ddrval;	
 	
 	

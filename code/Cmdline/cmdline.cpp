@@ -243,6 +243,8 @@ cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
+cmdline_parm no_ship_glow_arg("-noshipglow", NULL);	// Claude: turn off the D3D ship glow
+cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced red ship glow
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -269,6 +271,8 @@ int Cmdline_mouse_coords = 0;
 int Cmdline_timeout = -1;
 
 int Cmdline_window = 0;
+int Cmdline_no_ship_glow = 0;	// Claude: -noshipglow
+int Cmdline_no_force_glow = 0;	// Claude: -noforceglow
 
 static cmdline_parm Parm_list(NULL, NULL);
 static int Parm_list_inited = 0;
@@ -639,6 +643,16 @@ int parse_cmdline(char *cmdline)
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL);
+	}
+
+	// Claude: -noshipglow turns off the D3D ship glow (Graphics/GrD3DGlow.cpp)
+	if(no_ship_glow_arg.found()){
+		Cmdline_no_ship_glow = 1;
+	}
+
+	// Claude: -noforceglow turns off forced red ship glow (Graphics/GrD3DGlow.cpp)
+	if(no_force_glow_arg.found()){
+		Cmdline_no_force_glow = 1;
 	}
 
 	return 1;
