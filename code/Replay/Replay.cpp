@@ -542,6 +542,11 @@ int replay_event_focus(int got_focus)
 	return 1;
 }
 
+int replay_live_focus()
+{
+	return !((Replay_mode == REPLAY_PLAY) && Replay_active);
+}
+
 static void replay_drain_events()
 {
 	int tag;
@@ -578,6 +583,8 @@ static void replay_drain_events()
 
 			case RT_EV_LOSTFOCUS:
 				key_lost_focus();
+				// losing focus also shows the cursor (OsApi.cpp), which makes the next flip read the mouse
+				Mouse_hidden = 0;
 				break;
 
 			case RT_EV_GOTFOCUS:
