@@ -32,8 +32,9 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
-$recs += Get-ChildItem (Join-Path $repo 'recordings\autotest') -Filter *.fs2rec | ForEach-Object { @{ File = $_; Autotest = $true } }
-$recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec | ForEach-Object { @{ File = $_; Autotest = $false } }
+$recs += Get-ChildItem (Join-Path $repo 'recordings\autotest') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true } }
+# either folder may be empty, and git does not keep an empty folder
+$recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $false } }
 # powershell -File passes "a,b" as one string
 $Missions = $Missions | ForEach-Object { $_ -split ',' }
 $Configs = $Configs | ForEach-Object { $_ -split ',' }
