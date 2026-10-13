@@ -628,6 +628,17 @@ int joy_init()
 	return joy_num_sticks;
 }
 
+// Claude: replay. Whether a joystick was in use comes from the recording, not from what is plugged in now.
+// Returns 0 if the recording had one and this machine has no joystick driver (joy_init set nothing up).
+int joy_replay_set_sticks(int count)
+{
+	if ((count > 0) && (joy_num_sticks < 1) && (joyGetNumDevs() < 1)) {
+		return 0;
+	}
+	joy_num_sticks = count;
+	return 1;
+}
+
 // --------------------------------------------------------------
 //	joy_cheap_cal()
 //
