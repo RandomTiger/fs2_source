@@ -637,3 +637,12 @@ int Player_multi_died_check;
 
 void game_feature_not_in_demo_popup() {}
 int Nebedit_running = 0;
+
+// Claude: game globals the recorder (code/Replay) uses. They live in FreeSpace.cpp, which FRED does not link.
+// FreeSpace.h clashes with the stubs above, so the mission list is declared through a pointer: MSVC gives it
+// the same link name as the array, and with a count of 0 nothing reads it.
+struct fs_builtin_mission *Game_builtin_mission_list = NULL;
+int Game_builtin_mission_count = 0;
+fix Last_time = 0;
+fix Last_delta_time = 0;
+int saved_timestamp_ticker = -1;
