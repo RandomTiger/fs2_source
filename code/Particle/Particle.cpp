@@ -750,7 +750,7 @@ void particle_emit( particle_emitter *pe, int type, uint optional_data, float ra
 	n2 = (pe->num_high*percent)/100;
 
 	// How many to emit?
-	n = (rand() % (n2-n1+1)) + n1;
+	n = (cosmetic_rand() % (n2-n1+1)) + n1;
 	
 	if ( n < 1 ) return;
 
@@ -760,15 +760,15 @@ void particle_emit( particle_emitter *pe, int type, uint optional_data, float ra
 		vector tmp_vel;
 		vector normal;				// What normal the particle emit arond
 
-		float radius = (( pe->max_rad - pe->min_rad ) * frand()) + pe->min_rad;
+		float radius = (( pe->max_rad - pe->min_rad ) * cosmetic_frand()) + pe->min_rad;
 
-		float speed = (( pe->max_vel - pe->min_vel ) * frand()) + pe->min_vel;
+		float speed = (( pe->max_vel - pe->min_vel ) * cosmetic_frand()) + pe->min_vel;
 
-		float life = (( pe->max_life - pe->min_life ) * frand()) + pe->min_life;
+		float life = (( pe->max_life - pe->min_life ) * cosmetic_frand()) + pe->min_life;
 
-		normal.x = pe->normal.x + (frand()*2.0f - 1.0f)*pe->normal_variance;
-		normal.y = pe->normal.y + (frand()*2.0f - 1.0f)*pe->normal_variance;
-		normal.z = pe->normal.z + (frand()*2.0f - 1.0f)*pe->normal_variance;
+		normal.x = pe->normal.x + (cosmetic_frand()*2.0f - 1.0f)*pe->normal_variance;
+		normal.y = pe->normal.y + (cosmetic_frand()*2.0f - 1.0f)*pe->normal_variance;
+		normal.z = pe->normal.z + (cosmetic_frand()*2.0f - 1.0f)*pe->normal_variance;
 		vm_vec_normalize_safe( &normal );
 		vm_vec_scale_add( &tmp_vel, &pe->vel, &normal, speed );
 

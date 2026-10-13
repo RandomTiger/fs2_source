@@ -1309,9 +1309,9 @@ void interp_render_arc_segment( vector *v1, vector *v2, int depth )
 		vm_vec_avg( &tmp, v1, v2 );
 	
 		float scaler = 0.30f;
-		tmp.x += (frand()-0.5f)*d*scaler;
-		tmp.y += (frand()-0.5f)*d*scaler;
-		tmp.z += (frand()-0.5f)*d*scaler;
+		tmp.x += (cosmetic_frand()-0.5f)*d*scaler;
+		tmp.y += (cosmetic_frand()-0.5f)*d*scaler;
+		tmp.z += (cosmetic_frand()-0.5f)*d*scaler;
 		
 		interp_render_arc_segment( v1, &tmp, depth+1 );
 		interp_render_arc_segment( &tmp, v2, depth+1 );
@@ -1347,7 +1347,7 @@ void interp_render_lightning( polymodel *pm, bsp_info * sm )
 		switch(sm->arc_type[i]){
 		// "normal", Freespace 1 style arcs
 		case MARC_TYPE_NORMAL:
-			if ( (rand()>>4) & 1 )	{
+			if ( (cosmetic_rand()>>4) & 1 )	{
 				gr_set_color( 64, 64, 255 );
 			} else {
 				gr_set_color( 128, 128, 255 );
@@ -1356,7 +1356,7 @@ void interp_render_lightning( polymodel *pm, bsp_info * sm )
 
 		// "EMP" style arcs
 		case MARC_TYPE_EMP:
-			if ( (rand()>>4) & 1 )	{
+			if ( (cosmetic_rand()>>4) & 1 )	{
 				gr_set_color( AR, AG, AB );
 			} else {
 				gr_set_color( AR2, AG2, AB2 );
@@ -2980,6 +2980,25 @@ void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1,
 	
 	int vn1 = (myrand()>>5) % nv;
 	int vn2 = (myrand()>>5) % nv;
+
+	*v1 = *Interp_verts[vn1];
+	*v2 = *Interp_verts[vn2];
+
+	if(n1 != NULL){
+		*n1 = *Interp_norms[vn1];
+	}
+	if(n2 != NULL){
+		*n2 = *Interp_norms[vn2];
+	}
+}
+
+// Claude: Cosmetic random stream version.
+void submodel_get_two_random_points_cosmetic(int model_num, int submodel_num, vector *v1, vector *v2, vector *n1, vector *n2 )
+{
+	int nv = submodel_get_points_internal(model_num, submodel_num, MAX_POLYGON_VECS, Interp_verts, Interp_norms );
+	
+	int vn1 = (cosmetic_rand()>>5) % nv;
+	int vn2 = (cosmetic_rand()>>5) % nv;
 
 	*v1 = *Interp_verts[vn1];
 	*v2 = *Interp_verts[vn2];

@@ -1121,7 +1121,7 @@ int message_calc_anim_start_frame(int time, anim *ani, int reverse)
 		int num_frames_extra;
 		num_frames_extra = fl2i(ani->fps * (anim_time - wave_time) + 0.5f);
 		if ( num_frames_extra > 0 ) {
-			start_frame=rand()%num_frames_extra;
+			start_frame=cosmetic_rand()%num_frames_extra;
 		}
 	}
 
@@ -2020,10 +2020,10 @@ void message_maybe_distort_text(char *text)
 
 	len = strlen(text);
 	if ( Message_wave_duration == 0 ) {
-		next_distort = 5+myrand()%5;
+		next_distort = 5+cosmetic_rand()%5;
 		for ( i = 0; i < len; i++ ) {
 			if ( i == next_distort ) {
-				run = 3+myrand()%5;
+				run = 3+cosmetic_rand()%5;
 				if ( i+run > len )
 					run = len-i;
 				for ( j = 0; j < run; j++) {
@@ -2031,7 +2031,7 @@ void message_maybe_distort_text(char *text)
 					if ( i >= len )
 						break;
 				}
-				next_distort = i + (5+myrand()%5);
+				next_distort = i + (5+cosmetic_rand()%5);
 			}
 		}
 		return;
@@ -2040,7 +2040,7 @@ void message_maybe_distort_text(char *text)
 	voice_duration = Message_wave_duration;
 
 	// distort text
-	Distort_num = myrand()%MAX_DISTORT_PATTERNS;
+	Distort_num = cosmetic_rand()%MAX_DISTORT_PATTERNS;
 	Distort_next = 0;
 	curr_offset = 0;
 	while (voice_duration > 0) {

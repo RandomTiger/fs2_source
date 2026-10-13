@@ -1205,7 +1205,7 @@ void ship_hit_sparks_no_rotate(object *ship_obj, vector *hitpos)
 
 	int n = ship_p->num_hits;
 	if (n >= MAX_SHIP_HITS)	{
-		n = rand() % MAX_SHIP_HITS;
+		n = cosmetic_rand() % MAX_SHIP_HITS;
 	} else {
 		ship_p->num_hits++;
 	}
@@ -1322,8 +1322,8 @@ int choose_next_spark(object *ship_obj, vector *hitpos)
 	}
 
 	// not same location, so maybe do random recyling
-	if (frand() > 0.5f) {
-		return (rand() % num_sparks);
+	if (cosmetic_frand() > 0.5f) {
+		return (cosmetic_rand() % num_sparks);
 	}
 
 	// initialize spark pairs
@@ -1398,7 +1398,7 @@ void ship_hit_create_sparks(object *ship_obj, vector *hitpos, int submodel_num)
 			n = choose_next_spark(ship_obj, hitpos);
 		} else {
 			// otherwise, normal choice
-			n = rand() % max_sparks;
+			n = cosmetic_rand() % max_sparks;
 		}
 	} else {
 		ship_p->num_hits++;

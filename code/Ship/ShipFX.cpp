@@ -1611,7 +1611,7 @@ void shipfx_emit_spark( int n, int sn )
 
 	int spark_num;
 	if ( sn == -1 ) {
-		spark_num = myrand() % shipp->num_hits;
+		spark_num = cosmetic_rand() % shipp->num_hits;
 	} else {
 		spark_num = sn;
 	}
@@ -1686,7 +1686,7 @@ void shipfx_emit_spark( int n, int sn )
 			if (si->flags & SIF_FIGHTER) {
 				if (hull_percent > 0.6f) {
 					// sparks only once when hull > 60%
-					float spark_duration = (float)pow(2.0f, -5.0f*(hull_percent-1.3f)) * (1.0f + 0.6f*(frand()-0.5f));	// +- 30%
+					float spark_duration = (float)pow(2.0f, -5.0f*(hull_percent-1.3f)) * (1.0f + 0.6f*(cosmetic_frand()-0.5f));	// +- 30%
 					shipp->sparks[spark_num].end_time = timestamp( (int) (1000.0f * spark_duration) );
 				} else {
 					// spark never ends when hull < 60% (~277 hr)
@@ -1731,7 +1731,7 @@ void shipfx_emit_spark( int n, int sn )
 
 	// Select time to do next spark
 //	Ships[n].next_hit_spark = timestamp_rand(100,500);
-	shipp->next_hit_spark = timestamp_rand(50,100);
+	shipp->next_hit_spark = cosmetic_timestamp_rand(50,100);
 }
 
 
@@ -2128,7 +2128,7 @@ void do_sub_expl_sound(float radius, vector* sound_pos, int* sound_handle)
 	// multiplier for range (near and far distances) to apply attenuation
 	float sound_range = 1.0f + 0.0043f*radius;
 
-	int handle_index = rand()%NUM_SUB_EXPL_HANDLES;
+	int handle_index = cosmetic_rand()%NUM_SUB_EXPL_HANDLES;
 	//mprintf(("handle_index %d\n", *handle_index));
 
 	// sound_index = get_sub_explosion_sound_index(handle_index);
@@ -2387,7 +2387,7 @@ void shipfx_do_damaged_arcs_frame( ship *shipp )
 		}
 
 		// set the next arc time
-		shipp->arc_next_time = timestamp_rand(freq*2,freq*4);
+		shipp->arc_next_time = cosmetic_timestamp_rand(freq*2,freq*4);
 	}
 
 	if ( timestamp_elapsed(shipp->arc_next_time) )	{
@@ -2396,11 +2396,11 @@ void shipfx_do_damaged_arcs_frame( ship *shipp )
 
 		//mprintf(( "Creating new ship arc!\n" ));
 
-		int n, n_arcs = ((rand()>>5) % 3)+1;		// Create 1-3 sparks
+		int n, n_arcs = ((cosmetic_rand()>>5) % 3)+1;		// Create 1-3 sparks
 
 		vector v1, v2, v3, v4;
-		submodel_get_two_random_points( shipp->modelnum, -1, &v1, &v2 );
-		submodel_get_two_random_points( shipp->modelnum, -1, &v3, &v4 );
+		submodel_get_two_random_points_cosmetic( shipp->modelnum, -1, &v1, &v2 );
+		submodel_get_two_random_points_cosmetic( shipp->modelnum, -1, &v3, &v4 );
 
 		// For large ships, cap the length to be 25% of max radius
 		if ( obj->radius > 200.0f )	{
@@ -2439,7 +2439,7 @@ void shipfx_do_damaged_arcs_frame( ship *shipp )
 		float factor = 1.0f + 0.0025f*obj->radius;
 		int a = (int) (factor*100.0f);
 		int b = (int) (factor*1000.0f);
-		int lifetime = (myrand()%((b)-(a)+1))+(a);
+		int lifetime = (cosmetic_rand()%((b)-(a)+1))+(a);
 
 		// Create the arc effects
 		for (i=0; i<MAX_SHIP_ARCS; i++ )	{
@@ -2509,10 +2509,10 @@ void shipfx_do_damaged_arcs_frame( ship *shipp )
 		if ( timestamp_valid( shipp->arc_timestamp[i] ) )	{
 			if ( !timestamp_elapsed( shipp->arc_timestamp[i] ) )	{							
 				// Maybe move a vertex....  20% of the time maybe?
-				int mr = myrand();
+				int mr = cosmetic_rand();
 				if ( mr < RAND_MAX/5 )	{
 					vector v1, v2;
-					submodel_get_two_random_points( shipp->modelnum, -1, &v1, &v2 );
+					submodel_get_two_random_points_cosmetic( shipp->modelnum, -1, &v1, &v2 );
 
 					vector static_one;
 
@@ -2754,7 +2754,7 @@ void shipfx_do_shockwave_stuff(ship *shipp, shockwave_create_info *sci)
 		sci2.inner_rad = sci->inner_rad;
 		sci2.outer_rad = sci->outer_rad;
 		sci2.speed = sci->speed * frand_range(0.75f, 1.25f);
-		sci2.rot_angle = frand_range(0.0f, 359.0f);
+		sci2.rot_angle = cosmetic_frand_range(0.0f, 359.0f);
 
 		shockwave_create(shipp->objnum, &shockwave_pos, &sci2, SW_SHIP_DEATH, (int)frand_range(0.0f, 350.0f));
 		// shockwave_create(shipp->objnum, &objp->pos, sip->shockwave_speed, sip->inner_rad, sip->outer_rad, sip->damage, sip->blast, SW_SHIP_DEATH);

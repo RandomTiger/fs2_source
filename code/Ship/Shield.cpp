@@ -709,7 +709,7 @@ int get_free_global_shield_index()
 
 	//	If couldn't find one, choose a random one.
 	if (gi == MAX_SHIELD_TRI_BUFFER)
-		gi = (int) (frand() * MAX_SHIELD_TRI_BUFFER);
+		gi = (int) (cosmetic_frand() * MAX_SHIELD_TRI_BUFFER);
 
 	return gi;
 }
@@ -725,7 +725,7 @@ int get_global_shield_tri()
 
 	if (shnum == MAX_SHIELD_HITS) {
 		//nprintf(("AI", "Warning: Shield_hit buffer full!  Stealing an old one!\n"));
-		shnum = myrand() % MAX_SHIELD_HITS;
+		shnum = cosmetic_rand() % MAX_SHIELD_HITS;
 	}
 
 	Assert((shnum >= 0) && (shnum < MAX_SHIELD_HITS));
@@ -772,7 +772,7 @@ void copy_shield_to_globals( int objnum, shield_info *shieldp )
 			
 			//	If couldn't find one, choose a random one.
 			if (gi == MAX_SHIELD_TRI_BUFFER)
-				gi = (int) (frand() * MAX_SHIELD_TRI_BUFFER);
+				gi = (int) (cosmetic_frand() * MAX_SHIELD_TRI_BUFFER);
 
 			Global_tris[gi].used = shieldp->tris[i].used;
 			Global_tris[gi].trinum = i;

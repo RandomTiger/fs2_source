@@ -1401,6 +1401,7 @@ void game_level_init(int seed)
 	}
 	Game_level_seed = replay_level_seed( Game_level_seed );
 	srand( Game_level_seed );
+	cosmetic_srand( Game_level_seed );	// Claude: Cosmetic stream starts from the same seed each level.
 
 	// semirand function needs to get re-initted every time in multiplayer
 	if ( Game_mode & GM_MULTIPLAYER ){
@@ -3194,7 +3195,7 @@ void apply_hud_shake(matrix *eye_orient)
 
 			// vector rand_vec
 			vector rand_vec;
-			vm_vec_rand_vec_quick(&rand_vec);
+			vm_vec_rand_vec_quick_cosmetic(&rand_vec);
 
 			// play the effect
 			joy_ff_play_dir_effect(intensity*rand_vec.x, intensity*rand_vec.y);

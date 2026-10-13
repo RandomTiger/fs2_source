@@ -168,7 +168,7 @@ void supernova_do_particles()
 
 		// emit
 		for(idx=0; idx<10; idx++){			
-			submodel_get_two_random_points(Player_ship->modelnum, 0, &ta, &tb);
+			submodel_get_two_random_points_cosmetic(Player_ship->modelnum, 0, &ta, &tb);
 
 			// rotate into world space
 			vm_vec_unrotate(&a, &ta, &Player_obj->orient);			
