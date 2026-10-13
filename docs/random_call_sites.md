@@ -1,38 +1,53 @@
 # Random number call sites
 
-Every place the game draws a random number, and which stream it draws from. Cosmetic effects now have their own random stream, so effects and rendering no longer shift gameplay randomness. FRED2 and commented-out code are left out.
+Every place the game draws a random number, and which stream it draws from. Cosmetic effects now have their own random stream, so effects and rendering no longer shift gameplay randomness. FRED2 and commented-out code (`/* */` blocks and `#if 0`) are left out.
 
 ## The two streams
-- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `myrand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick` and `submodel_get_two_random_points` all draw from it through `myrand()`. Direct `rand()` calls draw from the same stream but are not counted.
-- **Cosmetic stream.** `cosmetic_rand()` (SystemVars.cpp) uses the same generator as the MSVC `rand()` but keeps its own seed, set from the level seed in `game_level_init`. It is not counted and not traced. The cosmetic versions of the helpers are `cosmetic_frand`, `cosmetic_frand_range`, `cosmetic_timestamp_rand`, `vm_vec_rand_vec_quick_cosmetic` and `submodel_get_two_random_points_cosmetic`.
+- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `myrand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick`, `vm_vec_random_cone`, `ship_get_random_ship` and `submodel_get_two_random_points` all draw from it through `myrand()` or `frand()`. Direct `rand()` calls draw from the same stream but are not counted.
+- **Cosmetic stream.** `cosmetic_rand()` (SystemVars.cpp) uses the same generator as the MSVC `rand()` but keeps its own seed, set from the level seed in `game_level_init`. It is not counted and not traced. The cosmetic versions of the helpers are `cosmetic_frand`, `cosmetic_frand_range`, `cosmetic_timestamp_rand`, `vm_vec_rand_vec_quick_cosmetic`, `vm_vec_random_cone_cosmetic`, `ship_get_random_ship_cosmetic` and `submodel_get_two_random_points_cosmetic`.
 - **Not on a stream.** `static_rand()` / `static_randf()` / `static_randvec()` (StaticRand.cpp) look up a fixed table. The table is filled from `myrand()` once, at startup (`init_semirand`).
 
+### Seeds
+Every `srand` / `cosmetic_srand` call in the game:
+- **Startup.** `FreeSpace.cpp` `game_init` (2002): `srand(Game_init_seed)`, from the clock. Gameplay stream only.
+- **Level start.** `FreeSpace.cpp` `game_level_init` (1403, 1404): `srand(Game_level_seed)` and `cosmetic_srand(Game_level_seed)`. Both streams start from the same level seed. A replay substitutes the recorded seed (`replay_level_seed`, 1402).
+- **Replay start.** `Replay.cpp` `replay_enter_game` (1216, 1217): `srand(Hdr.level_seed)` and `cosmetic_srand(Hdr.level_seed)`. Both streams are reseeded, because the briefing drew numbers from both.
+- **Mid-mission.** `ShipFX.cpp` `shipfx_blow_up_model` (536): `srand(obj->net_signature)`. It only runs in multiplayer (`Game_mode & GM_MULTIPLAYER`), but when it does it reseeds the gameplay stream in the middle of a mission. The cosmetic stream is not touched.
+
 ## What counts as cosmetic
-A draw is cosmetic only if its result never reaches simulation state: object creation or lifetime, AI, physics, damage, weapons, or the timing of game events. That covers particles, sparks, the star field, nebula clouds, lights, model arcs, shield-hit effects, radar and HUD effects, screen shake, render flicker, fireball positions, sizes and rotation, and sound choice.
+A draw is cosmetic only if its result never reaches simulation state: object creation or lifetime, AI, physics, damage, weapons, or the timing of game events. That covers particles, sparks, the star field, nebula clouds, lights, model arcs, shield-hit effects, radar and HUD effects, render flicker, fireball rotation, and sound choice.
 
 These look cosmetic but **stay on the gameplay stream**:
-- **Nebula lightning** (`NebLightning.cpp`, `shipfx_do_lightning_frame`). Bolts apply EMP (`emp_apply`) from `nebl_render_all`, and only when the bolt has points on screen. Bolt shape and placement therefore decide gameplay.
+- **Nebula lightning** (`NebLightning.cpp` `nebl_process`, `nebl_gen`, `nebl_jitter`, and the EMP in `nebl_render_all`). Bolts apply EMP (`emp_apply`) from `nebl_render_all`, and only when the bolt has points on screen. Bolt shape and placement therefore decide gameplay. The alpha values and the thunder sound choice in `nebl_render_all` are cosmetic. The old `shipfx_do_lightning_frame` body in ShipFX.cpp is commented out.
+- **Nebula cube jitter** (`Neb.cpp` `neb2_gen_slice`). Lightning bolts start and strike at the cube points, which decides whether a bolt applies EMP. The cube spin speed is cosmetic.
+- **Eye and camera shake** (`FreeSpace.cpp` `apply_hud_shake` and `camera_move`, `Supernova.cpp` `supernova_apply_shake`). The shaken `Eye_matrix` decides asteroid wrap, missile lock, the traced `WF_PLAYED_FLYBY_SOUND` flag and fireball LOD, and the `camera_move` angle becomes `Eye_position`. The force-feedback direction in `apply_hud_shake` stays cosmetic, because it only goes to the joystick.
+- **Fireball position and size** (`Ship.cpp` dying ship and Knossos, `ShipHit.cpp` subsystem explosion, `ShipFX.cpp` half ship). Fireballs are traced objects, so their positions are traced, and the size picks the LOD, which sets how long the fireball lives. Fireball rotation stays cosmetic.
 - **Fireball type and next-fireball timers** (`debris_start_death_roll`, `ship_dying_frame`, `maybe_fireball_wipe`). Fireballs are objects. The type sets how long one lives and the timer sets when the next is created, and both change which object slots are in use.
+- **Engine stutter** (`Ship.cpp` `ship_dying_frame`, `next_engine_stutter`). It toggles `SF_ENGINES_ON`, which is in the traced ship flags.
 - **Message choice** (persona, praise, lament, scream, rearm, all-alone, arrival message sender and delay). It picks only audio and text, but it is kept on the gameplay stream to be safe.
-- **Debris.** Pieces collide and do damage, so all of `debris_create`, `create_subsys_debris`, `shipfx_blow_up_model` and the half-ship debris stay on the gameplay stream. The electrical arcs on debris are cosmetic.
+- **Debris.** Pieces collide and do damage, so all of `debris_create`, `create_subsys_debris`, `shipfx_blow_up_model` and the half-ship debris stay on the gameplay stream. The electrical arcs drawn on debris (`debris_process_post`) are cosmetic. The timing that drives them (`arc_frequency`, `next_fireball` and `fire_timeout` in `debris_create`) also stays gameplay for now, although it only drives arcs, because all of `debris_create` was kept on gameplay. This is a candidate for a later change.
 
 ## Counts
 | Stream / class | Sites | Raw `rand()` |
 |---|---|---|
-| Gameplay | 192 | 22 |
-| Cosmetic | 137 | 0 |
-| Wrapper (helper definitions, and the seed) | 38 | 4 |
+| Gameplay | 214 | 21 |
+| Cosmetic | 100 | 0 |
+| Wrapper (helper definitions, and the seeds) | 54 | 4 |
 | Menu/UI (outside missions) | 16 | 6 |
 | Multiplayer | 12 | 10 |
-| Debug | 10 | 0 |
+| Debug | 6 | 0 |
 | Load | 1 | 0 |
 
-The 22 raw `rand()` calls on the gameplay stream are still not counted by the trace. Changing them to `myrand()` would not change the sequence, only the count, but that is a separate change.
+The 21 raw `rand()` calls on the gameplay stream are still not counted by the trace. Changing them to `myrand()` would not change the sequence, only the count, but that is a separate change.
 
 ## Things to note
-1. **Gameplay effects come from render code.** These must stay on the gameplay stream, and the port has to move them out of rendering:
-   - `nebl_render_all` applies the lightning EMP only when the bolt is on screen.
-   - `half_ship_render_ship_and_debris` creates debris objects while rendering.
+1. **Gameplay happens inside render code.** These draw from the gameplay stream or change simulation state while the frame is being drawn, and the port has to move them out of rendering:
+   - `nebl_render_all` (`NebLightning.cpp` 507, called from `FreeSpace.cpp` 3504) applies the lightning EMP (`emp_apply`, 634) only when the bolt is on screen.
+   - `half_ship_render_ship_and_debris` (`ShipFX.cpp` 1937, called from `shipfx_large_blowup_render`) creates debris objects (`debris_create`, 2011) and draws their radial speed (`frand`, 2022). The fireballs of the same break-up come from `maybe_fireball_wipe`, called from `shipfx_large_blowup_do_frame` (2299, 2300), which is not render code.
+   - `HUD_render_2d` (`HUD.cpp` 1435) -> `hud_squadmsg_do_frame` (`HUD.cpp` 1630; `HUDsquadmsg.cpp` 2572). It only runs when the HUD is drawn (`hud_disabled()` returns early at 1448). It sends the squad commands and reinforcement calls: the reinforcement delay `frand` (`HUDsquadmsg.cpp` 2125, 2143), `ship_get_random_ship_in_wing` (1853, 1857) and the persona pick (`message_get_persona`, `MissionMessage.cpp` 1694) inside `message_send_builtin_to_player` (1842).
+   - `HUD_render_3d` (`HUD.cpp` 1224) -> `hud_show_common_3d_gauges` (1217) -> `hud_show_targeting_gauges` (`HUDtarget.cpp` 3509) -> `hud_show_hostile_triangle` (3518, cockpit view only) -> `ship_maybe_warn_player` (`HUDtarget.cpp` 3749). That picks the speaking ship with `ship_get_random_player_wing_ship` (`Ship.cpp` 8312, 8314) and a persona.
+   - `debris_create` (`Debris.cpp` 652) returns early (674-676) when non-hull debris is more than 200 m from `Eye_position` (100 m for vaporized debris), so the number of gameplay draws depends on the camera.
+   - Missile lock and cargo scan are computed while the HUD is drawn, in `hud_show_targeting_gauges`: `hud_update_lock_indicator` (`HUDlock.cpp` 675, called at `HUDtarget.cpp` 3614) sets the lock state, and `hud_cargo_scan_update` (`HUDtargetbox.cpp` 1509, called at `HUDtarget.cpp` 3586) calls `player_inspect_cargo` (`PlayerControl.cpp` 1585), which reveals cargo.
 2. **The camera changes how many cosmetic numbers are drawn.** Sparks are not emitted for the ship being viewed from (`Ship.cpp`, `obj != Viewer_obj`), and the star field draws every rendered frame. Both are now on the cosmetic stream.
 3. **Menu, multiplayer and debug code** still use the gameplay stream. Missions reseed it at level start, so menu draws don't carry into a mission.
 
@@ -89,11 +104,11 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 703 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = 2.0f * ((float) myrand()/(float) RAND_MAX) + 0.5f;` |
 | 707 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = (i2fl(myrand())/i2fl(RAND_MAX))*2.0f+0.1f;` |
 | 723 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->next_distance_check = (myrand() % 2000) + 4*DEBRIS_DISTANCE_CHECK_TIME;` |
-| 732 | `debris_create` | Gameplay |  | debris objects collide and do damage | `if ( myrand() < RAND_MAX*2/3 )` |
+| 732 | `debris_create` | Gameplay |  | arc_frequency (which pieces get arcs); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `if ( myrand() < RAND_MAX*2/3 )` |
 | 747 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->submodel_num = (myrand()>>4) % Debris_num_submodels;` |
-| 754 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->next_fireball = timestamp_rand(500,2000);` |
+| 754 | `debris_create` | Gameplay |  | next_fireball (arc timing); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `db->next_fireball = timestamp_rand(500,2000);` |
 | 799 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((myrand()%20) + 10);` |
-| 811 | `debris_create` | Gameplay |  | debris objects collide and do damage | `t = 1000*Objects[db->source_objnum].radius/3 + myrand()%(fl2i(1000*3*Objects[db->source...` |
+| 811 | `debris_create` | Gameplay |  | fire_timeout (arc window); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `t = 1000*Objects[db->source_objnum].radius/3 + myrand()%(fl2i(1000*3*Objects[db->source...` |
 | 823 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((myrand()%20) + 10);` |
 | 827 | `debris_create` | Gameplay |  | debris objects collide and do damage | `vm_vec_rand_vec_quick(&radial_vel);` |
 | 884 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = ( 6.0f + i2fl(myrand()%4) ) / radius;` |
@@ -103,17 +118,19 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 1403 | `game_level_init` | Wrapper |  | seeds the cosmetic stream each level | `cosmetic_srand( Game_level_seed );` |
-| 2823 | `game_tst_frame` | Debug |  | tst debug overlay | `switch((int)frand_range(0.0f, 3.0)){` |
-| 2859 | `game_tst_frame` | Debug |  | tst debug overlay | `tst_y = frand_range(0.0f, (float)gr_screen.max_h - h);` |
-| 3178 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r1 = cosmetic_rand();` |
-| 3179 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r2 = cosmetic_rand();` |
-| 3187 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r1 = cosmetic_rand();` |
-| 3188 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r2 = cosmetic_rand();` |
-| 3197 | `apply_hud_shake` | Cosmetic |  | view shake only | `vm_vec_rand_vec_quick_cosmetic(&rand_vec);` |
-| 3216 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r1 = cosmetic_rand();` |
-| 3217 | `apply_hud_shake` | Cosmetic |  | view shake only | `int r2 = cosmetic_rand();` |
-| 4816 | `camera_move` | Cosmetic |  |  | `float tmp_angle = cosmetic_frand()*PI2;` |
+| 1403 | `game_level_init` | Wrapper |  | seeds the gameplay stream each level | `srand( Game_level_seed );` |
+| 1404 | `game_level_init` | Wrapper |  | seeds the cosmetic stream each level | `cosmetic_srand( Game_level_seed );` |
+| 2002 | `game_init` | Wrapper |  | seeds the gameplay stream at startup | `srand( Game_init_seed );` |
+| 2824 | `game_tst_frame` | Debug |  | tst debug overlay | `switch((int)frand_range(0.0f, 3.0)){` |
+| 2860 | `game_tst_frame` | Debug |  | tst debug overlay | `tst_y = frand_range(0.0f, (float)gr_screen.max_h - h);` |
+| 3179 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
+| 3180 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 3188 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
+| 3189 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 3198 | `apply_hud_shake` | Cosmetic |  | force-feedback direction; joystick output only | `vm_vec_rand_vec_quick_cosmetic(&rand_vec);` |
+| 3217 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
+| 3218 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 4819 | `camera_move` | Gameplay |  | warp-out chase camera angle; becomes Eye_position | `float tmp_angle = frand()*PI2;` |
 
 ### Fireball/FireBalls.cpp
 
@@ -121,12 +138,6 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 |---|---|---|---|---|---|
 | 1069 | `fireball_create` | Cosmetic |  |  | `fb->orient = (cosmetic_rand()>>8) & 7;` |
 | 1076 | `fireball_create` | Cosmetic |  |  | `fb->orient = (cosmetic_rand()>>8) % 360;` |
-
-### Gamesnd/EventMusic.cpp
-
-| Line | Function | Stream | Raw `rand()` | Note | Code |
-|---|---|---|---|---|---|
-| 527 | `event_music_level_init` | Cosmetic |  | soundtrack choice, at load | `Current_soundtrack_num = cosmetic_rand()%Num_soundtracks;` |
 
 ### GlobalIncs/SystemVars.cpp
 
@@ -165,9 +176,13 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1657 | `game_process_cheats` | Debug |  |  | `add.x += frand_range(-700.0f, 700.0f);` |
 | 1658 | `game_process_cheats` | Debug |  |  | `add.y += frand_range(-700.0f, 700.0f);` |
 | 1659 | `game_process_cheats` | Debug |  |  | `add.z += frand_range(-700.0f, 700.0f);` |
-| 1730 | `game_process_cheats` | Debug |  |  | `add.x = frand_range(-1000.0f, 1000.0f);` |
-| 1731 | `game_process_cheats` | Debug |  |  | `add.y = frand_range(-1000.0f, 1000.0f);` |
-| 1732 | `game_process_cheats` | Debug |  |  | `add.z = frand_range(-1000.0f, 1000.0f);` |
+
+### Io/Timer.h
+
+| Line | Function | Stream | Raw `rand()` | Note | Code |
+|---|---|---|---|---|---|
+| 136 | `timestamp_rand` | Wrapper |  | gameplay stream (macro) | `#define timestamp_rand(a,b) timestamp((myrand()%((b)-(a)+1))+(a))` |
+| 138 | `cosmetic_timestamp_rand` | Wrapper |  | cosmetic stream (macro) | `#define cosmetic_timestamp_rand(a,b) timestamp((cosmetic_rand()%((b)-(a)+1))+(a))` |
 
 ### Math/Floating.cpp
 
@@ -203,11 +218,16 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1546 | `vm_vec_rand_vec_quick_cosmetic` | Wrapper |  | cosmetic stream | `rvec->x = (cosmetic_frand() - 0.5f) * 2;` |
 | 1547 | `vm_vec_rand_vec_quick_cosmetic` | Wrapper |  | cosmetic stream | `rvec->y = (cosmetic_frand() - 0.5f) * 2;` |
 | 1548 | `vm_vec_rand_vec_quick_cosmetic` | Wrapper |  | cosmetic stream | `rvec->z = (cosmetic_frand() - 0.5f) * 2;` |
-| 2789 | `vm_vec_random_cone` | Wrapper |  | caller: beam muzzle particles (C) | `vm_rot_point_around_line(&t1, in, fl_radian(frand_range(-max_angle, max_angle)), &vmd_z...` |
-| 2792 | `vm_vec_random_cone` | Wrapper |  | caller: beam muzzle particles (C) | `vm_rot_point_around_line(&t2, &t1, fl_radian(frand_range(-max_angle, max_angle)), &vmd_...` |
-| 2795 | `vm_vec_random_cone` | Wrapper |  | caller: beam muzzle particles (C) | `vm_rot_point_around_line(out, &t2, fl_radian(frand_range(-max_angle, max_angle)), &vmd_...` |
-| 2805 | `vm_vec_random_in_circle` | Wrapper |  | callers: Beam aim, SSM, nebula lightning (all gameplay stream) | `vm_vec_scale_add(&temp, in, &orient->rvec, on_edge ? radius : frand_range(0.0f, radius));` |
-| 2808 | `vm_vec_random_in_circle` | Wrapper |  | callers: Beam aim, SSM, nebula lightning (all gameplay stream) | `vm_rot_point_around_line(out, &temp, fl_radian(frand_range(0.0f, 359.0f)), in, &orient-...` |
+| 2774 | `vm_vec_random_cone` | Wrapper |  | gameplay stream; no callers left (beam muzzle particles use vm_vec_random_cone_cosmetic) | `void vm_vec_random_cone(vector *out, vector *in, float max_angle, matrix *orient)` |
+| 2789 | `vm_vec_random_cone` | Wrapper |  | gameplay stream; no callers left (beam muzzle particles use vm_vec_random_cone_cosmetic) | `vm_rot_point_around_line(&t1, in, fl_radian(frand_range(-max_angle, max_angle)), &vmd_z...` |
+| 2792 | `vm_vec_random_cone` | Wrapper |  | gameplay stream; no callers left (beam muzzle particles use vm_vec_random_cone_cosmetic) | `vm_rot_point_around_line(&t2, &t1, fl_radian(frand_range(-max_angle, max_angle)), &vmd_...` |
+| 2795 | `vm_vec_random_cone` | Wrapper |  | gameplay stream; no callers left (beam muzzle particles use vm_vec_random_cone_cosmetic) | `vm_rot_point_around_line(out, &t2, fl_radian(frand_range(-max_angle, max_angle)), &vmd_...` |
+| 2799 | `vm_vec_random_cone_cosmetic` | Wrapper |  | cosmetic stream; caller: beam muzzle particles | `void vm_vec_random_cone_cosmetic(vector *out, vector *in, float max_angle, matrix *orient)` |
+| 2814 | `vm_vec_random_cone_cosmetic` | Wrapper |  | cosmetic stream; caller: beam muzzle particles | `vm_rot_point_around_line(&t1, in, fl_radian(cosmetic_frand_range(-max_angle, max_angle)...` |
+| 2817 | `vm_vec_random_cone_cosmetic` | Wrapper |  | cosmetic stream; caller: beam muzzle particles | `vm_rot_point_around_line(&t2, &t1, fl_radian(cosmetic_frand_range(-max_angle, max_angle...` |
+| 2820 | `vm_vec_random_cone_cosmetic` | Wrapper |  | cosmetic stream; caller: beam muzzle particles | `vm_rot_point_around_line(out, &t2, fl_radian(cosmetic_frand_range(-max_angle, max_angle...` |
+| 2830 | `vm_vec_random_in_circle` | Wrapper |  | callers: Beam aim, SSM, nebula lightning (all gameplay stream) | `vm_vec_scale_add(&temp, in, &orient->rvec, on_edge ? radius : frand_range(0.0f, radius));` |
+| 2833 | `vm_vec_random_in_circle` | Wrapper |  | callers: Beam aim, SSM, nebula lightning (all gameplay stream) | `vm_rot_point_around_line(out, &temp, fl_radian(frand_range(0.0f, 359.0f)), in, &orient-...` |
 
 ### MenuUI/Credits.cpp
 
@@ -278,9 +298,9 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1314 | `interp_render_arc_segment` | Cosmetic |  |  | `tmp.z += (cosmetic_frand()-0.5f)*d*scaler;` |
 | 1350 | `interp_render_lightning` | Cosmetic |  |  | `if ( (cosmetic_rand()>>4) & 1 )` |
 | 1359 | `interp_render_lightning` | Cosmetic |  |  | `if ( (cosmetic_rand()>>4) & 1 )` |
-| 2977 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris | `void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1, vector...` |
-| 2981 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris | `int vn1 = (myrand()>>5) % nv;` |
-| 2982 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris | `int vn2 = (myrand()>>5) % nv;` |
+| 2977 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1, vector...` |
+| 2981 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn1 = (myrand()>>5) % nv;` |
+| 2982 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn2 = (myrand()>>5) % nv;` |
 | 2996 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `void submodel_get_two_random_points_cosmetic(int model_num, int submodel_num, vector *v...` |
 | 3000 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `int vn1 = (cosmetic_rand()>>5) % nv;` |
 | 3001 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `int vn2 = (cosmetic_rand()>>5) % nv;` |
@@ -289,39 +309,27 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 814 | `neb2_gen_slice` | Cosmetic |  |  | `v->x = h_incw + (ws * (float)src) + cosmetic_frand_range(-Nd->wj, Nd->wj);` |
-| 815 | `neb2_gen_slice` | Cosmetic |  |  | `v->y = h_inch + (hs * (float)idx1) + cosmetic_frand_range(-Nd->hj, Nd->hj);` |
-| 816 | `neb2_gen_slice` | Cosmetic |  |  | `v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);` |
+| 814 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->x = h_incw + (ws * (float)src) + frand_range(-Nd->wj, Nd->wj);` |
+| 815 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->y = h_inch + (hs * (float)idx1) + frand_range(-Nd->hj, Nd->hj);` |
+| 816 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);` |
 | 824 | `neb2_gen_slice` | Cosmetic |  |  | `Neb2_cubes[src][idx1][idx2].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);` |
-| 834 | `neb2_gen_slice` | Cosmetic |  |  | `v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);` |
-| 835 | `neb2_gen_slice` | Cosmetic |  |  | `v->y = h_inch + (hs * (float)src) + cosmetic_frand_range(-Nd->hj, Nd->hj);` |
-| 836 | `neb2_gen_slice` | Cosmetic |  |  | `v->z = h_incd + (ds * (float)idx2) + cosmetic_frand_range(-Nd->dj, Nd->dj);` |
+| 834 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);` |
+| 835 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->y = h_inch + (hs * (float)src) + frand_range(-Nd->hj, Nd->hj);` |
+| 836 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->z = h_incd + (ds * (float)idx2) + frand_range(-Nd->dj, Nd->dj);` |
 | 844 | `neb2_gen_slice` | Cosmetic |  |  | `Neb2_cubes[idx1][src][idx2].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);` |
-| 854 | `neb2_gen_slice` | Cosmetic |  |  | `v->x = h_incw + (ws * (float)idx1) + cosmetic_frand_range(-Nd->wj, Nd->wj);` |
-| 855 | `neb2_gen_slice` | Cosmetic |  |  | `v->y = h_inch + (hs * (float)idx2) + cosmetic_frand_range(-Nd->hj, Nd->hj);` |
-| 856 | `neb2_gen_slice` | Cosmetic |  |  | `v->z = h_incd + (ds * (float)src) + cosmetic_frand_range(-Nd->dj, Nd->dj);` |
+| 854 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->x = h_incw + (ws * (float)idx1) + frand_range(-Nd->wj, Nd->wj);` |
+| 855 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->y = h_inch + (hs * (float)idx2) + frand_range(-Nd->hj, Nd->hj);` |
+| 856 | `neb2_gen_slice` | Gameplay |  | cube jitter; lightning bolt start and strike points decide EMP | `v->z = h_incd + (ds * (float)src) + frand_range(-Nd->dj, Nd->dj);` |
 | 864 | `neb2_gen_slice` | Cosmetic |  |  | `Neb2_cubes[idx1][idx2][src].rot_speed = cosmetic_frand_range(-max_rotation, max_rotation);` |
-| 1382 | `neb2_get_bitmap` | Cosmetic |  |  | `count = (int)cosmetic_frand_range(1.0f, 5.0f);` |
-| 1761 | `neb2_add_inner` | Cosmetic |  |  | `vm_vec_copy_scale(&pt, &orient->fvec, cosmetic_frand_range(neb->magic_num, neb->inner_r...` |
-| 1764 | `neb2_add_inner` | Cosmetic |  |  | `vm_rot_point_around_line(&pt2, &pt, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_ze...` |
-| 1767 | `neb2_add_inner` | Cosmetic |  |  | `vm_rot_point_around_line(&pt3, &pt2, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_z...` |
-| 1772 | `neb2_add_inner` | Cosmetic |  |  | `neb->pts[idx].x = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + ...` |
-| 1773 | `neb2_add_inner` | Cosmetic |  |  | `neb->pts[idx].y = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + ...` |
-| 1774 | `neb2_add_inner` | Cosmetic |  |  | `neb->pts[idx].z = cosmetic_frand_range(-1.0f * neb->inner_radius, neb->inner_radius) + ...` |
-| 1777 | `neb2_add_inner` | Cosmetic |  |  | `neb->bmaps[idx] = (int)cosmetic_frand_range(0.0f, (float)2);` |
-| 1799 | `neb2_add_outer` | Cosmetic |  |  | `vm_rot_point_around_line(&pt2, &pt, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_ze...` |
-| 1802 | `neb2_add_outer` | Cosmetic |  |  | `vm_rot_point_around_line(&pt3, &pt2, fl_radian(cosmetic_frand_range(-ang, ang)), &vmd_z...` |
-| 1808 | `neb2_add_outer` | Cosmetic |  |  | `phi = fl_radian(cosmetic_frand_range(0.0f, 360.0f));` |
-| 1809 | `neb2_add_outer` | Cosmetic |  |  | `theta = fl_radian(cosmetic_frand_range(0.0f, 360.f));` |
-| 1817 | `neb2_add_outer` | Cosmetic |  |  | `neb->bmaps[idx] = (int)cosmetic_frand_range(0.0f, (float)2);` |
+| 1393 | `neb2_get_bitmap` | Cosmetic |  |  | `count = (int)cosmetic_frand_range(1.0f, 5.0f);` |
 
 ### Nebula/NebLightning.cpp
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 581 | `nebl_render_all` | Gameplay |  | nebula lightning applies EMP | `Nebl_alpha = frand();` |
-| 582 | `nebl_render_all` | Gameplay |  | nebula lightning applies EMP | `Nebl_glow_alpha = frand();` |
-| 626 | `nebl_render_all` | Gameplay |  | nebula lightning applies EMP | `if(frand_range(0.0f, 1.0f) < 0.5f){` |
+| 581 | `nebl_render_all` | Cosmetic |  | lightning alpha; drawing only | `Nebl_alpha = cosmetic_frand();` |
+| 582 | `nebl_render_all` | Cosmetic |  | lightning glow alpha; drawing only | `Nebl_glow_alpha = cosmetic_frand();` |
+| 626 | `nebl_render_all` | Cosmetic |  | thunder sound choice; the EMP draws in nebl_render_all stay on gameplay | `if(cosmetic_frand_range(0.0f, 1.0f) < 0.5f){` |
 | 670 | `nebl_process` | Gameplay |  | bolt placement; bolts apply EMP | `Nebl_stamp = timestamp((int)frand_range((float)Storm->min, (float)Storm->max));` |
 | 677 | `nebl_process` | Gameplay |  | bolt placement; bolts apply EMP | `num_bolts = (int)frand_range((float)Storm->min_count, (float)Storm->max_count);` |
 | 683 | `nebl_process` | Gameplay |  | bolt placement; bolts apply EMP | `s1 = (int)frand_range(0.0f, (float)Neb2_slices);` |
@@ -337,7 +345,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 990 | `nebl_gen` | Gameplay |  | bolt shape decides whether the EMP fires | `tmp.x += (frand()-0.5f)*d*scaler;` |
 | 991 | `nebl_gen` | Gameplay |  | bolt shape decides whether the EMP fires | `tmp.y += (frand()-0.5f)*d*scaler;` |
 | 992 | `nebl_gen` | Gameplay |  | bolt shape decides whether the EMP fires | `tmp.z += (frand()-0.5f)*d*scaler;` |
-| 1295 | `nebl_jitter` | Gameplay |  | bolt shape decides whether the EMP fires | `vm_vec_random_in_circle(&moveup->pos, &temp, &m, frand_range(0.0f, length * bi->noise),...` |
+| 1296 | `nebl_jitter` | Gameplay |  | bolt shape decides whether the EMP fires | `vm_vec_random_in_circle(&moveup->pos, &temp, &m, frand_range(0.0f, length * bi->noise),...` |
 
 ### Network/MultiUI.cpp
 
@@ -387,6 +395,20 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1566 | `obj_move_all_post` | Cosmetic |  | explosion lights | `light_add_point( &tmp1, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );` |
 | 1567 | `obj_move_all_post` | Cosmetic |  | explosion lights | `light_add_point( &tmp2, 10.0f, 20.0f, cosmetic_frand(), 1.0f, 1.0f, 1.0f, -1 );` |
 
+### Parse/SEXP.CPP
+
+| Line | Function | Stream | Raw `rand()` | Note | Code |
+|---|---|---|---|---|---|
+| 2336 | `rand_internal` | Gameplay | yes | raw rand(); used by the rand and subsys-set-random sexps | `return (low + rand() % (diff + 1));` |
+| 2363 | `rand_sexp` | Gameplay |  | rand sexp | `rand_num = rand_internal(low, high);` |
+| 4510 | `sexp_send_one_message` | Gameplay |  | picks the sending ship; message choice kept on gameplay stream | `ship_index = ship_get_random_ship_in_wing( num, SHIP_GET_NO_PLAYERS, 1 );` |
+| 4642 | `sexp_send_random_message` | Gameplay |  | send-random-message sexp | `message_num = myrand() % num_messages;` |
+| 6363 | `sexp_beam_free` | Gameplay |  | turret first fire delay | `turret->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
+| 6390 | `sexp_beam_free_all` | Gameplay |  | turret first fire delay | `subsys->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
+| 6479 | `sexp_turret_free` | Gameplay |  | turret first fire delay | `turret->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
+| 6506 | `sexp_turret_free_all` | Gameplay |  | turret first fire delay | `subsys->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
+| 6895 | `sexp_subsys_set_random` | Gameplay |  | subsys-set-random sexp | `rand = rand_internal(low, high);` |
+
 ### Particle/Particle.cpp
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
@@ -403,8 +425,6 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 582 | `physics_sim_rot` | Gameplay | yes |  | `tangles.p += (float) (rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;` |
-| 583 | `physics_sim_rot` | Gameplay | yes |  | `tangles.h += (float) (rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;` |
 | 592 | `physics_sim_rot` | Gameplay |  |  | `tangles.p += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
 | 593 | `physics_sim_rot` | Gameplay |  |  | `tangles.h += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
 
@@ -419,7 +439,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 2038 | `player_maybe_play_all_alone_msg` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()&1 ) {` |
+| 2039 | `player_maybe_play_all_alone_msg` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()&1 ) {` |
 
 ### Radar/Radar.cpp
 
@@ -432,6 +452,13 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 678 | `radar_blip_draw_flicker` | Cosmetic |  |  | `xdiff = -2 + cosmetic_rand()%4;` |
 | 679 | `radar_blip_draw_flicker` | Cosmetic |  |  | `ydiff = -2 + cosmetic_rand()%4;` |
 | 826 | `radar_frame_render` | Cosmetic |  |  | `Radar_static_next = cosmetic_timestamp_rand(50, 750);` |
+
+### Replay/Replay.cpp
+
+| Line | Function | Stream | Raw `rand()` | Note | Code |
+|---|---|---|---|---|---|
+| 1216 | `replay_enter_game` | Wrapper |  | reseeds the gameplay stream at replay start | `srand(Hdr.level_seed);` |
+| 1217 | `replay_enter_game` | Wrapper |  | reseeds the cosmetic stream at replay start | `cosmetic_srand(Hdr.level_seed);` |
 
 ### Ship/AiBig.cpp
 
@@ -459,7 +486,6 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 3591 | `maybe_avoid_player` | Gameplay |  |  | `vm_vec_scale_add2(&avoid_vec, &objp->orient.uvec, frand()-0.5f);` |
 | 5280 | `evade_ship` | Gameplay |  |  | `if (aip->ai_evasion > myrand()*100.0f/32767.0f) {` |
 | 5558 | `ai_fire_primary_weapon` | Gameplay |  |  | `if (frand() > 0.5f) {` |
-| 5641 | `ai_fire_primary_weapon` | Gameplay |  |  | `if (frand() < 0.75f) {` |
 | 6915 | `ai_stealth_sweep` | Gameplay |  |  | `vm_vec_rand_vec_quick(&aip->stealth_velocity);` |
 | 7089 | `ai_chase_es` | Gameplay |  |  | `tvec.x += frand();` |
 | 7090 | `ai_chase_es` | Gameplay |  |  | `tvec.y += frand();` |
@@ -479,7 +505,6 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 9673 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
 | 9714 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
 | 9726 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
-| 9839 | `ai_dock_shake` | Gameplay |  |  | `vm_vec_rand_vec_quick(&tangles);` |
 | 10532 | `aifft_find_turret_subsys` | Gameplay |  |  | `int offset = (int)frand_range(0.0f, (float)(aifft_list_size % stride));` |
 | 10635 | `turret_set_next_fire_timestamp` | Gameplay |  |  | `wait *= frand_range(0.9f, 1.1f);` |
 | 10761 | `turret_fire_weapon` | Gameplay |  |  | `float wait = 1000.0f * frand_range(0.9f, 1.1f);` |
@@ -487,8 +512,6 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 10984 | `ai_fire_from_turret` | Gameplay |  |  | `ss->turret_next_enemy_check_stamp = timestamp((int) (2000.0f * frand_range(0.9f, 1.1f)));` |
 | 12013 | `ai_maybe_launch_cmeasure` | Gameplay |  |  | `float r = frand();` |
 | 12272 | `ai_maybe_evade_locked_missile` | Gameplay |  |  | `(frand() < 1.0f - (float) shipp->cmeasure_count/8.0f)) {` |
-| 13348 | `aas_1` | Gameplay |  |  | `vm_vec_rand_vec_quick(&rand_vec);` |
-| 13436 | `rand_chance_test` | Debug |  | AI debug test | `if (rand_chance(frametime, chance))` |
 | 13464 | `ai_avoid_shockwave` | Gameplay |  |  | `if (!rand_chance(flFrametime, (float) aip->ai_class/4.0f + 0.25f))` |
 | 14421 | `maybe_process_friendly_hit` | Gameplay |  | friendly-fire warning and traitor tracking | `} else if ((damage > frand()) && (Missiontime - pp->last_warning_message_time > F1_0*4)...` |
 
@@ -509,28 +532,31 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 3037 | `ship_blow_up_area_apply_blast` | Cosmetic |  | shockwave rotation (render) | `sci.rot_angle = cosmetic_frand_range(0.0f, 359.0f);` |
 | 3109 | `do_dying_undock_physics` | Gameplay |  |  | `vm_vec_rand_vec_quick(&pos);` |
 | 3118 | `do_dying_undock_physics` | Gameplay |  |  | `vm_vec_rand_vec_quick(&pos);` |
-| 3191 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `submodel_get_two_random_points_cosmetic(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );` |
+| 3191 | `ship_dying_frame` | Gameplay |  | dying-ship fireball position; fireballs are traced objects | `submodel_get_two_random_points(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );` |
 | 3197 | `ship_dying_frame` | Gameplay | yes | fireball type sets its lifetime, which decides when the fireball object exists | `int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;` |
 | 3200 | `ship_dying_frame` | Gameplay |  | next fireball time decides when fireball objects are created | `sp->next_fireball = timestamp_rand(333,500);` |
-| 3211 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `vm_vec_rand_vec_quick_cosmetic(&rand_vec);` |
-| 3212 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `float scale = -vm_vec_dotprod(&objp->orient.fvec, &rand_vec) * (0.9f + 0.2f * cosmetic_...` |
-| 3215 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `scale = objp->radius * cosmetic_frand() * 0.717f;` |
+| 3211 | `ship_dying_frame` | Gameplay |  | Knossos fireball position; fireballs are traced objects | `vm_vec_rand_vec_quick(&rand_vec);` |
+| 3212 | `ship_dying_frame` | Gameplay |  | Knossos fireball position; fireballs are traced objects | `float scale = -vm_vec_dotprod(&objp->orient.fvec, &rand_vec) * (0.9f + 0.2f * frand());` |
+| 3215 | `ship_dying_frame` | Gameplay |  | Knossos fireball position; fireballs are traced objects | `scale = objp->radius * frand() * 0.717f;` |
 | 3220 | `ship_dying_frame` | Gameplay | yes | fireball type sets its lifetime, which decides when the fireball object exists | `int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;` |
 | 3223 | `ship_dying_frame` | Gameplay |  | next fireball time decides when fireball objects are created | `sp->next_fireball = timestamp_rand(333,500);` |
-| 3276 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `submodel_get_two_random_points_cosmetic(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );` |
-| 3281 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `float rad = cosmetic_frand()*0.30f;` |
+| 3276 | `ship_dying_frame` | Gameplay |  | dying-ship fireball position; fireballs are traced objects | `submodel_get_two_random_points(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );` |
+| 3281 | `ship_dying_frame` | Gameplay |  | dying-ship fireball size; size picks the LOD, which sets lifetime | `float rad = frand()*0.30f;` |
 | 3363 | `ship_dying_frame` | Gameplay | yes | fireball type sets its lifetime, which decides when the fireball object exists | `fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;` |
-| 3432 | `ship_dying_frame` | Cosmetic |  | death-roll fireballs, engine-sound stutter | `sp->next_engine_stutter = cosmetic_timestamp_rand(50, 250);` |
+| 3432 | `ship_dying_frame` | Gameplay |  | toggles SF_ENGINES_ON in the traced ship flags | `sp->next_engine_stutter = timestamp_rand(50, 250);` |
 | 4951 | `ship_weapon_maybe_fail` | Gameplay |  |  | `if ( (frand()-0.2f) > weapons_subsys_str )` |
 | 7516 | `ship_get_random_player_wing_ship` | Wrapper | yes | callers: message senders, arrival location (all gameplay stream) | `which_one = (rand() % count);` |
-| 7566 | `ship_get_random_ship_in_wing` | Wrapper | yes | callers: squad messages, arrival messages (gameplay stream) | `which_one = (rand() % count);` |
+| 7566 | `ship_get_random_ship_in_wing` | Wrapper | yes | callers: squad messages, arrival messages, send-message sexp (gameplay stream) | `which_one = (rand() % count);` |
 | 7624 | `ship_get_random_team_ship` | Wrapper | yes | callers: arrival location, EMP (G) | `which_one = (rand() % num);` |
 | 8335 | `ship_maybe_praise_player` | Gameplay |  | message choice; kept on gameplay stream to be safe | `if ( myrand()&1 ) {` |
 | 8368 | `ship_maybe_praise_player` | Gameplay |  | message choice; kept on gameplay stream to be safe | `Player->praise_delay_timestamp = timestamp_rand(1000, 2000);` |
 | 8491 | `ship_maybe_lament` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()%4 == 0 ) {` |
 | 8537 | `ship_maybe_scream` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()&1 )` |
 | 8608 | `ship_maybe_tell_about_rearm` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand() & 1 ) {` |
-| 9019 | `ship_get_random_ship` | Gameplay |  | EMP and debug target-random | `rand_ship = (int)frand_range(0.0f, (float)(num_ships - 1));` |
+| 9008 | `ship_get_random_ship` | Wrapper |  | gameplay stream; callers: EMP, debug target-random | `int ship_get_random_ship()` |
+| 9019 | `ship_get_random_ship` | Wrapper |  | gameplay stream; callers: EMP, debug target-random | `rand_ship = (int)frand_range(0.0f, (float)(num_ships - 1));` |
+| 9037 | `ship_get_random_ship_cosmetic` | Wrapper |  | cosmetic stream; caller: EMP escort name scramble | `int ship_get_random_ship_cosmetic()` |
+| 9048 | `ship_get_random_ship_cosmetic` | Wrapper |  | cosmetic stream; caller: EMP escort name scramble | `rand_ship = (int)cosmetic_frand_range(0.0f, (float)(num_ships - 1));` |
 
 ### Ship/ShipFX.cpp
 
@@ -539,6 +565,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 330 | `shipfx_subsystem_mabye_create_live_debris` | Gameplay |  | live debris objects | `float vel_mag = vm_vec_mag_quick(&radial_vel) * 1.3f * (0.9f + 0.2f*frand());` |
 | 332 | `shipfx_subsystem_mabye_create_live_debris` | Gameplay |  | live debris objects | `vm_vec_rand_vec_quick(&rand_vec);` |
 | 350 | `shipfx_subsystem_mabye_create_live_debris` | Gameplay |  | live debris objects | `float scale = (1.2f + 0.2f * frand()) * vel_mag / rotvel_mag;` |
+| 536 | `shipfx_blow_up_model` | Wrapper |  | multiplayer only; reseeds the gameplay stream mid-mission | `srand( obj->net_signature );` |
 | 548 | `shipfx_blow_up_model` | Gameplay |  | debris objects | `submodel_get_two_random_points(model, submodel, &pnt1, &pnt2 );` |
 | 1614 | `shipfx_emit_spark` | Cosmetic |  |  | `spark_num = cosmetic_rand() % shipp->num_hits;` |
 | 1689 | `shipfx_emit_spark` | Cosmetic |  |  | `float spark_duration = (float)pow(2.0f, -5.0f*(hull_percent-1.3f)) * (1.0f + 0.6f*(cosm...` |
@@ -552,10 +579,10 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1905 | `split_ship_init` | Gameplay |  | big-ship break-up timing; spawns debris | `vm_vec_rand_vec_quick(&rotvel);` |
 | 2022 | `half_ship_render_ship_and_debris` | Gameplay |  | render function that creates debris objects | `float radial_mag = 10.0f + 30.0f*frand();` |
 | 2131 | `do_sub_expl_sound` | Cosmetic |  |  | `int handle_index = cosmetic_rand()%NUM_SUB_EXPL_HANDLES;` |
-| 2176 | `maybe_fireball_wipe` | Cosmetic |  |  | `vm_vec_rand_vec_quick_cosmetic(&temp);` |
-| 2177 | `maybe_fireball_wipe` | Cosmetic |  |  | `vm_vec_scale(&temp, 0.1f*cosmetic_frand());` |
-| 2182 | `maybe_fireball_wipe` | Cosmetic |  |  | `rad = half_ship->parent_obj->radius * cosmetic_frand_range(0.4f, 0.6f);` |
-| 2185 | `maybe_fireball_wipe` | Cosmetic |  |  | `rad *= cosmetic_frand_range(1.4f, 1.6f);` |
+| 2176 | `maybe_fireball_wipe` | Gameplay |  | half-ship fireball position; fireballs are traced objects | `vm_vec_rand_vec_quick(&temp);` |
+| 2177 | `maybe_fireball_wipe` | Gameplay |  | half-ship fireball position; fireballs are traced objects | `vm_vec_scale(&temp, 0.1f*frand());` |
+| 2182 | `maybe_fireball_wipe` | Gameplay |  | half-ship fireball size; size picks the LOD, which sets lifetime | `rad = half_ship->parent_obj->radius * frand_range(0.4f, 0.6f);` |
+| 2185 | `maybe_fireball_wipe` | Gameplay |  | half-ship fireball size; size picks the LOD, which sets lifetime | `rad *= frand_range(1.4f, 1.6f);` |
 | 2192 | `maybe_fireball_wipe` | Gameplay | yes | fireball type sets its lifetime, which decides when the fireball object exists | `int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;` |
 | 2200 | `maybe_fireball_wipe` | Gameplay |  | next fireball time decides when fireball objects are created | `half_ship->next_fireball = timestamp_rand(time_low, time_high);` |
 | 2390 | `shipfx_do_damaged_arcs_frame` | Cosmetic |  |  | `shipp->arc_next_time = cosmetic_timestamp_rand(freq*2,freq*4);` |
@@ -565,24 +592,17 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 2442 | `shipfx_do_damaged_arcs_frame` | Cosmetic |  |  | `int lifetime = (cosmetic_rand()%((b)-(a)+1))+(a);` |
 | 2512 | `shipfx_do_damaged_arcs_frame` | Cosmetic |  |  | `int mr = cosmetic_rand();` |
 | 2515 | `shipfx_do_damaged_arcs_frame` | Cosmetic |  |  | `submodel_get_two_random_points_cosmetic( shipp->modelnum, -1, &v1, &v2 );` |
-| 2592 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `stamp = (int)((float)(Nebl_cruiser_min + ((Nebl_cruiser_max - Nebl_cruiser_min) * Nebl_...` |
-| 2597 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `stamp = (int)((float)(Nebl_supercap_min + ((Nebl_supercap_max - Nebl_supercap_min) * Ne...` |
-| 2600 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `stamp = (int)((float)(Nebl_cap_min + ((Nebl_cap_max - Nebl_cap_min) * Nebl_intensity)) ...` |
-| 2621 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `count = (int)frand_range(0.0f, (float)count);` |
-| 2624 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `submodel_get_two_random_points(shipp->modelnum, 0, &v1, &v2, &n1, &n2);` |
-| 2643 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `binfo.delay = (int)frand_range(0.0f, 1600.0f);` |
-| 2669 | `shipfx_do_lightning_frame` | Gameplay |  | creates nebula lightning bolts (EMP) | `binfo.delay = (int)frand_range(0.0f, 1600.0f);` |
 | 2752 | `shipfx_do_shockwave_stuff` | Gameplay |  | shockwave damage, blast, speed | `sci2.blast = (sci->blast / (float)sip->shockwave_count) * frand_range(0.75f, 1.25f);` |
 | 2753 | `shipfx_do_shockwave_stuff` | Gameplay |  | shockwave damage, blast, speed | `sci2.damage = (sci->damage / (float)sip->shockwave_count) * frand_range(0.75f, 1.25f);` |
 | 2756 | `shipfx_do_shockwave_stuff` | Gameplay |  | shockwave damage, blast, speed | `sci2.speed = sci->speed * frand_range(0.75f, 1.25f);` |
-| 2757 | `shipfx_do_shockwave_stuff` | Gameplay |  | shockwave damage, blast, speed | `sci2.rot_angle = frand_range(0.0f, 359.0f);` |
+| 2757 | `shipfx_do_shockwave_stuff` | Cosmetic |  | shockwave rotation (render) | `sci2.rot_angle = cosmetic_frand_range(0.0f, 359.0f);` |
 | 2759 | `shipfx_do_shockwave_stuff` | Gameplay |  | shockwave damage, blast, speed | `shockwave_create(shipp->objnum, &shockwave_pos, &sci2, SW_SHIP_DEATH, (int)frand_range(...` |
 
 ### Ship/ShipHit.cpp
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 548 | `do_subobj_destroyed_stuff` | Cosmetic |  | fireball positions | `vm_vec_rand_vec_quick_cosmetic(&rand_vec);` |
+| 548 | `do_subobj_destroyed_stuff` | Gameplay |  | subsystem explosion fireball position; fireballs are traced objects | `vm_vec_rand_vec_quick(&rand_vec);` |
 | 715 | `create_subsys_debris` | Gameplay |  |  | `float show_debris = frand();` |
 | 735 | `create_vaporize_debris` | Gameplay |  |  | `float show_debris = frand();` |
 | 1208 | `ship_hit_sparks_no_rotate` | Cosmetic |  |  | `n = cosmetic_rand() % MAX_SHIP_HITS;` |
@@ -593,7 +613,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1678 | `ship_generic_kill_stuff` | Gameplay |  | death-roll time and spin | `sp->deathroll_rotvel.x += (frand() - 0.5f) * 2.0f * rotvel_mag;` |
 | 1680 | `ship_generic_kill_stuff` | Gameplay |  | death-roll time and spin | `sp->deathroll_rotvel.y += (frand() - 0.5f) * 3.0f * rotvel_mag;` |
 | 1682 | `ship_generic_kill_stuff` | Gameplay |  | death-roll time and spin | `sp->deathroll_rotvel.z += (frand() - 0.5f) * 6.0f * rotvel_mag;` |
-| 2461 | `ship_apply_wash_damage` | Gameplay |  |  | `vm_vec_rand_vec_quick(&rand_vec);` |
+| 2462 | `ship_apply_wash_damage` | Gameplay |  |  | `vm_vec_rand_vec_quick(&rand_vec);` |
 
 ### Starfield/StarField.cpp
 
@@ -613,8 +633,8 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
 | 171 | `supernova_do_particles` | Cosmetic |  |  | `submodel_get_two_random_points_cosmetic(Player_ship->modelnum, 0, &ta, &tb);` |
-| 329 | `supernova_apply_shake` | Cosmetic |  |  | `int r1 = cosmetic_rand();` |
-| 330 | `supernova_apply_shake` | Cosmetic |  |  | `int r2 = cosmetic_rand();` |
+| 329 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
+| 330 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
 
 ### Weapon/Beam.cpp
 
@@ -622,6 +642,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 |---|---|---|---|---|---|
 | 1377 | `beam_render` | Cosmetic |  |  | `scale = cosmetic_frand_range(1.0f - bwi->sections[s_idx].flicker, 1.0f + bwi->sections[...` |
 | 1431 | `beam_generate_muzzle_particles` | Cosmetic |  |  | `particle_count = (int)cosmetic_frand_range(0.0f, (float)wip->b_info.beam_particle_count);` |
+| 1441 | `beam_generate_muzzle_particles` | Cosmetic |  | particle direction; was vm_vec_random_cone on the gameplay stream | `vm_vec_random_cone_cosmetic(&particle_dir, &turret_norm, wip->b_info.beam_particle_angl...` |
 | 1443 | `beam_generate_muzzle_particles` | Cosmetic |  |  | `vm_vec_scale_add(&p_temp, &turret_pos, &particle_dir, wip->b_info.beam_muzzle_radius * ...` |
 | 1453 | `beam_generate_muzzle_particles` | Cosmetic |  |  | `float p_life = cosmetic_frand_range(p_time_ref * 0.5f, p_time_ref * 0.7f);` |
 | 1454 | `beam_generate_muzzle_particles` | Cosmetic |  |  | `float p_vel = (wip->b_info.beam_muzzle_radius / p_life) * cosmetic_frand_range(0.85f, 1...` |
@@ -647,6 +668,7 @@ The 22 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 503 | `emp_should_blit_gauge` | Cosmetic |  |  | `return cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity;` |
 | 560 | `emp_maybe_reformat_text` | Cosmetic |  |  | `if(cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity){` |
 | 580 | `emp_maybe_reformat_text` | Cosmetic |  |  | `wep_index = (int)cosmetic_frand_range(0.0f, (float)(MAX_WEAPON_TYPES - 1));` |
+| 588 | `emp_maybe_reformat_text` | Cosmetic |  | scrambled escort name; was ship_get_random_ship on the gameplay stream | `shipnum = ship_get_random_ship_cosmetic();` |
 | 625 | `emp_maybe_reformat_text` | Cosmetic |  |  | `wt->stamp = timestamp((int)cosmetic_frand_range(100.0f, 750.0f * (1.0f - Emp_intensity)));` |
 | 644 | `emp_randomize_chars` | Cosmetic |  |  | `if(cosmetic_frand_range(0.0f, 1.0f) < Emp_intensity){` |
 | 645 | `emp_randomize_chars` | Cosmetic |  |  | `char_index = Emp_random_char[(int)cosmetic_frand_range(0.0f, (float)(NUM_RANDOM_CHARS -...` |
