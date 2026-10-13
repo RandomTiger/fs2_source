@@ -9,10 +9,13 @@
 
 #include "PadState.h"
 
-// Inputs a binding can use: every button, plus each trigger used as a button.
+// Inputs a binding can use: every button, plus each trigger used as a button, plus right stick down.
 #define PAD_INPUT_LTRIGGER		(PAD_NUM_BUTTONS)
 #define PAD_INPUT_RTRIGGER		(PAD_NUM_BUTTONS + 1)
-#define PAD_NUM_INPUTS			(PAD_NUM_BUTTONS + 2)
+#define PAD_INPUT_RSTICK_DOWN	(PAD_NUM_BUTTONS + 2)	// right stick pushed down past PAD_STICK_BUTTON
+#define PAD_NUM_INPUTS			(PAD_NUM_BUTTONS + 3)
+
+#define PAD_STICK_BUTTON		0.5f		// a stick direction counts as a pressed button past this
 
 // Gestures. "Fired" gestures happen once; "held" gestures last while the input is down.
 enum {

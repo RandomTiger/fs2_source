@@ -1020,7 +1020,7 @@ void hud_squadmsg_pad_select()
 	Msg_key = keys_used[Squadmsg_pad_row];
 }
 
-// one menu back; closes the menu from the top
+// one menu back; the top menu stays open (releasing the pad button closes it)
 void hud_squadmsg_pad_back()
 {
 	hud_squadmsg_pad_sync();
@@ -1029,7 +1029,6 @@ void hud_squadmsg_pad_back()
 
 	switch ( Squad_msg_mode ) {
 	case SM_MODE_TYPE_SELECT:
-		hud_squadmsg_pad_close();
 		return;
 
 	case SM_MODE_SHIP_COMMAND:

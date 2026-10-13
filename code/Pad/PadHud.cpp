@@ -1,5 +1,5 @@
 // PadHud.cpp
-// Draws the open pad tree node: four options in a cross below the reticle, after the
+// Draws the open pad tree node: four options in a cross at the top of the screen, after the
 // category has been held for PAD_TREE_SHOW_MS. FS2-specific; the tree itself is in PadCore.
 
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include "2d.h"
 #include "HUD.h"
 
-#define PAD_HUD_Y_FRACTION		0.68f		// centre of the cross, as a fraction of screen height
+#define PAD_HUD_Y_FRACTION		0.14f		// centre of the cross, as a fraction of screen height (top quarter, clear of the gauges)
 #define PAD_HUD_GAP				12			// pixels between the centre and the Left/Right labels
 
 // x is the left edge, the centre or the right edge for align -1, 0, 1

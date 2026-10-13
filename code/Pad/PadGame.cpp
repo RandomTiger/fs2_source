@@ -44,6 +44,8 @@ static const pad_binding Pad_game_bindings[] = {
 	{ PAD_RSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_SECONDARY },
 	{ PAD_LSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_SLOW },
 	{ PAD_LSHOULDER,			PAD_G_DOUBLE_TAP,			PAD_LAYER_BASE,	ZERO_THROTTLE },
+	{ PAD_INPUT_RSTICK_DOWN,	PAD_G_PRESS,			PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE },
+	{ PAD_SOUTH,				PAD_G_PRESS,				PAD_LAYER_BASE,	TARGET_SHIP_IN_RETICLE },
 	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_ANY,		PAD_ACTION_PAUSE },
 };
 
@@ -56,13 +58,12 @@ enum {
 	PAD_NODE_OTHER,
 	PAD_NODE_WEAPONS,
 	PAD_NODE_COMMANDS,
-	PAD_NODE_FLIGHT,
 	PAD_NUM_NODES
 };
 
 static const pad_tree_node Pad_game_nodes[PAD_NUM_NODES] = {
 	{ "Targeting", {
-		{ "In reticle",		TARGET_SHIP_IN_RETICLE,					-1 },
+		{ "Match speed",		MATCH_TARGET_SPEED,						-1 },
 		{ "Hostile",			-1,											PAD_NODE_HOSTILE },
 		{ "Subsystem",			-1,											PAD_NODE_SUBSYSTEM },
 		{ "Other",				-1,											PAD_NODE_OTHER } } },
@@ -85,24 +86,18 @@ static const pad_tree_node Pad_game_nodes[PAD_NUM_NODES] = {
 		{ "Cycle primary",	CYCLE_NEXT_PRIMARY,						-1 },
 		{ "Missile link",		CYCLE_NUM_MISSLES,						-1 },
 		{ "Cycle secondary",	CYCLE_SECONDARY,							-1 },
-		{ "Countermeasure",	LAUNCH_COUNTERMEASURE,					-1 } } },
+		{ NULL,					-1,											-1 } } },
 	{ "Commands", {
 		{ "Up",					PAD_ACTION_MENU_UP,						-1 },
 		{ "Select",				PAD_ACTION_MENU_SELECT,					-1 },
 		{ "Down",				PAD_ACTION_MENU_DOWN,					-1 },
 		{ "Back",				PAD_ACTION_MENU_BACK,					-1 } } },
-	{ "Flight", {
-		{ "Match speed",		MATCH_TARGET_SPEED,						-1 },
-		{ NULL,					-1,											-1 },
-		{ NULL,					-1,											-1 },
-		{ NULL,					-1,											-1 } } },
 };
 
 static const pad_tree_category Pad_game_categories[] = {
 	{ PAD_WEST,		PAD_NODE_TARGETING,	-1,							-1 },
 	{ PAD_NORTH,	PAD_NODE_WEAPONS,		-1,							-1 },
 	{ PAD_EAST,		PAD_NODE_COMMANDS,	PAD_ACTION_MENU_OPEN,	PAD_ACTION_MENU_CLOSE },
-	{ PAD_SOUTH,	PAD_NODE_FLIGHT,		-1,							-1 },
 };
 
 static int				Pad_game_inited = 0;

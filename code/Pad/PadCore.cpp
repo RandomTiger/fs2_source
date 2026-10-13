@@ -188,6 +188,9 @@ static int pad_input_down(const pad_state *st, int input)
 	if (input == PAD_INPUT_LTRIGGER) {
 		return st->axis[PAD_TRIGGER_LEFT] > Pad_settings.trigger_threshold;
 	}
+	if (input == PAD_INPUT_RSTICK_DOWN) {
+		return st->axis[PAD_RIGHT_Y] > PAD_STICK_BUTTON;
+	}
 	return st->axis[PAD_TRIGGER_RIGHT] > Pad_settings.trigger_threshold;
 }
 
