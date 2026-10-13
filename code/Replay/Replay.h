@@ -60,7 +60,8 @@ extern int Replay_mode;
 #define RT_END						29
 #define RT_STREAM_BYTES			30
 #define RT_INPUT_DEVICE			31
-#define RT_NUM_TAGS				32
+#define RT_JOY_PRESENT			32
+#define RT_NUM_TAGS				33
 
 // command line (called from parse_cmdline)
 void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
