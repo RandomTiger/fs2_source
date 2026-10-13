@@ -589,7 +589,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 	if ( frame_diff > 0 ) {
 		instance->last_frame_num = instance->frame_num;		
 
-		t1 = timer_get_fixed_seconds();
+		t1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 		for ( i = 0; i < frame_diff; i++ ) {
 			anim_check_for_palette_change(instance);			
 
@@ -635,7 +635,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 				}
 			}			
 		}
-		t2 = timer_get_fixed_seconds();
+		t2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 	}
 	else {
 		t2=t1=0;
@@ -652,7 +652,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 		
 	decompress_time = f2fl(t2-t1);
 
-	t1 = timer_get_fixed_seconds();
+	t1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 	if ( frame_diff == 0 && instance->last_bitmap != -1 ) {
 		bitmap_id = instance->last_bitmap;
 	}
@@ -694,7 +694,7 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 		instance->last_bitmap = bitmap_id;
 	}
 
-	t2 = timer_get_fixed_seconds();
+	t2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 	render_time = f2fl(t2-t1);
 
 //	nprintf(("Alan","DECOMPRESS: %.3fms  RENDER: %.3fms\n", decompress_time*1000, render_time*1000));
