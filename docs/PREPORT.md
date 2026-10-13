@@ -61,7 +61,11 @@ The aim is to move the view setup, lock, cargo scan and view-cone test into the 
 ## Plan
 1. Done: CosmeticRandom into `RecordPlayback` with a second pass over the call sites (`docs/random_call_sites.md`, which also lists all the gameplay that happens inside render code); autotest missions re-recorded; hand-played recordings removed; merged up to `Enhanced` (tag `latest-2026-10-13e`) and `PrePort`.
 2. Done (6397158): Glide, OpenGL and DirectDraw backends removed; non-Direct3D requests are forced to Direct3D. Not yet checked that FRED still builds: MFC is not installed on DESKTOP-MAIN.
-3. Move the view setup, lock, cargo scan and view-cone test into the simulation step, with no gameplay change.
+3. Move the view setup, lock, cargo scan and view-cone test into the simulation step, with no gameplay change. A new logic phase runs where rendering starts today and does the gameplay parts in the same order; drawing only reads state. One commit per piece, replay check after each, stop on any divergence. Decided 2026-10-13:
+   - HUD-gated gameplay (lock, cargo scan, squad orders, wingman warnings) keeps its conditions (HUD shown, cockpit view) as game state, but its logic moves out of the drawing code so it runs headless.
+   - Missile lock and the view-cone test use a fixed **game view**: the art resolution (640x480 or 1024x768), 4:3 and the original field of view, separate from the display. Identical today; later display resolutions and widescreen cannot change lock timing or collision culling.
+   - Capital-ship break-up debris (`half_ship_render_ship_and_debris`) always spawns, not only when the split ship is on screen, with the debris limits raised to allow for it. A gameplay change on PrePort only, in its own commit; affected missions re-recorded.
+   Pieces: (1) camera: viewer, shake, eye position and orientation; (2) view-cone test in the game view; (3) missile lock and cargo scan; (4) squad orders, reinforcements, wingman warnings; (5) nebula lightning EMP and half-ship debris.
 4. Headless (feature branch off `PrePort`).
 5. x64 build: the timer's assembly, pointer casts, then replay on x64.
 6. The platform layer around the recorder's hooks.
