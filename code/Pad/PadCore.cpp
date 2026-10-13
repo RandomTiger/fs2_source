@@ -382,6 +382,7 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 	pad_shape_stick(st->axis[PAD_RIGHT_X], st->axis[PAD_RIGHT_Y], Pad_settings.right_deadzone, Pad_settings.curve, Pad_settings.right_sensitivity, &x, &y);
 	out->roll = Pad_settings.invert_roll ? -x : x;
 
+	out->throttle_max_rate = Pad_settings.throttle_rate;
 	out->throttle_rate = pad_shape_trigger(st->axis[PAD_TRIGGER_LEFT], Pad_settings.trigger_deadzone) * Pad_settings.throttle_rate;
 }
 

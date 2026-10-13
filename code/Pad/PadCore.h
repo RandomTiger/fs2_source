@@ -69,6 +69,7 @@ typedef struct pad_output {
 	float	pitch;						// +nose up,  -1..1
 	float	roll;							// +right,    -1..1
 	float	throttle_rate;				// percent per second, >= 0
+	float	throttle_max_rate;		// the throttle_rate setting: percent per second for full-rate throttle actions
 
 	// pad tree
 	int	tree_category;				// open category, -1 = closed

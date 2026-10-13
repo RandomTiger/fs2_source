@@ -1,6 +1,7 @@
 // PadGame.cpp
 // Control pad glue for FS2. See PadGame.h, and docs/PAD_CONTROL.md for the layout.
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,6 +14,7 @@
 #include "ControlsConfig.h"
 #include "KeyControl.h"
 #include "Timer.h"
+#include "Replay.h"
 
 extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is reading a device
 
@@ -102,7 +104,6 @@ static const pad_tree_category Pad_game_categories[] = {
 
 static int				Pad_game_inited = 0;
 static pad_output		Pad_game_out;
-static pad_settings		Pad_game_settings;
 
 static void pad_game_init()
 {
@@ -122,27 +123,121 @@ static void pad_game_init()
 		mprintf(("Pad: read %d settings from %s\n", pad_core_parse_settings(&s, text), PAD_SETTINGS_FILE));
 	}
 
-	Pad_game_settings = s;
 	pad_core_set_settings(&s);
 	pad_core_set_bindings(Pad_game_bindings, sizeof(Pad_game_bindings) / sizeof(Pad_game_bindings[0]));
 	pad_core_set_tree(Pad_game_categories, sizeof(Pad_game_categories) / sizeof(Pad_game_categories[0]), Pad_game_nodes, PAD_NUM_NODES);
 }
 
+// The recorder keeps the pad's output, not its raw state, so a replay does not depend on
+// pad.cfg or the core. Floats are kept as fixed point; live play uses the same rounded values.
+#define PAD_REPLAY_HEADER		12
+#define PAD_REPLAY_MAX_INTS	(PAD_REPLAY_HEADER + 2 * PAD_MAX_OUT)
+#define PAD_REPLAY_SCALE		10000.0f
+
+static int pad_game_fixed(float v)
+{
+	return (int) floor(v * PAD_REPLAY_SCALE + 0.5f);
+}
+
+static int pad_game_pack(const pad_output *out, int *vals)
+{
+	int i, n;
+
+	if (!out->connected) {
+		vals[0] = 0;
+		return 1;
+	}
+
+	vals[0] = 1;
+	vals[1] = out->num_fired;
+	vals[2] = out->num_held;
+	vals[3] = pad_game_fixed(out->yaw);
+	vals[4] = pad_game_fixed(out->pitch);
+	vals[5] = pad_game_fixed(out->roll);
+	vals[6] = pad_game_fixed(out->throttle_rate);
+	vals[7] = pad_game_fixed(out->throttle_max_rate);
+	vals[8] = out->tree_category;
+	vals[9] = out->tree_node;
+	vals[10] = out->tree_depth;
+	vals[11] = out->tree_show;
+
+	n = PAD_REPLAY_HEADER;
+	for (i = 0; i < out->num_fired; i++) {
+		vals[n++] = out->fired[i];
+	}
+	for (i = 0; i < out->num_held; i++) {
+		vals[n++] = out->held[i];
+	}
+	return n;
+}
+
+static void pad_game_unpack(const int *vals, int n, pad_output *out)
+{
+	int i, p;
+
+	memset(out, 0, sizeof(*out));
+	out->tree_category = -1;
+	out->tree_node = -1;
+
+	if ((n < PAD_REPLAY_HEADER) || !vals[0]) {
+		return;
+	}
+	if ((vals[1] < 0) || (vals[1] > PAD_MAX_OUT) || (vals[2] < 0) || (vals[2] > PAD_MAX_OUT) || (n != PAD_REPLAY_HEADER + vals[1] + vals[2])) {
+		return;
+	}
+
+	out->connected = 1;
+	out->num_fired = vals[1];
+	out->num_held = vals[2];
+	out->yaw = vals[3] / PAD_REPLAY_SCALE;
+	out->pitch = vals[4] / PAD_REPLAY_SCALE;
+	out->roll = vals[5] / PAD_REPLAY_SCALE;
+	out->throttle_rate = vals[6] / PAD_REPLAY_SCALE;
+	out->throttle_max_rate = vals[7] / PAD_REPLAY_SCALE;
+	out->tree_category = vals[8];
+	out->tree_node = vals[9];
+	out->tree_depth = vals[10];
+	out->tree_show = vals[11];
+
+	p = PAD_REPLAY_HEADER;
+	for (i = 0; i < out->num_fired; i++) {
+		out->fired[i] = vals[p++];
+	}
+	for (i = 0; i < out->num_held; i++) {
+		out->held[i] = vals[p++];
+	}
+}
+
 static void pad_game_update()
 {
-	pad_state st;
+	int vals[PAD_REPLAY_MAX_INTS];
+	int n = 0;
 
 	if (!Pad_game_inited) {
 		pad_game_init();
 	}
 
-	// a legacy joystick took input at startup (no pad then): the pad stays off, never both
-	if (joy_num_sticks > 0) {
-		memset(&st, 0, sizeof(st));
-	} else {
-		pad_backend_poll(&st);
+	if (!replay_should_read()) {
+		pad_state st;
+		pad_output live;
+
+		// the clock read in here is covered by the pad's own entry
+		replay_push();
+
+		// a legacy joystick took input at startup (no pad then): the pad stays off, never both
+		if (joy_num_sticks > 0) {
+			memset(&st, 0, sizeof(st));
+		} else {
+			pad_backend_poll(&st);
+		}
+		pad_core_update(&st, timer_get_milliseconds(), &live);
+
+		replay_pop();
+		n = pad_game_pack(&live, vals);
 	}
-	pad_core_update(&st, timer_get_milliseconds(), &Pad_game_out);
+
+	n = replay_input_device(vals, n, PAD_REPLAY_MAX_INTS);
+	pad_game_unpack(vals, n, &Pad_game_out);
 }
 
 void pad_frame()
@@ -200,7 +295,7 @@ void pad_read_flight(control_info *ci, float frame_time)
 
 	if (pad_output_is_held(&Pad_game_out, PAD_ACTION_SLOW)) {
 		Player->flags &= ~PLAYER_FLAGS_MATCH_TARGET;
-		ci->forward_cruise_percent -= Pad_game_settings.throttle_rate * frame_time;
+		ci->forward_cruise_percent -= Pad_game_out.throttle_max_rate * frame_time;
 	}
 }
 

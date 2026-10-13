@@ -49,8 +49,20 @@ Code: tree in `PadCore` (data tables in `PadGame.cpp`), drawing in `PadHud.cpp`,
 `HUD.cpp` after the supernova gauge. The squad menu driver is a marked block in
 `HUDsquadmsg.cpp` (it needs that file's statics) plus a ">" highlight in its menu drawing.
 
+## Batch 3: record and replay pad input (written, waiting on RecordPlayback)
+1. Recorder (branch `RecorderInputDevice`, off `RecordPlayback`, commit e6cdc32):
+   `RT_INPUT_DEVICE` entries and `replay_input_device()`. A missing entry reads as "not
+   connected", so recordings replay across builds with and without the pad. Format version
+   unchanged. No pad code there.
+2. Pad (this branch, uncommitted): `pad_game_update` records the pad's output (actions,
+   flight values, tree state) once per update, as fixed point, and plays it back. Replays
+   do not depend on pad.cfg or a pad being plugged in.
+3. Needs (1) in `RecordPlayback`, then merged into this branch, before (2) builds.
+4. Test: record a mission flown with the pad, replay it; replay an existing recording.
+
 ## Next
 - Tom tests batch 2 with the 360 pad.
+- Get `RecorderInputDevice` into `RecordPlayback`.
 
 ## Proposed batch 4: energy (ETS) mode, from Tom, waiting for go-ahead
 1. Hold Back (left special button): energy mode. A radial display of the three energy
