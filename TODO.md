@@ -23,6 +23,10 @@
 - [ ] Debug uses /MDd while code.lib uses /MTd.
 
 ## Recorder (RecordPlayback branch)
+- [ ] **Finish the replay check for reviews 28 and 29.** Stopped part way; the first 24
+      missions (sm1-01 to sm3-01) match in Release and Debug. Still to run: sm3-02 to
+      sm3-09, loop2-1, loop2-2 and `recordings/played/SM1-04`. Push OriginalSourceBugFixes
+      and RecordPlayback, update Latest and tag it, once they pass.
 - [x] Full replay check after the focus fix (b82c40d) and the match-speed fix (review 27):
       all 34 `recordings/autotest` missions and `recordings/played/SM1-04` match in Release
       and Debug. Tagged latest-2026-10-13.
