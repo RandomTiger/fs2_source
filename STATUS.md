@@ -52,6 +52,16 @@ Code: tree in `PadCore` (data tables in `PadGame.cpp`), drawing in `PadHud.cpp`,
 ## Next
 - Tom tests batch 2 with the 360 pad.
 
+## Proposed batch 4: energy (ETS) mode, from Tom, waiting for go-ahead
+1. Hold Back (left special button): energy mode. A radial display of the three energy
+   bars (engines, weapons, shields).
+2. Right stick adjusts them; right stick click resets to defaults (`ETS_EQUALIZE`).
+3. While Back is held, the right stick does nothing else (no roll, no countermeasure).
+4. Proposed default for the radial: the three bars 120 degrees apart (Weapons top left,
+   Shields top right, Engines bottom). Push the stick towards a bar to raise it one step
+   (`INCREASE_*`, the game takes the energy from the others); back to centre before the
+   next step. Holding to repeat is the alternative.
+
 ## Later batches (not proposed yet)
 - Tier 1 controls not in the core layout.
 - Tier 2 in the pad tree.
