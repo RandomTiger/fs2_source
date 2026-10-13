@@ -559,7 +559,6 @@
 #include "version.h"
 #include "MainHalltemp.h"
 #include "ExceptionHandler.h"
-#include "glide.h"
 #include "supernova.h"
 #include "HUDshield.h"
 #include <io.h>
@@ -1016,41 +1015,11 @@ void game_framerate_check_init()
 		
 	// nebula missions
 	if(The_mission.flags & MISSION_FLAG_FULLNEB){
-		// if this is a glide card
-		if(gr_screen.mode == GR_GLIDE){
-			extern GrHwConfiguration hwconfig;
-
-			// voodoo 2/3
-			if(hwconfig.SSTs[0].sstBoard.VoodooConfig.fbRam >= 4){
-				Gf_critical = 15.0f;
-			}
-			// voodoo 1
-			else {
-				Gf_critical = 10.0f;
-			}
-		}
-		// d3d. only care about good cards here I guess (TNT)
-		else {
-			Gf_critical = 15.0f;			
-		}
+		// Claude: Glide branch removed with the Glide, OpenGL and DirectDraw backends; this was the Direct3D value
+		Gf_critical = 15.0f;
 	} else {
-		// if this is a glide card
-		if(gr_screen.mode == GR_GLIDE){
-			extern GrHwConfiguration hwconfig;
-
-			// voodoo 2/3
-			if(hwconfig.SSTs[0].sstBoard.VoodooConfig.fbRam >= 4){
-				Gf_critical = 25.0f;
-			}
-			// voodoo 1
-			else {
-				Gf_critical = 20.0f;
-			}
-		}
-		// d3d. only care about good cards here I guess (TNT)
-		else {
-			Gf_critical = 25.0f;
-		}
+		// Claude: Glide branch removed with the Glide, OpenGL and DirectDraw backends; this was the Direct3D value
+		Gf_critical = 25.0f;
 	}
 }
 
@@ -2453,14 +2422,9 @@ void game_show_framerate()
 		{
 			extern int D3D_textures_in;
 			extern int D3D_textures_in_frame;
-			extern int Glide_textures_in;
-			extern int Glide_textures_in_frame;
-			extern int Glide_explosion_vram;
-			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in+Glide_textures_in)/1024 );
+			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in)/1024 );	// Claude: Glide counters removed with the Glide, OpenGL and DirectDraw backends
 			sy += dy;
-			gr_printf( sx, sy, NOX("VRAM: +%d KB\n"), (Glide_textures_in_frame+D3D_textures_in_frame)/1024 );
-			sy += dy;
-			gr_printf( sx, sy, NOX("EXP VRAM: %dKB\n"), (Glide_explosion_vram)/1024 );
+			gr_printf( sx, sy, NOX("VRAM: +%d KB\n"), (D3D_textures_in_frame)/1024 );
 			sy += dy;
 		}
 //		gr_printf( sx, sy, "BPP: %d", gr_screen.bits_per_pixel );
@@ -2533,14 +2497,7 @@ void game_show_framerate()
 		sy += dy;
 		{
 			extern int D3D_textures_in;
-			extern int Glide_textures_in;
-			extern int Glide_textures_in_frame;
-			extern int Glide_explosion_vram;
-			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in+Glide_textures_in)/1024 );
-			sy += dy;
-			gr_printf( sx, sy, NOX("VRAM: +%d KB\n"), (Glide_textures_in_frame)/1024 );
-			sy += dy;
-			gr_printf( sx, sy, NOX("EXP VRAM: %dKB\n"), (Glide_explosion_vram)/1024 );
+			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in)/1024 );	// Claude: Glide counters removed with the Glide, OpenGL and DirectDraw backends
 			sy += dy;
 		}
 	}

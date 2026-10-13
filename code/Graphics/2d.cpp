@@ -441,9 +441,6 @@
 // Includes for different rendering systems
 #include "GrSoft.h"
 #include "GrD3D.h"
-#include "GrGlide.h"
-#include "GrOpenGL.h"
-#include "GrDirectDraw.h"
 
 screen gr_screen;
 
@@ -485,20 +482,11 @@ void gr_close()
 	case GR_SOFTWARE:		
 		gr_soft_cleanup();
 		break;
-	case GR_DIRECTDRAW:
-		Int3();
-		gr_directdraw_cleanup();
-		break;
+	// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 	case GR_DIRECT3D:		
 		gr_d3d_cleanup();
 		break;
-	case GR_GLIDE:
-		gr_glide_cleanup();
-		break;
-	case GR_OPENGL:
-		Int3();
-		gr_opengl_cleanup();
-		break;
+	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	default:
 		Int3();		// Invalid graphics mode
 	}
@@ -838,20 +826,11 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 		case GR_SOFTWARE:			
 			gr_soft_cleanup();
 			break;
-		case GR_DIRECTDRAW:
-			Int3();
-			gr_directdraw_cleanup();
-			break;
+		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:			
 			gr_d3d_cleanup();
 			break;
-		case GR_GLIDE:
-			gr_glide_cleanup();
-			break;
-		case GR_OPENGL:
-			Int3();
-			gr_opengl_cleanup();
-			break;
+		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode
 		}
@@ -861,9 +840,9 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 
 #if defined(HARDWARE_ONLY)
 	if(!Fred_running && !Pofview_running && !Nebedit_running && !Is_standalone){
-		if((mode != GR_GLIDE) && (mode != GR_DIRECT3D)){
-			mprintf(("Forcing glide startup!\n"));
-			mode = GR_GLIDE;
+		if(mode != GR_DIRECT3D){	// Claude: Direct3D is the only hardware renderer left; was Glide
+			mprintf(("Forcing Direct3D startup!\n"));
+			mode = GR_DIRECT3D;
 		}	
 	}
 #endif
@@ -921,10 +900,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			Assert(Fred_running || Pofview_running || Is_standalone || Nebedit_running);
 			gr_soft_init();
 			break;
-		case GR_DIRECTDRAW:
-			Int3();
-			gr_directdraw_init();
-			break;
+		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:
 			// we only care about possible 32 bit stuff here
 			// Claude: 32 bit unless -force_16bit, whatever depth the launcher picked
@@ -940,17 +916,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			}
 
 			break;
-		case GR_GLIDE:
-			// if we're in high-res. force polygon interface
-			if(gr_screen.res == GR_1024){
-				Gr_bitmap_poly = 1;
-			}
-			gr_glide_init();
-			break;
-		case GR_OPENGL:
-			Int3();
-			gr_opengl_init();
-			break;
+		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode
 	}
@@ -992,24 +958,10 @@ void gr_force_windowed()
 				gr_soft_force_windowed();
 			}
 			break;
-		case GR_DIRECTDRAW:
-			{
-				Int3();
-				extern void gr_directdraw_force_windowed();
-				gr_directdraw_force_windowed();
-			}
-			break;
+		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:
 			break;
-		case GR_GLIDE:
-			{
-				extern void gr_glide_force_windowed();
-				gr_glide_force_windowed();
-			}
-			break;
-		case GR_OPENGL:
-			Int3();
-			break;
+		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 
 		default:
 			Int3();		// Invalid graphics mode
@@ -1032,14 +984,7 @@ void gr_activate(int active)
 				return;
 			}
 			break;
-		case GR_DIRECTDRAW:
-			{
-				Int3();
-				extern void gr_dd_activate(int active);
-				gr_dd_activate(active);
-				return;
-			}
-			break;
+		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:
 			{	
 				extern void gr_d3d_activate(int active);
@@ -1047,16 +992,7 @@ void gr_activate(int active)
 				return;
 			}
 			break;
-		case GR_GLIDE:
-			{
-				extern void gr_glide_activate(int active);
-				gr_glide_activate(active);
-				return;
-			}
-			break;
-		case GR_OPENGL:
-			Int3();
-			break;
+		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode
 	}
@@ -1157,14 +1093,7 @@ void gr_bitmap(int x, int y)
 	case GR_DIRECT3D:
 		gr_d3d_bitmap(x, y);
 		break;
-	
-	case GR_GLIDE:		
-		gr_glide_bitmap(x, y);		
-		break;
-
-	case GR_OPENGL:
-		gr_opengl_bitmap(x, y);
-		break;
+	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	}
 }
 
@@ -1179,13 +1108,7 @@ void gr_bitmap_ex(int x, int y, int w, int h, int sx, int sy)
 	case GR_DIRECT3D:
 		gr_d3d_bitmap_ex(x, y, w, h, sx, sy);
 		break;
-
-	case GR_GLIDE:
-		gr_glide_bitmap_ex(x, y, w, h, sx, sy);
-		break;
-
-	case GR_OPENGL:
-		gr_opengl_bitmap_ex(x, y, w, h, sx, sy);
+	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	}
 }
 

@@ -152,7 +152,6 @@
     <ClCompile Include="GameSequence\GameSequence.cpp" />
     <ClCompile Include="Gamesnd\EventMusic.cpp" />
     <ClCompile Include="Gamesnd\GameSnd.cpp" />
-    <ClCompile Include="Glide\Glide.cpp" />
     <ClCompile Include="GlobalIncs\AlphaColors.cpp" />
     <ClCompile Include="GlobalIncs\crypt.cpp" />
     <ClCompile Include="GlobalIncs\SystemVars.cpp" />
@@ -169,10 +168,6 @@
     <ClCompile Include="Graphics\GrD3DRender.cpp" />
     <ClCompile Include="Graphics\GrD3DGlow.cpp" />
     <ClCompile Include="Graphics\GrD3DTexture.cpp" />
-    <ClCompile Include="Graphics\GrDirectDraw.cpp" />
-    <ClCompile Include="Graphics\GrGlide.cpp" />
-    <ClCompile Include="Graphics\GrGlideTexture.cpp" />
-    <ClCompile Include="Graphics\GrOpenGL.cpp" />
     <ClCompile Include="Graphics\GrSoft.cpp" />
     <ClCompile Include="Graphics\GrZbuffer.cpp" />
     <ClCompile Include="Graphics\Line.cpp" />
@@ -415,14 +410,6 @@
     <ClInclude Include="GameSequence\GameSequence.h" />
     <ClInclude Include="Gamesnd\EventMusic.h" />
     <ClInclude Include="Gamesnd\GameSnd.h" />
-    <ClInclude Include="Glide\3DFX.H" />
-    <ClInclude Include="Glide\FXDLL.H" />
-    <ClInclude Include="Glide\FXGLOB.H" />
-    <ClInclude Include="Glide\FXOS.H" />
-    <ClInclude Include="Glide\glide.h" />
-    <ClInclude Include="Glide\glidesys.h" />
-    <ClInclude Include="Glide\glideutl.h" />
-    <ClInclude Include="Glide\SST1VID.H" />
     <ClInclude Include="GlobalIncs\AlphaColors.h" />
     <ClInclude Include="GlobalIncs\crypt.h" />
     <ClInclude Include="GlobalIncs\LinkList.h" />
@@ -438,11 +425,7 @@
     <ClInclude Include="Graphics\GrD3D.h" />
     <ClInclude Include="Graphics\GrD3DGlow.h" />
     <ClInclude Include="Graphics\GrD3DInternal.h" />
-    <ClInclude Include="Graphics\GrDirectDraw.h" />
-    <ClInclude Include="Graphics\GrGlide.h" />
-    <ClInclude Include="Graphics\GrGlideInternal.h" />
     <ClInclude Include="Graphics\GrInternal.h" />
-    <ClInclude Include="Graphics\GrOpenGL.h" />
     <ClInclude Include="Graphics\GrSoft.h" />
     <ClInclude Include="Graphics\GrZbuffer.h" />
     <ClInclude Include="Graphics\Line.h" />

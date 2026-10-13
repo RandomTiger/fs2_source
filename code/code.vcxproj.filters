@@ -46,9 +46,6 @@
     <Filter Include="GameSnd">
       <UniqueIdentifier>{7860fcc9-755c-421d-aed2-116763b12862}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Glide">
-      <UniqueIdentifier>{33bc9d21-f511-4c47-af99-999ded889360}</UniqueIdentifier>
-    </Filter>
     <Filter Include="GlobalIncs">
       <UniqueIdentifier>{8d39cbc8-b3ab-4eec-b11c-8a6bc5ccc7bd}</UniqueIdentifier>
     </Filter>
@@ -231,9 +228,6 @@
     <ClCompile Include="Gamesnd\GameSnd.cpp">
       <Filter>GameSnd</Filter>
     </ClCompile>
-    <ClCompile Include="Glide\Glide.cpp">
-      <Filter>Glide</Filter>
-    </ClCompile>
     <ClCompile Include="GlobalIncs\AlphaColors.cpp">
       <Filter>GlobalIncs</Filter>
     </ClCompile>
@@ -280,18 +274,6 @@
       <Filter>Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\GrD3DTexture.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\GrDirectDraw.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\GrGlide.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\GrGlideTexture.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\GrOpenGL.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\GrSoft.cpp">
@@ -1004,30 +986,6 @@
     <ClInclude Include="Gamesnd\GameSnd.h">
       <Filter>GameSnd</Filter>
     </ClInclude>
-    <ClInclude Include="Glide\3DFX.H">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\FXDLL.H">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\FXGLOB.H">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\FXOS.H">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\glide.h">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\glidesys.h">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\glideutl.h">
-      <Filter>Glide</Filter>
-    </ClInclude>
-    <ClInclude Include="Glide\SST1VID.H">
-      <Filter>Glide</Filter>
-    </ClInclude>
     <ClInclude Include="GlobalIncs\AlphaColors.h">
       <Filter>GlobalIncs</Filter>
     </ClInclude>
@@ -1073,19 +1031,7 @@
     <ClInclude Include="Graphics\GrD3DInternal.h">
       <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\GrDirectDraw.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\GrGlide.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\GrGlideInternal.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\GrInternal.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\GrOpenGL.h">
       <Filter>Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\GrSoft.h">

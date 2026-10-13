@@ -3096,3 +3096,282 @@ char* d3d_error_string(HRESULT error)
     }
 //XSTR:ON
 }
+
+
+// Claude: dd_get_shift_masks (from GrDirectDraw.cpp) and tga_compress with its helpers (from GrGlide.cpp)
+// moved here unchanged when those backends were removed; Direct3D still uses them.
+
+void dd_get_shift_masks( DDSURFACEDESC *ddsd )
+{
+	unsigned long m;
+	int s;
+	int r, red_shift, red_scale, red_mask;
+	int g, green_shift, green_scale, green_mask;
+	int b, blue_shift, blue_scale, blue_mask;
+	int a, alpha_shift, alpha_scale, alpha_mask;
+	
+	if (gr_screen.bits_per_pixel == 8 ) {
+		Gr_red.bits = 8;
+		Gr_red.shift = 16;
+		Gr_red.scale = 1;
+		Gr_red.mask = 0xff0000;
+
+		Gr_green.bits = 8;
+		Gr_green.shift = 8;
+		Gr_green.scale = 1;
+		Gr_green.mask = 0xff00;
+
+		Gr_blue.bits = 8;
+		Gr_blue.shift = 0;
+		Gr_blue.scale = 1;
+		Gr_blue.mask = 0xff;
+		return;
+	}
+
+	// Determine the red, green and blue masks' shift and scale.
+	for (s = 0, m = ddsd->ddpfPixelFormat.dwRBitMask; !(m & 1); s++, m >>= 1);
+	for (r = 0; m & 1; r++, m >>= 1);
+	red_shift = s;
+	red_scale = 255 / (ddsd->ddpfPixelFormat.dwRBitMask >> s);
+	red_mask = ddsd->ddpfPixelFormat.dwRBitMask;
+
+	for (s = 0, m = ddsd->ddpfPixelFormat.dwGBitMask; !(m & 1); s++, m >>= 1);
+	for (g = 0; m & 1; g++, m >>= 1);
+	green_shift = s;
+	green_scale = 255 / (ddsd->ddpfPixelFormat.dwGBitMask >> s);
+	green_mask = ddsd->ddpfPixelFormat.dwGBitMask;
+	
+	for (s = 0, m = ddsd->ddpfPixelFormat.dwBBitMask; !(m & 1); s++, m >>= 1);
+	for (b = 0; m & 1; b++, m >>= 1);
+	blue_shift = s;
+	blue_scale = 255 / (ddsd->ddpfPixelFormat.dwBBitMask >> s);
+	blue_mask = ddsd->ddpfPixelFormat.dwBBitMask;
+
+	if ( ddsd->ddpfPixelFormat.dwFlags & DDPF_ALPHAPIXELS ) {
+		for (s = 0, m = ddsd->ddpfPixelFormat.dwRGBAlphaBitMask; !(m & 1); s++, m >>= 1);
+		for (a = 0; m & 1; a++, m >>= 1);
+		alpha_shift = s;
+		alpha_scale = 255 / (ddsd->ddpfPixelFormat.dwRGBAlphaBitMask >> s);
+		alpha_mask = ddsd->ddpfPixelFormat.dwRGBAlphaBitMask;
+	} else {
+		alpha_shift = a = alpha_scale = alpha_mask = 0;
+	}
+
+//	mprintf(( "Red    Bits:%2d, Shift:%2d, Scale:%3d, Mask:$%08x\n", r, red_shift, red_scale, red_mask ));
+//	mprintf(( "Green  Bits:%2d, Shift:%2d, Scale:%3d, Mask:$%08x\n", g, green_shift, green_scale, green_mask ));
+//	mprintf(( "Blue   Bits:%2d, Shift:%2d, Scale:%3d, Mask:$%08x\n", b, blue_shift, blue_scale, blue_mask ));
+//	mprintf(( "Alpha  Bits:%2d, Shift:%2d, Scale:%3d, Mask:$%08x\n", a, alpha_shift, alpha_scale, alpha_mask ));
+
+	// we need to set stuff up so that the high bit is always an alpha bit. 
+
+	Gr_red.bits = r;
+	Gr_red.shift = red_shift;
+	Gr_red.scale = red_scale;
+	Gr_red.mask = red_mask;
+
+	Gr_green.bits = g;
+	Gr_green.shift = green_shift;
+	Gr_green.scale = green_scale;
+	Gr_green.mask = green_mask;
+
+	Gr_blue.bits = b;
+	Gr_blue.shift = blue_shift;
+	Gr_blue.scale = blue_scale;
+	Gr_blue.mask = blue_mask;
+}
+
+
+static int tga_copy_data(char *to, char *from, int pixels, int fromsize, int tosize)
+{
+	int rmask = 0xf800;
+	int rshift = 11;
+	int rscale = 8;;
+	int gmask = 0x7e0;
+	int gshift = 5;
+	int gscale = 4;
+	int bmask = 0x1f;
+	int bshift = 0;
+	int bscale = 8;;
+
+	if ( (fromsize == 2) && (tosize == 3) )	{
+		ushort *src = (ushort *)from;
+		ubyte *dst  = (ubyte *)to;
+
+		int i;
+		for (i=0; i<pixels; i++ )	{
+			ushort pixel = *src++;
+
+			int r,g,b;		
+			b = ((pixel & bmask)>>bshift)*bscale;
+			g = ((pixel & gmask)>>gshift)*gscale;
+			r = ((pixel & rmask)>>rshift)*rscale;
+
+			// Adjust for gamma and output it
+			*dst++ = ubyte(b);
+			*dst++ = ubyte(g);
+			*dst++ = ubyte(r);
+		}
+		return tosize*pixels;
+	} else {
+		Int3();
+		return tosize*pixels;
+	}
+}
+
+
+
+//
+//	tga_pixels_equal -- Test if two pixels are identical
+//
+//		Returns:
+//			0 if No Match
+//			1 if Match
+
+static int tga_pixels_equal(char *pix1, char *pix2, int pixbytes)
+{
+	do	{
+		if ( *pix1++ != *pix2++ ) {
+			return 0;
+		}
+	} while ( --pixbytes > 0 );
+
+	return 1;
+}
+
+
+//	tga_compress - Do the Run Length Compression
+//
+//	Usage:
+//				out			Buffer to write it out to
+//				in				Buffer to compress
+//				bytecount	Number of bytes input
+//				pixsize		Number of bytes in input pixel
+//				outsize		Number of bytes in output buffer
+
+int tga_compress(char *out, char *in, int bytecount )
+{
+#define pixsize 2
+#define outsize 3
+	int pixcount;		// number of pixels in the current packet
+	char *inputpixel=NULL;	// current input pixel position
+	char *matchpixel=NULL;	// pixel value to match for a run
+	char *flagbyte=NULL;		// location of last flag byte to set
+	int rlcount;		// current count in r.l. string 
+	int rlthresh;		// minimum valid run length
+	char *copyloc;		// location to begin copying at
+
+	// set the threshold -- the minimum valid run length
+
+	#if outsize == 1
+		rlthresh = 2;					// for 8bpp, require a 2 pixel span before rle'ing
+	#else
+		rlthresh = 1;			
+	#endif
+	
+	// set the first pixel up
+
+	flagbyte = out;	// place to put next flag if run
+	inputpixel = in;
+	pixcount = 1;
+	rlcount = 0;
+	copyloc = (char *)0;
+
+	// loop till data processing complete
+	do	{
+
+		// if we have accumulated a 128-byte packet, process it
+		if ( pixcount == 129 )	{
+			*flagbyte = 127;
+
+			// set the run flag if this is a run
+
+			if ( rlcount >= rlthresh )	{
+					*flagbyte |= 0x80;
+					pixcount = 2;
+			}
+
+			// copy the data into place
+			++flagbyte;
+			flagbyte += tga_copy_data(flagbyte, copyloc, pixcount-1, pixsize, outsize);
+			pixcount = 1;
+
+			// set up for next packet
+			continue;
+		}
+
+		// if zeroth byte, handle as special case
+		if ( pixcount == 1 )	{
+			rlcount = 0;
+			copyloc = inputpixel;		/* point to 1st guy in packet */
+			matchpixel = inputpixel;	/* set pointer to pix to match */
+			pixcount = 2;
+			inputpixel += pixsize;
+			continue;
+		}
+
+		// assembling a packet -- look at next pixel
+
+		// current pixel == match pixel?
+		if ( tga_pixels_equal(inputpixel, matchpixel, outsize) )	{
+
+			//	establishing a run of enough length to
+			//	save space by doing it
+			//		-- write the non-run length packet
+			//		-- start run-length packet
+
+			if ( ++rlcount == rlthresh )	{
+				
+				//	close a non-run packet
+				
+				if ( pixcount > (rlcount+1) )	{
+					// write out length and do not set run flag
+
+					*flagbyte++ = (char)(pixcount - 2 - rlthresh);
+
+					flagbyte += tga_copy_data(flagbyte, copyloc, (pixcount-1-rlcount), pixsize, outsize);
+
+					copyloc = inputpixel;
+					pixcount = rlcount + 1;
+				}
+			}
+		} else {
+
+			// no match -- either break a run or continue without one
+			//	if a run exists break it:
+			//		write the bytes in the string (outsize+1)
+			//		start the next string
+
+			if ( rlcount >= rlthresh )	{
+
+				*flagbyte++ = (char)(0x80 | rlcount);
+				flagbyte += tga_copy_data(flagbyte, copyloc, 1, pixsize, outsize);
+				pixcount = 1;
+				continue;
+			} else {
+
+				//	not a match and currently not a run
+				//		- save the current pixel
+				//		- reset the run-length flag
+				rlcount = 0;
+				matchpixel = inputpixel;
+			}
+		}
+		pixcount++;
+		inputpixel += pixsize;
+	} while ( inputpixel < (in + bytecount));
+
+	// quit this buffer without loosing any data
+
+	if ( --pixcount >= 1 )	{
+		*flagbyte = (char)(pixcount - 1);
+		if ( rlcount >= rlthresh )	{
+			*flagbyte |= 0x80;
+			pixcount = 1;
+		}
+
+		// copy the data into place
+		++flagbyte;
+		flagbyte += tga_copy_data(flagbyte, copyloc, pixcount, pixsize, outsize);
+	}
+	return(flagbyte-out);
+}

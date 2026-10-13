@@ -723,13 +723,8 @@ void credits_do_frame(float frametime)
 		sy = fl2i(Credit_position-0.5f);
 	}
 
-	// HACK - I don't want to change the string code, so we'll just use a special version here
-	if(gr_screen.mode == GR_GLIDE){
-		extern void gr_glide_string_hack(int sx, int sy, char *s);
-		gr_glide_string_hack(0x8000, sy, Credit_text);
-	} else {
-		gr_string(0x8000, sy, Credit_text);
-	}
+	// Claude: Glide string hack removed with the Glide, OpenGL and DirectDraw backends
+	gr_string(0x8000, sy, Credit_text);
 
 	int temp_time;
 	temp_time = timer_get_milliseconds();

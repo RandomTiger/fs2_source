@@ -1268,12 +1268,7 @@ void main_hall_do(float frametime)
 		gr_printf(320, gr_screen.max_h - 50, "Zbias : %d", D3D_zbias);
 		// extern void d3d_test();
 		// d3d_test();
-	} else if(gr_screen.mode == GR_GLIDE){
-		extern int Glide_voodoo3;
-		if(Glide_voodoo3){
-			gr_string(320, gr_screen.max_h - 20, "VOODOO 3");
-		}
-	}
+	}	// Claude: Glide branch removed with the Glide, OpenGL and DirectDraw backends
 #endif	
 
 	gr_flip();
