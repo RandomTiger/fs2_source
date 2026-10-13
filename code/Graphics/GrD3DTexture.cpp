@@ -612,6 +612,24 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 
 	switch( bitmap_type )	{		
 		case TCACHE_TYPE_AABITMAP:			
+			// Claude: 32 bit textures: white, with the gamma corrected alpha kept at 8 bits instead of 4
+			if ( bpp == 32 )	{
+				uint *lpSP32;
+				int v;
+				for (j = 0; j < tex_h; j++) {
+					lpSP32 = (uint*)(((char*)ddsd.lpSurface) + ddsd.lPitch * j);
+					for (i = 0; i < tex_w; i++) {
+						if ( (i < bmap_w) && (j<bmap_h) )	{
+							v = (ubyte)bmp_data_byte[j*bmap_w+i];
+							if ( v == 15 ) v = 1; else if ( v > 15 ) v = 0;	// as xlat below
+							*lpSP32++ = ((uint)Gr_gamma_lookup[(v*255)/15] << 24) | 0x00ffffff;
+						} else {
+							*lpSP32++ = 0;
+						}
+					}
+				}
+				break;
+			}
 			// setup convenient translation table
 			for (i=0; i<16; i++ )	{
 				r = 255;
@@ -871,6 +889,9 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 		return 0;
 	}
 
+	// Claude: 32 bit textures: alpha-only bitmaps (fonts, HUD) are uploaded as ARGB 8888 too
+	int tex_bpp = ((bitmap_type == TCACHE_TYPE_AABITMAP) && D3D_32bit_textures) ? 32 : bmp->bpp;
+
 	int max_w = bmp->w;
 	int max_h = bmp->h; 
 		
@@ -892,7 +913,7 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 	}
 	// different bitmap altogether - determine if the new one can use the old one's slot
 	else if (tslot->bitmap_id != bitmap_handle)	{
-		if((final_w == tslot->w) && (final_h == tslot->h) && (tslot->size == final_w * final_h * ((bmp->bpp == 32) ? 4 : 2))){	// Claude: same pixel size too (32 bit textures)
+		if((final_w == tslot->w) && (final_h == tslot->h) && (tslot->size == final_w * final_h * ((tex_bpp == 32) ? 4 : 2))){	// Claude: same pixel size too (32 bit textures)
 			reload = 1;
 
 			ml_printf("Reloading texture %d\n", bitmap_handle);
@@ -902,7 +923,7 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 	}
 
 	// call the helper
-	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, 0, 0, bmp->w, bmp->h, bmp->w, bmp->h, max_w, max_h, tslot, reload, fail_on_full, bmp->bpp);	// Claude: bpp
+	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, 0, 0, bmp->w, bmp->h, bmp->w, bmp->h, max_w, max_h, tslot, reload, fail_on_full, tex_bpp);	// Claude: bpp
 
 	// unlock the bitmap
 	bm_unlock(bitmap_handle);

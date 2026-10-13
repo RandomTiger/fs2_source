@@ -1163,7 +1163,21 @@ int gr_d3d_create_rendering_objects(int clear)
 		ddsd.dwZBufferBitDepth = 16;
 
 		ddsd.ddsCaps.dwCaps = DDSCAPS_ZBUFFER | DDSCAPS_VIDEOMEMORY;
-		if (lpDD->CreateSurface(&ddsd, &lpZBuffer, NULL) != DD_OK)	{
+		// Claude: with a 32 bit screen, a 24 bit z-buffer (or 32 bit if that is what the card offers); 16 bit as before otherwise
+		HRESULT zret = DDERR_GENERIC;
+		if ( gr_screen.bits_per_pixel == 32 )	{
+			ddsd.dwZBufferBitDepth = 24;
+			zret = lpDD->CreateSurface(&ddsd, &lpZBuffer, NULL);
+			if ( zret != DD_OK )	{
+				ddsd.dwZBufferBitDepth = 32;
+				zret = lpDD->CreateSurface(&ddsd, &lpZBuffer, NULL);
+			}
+			if ( zret != DD_OK )	{
+				ddsd.dwZBufferBitDepth = 16;
+			}
+		}
+		mprintf(( "Z-buffer: %d bit\n", ddsd.dwZBufferBitDepth ));
+		if ((zret != DD_OK) && (lpDD->CreateSurface(&ddsd, &lpZBuffer, NULL) != DD_OK))	{	// Claude: was if (lpDD->CreateSurface(...) != DD_OK)
 			// mprintf(( "GR_D3D_INIT: Create Zbuffer failed.\n" ));
 			strcpy(Device_init_error, "Create Zbuffer failed.");
 			return 0;
