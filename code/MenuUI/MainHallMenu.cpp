@@ -1747,7 +1747,7 @@ void main_hall_handle_random_intercom_sounds()
 	if((Main_hall_next_intercom_sound_stamp == -1) && (Main_hall_intercom_sound_handle == -1)){
 		Main_hall_next_intercom_sound_stamp = timestamp((int)(((float)rand()/(float)RAND_MAX) * 
 			                                            (float)(Main_hall->intercom_delay[Main_hall_next_intercom_sound][1]
-																	  - Main_hall->intercom_delay[Main_hall_intercom_sound_handle][0])) );		
+																	  - Main_hall->intercom_delay[Main_hall_next_intercom_sound][0])) );	// Claude: was [Main_hall_intercom_sound_handle], which is -1 here		
 	}
 
 	// if the there is no sound playing
