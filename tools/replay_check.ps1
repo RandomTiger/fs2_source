@@ -1,22 +1,26 @@
 <#
-Replays the checked-in recordings in Release and Debug and compares each replay's trace with the recorded one.
+Replays the checked-in recordings and compares each replay's trace with the recorded one.
 
   recordings\autotest\*.fs2rec   replayed with -autotest
   recordings\played\*.fs2rec     hand-played recordings, replayed without it
 
 Usage (PowerShell, from anywhere):
-  tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r,d] [-GameDir <dir>]
+  tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>]
 
 -Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
 The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
 Results go to <Out>\summary.txt, one line per recording; <Out> defaults to replays\check_<date-time>.
-A line passes when every config says "REPLAY OK" and "MATCH". Build both configs first, and don't
+Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
+and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
+both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
+A line passes when every run says "REPLAY OK" and "MATCH". Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
 param(
 	[string]$Out,
 	[string[]]$Missions,
-	[string[]]$Configs = @('r', 'd'),
+	[string[]]$Configs = @('r'),
+	[string[]]$CrossCheck = @('sm1-01'),
 	[string]$GameDir = $env:PATH_FS2
 )
 
@@ -33,6 +37,7 @@ $recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec | 
 # powershell -File passes "a,b" as one string
 $Missions = $Missions | ForEach-Object { $_ -split ',' }
 $Configs = $Configs | ForEach-Object { $_ -split ',' }
+$CrossCheck = $CrossCheck | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 if ($Missions) { $recs = $recs | Where-Object { $Missions -contains $_.File.BaseName } }
 if (-not $recs) { throw "No recordings match: $Missions" }
 
@@ -48,7 +53,9 @@ foreach ($r in $recs) {
 	$name = $r.File.BaseName
 	$line = $name
 	$ok = $true
-	foreach ($e in $Configs) {
+	$cfgs = $Configs
+	if ($r.Autotest -and ($CrossCheck -contains $name)) { $cfgs = @('r', 'd') }
+	foreach ($e in $cfgs) {
 		$trace = Join-Path $Out "${name}_$e.trace"
 		$log = Join-Path $Out "${name}_$e.replay.log"
 		Remove-Item $trace, "$rec.replay.log" -ErrorAction SilentlyContinue
@@ -66,6 +73,10 @@ foreach ($r in $recs) {
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
+	}
+	if ($cfgs.Count -gt 1) {
+		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
+		if (($hashes | Select-Object -Unique).Count -eq 1) { $line += ' | builds identical' } else { $line += ' | builds DIFFER'; $ok = $false }
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
 	$line | Add-Content $summary
