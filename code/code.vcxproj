@@ -205,6 +205,10 @@
     <ClCompile Include="Io\Mouse.cpp" />
     <ClCompile Include="Io\swff_lib.cpp" />
     <ClCompile Include="Io\Timer.cpp" />
+    <ClCompile Include="Pad\PadCore.cpp" />
+    <ClCompile Include="Pad\PadGame.cpp" />
+    <ClCompile Include="Pad\PadHud.cpp" />
+    <ClCompile Include="Pad\PadXInput.cpp" />
     <ClCompile Include="JumpNode\JumpNode.cpp" />
     <ClCompile Include="Lighting\Lighting.cpp" />
     <ClCompile Include="Localization\fhash.cpp" />
@@ -472,6 +476,10 @@
     <ClInclude Include="Io\sw_force.h" />
     <ClInclude Include="Io\sw_guid.hpp" />
     <ClInclude Include="Io\Timer.h" />
+    <ClInclude Include="Pad\PadCore.h" />
+    <ClInclude Include="Pad\PadGame.h" />
+    <ClInclude Include="Pad\PadState.h" />
+    <ClInclude Include="Pad\PadXInput.h" />
     <ClInclude Include="JumpNode\JumpNode.h" />
     <ClInclude Include="Lighting\Lighting.h" />
     <ClInclude Include="Localization\fhash.h" />
