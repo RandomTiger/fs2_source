@@ -60,7 +60,7 @@ The aim is to move the view setup, lock, cargo scan and view-cone test into the 
 
 ## Plan
 1. Done: CosmeticRandom into `RecordPlayback` with a second pass over the call sites (`docs/random_call_sites.md`, which also lists all the gameplay that happens inside render code); autotest missions re-recorded; hand-played recordings removed; merged up to `Enhanced` (tag `latest-2026-10-13e`) and `PrePort`.
-2. Remove the Glide, OpenGL and DirectDraw backends.
+2. Done (6397158): Glide, OpenGL and DirectDraw backends removed; non-Direct3D requests are forced to Direct3D. Not yet checked that FRED still builds: MFC is not installed on DESKTOP-MAIN.
 3. Move the view setup, lock, cargo scan and view-cone test into the simulation step, with no gameplay change.
 4. Headless (feature branch off `PrePort`).
 5. x64 build: the timer's assembly, pointer casts, then replay on x64.
@@ -68,3 +68,57 @@ The aim is to move the view setup, lock, cargo scan and view-cone test into the 
 
 ## Not before the port
 Real 3D, stripping Network, FRED work, the `/analyze` bug list in `TODO.md` (that belongs on `OriginalSourceBugFixes`), and tidying every Glide branch beyond what removing Glide needs.
+
+## Lessons from the Unreal ports
+Two earlier attempts, both on GitHub and both dead references (read for lessons, never fixed):
+- `RandomTiger/fs2ue` (2017 to 2021, Tom by hand). It ran inside Unreal, in the editor and packaged: booted straight into a mission, simulated headless, drew textured ship hulls moving with the simulation, played DirectSound, and could Play/Stop repeatedly. It never had HUD, menus, 2D, effects, keyboard or mouse input, a player camera or correct submodels. Its goal was different: an Unreal actor and Blueprint per ship, with Unreal owning them. Godot is planned as a wrapper for platform and device calls, with the C++ simulation in charge.
+- `RandomTiger/fs2_source_ue` (local clone `U:\Projects\GitHub\fs2_source_ue`). No Unreal code was ever written; it got a VS2022 build, a bug audit (`CODE_ISSUES.md`, with false positives), `-autotest` and a `-nographics` null renderer.
+
+"Confirmed" means the point was checked in code; "claimed" means only a commit message or doc says it.
+
+### What it takes to run the game inside a host engine (from fs2ue, confirmed)
+- **Split `WinMain` into init, one frame, and shutdown.** fs2ue's `FREESPACE_Init(cmdline)`, `FREESPACE_Update(dt)`, `FREESPACE_Shutdown()` (`code/FREESPACE2/FreeSpace.cpp:5754-6000`, commit c755e296). One update ran `os_poll`, the pad and mouse update, then `gameseq_process_events()`. It ignored the host's frame time and kept the game's own clock, which is what the recorder needs too.
+- **No blocking loops.** Popups run their own loop calling `os_poll`/`os_sleep`, which hangs a host that owns the frame; fs2ue made them return -1 at once (`Popup/Popup.cpp:832`). Every modal loop has to become per-frame. `os_sleep` was compiled out because it killed the host frame rate (c2a00743).
+- **The game must be restartable in one process.** The biggest single fix (b630630e, 019b7652, 080be685): remove the `atexit()` registrations (`gr_close`, `bm_close`, `model_free_all`), add deinit functions that reset the `*_inited` statics (ship, weapon, HUD energy/reticle/targeting), null freed pointers (`Lcl_ext_filename`, `Ship_info.subsystems`), reset `Num_fonts`, `bm_next_handle`, the countermeasure globals and `ds_initialized`, and clear `Polygon_models`. This applies to a GDExtension reload and to running replays back to back in one process. Better: all game state reset in one place.
+- **Files depend on the current directory.** fs2ue swapped to a hard-coded game folder around init (5a404451). The platform layer should give cfile an explicit root.
+- **DirectSound needs a window handle.** fs2ue compiled out window creation and returned the host's window from `os_get_window()` (0c97e936); sound only worked after that.
+- **The null renderer had to set `D3D_enabled = 1`** (ed86629e), because game code branches on it even when nothing is drawn.
+- **Windows headers clash with engine headers** (`UpdateResource`, `GetObject`, `GetClassName`, min/max). Keep `windows.h` out of anything the engine binding includes.
+- **Original-code bug:** `parse_objects` reads an uninitialised `p_object` (`Mission/MissionParse.cpp`); fs2ue cleared it. Candidate for `OriginalSourceBugFixes`, after checking.
+
+### Structure to avoid (fs2ue)
+About 240 `#if FS2_UE` blocks in 94 files; Unreal types (`FVector`, `TArray`, `AShip*`) inside core game headers (`PsTypes.h`, `Ship.h`); game code calling the engine (`SpawnActor` from `Ship.cpp`); rendering faked through the dummy `gr_*` table and a global; teardown fixed by scattered resets; hard-coded paths. The cleaner shape: a game library with no engine headers; init / step / shutdown; after each simulation step, a read-only snapshot of objects (number, signature, model, transform); platform hooks (time, input, sound, files, window) as function tables the host fills in, the same hooks the recorder uses.
+
+### Mirroring simulation objects for drawing (later real-3D stage)
+- fs2ue created one actor per ship in `ship_create` and pushed its transform in `ship_process_post`, after physics (`Ship.cpp:3609`); that point is right. But nothing removed the actor on `ship_delete`, and the raw pointer stayed in the reused `Ships[]` slot. Key nodes on object number plus signature, create and free them from object creation and deletion, and share one mesh per model.
+- **Meshes from the model interpreter:** fs2ue ran `model_interp_sub` once with lighting and culling off, and captured the vertices in the dummy `gr_tmapper` (`Model/modelcache.cpp`). It needed back-face culling, clipping and BSP ordering disabled. Bugs: every chunk copied the whole vertex array, submodels were baked with no offset or rotation, and it picked `detail[n_detail_levels]` (out of range; `detail[0]` is the most detailed). Reading POF files directly is cleaner.
+- **Coordinates:** FS2 is left-handed, Y up, Z forward. Unreal is left-handed, so fs2ue only swapped axes (`FVector(z, x, y)`) and reversed triangle winding (4611dea6, 79d1c56f). **Godot is right-handed** (Y up, -Z forward): one axis has to be mirrored and the winding flipped. fs2ue applied no unit scale.
+
+### Determinism (fs2_source_ue, confirmed in this tree)
+- **Out-of-bounds reads that affect gameplay**, repeatable only while memory layout stays the same, so they would split recordings on x64 or Godot: `Ship/ShipHit.cpp:917` reads `Weapon_info[-1].subsystem_factor` when a ship's death shockwave lands within 10 m of a subsystem; `Ship/AiBig.cpp:870` indexes `Weapon_info` with a weapon slot number (up to 350, against 200 entries). Fix on `OriginalSourceBugFixes` before step 5.
+- **Removing an Assert can change gameplay.** In Release, `vm_matrix_interpolate` with a zero rotation axis normalises it to (1,0,0) and turns about 57 degrees (`Math/VecMat.cpp:597-611`). fs2_source_ue's "fix" (9edca07) snapped instead, which changes behaviour. Every such fix needs the recordings.
+- **`#pragma optimize("", off)`** in AiCode, AiBig, ShipHit, CollideShipShip, EventMusic and MissionBriefCommon, never turned back on in AiCode (`AiCode.cpp:449`). Another compiler ignores it, so floating-point code generation changes.
+- fs2_source_ue tested by feel (training missions as unit tests), so behaviour-changing fixes got in unnoticed. The recordings exist to stop that.
+
+### Headless (step 4)
+- fs2_source_ue's `-nographics` also skips `joy_init()` (cf8d0b7), another recorded read headless would miss.
+- `GR_DUMMY` makes `bm_set_components` a no-op, so headless bitmaps have no pixels.
+- Headless still needs real font metrics: `split_str` and HUD message wrapping measure text in pixels.
+- Not every renderer call goes through `gf_*`: `gr_bitmap`, `gr_bitmap_ex`, `gr_activate`, `gr_force_windowed`, `neb2_level_init`, `neb2_get_fog_values` and the `BM_SELECT_*` formats switch on `gr_screen.mode` and `Int3` on an unknown mode. A new backend needs a case in each.
+- Do headless after the simulation/drawing split, not before: fs2_source_ue's headless mode changed behaviour.
+
+### x64 (step 5)
+- `_USE_32BIT_TIME_T` (`GlobalIncs/PsTypes.h:172`) is set for every file and does not compile on x64 (UCRT `#error`). Without it `time_t` is 8 bytes, which breaks the raw read of the VP index (`VP_FILE.write_time`, `CFile/CfileSystem.cpp:479, 515`). fs2ue used a 4-byte `fs2_time_t` for the file struct (09e7d89f). `Scoring.h:259-260` also uses `time_t`.
+- The DirectX import libraries in `code/DirectX` (`vDdraw`, `vDinput`, `vDsound`, `vDxguid`) are x86 only.
+- `Anim/AnimPlay.cpp:1129` allocates the frame pointer array as `(height+1) * 4` bytes, half what x64 needs.
+- fs2ue's x64 timer used 64-bit C maths but truncated to milliseconds, which may move replay traces; it also disabled `Warning()` on Win64 and forced one HRESULT to `S_OK` (b2187b2b). Don't repeat either.
+- On x64 the registry key is under `WOW6432Node\Volition`.
+
+### Building FRED and the tools
+fs2_source_ue's `Directory.Build.props` pinned `VCToolsVersion` to the toolset that has MFC (MSBuild picked one without it, error MSB8041), and turned off SAFESEH for the old DirectX libraries. `Enable3dControls()` asserts at run time in MFC 14 (a852378).
+
+### Other
+- Keep the flight model, `model_collide`/Fvi and the collision pair scheduler as they are rather than use engine physics (fs2_source_ue's analysis, claimed). Original bugs there to keep faithfully: debris/weapon pairs skipped the wrong way round (`Object/ObjCollide.cpp:510`), shockwave face area on the wrong axis (`Physics/Physics.cpp:1162`), `physics_predict_vel` never writing its output (`:798`), the pair pool failing silently at 8000 (`ObjCollide.cpp:238, 535`).
+- `targa_copy_data` (`TgaUtils/TgaUtils.cpp:102`) never writes its output; don't reuse it for texture loading.
+- fs2_source_ue's editing corrupted the French registry string in `FreeSpace.cpp` (ad144a9), the failure the Latin-1 rule exists for.
+- Its CI cost about 15 commits: FS2 exits with code 255, the exe must start in the game folder, and stale processes lock the workspace.
