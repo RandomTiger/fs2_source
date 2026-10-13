@@ -247,7 +247,7 @@ void obj_render_all(void (*render_function)(object *objp) )
 	Num_sorted_objects = 0;
 	for (i=0;i<=Highest_object_index;i++,objp++) {
 		if ( (objp->type != OBJ_NONE) && (objp->flags&OF_RENDERS) )	{
-			objp->flags &= ~OF_WAS_RENDERED;
+			// Claude: OF_WAS_RENDERED is set by the logic phase now (game_view_update_was_rendered)
 
 			if ( obj_in_view_cone(objp) )	{
 				sorted_obj * osp = &Sorted_objects[Num_sorted_objects];
@@ -305,7 +305,7 @@ void obj_render_all(void (*render_function)(object *objp) )
 	// now draw them
  	for (i=0; i<Num_sorted_objects; i++)	{
 		sorted_obj * os = &Sorted_objects[Object_sort_order[i]];
-		os->obj->flags |= OF_WAS_RENDERED;
+		// Claude: OF_WAS_RENDERED is set by the logic phase now (game_view_update_was_rendered)
 
 		// if we're fullneb, fire up the fog - this also generates a fog table
 		if((The_mission.flags & MISSION_FLAG_FULLNEB) && (Neb2_render_mode != NEB2_RENDER_NONE) && !Fred_running){
