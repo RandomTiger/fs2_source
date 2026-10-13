@@ -1540,6 +1540,19 @@ void vm_vec_rand_vec_quick(vector *rvec)
 	vm_vec_normalize_quick(rvec);
 }
 
+// Claude: Cosmetic random stream version.
+void vm_vec_rand_vec_quick_cosmetic(vector *rvec)
+{
+	rvec->x = (cosmetic_frand() - 0.5f) * 2;
+	rvec->y = (cosmetic_frand() - 0.5f) * 2;
+	rvec->z = (cosmetic_frand() - 0.5f) * 2;
+
+	if (IS_VEC_NULL(rvec))
+		rvec->x = 1.0f;
+
+	vm_vec_normalize_quick(rvec);
+}
+
 // Given an point "in" rotate it by "angle" around an
 // arbritary line defined by a point on the line "line_point" 
 // and the normalized line direction, "line_dir"

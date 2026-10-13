@@ -871,6 +871,8 @@ extern int submodel_get_points(int model_num, int submodel_num, int max_num, vec
 
 // Gets two random points on the surface of a submodel
 extern void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1, vector *v2, vector *n1 = NULL, vector *n2 = NULL);
+// Claude: Cosmetic random stream version.
+extern void submodel_get_two_random_points_cosmetic(int model_num, int submodel_num, vector *v1, vector *v2, vector *n1 = NULL, vector *n2 = NULL);
 
 // gets the index into the docking_bays array of the specified type of docking point
 // Returns the index.  second functions returns the index of the docking bay with

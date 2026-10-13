@@ -2518,7 +2518,7 @@ void ship_render(object * obj)
 
 			//	Add noise to thruster geometry.
 			ft = obj->phys_info.forward_thrust;
-			ft *= (1.0f + frand()/5.0f - 1.0f/10.0f);
+			ft *= (1.0f + cosmetic_frand()/5.0f - 1.0f/10.0f);
 			if (ft > 1.0f)
 				ft = 1.0f;
 
@@ -3034,7 +3034,7 @@ void ship_blow_up_area_apply_blast( object *exp_objp)
 		sci.blast = max_blast;
 		sci.damage = max_damage;
 		sci.speed = shockwave_speed;
-		sci.rot_angle = frand_range(0.0f, 359.0f);
+		sci.rot_angle = cosmetic_frand_range(0.0f, 359.0f);
 		shipfx_do_shockwave_stuff(&Ships[exp_objp->instance], &sci);
 		// shockwave_create(Ships[exp_objp->instance].objnum, &exp_objp->pos, shockwave_speed, inner_rad, outer_rad, max_damage, max_blast, SW_SHIP_DEATH);
 	} else {
@@ -3188,7 +3188,7 @@ void ship_dying_frame(object *objp, int ship_num)
 				polymodel *pm = model_get(sp->modelnum);
 
 				// Gets two random points on the surface of a submodel
-				submodel_get_two_random_points(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );
+				submodel_get_two_random_points_cosmetic(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );
 
 				//	vm_vec_avg( &tmp, &pnt1, &pnt2 ); [KNOSSOS get random in plane 1/1.414 in rad
 				model_find_world_point(&outpnt, &pnt1, sp->modelnum, pm->detail[0], &objp->orient, &objp->pos );
@@ -3208,11 +3208,11 @@ void ship_dying_frame(object *objp, int ship_num)
 		if (knossos_ship) {
 			if ( timestamp_elapsed(Ships[ship_num].next_fireball)) {
 				vector rand_vec, outpnt; // [0-.7 rad] in plane
-				vm_vec_rand_vec_quick(&rand_vec);
-				float scale = -vm_vec_dotprod(&objp->orient.fvec, &rand_vec) * (0.9f + 0.2f * frand());
+				vm_vec_rand_vec_quick_cosmetic(&rand_vec);
+				float scale = -vm_vec_dotprod(&objp->orient.fvec, &rand_vec) * (0.9f + 0.2f * cosmetic_frand());
 				vm_vec_scale_add2(&rand_vec, &objp->orient.fvec, scale);
 				vm_vec_normalize_quick(&rand_vec);
-				scale = objp->radius * frand() * 0.717f;
+				scale = objp->radius * cosmetic_frand() * 0.717f;
 				vm_vec_scale(&rand_vec, scale);
 				vm_vec_add(&outpnt, &objp->pos, &rand_vec);
 
@@ -3273,12 +3273,12 @@ void ship_dying_frame(object *objp, int ship_num)
 				vector tmp, outpnt, pnt1, pnt2;
 
 				// Gets two random points on the surface of a submodel [KNOSSOS]
-				submodel_get_two_random_points(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );
+				submodel_get_two_random_points_cosmetic(sp->modelnum, pm->detail[0], &pnt1, &pnt2 );
 
 				vm_vec_avg( &tmp, &pnt1, &pnt2 );
 				model_find_world_point(&outpnt, &tmp, sp->modelnum, pm->detail[0], &objp->orient, &objp->pos );
 
-				float rad = frand()*0.30f;
+				float rad = cosmetic_frand()*0.30f;
 				rad += objp->radius*0.40f;
 				fireball_create( &outpnt, FIREBALL_EXPLOSION_MEDIUM, OBJ_INDEX(objp), rad, 0, &objp->phys_info.vel );
 			}
@@ -3429,7 +3429,7 @@ void ship_dying_frame(object *objp, int ship_num)
 		if ( timestamp_elapsed(sp->next_engine_stutter) ) {
 			if ( !(Ship_info[sp->ship_info_index].flags & (SIF_BIG_SHIP | SIF_HUGE_SHIP)) ) {
 				sp->flags ^= SF_ENGINES_ON;			// toggle state of engines
-				sp->next_engine_stutter = timestamp_rand(50, 250);
+				sp->next_engine_stutter = cosmetic_timestamp_rand(50, 250);
 			}
 		}
 	}

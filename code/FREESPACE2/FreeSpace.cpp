@@ -1401,6 +1401,7 @@ void game_level_init(int seed)
 	}
 	Game_level_seed = replay_level_seed( Game_level_seed );
 	srand( Game_level_seed );
+	cosmetic_srand( Game_level_seed );	// Claude: Cosmetic stream starts from the same seed each level.
 
 	// semirand function needs to get re-initted every time in multiplayer
 	if ( Game_mode & GM_MULTIPLAYER ){
@@ -3175,8 +3176,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 			dtime = timestamp_until(pi->afterburner_decay);
 			
-			int r1 = myrand();
-			int r2 = myrand();
+			int r1 = cosmetic_rand();
+			int r2 = cosmetic_rand();
 			tangles.p += 0.07f * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 			tangles.h += 0.07f * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 		}
@@ -3184,8 +3185,8 @@ void apply_hud_shake(matrix *eye_orient)
 		// Make eye shake due to engine wash
 		extern int Wash_on;
 		if (Player_obj->type == OBJ_SHIP && (Ships[Player_obj->instance].wash_intensity > 0) && Wash_on ) {
-			int r1 = myrand();
-			int r2 = myrand();
+			int r1 = cosmetic_rand();
+			int r2 = cosmetic_rand();
 			tangles.p += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r1-RAND_MAX/2)/RAND_MAX;
 			tangles.h += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r2-RAND_MAX/2)/RAND_MAX;
 
@@ -3194,7 +3195,7 @@ void apply_hud_shake(matrix *eye_orient)
 
 			// vector rand_vec
 			vector rand_vec;
-			vm_vec_rand_vec_quick(&rand_vec);
+			vm_vec_rand_vec_quick_cosmetic(&rand_vec);
 
 			// play the effect
 			joy_ff_play_dir_effect(intensity*rand_vec.x, intensity*rand_vec.y);
@@ -3213,8 +3214,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 				dtime = timestamp_until(Game_shudder_time);
 			
-				int r1 = myrand();
-				int r2 = myrand();
+				int r1 = cosmetic_rand();
+				int r2 = cosmetic_rand();
 				tangles.p += (Game_shudder_intensity / 200.0f) * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 				tangles.h += (Game_shudder_intensity / 200.0f) * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 			}
@@ -4815,7 +4816,7 @@ void camera_move()
 		// pick x and y velocities so they are always on a 
 		// circle with a 25 m radius.
 
-		float tmp_angle = frand()*PI2;
+		float tmp_angle = cosmetic_frand()*PI2;
 	
 		tmp.x = 22.0f * (float)sin(tmp_angle);
 		tmp.y = -22.0f * (float)cos(tmp_angle);

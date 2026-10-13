@@ -259,6 +259,20 @@ int myrand()
 	return rval;
 }
 
+// Claude: Cosmetic random stream.  Same generator as the MSVC CRT rand(), with its own seed.  Not counted in Rand_count.
+static unsigned int Cosmetic_rand_seed = 1;
+
+int cosmetic_rand()
+{
+	Cosmetic_rand_seed = Cosmetic_rand_seed * 214013 + 2531011;
+	return (Cosmetic_rand_seed >> 16) & 0x7fff;
+}
+
+void cosmetic_srand(int seed)
+{
+	Cosmetic_rand_seed = (unsigned int)seed;
+}
+
 
 // Variables for the loading callback hooks
 static int cf_timestamp = -1;

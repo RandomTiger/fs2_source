@@ -1374,7 +1374,7 @@ void beam_render(beam_weapon_info *bwi, vector *start, vector *shot, float shrin
 	// draw all sections	
 	for(s_idx=0; s_idx<bwi->beam_num_sections; s_idx++){
 		// calculate the beam points
-		scale = frand_range(1.0f - bwi->sections[s_idx].flicker, 1.0f + bwi->sections[s_idx].flicker);
+		scale = cosmetic_frand_range(1.0f - bwi->sections[s_idx].flicker, 1.0f + bwi->sections[s_idx].flicker);
 		beam_calc_facing_pts(&top1, &bottom1, &fvec, start, bwi->sections[s_idx].width * scale * shrink, bwi->sections[s_idx].z_add);	
 		beam_calc_facing_pts(&top2, &bottom2, &fvec, shot, bwi->sections[s_idx].width * scale * scale * shrink, bwi->sections[s_idx].z_add);				
 		R_VERTICES();																// rotate and project the vertices
@@ -1428,7 +1428,7 @@ void beam_generate_muzzle_particles(beam *b)
 	Beam_muzzle_stamp = timestamp(hack_time);
 
 	// randomly generate 10 to 20 particles
-	particle_count = (int)frand_range(0.0f, (float)wip->b_info.beam_particle_count);
+	particle_count = (int)cosmetic_frand_range(0.0f, (float)wip->b_info.beam_particle_count);
 
 	// get turret info - position and normal	
 	turret_pos = b->subsys->system_info->pnt;
@@ -1440,7 +1440,7 @@ void beam_generate_muzzle_particles(beam *b)
 		// get a random point in the cone
 		vm_vec_random_cone(&particle_dir, &turret_norm, wip->b_info.beam_particle_angle, &m);
 		p_temp = turret_pos;
-		vm_vec_scale_add(&p_temp, &turret_pos, &particle_dir, wip->b_info.beam_muzzle_radius * frand_range(0.75f, 0.9f));
+		vm_vec_scale_add(&p_temp, &turret_pos, &particle_dir, wip->b_info.beam_muzzle_radius * cosmetic_frand_range(0.75f, 0.9f));
 
 		// transform into world coords		
 		vm_vec_unrotate(&particle_pos, &p_temp, &b->objp->orient);
@@ -1450,8 +1450,8 @@ void beam_generate_muzzle_particles(beam *b)
 
 		// now generate some interesting values for the particle
 		float p_time_ref = wip->b_info.beam_life + ((float)wip->b_info.beam_warmup / 1000.0f);		
-		float p_life = frand_range(p_time_ref * 0.5f, p_time_ref * 0.7f);
-		float p_vel = (wip->b_info.beam_muzzle_radius / p_life) * frand_range(0.85f, 1.2f);
+		float p_life = cosmetic_frand_range(p_time_ref * 0.5f, p_time_ref * 0.7f);
+		float p_vel = (wip->b_info.beam_muzzle_radius / p_life) * cosmetic_frand_range(0.85f, 1.2f);
 		vm_vec_scale(&particle_dir, -p_vel);
 
 		memset(&pinfo, 0, sizeof(particle_info));
@@ -1497,7 +1497,7 @@ void beam_render_muzzle_glow(beam *b)
 	// otherwise the beam is really firing
 	else {
 		pct = 1.0f;
-		rand_val = frand_range(0.90f, 1.0f);
+		rand_val = cosmetic_frand_range(0.90f, 1.0f);
 	}
 
 	// draw the bitmap
@@ -1610,7 +1610,7 @@ void beam_add_light_small(beam *bm, object *objp, vector *pt_override = NULL)
 	bwi = &wip->b_info;
 
 	// some noise
-	noise = frand_range(1.0f - bwi->sections[0].flicker, 1.0f + bwi->sections[0].flicker);
+	noise = cosmetic_frand_range(1.0f - bwi->sections[0].flicker, 1.0f + bwi->sections[0].flicker);
 
 	// widest part of the beam
 	float light_rad = beam_get_widest(bm) * blight * noise;	
@@ -1663,7 +1663,7 @@ void beam_add_light_large(beam *bm, object *objp, vector *pt0, vector *pt1)
 	bwi = &wip->b_info;
 
 	// some noise
-	noise = frand_range(1.0f - bwi->sections[0].flicker, 1.0f + bwi->sections[0].flicker);
+	noise = cosmetic_frand_range(1.0f - bwi->sections[0].flicker, 1.0f + bwi->sections[0].flicker);
 
 	// widest part of the beam
 	float light_rad = beam_get_widest(bm) * blight * noise;		

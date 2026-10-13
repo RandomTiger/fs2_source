@@ -500,7 +500,7 @@ int emp_should_blit_gauge()
 	}
 
 	// otherwise, randomly say no
-	return frand_range(0.0f, 1.0f) > Emp_intensity;
+	return cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity;
 }
 
 // emp hud string
@@ -557,7 +557,7 @@ void emp_maybe_reformat_text(char *text, int max_len, int gauge_id)
 	}
 
 	// randomly _don't_ apply text craziness
-	if(frand_range(0.0f, 1.0f) > Emp_intensity){
+	if(cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity){
 		return;
 	}
 
@@ -577,7 +577,7 @@ void emp_maybe_reformat_text(char *text, int max_len, int gauge_id)
 		//	weapons
 		case EG_WEAPON_TITLE: case EG_WEAPON_P1: case EG_WEAPON_P2: case EG_WEAPON_P3: case EG_WEAPON_S1: case EG_WEAPON_S2:			
 			int wep_index;
-			wep_index = (int)frand_range(0.0f, (float)(MAX_WEAPON_TYPES - 1));
+			wep_index = (int)cosmetic_frand_range(0.0f, (float)(MAX_WEAPON_TYPES - 1));
 			strcpy(wt->str, Weapon_info[ wep_index >= MAX_WEAPON_TYPES ? 0 : wep_index ].name);			
 			break;		
 
@@ -622,7 +622,7 @@ void emp_maybe_reformat_text(char *text, int max_len, int gauge_id)
 		}
 
 		// recalculate the timestamp
-		wt->stamp = timestamp((int)frand_range(100.0f, 750.0f * (1.0f - Emp_intensity)));
+		wt->stamp = timestamp((int)cosmetic_frand_range(100.0f, 750.0f * (1.0f - Emp_intensity)));
 
 		// copy the text
 		strcpy(text, wt->str);
@@ -641,8 +641,8 @@ void emp_randomize_chars(char *str)
 	
 	// shuffle chars around
 	for(idx=0; idx<(int)(strlen(str)-1); idx++){
-		if(frand_range(0.0f, 1.0f) < Emp_intensity){
-			char_index = Emp_random_char[(int)frand_range(0.0f, (float)(NUM_RANDOM_CHARS - 1))];
+		if(cosmetic_frand_range(0.0f, 1.0f) < Emp_intensity){
+			char_index = Emp_random_char[(int)cosmetic_frand_range(0.0f, (float)(NUM_RANDOM_CHARS - 1))];
 			str[idx] = (char)char_index;	// Claude: was Emp_random_char[char_index], which used the character code as an index and read past the end of the table
 		}
 	}
@@ -657,8 +657,8 @@ void emp_hud_jitter(int *x, int *y)
 	}
 
 	// some movement
-	*x += (int)frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
-	*y += (int)frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
+	*x += (int)cosmetic_frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
+	*y += (int)cosmetic_frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
 }
 
 // current intensity of the EMP effect (0.0 - 1.0)

@@ -563,6 +563,8 @@ void vm_project_point_onto_plane(vector *new_point, vector *point, vector *plane
 
 //	Returns fairly random vector, "quick" normalized
 void vm_vec_rand_vec_quick(vector *rvec);
+// Claude: Cosmetic random stream version.
+void vm_vec_rand_vec_quick_cosmetic(vector *rvec);
 
 // Given an point "in" rotate it by "angle" around an
 // arbritary line defined by a point on the line "line_point" 

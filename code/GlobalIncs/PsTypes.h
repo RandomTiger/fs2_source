@@ -535,6 +535,9 @@ void dc_printf( char *format, ... );
 #define FALSE	0
 
 int myrand();
+// Claude: Separate random stream for cosmetic effects (particles, sparks, stars, HUD effects), so they don't shift gameplay randomness.
+int cosmetic_rand();
+void cosmetic_srand(int seed);
 
 
 

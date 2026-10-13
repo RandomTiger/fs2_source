@@ -545,7 +545,7 @@ void do_subobj_destroyed_stuff( ship *ship_p, ship_subsys *subsys, vector* hitpo
 				}
 			} else {
 				// make other fireballs at random positions, but try to keep on the surface
-				vm_vec_rand_vec_quick(&rand_vec);
+				vm_vec_rand_vec_quick_cosmetic(&rand_vec);
 				float dot = vm_vec_dotprod(&center_to_subsys, &rand_vec);
 				vm_vec_scale_add2(&rand_vec, &center_to_subsys, -dot/vm_vec_mag_squared(&center_to_subsys));
 				vm_vec_scale_add(&temp_vec, &g_subobj_pos, &rand_vec, 0.5f*psub->radius);
@@ -1205,7 +1205,7 @@ void ship_hit_sparks_no_rotate(object *ship_obj, vector *hitpos)
 
 	int n = ship_p->num_hits;
 	if (n >= MAX_SHIP_HITS)	{
-		n = rand() % MAX_SHIP_HITS;
+		n = cosmetic_rand() % MAX_SHIP_HITS;
 	} else {
 		ship_p->num_hits++;
 	}
@@ -1322,8 +1322,8 @@ int choose_next_spark(object *ship_obj, vector *hitpos)
 	}
 
 	// not same location, so maybe do random recyling
-	if (frand() > 0.5f) {
-		return (rand() % num_sparks);
+	if (cosmetic_frand() > 0.5f) {
+		return (cosmetic_rand() % num_sparks);
 	}
 
 	// initialize spark pairs
@@ -1398,7 +1398,7 @@ void ship_hit_create_sparks(object *ship_obj, vector *hitpos, int submodel_num)
 			n = choose_next_spark(ship_obj, hitpos);
 		} else {
 			// otherwise, normal choice
-			n = rand() % max_sparks;
+			n = cosmetic_rand() % max_sparks;
 		}
 	} else {
 		ship_p->num_hits++;

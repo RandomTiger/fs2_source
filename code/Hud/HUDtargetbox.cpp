@@ -1864,7 +1864,7 @@ int hud_targetbox_static_maybe_blit(float frametime)
 
 	if ( timestamp_elapsed(Target_static_next) ) {
 		Target_static_playing ^= 1;
-		Target_static_next = timestamp_rand(50, 750);
+		Target_static_next = cosmetic_timestamp_rand(50, 750);
 	}
 
 	if ( Target_static_playing ) {
