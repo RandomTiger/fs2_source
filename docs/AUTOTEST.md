@@ -9,7 +9,7 @@ The code is `code/Replay/Autotest.cpp`. With no `-autotest` flag, and no autotes
 ## Usage
 Run with the working directory set to the game directory.
 ```
-FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN]
+FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
 ```
 | Flag | Meaning | Default |
 |---|---|---|
@@ -17,6 +17,9 @@ FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_spee
 | `-at_time` | How long to play each mission, in seconds of **mission time**. | 120 |
 | `-at_speed` | Time compression, 1 to 8. | 4 |
 | `-at_pilot` | The pilot to use. | The most recently saved single-player pilot |
+| `-at_skill` | Skill level, 0 (very easy) to 4 (insane). The recording stores it, so the replay plays at the same level. | The pilot's own |
+
+Autotest never saves the pilot file, so the pilot's skill level, stats and settings are left as they were.
 
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
 

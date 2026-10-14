@@ -65,6 +65,7 @@ static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for e
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
 static int Autotest_time = AUTOTEST_DEFAULT_TIME;
 static int Autotest_speed = AUTOTEST_DEFAULT_SPEED;
+static int Autotest_skill = -1;			// -at_skill, or -1 for the pilot's own
 
 static FILE *Autotest_log = NULL;
 static CRITICAL_SECTION Autotest_log_lock;
@@ -196,7 +197,7 @@ static int autotest_int_arg(char *flag, char *value, int def, int lo, int hi)
 	return (int)v;
 }
 
-void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, int player_npc)
+void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc)
 {
 	Autotest_harness = 1;
 	Autotest_rules = 1;
@@ -213,6 +214,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, i
 
 	Autotest_time = autotest_int_arg("-at_time", time, AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
 	Autotest_speed = autotest_int_arg("-at_speed", speed, AUTOTEST_DEFAULT_SPEED, 1, 8);
+	Autotest_skill = autotest_int_arg("-at_skill", skill, -1, 0, NUM_SKILL_LEVELS - 1);
 	if (mission) {
 		if (!mission[0] || (strlen(mission) > MAX_FILENAME_LEN - 5)) {
 			autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_mission needs a mission file name");
@@ -280,7 +282,10 @@ int autotest_load_pilot()
 		autotest_fatal(AUTOTEST_EXIT_FAILED, "cannot load pilot '%s'", Autotest_pilot);
 	}
 	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
-	autotest_logf("Pilot '%s'\n", Autotest_pilot);
+	if (Autotest_skill >= 0) {
+		Game_skill_level = Autotest_skill;
+	}
+	autotest_logf("Pilot '%s', skill level %d%s\n", Autotest_pilot, Game_skill_level, (Autotest_skill >= 0) ? " (-at_skill)" : "");
 	return 1;
 }
 

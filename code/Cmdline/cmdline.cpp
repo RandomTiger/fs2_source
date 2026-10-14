@@ -244,6 +244,7 @@ cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
+cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
@@ -646,7 +647,8 @@ int parse_cmdline(char *cmdline)
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
-			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL, playernpc_arg.found());
+			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
+			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
 	}
 
 	return 1;

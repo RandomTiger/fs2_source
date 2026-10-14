@@ -212,6 +212,7 @@
 #include "Mouse.h"
 #include "Cutscenes.h"
 #include "Bmpman.h"
+#include "Autotest.h"	// Claude
 
 // update this when altering data that is read/written to .PLR file
 #define CURRENT_PLAYER_FILE_VERSION					140
@@ -1002,6 +1003,10 @@ int write_pilot_file_core(player *p)
 int write_pilot_file(player *the_player)
 {
 	int pilot_write_rval;
+	// Claude: autotest leaves the pilot as it was (it may play at another skill level, see Autotest.h)
+	if (Autotest_harness || Autotest_rules) {
+		return 0;
+	}
 	do {
 		// write_pilot_file_core returns 0 if ok, non-zero for error
 		pilot_write_rval = write_pilot_file_core(the_player);
