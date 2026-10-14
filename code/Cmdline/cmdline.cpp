@@ -243,6 +243,7 @@ cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
+cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -638,7 +639,7 @@ int parse_cmdline(char *cmdline)
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
-			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL);
+			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL, playernpc_arg.found());
 	}
 
 	return 1;

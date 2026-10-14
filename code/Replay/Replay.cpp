@@ -105,7 +105,7 @@ typedef struct replay_header {
 	int	missiontime;
 	int	pilot_size;
 	int	campaign_size;
-	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h)
+	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h); bit 1 is -playernpc
 	int	autotest_time;
 	int	autotest_speed;
 	float	view_position[3];			// Claude: version 3.  Left by whatever the menus last drew in 3D; engine sounds use it until the player enters

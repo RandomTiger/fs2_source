@@ -45,11 +45,21 @@
 // they keep the player invulnerable however their events change it.
 #define AUTOTEST_VULNERABILITY_NOTE	"autotest: mission controls vulnerability"
 
+// A test mission whose notes contain this needs the player ship left alone (the unflown player scans
+// cargo in an EMP storm), so the AI does not fly it even with -playernpc.
+#define AUTOTEST_STILL_NOTE			"autotest: player stays still"
+
 extern fs_builtin_mission Game_builtin_mission_list[];
 extern int Game_builtin_mission_count;
 
 int Autotest_harness = 0;
 int Autotest_rules = 0;
+int Autotest_player_npc = 0;
+static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mission can still refuse it
+
+// the recording header's autotest field: bit 0 autotest rules, bit 1 -playernpc
+#define AUTOTEST_HDR_RULES			1
+#define AUTOTEST_HDR_PLAYER_NPC	2
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
@@ -186,10 +196,11 @@ static int autotest_int_arg(char *flag, char *value, int def, int lo, int hi)
 	return (int)v;
 }
 
-void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot)
+void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, int player_npc)
 {
 	Autotest_harness = 1;
 	Autotest_rules = 1;
+	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
 	InitializeCriticalSection(&Autotest_log_lock);
 	Autotest_log = fopen(AUTOTEST_LOG, "wt");
@@ -228,7 +239,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot)
 
 void autotest_get_settings(int *on, int *time, int *speed)
 {
-	*on = Autotest_rules;
+	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0)) : 0;
 	*time = Autotest_rules ? Autotest_time : 0;
 	*speed = Autotest_rules ? Autotest_speed : 0;
 }
@@ -236,12 +247,13 @@ void autotest_get_settings(int *on, int *time, int *speed)
 // a replay plays the mission under the rules it was recorded with, whatever the command line says
 void autotest_set_from_recording(int on, int time, int speed)
 {
-	Autotest_rules = on;
-	if (on) {
+	Autotest_rules = (on & AUTOTEST_HDR_RULES) != 0;
+	Autotest_player_npc = Autotest_player_npc_asked = Autotest_rules && (on & AUTOTEST_HDR_PLAYER_NPC);
+	if (Autotest_rules) {
 		Autotest_time = time;
 		Autotest_speed = speed;
 	}
-	autotest_logf("Replaying a recording made %s autotest rules\n", on ? "with" : "without");
+	autotest_logf("Replaying a recording made %s autotest rules%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "");
 }
 
 int autotest_load_pilot()
@@ -325,7 +337,7 @@ static void autotest_main_menu()
 	Autotest_in_mission = 0;
 	Autotest_ending = 0;
 	Autotest_gave_up = 0;
-	autotest_logf("Mission '%s': starting, %d s of mission time at %dx\n", Autotest_current, Autotest_time, Autotest_speed);
+	autotest_logf("Mission '%s': starting, %d s of mission time at %dx%s\n", Autotest_current, Autotest_time, Autotest_speed, Autotest_player_npc ? ", the AI flying the player" : "");
 
 	// the same path as the simulator room
 	strncpy(Game_current_mission_filename, Autotest_current, MAX_FILENAME_LEN - 1);
@@ -433,6 +445,7 @@ void autotest_frame()
 
 	if (!Autotest_in_mission) {
 		Autotest_mission_vulnerability = (strstr(The_mission.notes, AUTOTEST_VULNERABILITY_NOTE) != NULL);
+		Autotest_player_npc = Autotest_player_npc_asked && (strstr(The_mission.notes, AUTOTEST_STILL_NOTE) == NULL);
 		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
 			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
 		}
@@ -451,7 +464,8 @@ void autotest_frame()
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
 		Autotest_mission_start = Missiontime;
-		autotest_logf("Mission '%s': in gameplay%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "");
+		autotest_logf("Mission '%s': in gameplay%s%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "",
+			Autotest_player_npc ? ", the AI flies the player" : (Autotest_player_npc_asked ? ", the player stays still (mission notes)" : ""));
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));

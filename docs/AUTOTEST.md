@@ -40,8 +40,10 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestArrivals` | Arrivals and departures by hyperspace, fighter bay, near and in front of a ship, delays, waves, jump node, destroyed bay |
 | `AutotestFlow` | Repeating events, variables, cond, goals failed and invalidated, message floods, cargo transfer, IFF and escort changes |
 | `AutotestSupport` | AI wingmen calling the support ship |
+| `AutotestPlayer` | The player ship, flown by the AI (`-playernpc`): fighting with missiles, damage and the support ship, flak, guarding, waypoints, death |
 | `AutotestNebStandard`, `AutotestNebActive`, `AutotestNebMedium` | A fight in a full nebula under each lightning storm, AWACS range |
 - A mission whose `$Notes:` contain `autotest: mission controls vulnerability` sets the player's vulnerability itself, through the `invulnerable` flag and the `ship-vulnerable` and `ship-invulnerable` sexps. Autotest then stops forcing the player invulnerable. A mission can use this to let the player die and so end itself, for example in a supernova.
+- With `-playernpc` the AI flies the player ship like any other ship, following the orders the mission gives Alpha 1 (`$AI Goals`, `add-goal`). The recording stores it, so the replay does the same. Automatic recordings use it. A mission whose notes contain `autotest: player stays still` is played with nobody flying the player even with `-playernpc`: `Autotest` and `AutotestChain`, where the unflown player scans the cargo.
 - When the player dies, autotest answers the death popup with "quit mission", as the time limit does.
 - The log lists each mission event and goal as it becomes true, false or complete, with the mission time, so a test mission can be checked to have run to its end.
 

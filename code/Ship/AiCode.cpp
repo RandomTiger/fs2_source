@@ -3552,6 +3552,10 @@ int maybe_avoid_player(object *objp, vector *goal_pos)
 
 	aip = &Ai_info[Ships[objp->instance].ai_index];
 
+	if (objp == Player_obj) {	// Claude: with -playernpc the player ship runs this too, and must not avoid itself
+		return 0;
+	}
+
 	if (!timestamp_elapsed(aip->avoid_check_timestamp))
 		return 0;
 
@@ -4975,7 +4979,7 @@ int ai_maybe_fire_afterburner(object *objp, ai_info *aip)
 		//	Maybe don't afterburner because of a potential collision with the player.
 		//	If not multiplayer, near player and player in front, probably don't afterburner.
 		if (!(Game_mode & GM_MULTIPLAYER)) {
-			if (Ships[objp->instance].team == Player_ship->team) {
+			if ((objp != Player_obj) && (Ships[objp->instance].team == Player_ship->team)) {	// Claude: with -playernpc the player ship runs this too, and has no direction to itself
 				float	dist;
 
 				dist = vm_vec_dist_quick(&objp->pos, &Player_obj->pos) - Player_obj->radius - objp->radius;
