@@ -2226,9 +2226,10 @@ int add_sexps(int n)
 
 		// be sure to check for the NAN value when doing arithmetic -- this value should
 		// get propagated to the next highest function.
-		if ( Sexp_nodes[CAR(n)].value == SEXP_NAN )
+		// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+		if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) )
 			return SEXP_NAN;
-		else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
+		else if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) )
 			return SEXP_NAN_FOREVER;
 
 		while (CDR(n) != -1) {
@@ -2237,7 +2238,8 @@ int add_sexps(int n)
 			// get propagated to the next highest function.
 			if ( Sexp_nodes[CDR(n)].value == SEXP_NAN )
 				return SEXP_NAN;
-			else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
+			// Claude: CAR(n) (the previous argument) is -1 when it is a plain number
+			else if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) )
 				return SEXP_NAN_FOREVER;
 			sum += val;
 			n = CDR(n);
@@ -2484,7 +2486,8 @@ int sexp_and_in_sequence(int n)
 		// true.  I did this because of the distance function.  It might become true, then when waiting for
 		// the second evalation, it might become false, rendering this function false.  So, when one becomes
 		// true -- mark it true forever.
-		if ( result )
+		// Claude: a plain number has no node of its own to mark; Sexp_nodes[-1] is outside the array
+		if ( result && (Sexp_nodes[n].first != -1) )
 			Sexp_nodes[Sexp_nodes[n].first].value = SEXP_KNOWN_TRUE;
 
 		while (Sexp_nodes[n].rest != -1) {
@@ -2545,9 +2548,10 @@ int sexp_gt(int n)
 	exp2 = eval_sexp( CDR(n) );
 	
 	// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 > exp2 )
@@ -2563,9 +2567,10 @@ int sexp_lt(int n)
 	exp2 = eval_sexp( CDR(n) );
 
 		// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 < exp2 )
@@ -2581,9 +2586,10 @@ int sexp_equal(int n)
 	exp2 = eval_sexp( CDR(n) );
 
 		// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 == exp2 )
