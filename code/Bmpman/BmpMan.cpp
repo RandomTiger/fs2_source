@@ -801,7 +801,7 @@ void bm_calc_sections(bitmap *be)
 // is called on that bitmap.
 int bm_create( int bpp, int w, int h, void * data, int flags )
 {
-	int i, n, first_slot = MAX_BITMAPS;
+	int i, n, first_slot = -1;	// Claude: was MAX_BITMAPS, but the check below is for -1, so with no free slot it wrote bm_bitmaps[MAX_BITMAPS]
 
 	// Assert((bpp==32)||(bpp==8));
 	if(bpp != 16){

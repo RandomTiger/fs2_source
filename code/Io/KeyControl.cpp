@@ -641,7 +641,7 @@ void debug_cycle_player_ship(int delta)
 	ship_info	*sip;
 	while ( TRUE ) {
 		si_index += delta;
-		if ( si_index > MAX_SHIP_TYPES ){
+		if ( si_index >= MAX_SHIP_TYPES ){	// Claude: was >, which let it read Ship_info[MAX_SHIP_TYPES]
 			si_index = 0;
 		}
 		if ( si_index < 0 ){
@@ -686,7 +686,7 @@ void debug_cycle_targeted_ship(int delta)
 
 	while ( TRUE ) {
 		si_index += delta;
-		if ( si_index > MAX_SHIP_TYPES )
+		if ( si_index >= MAX_SHIP_TYPES )	// Claude: was >, which let it read Ship_info[MAX_SHIP_TYPES]
 			si_index = 0;
 		if ( si_index < 0 )
 			si_index = MAX_SHIP_TYPES-1;
