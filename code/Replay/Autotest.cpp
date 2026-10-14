@@ -27,6 +27,8 @@
 #include "Object.h"
 #include "Ship.h"
 #include "MissionScreenCommon.h"
+#include "MissionParse.h"
+#include "MissionGoals.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -38,16 +40,32 @@
 #define AUTOTEST_EXIT_FAILED		2
 #define AUTOTEST_EXIT_STUCK		5
 
+// A test mission whose notes contain this decides the player's vulnerability itself (ship-vulnerable,
+// ship-invulnerable), for example so that a supernova can end it.  Campaign missions do not, so
+// they keep the player invulnerable however their events change it.
+#define AUTOTEST_VULNERABILITY_NOTE	"autotest: mission controls vulnerability"
+
+// A test mission whose notes contain this needs the player ship left alone (the unflown player scans
+// cargo in an EMP storm), so the AI does not fly it even with -playernpc.
+#define AUTOTEST_STILL_NOTE			"autotest: player stays still"
+
 extern fs_builtin_mission Game_builtin_mission_list[];
 extern int Game_builtin_mission_count;
 
 int Autotest_harness = 0;
 int Autotest_rules = 0;
+int Autotest_player_npc = 0;
+static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mission can still refuse it
+
+// the recording header's autotest field: bit 0 autotest rules, bit 1 -playernpc
+#define AUTOTEST_HDR_RULES			1
+#define AUTOTEST_HDR_PLAYER_NPC	2
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
 static int Autotest_time = AUTOTEST_DEFAULT_TIME;
 static int Autotest_speed = AUTOTEST_DEFAULT_SPEED;
+static int Autotest_skill = -1;			// -at_skill, or -1 for the pilot's own
 
 static FILE *Autotest_log = NULL;
 static CRITICAL_SECTION Autotest_log_lock;
@@ -61,6 +79,14 @@ static int Autotest_ending = 0;			// the time limit has posted GS_EVENT_END_GAME
 static int Autotest_gave_up = 0;			// a menu did not move on, so the mission was abandoned
 static fix Autotest_mission_start;		// Missiontime on the first gameplay frame
 static char Autotest_current[MAX_FILENAME_LEN] = "";
+static int Autotest_mission_vulnerability = 0;	// the mission has AUTOTEST_VULNERABILITY_NOTE
+
+// the event and goal states last logged, so each change is logged once
+#define AUTOTEST_EVENT_PENDING	0
+#define AUTOTEST_EVENT_TRUE		1
+#define AUTOTEST_EVENT_FALSE		2		// false and will not be evaluated again
+static int Autotest_event_state[MAX_MISSION_EVENTS];
+static int Autotest_goal_state[MAX_GOALS];
 
 // results
 static int Autotest_missions_run = 0;
@@ -171,10 +197,11 @@ static int autotest_int_arg(char *flag, char *value, int def, int lo, int hi)
 	return (int)v;
 }
 
-void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot)
+void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc)
 {
 	Autotest_harness = 1;
 	Autotest_rules = 1;
+	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
 	InitializeCriticalSection(&Autotest_log_lock);
 	Autotest_log = fopen(AUTOTEST_LOG, "wt");
@@ -187,6 +214,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot)
 
 	Autotest_time = autotest_int_arg("-at_time", time, AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
 	Autotest_speed = autotest_int_arg("-at_speed", speed, AUTOTEST_DEFAULT_SPEED, 1, 8);
+	Autotest_skill = autotest_int_arg("-at_skill", skill, -1, 0, NUM_SKILL_LEVELS - 1);
 	if (mission) {
 		if (!mission[0] || (strlen(mission) > MAX_FILENAME_LEN - 5)) {
 			autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_mission needs a mission file name");
@@ -213,7 +241,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot)
 
 void autotest_get_settings(int *on, int *time, int *speed)
 {
-	*on = Autotest_rules;
+	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0)) : 0;
 	*time = Autotest_rules ? Autotest_time : 0;
 	*speed = Autotest_rules ? Autotest_speed : 0;
 }
@@ -221,12 +249,13 @@ void autotest_get_settings(int *on, int *time, int *speed)
 // a replay plays the mission under the rules it was recorded with, whatever the command line says
 void autotest_set_from_recording(int on, int time, int speed)
 {
-	Autotest_rules = on;
-	if (on) {
+	Autotest_rules = (on & AUTOTEST_HDR_RULES) != 0;
+	Autotest_player_npc = Autotest_player_npc_asked = Autotest_rules && (on & AUTOTEST_HDR_PLAYER_NPC);
+	if (Autotest_rules) {
 		Autotest_time = time;
 		Autotest_speed = speed;
 	}
-	autotest_logf("Replaying a recording made %s autotest rules\n", on ? "with" : "without");
+	autotest_logf("Replaying a recording made %s autotest rules%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "");
 }
 
 int autotest_load_pilot()
@@ -253,7 +282,10 @@ int autotest_load_pilot()
 		autotest_fatal(AUTOTEST_EXIT_FAILED, "cannot load pilot '%s'", Autotest_pilot);
 	}
 	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
-	autotest_logf("Pilot '%s'\n", Autotest_pilot);
+	if (Autotest_skill >= 0) {
+		Game_skill_level = Autotest_skill;
+	}
+	autotest_logf("Pilot '%s', skill level %d%s\n", Autotest_pilot, Game_skill_level, (Autotest_skill >= 0) ? " (-at_skill)" : "");
 	return 1;
 }
 
@@ -310,7 +342,7 @@ static void autotest_main_menu()
 	Autotest_in_mission = 0;
 	Autotest_ending = 0;
 	Autotest_gave_up = 0;
-	autotest_logf("Mission '%s': starting, %d s of mission time at %dx\n", Autotest_current, Autotest_time, Autotest_speed);
+	autotest_logf("Mission '%s': starting, %d s of mission time at %dx%s\n", Autotest_current, Autotest_time, Autotest_speed, Autotest_player_npc ? ", the AI flying the player" : "");
 
 	// the same path as the simulator room
 	strncpy(Game_current_mission_filename, Autotest_current, MAX_FILENAME_LEN - 1);
@@ -375,9 +407,39 @@ void autotest_drive_state(int state)
 	}
 }
 
+// log each mission event and goal as its state changes, so the log shows how far a mission got
+static void autotest_log_events()
+{
+	int i, state;
+
+	for (i = 0; i < Num_mission_events; i++) {
+		if (Mission_events[i].result) {
+			state = AUTOTEST_EVENT_TRUE;
+		} else if (Mission_events[i].formula == -1) {
+			state = AUTOTEST_EVENT_FALSE;
+		} else {
+			state = AUTOTEST_EVENT_PENDING;
+		}
+		if (state != Autotest_event_state[i]) {
+			Autotest_event_state[i] = state;
+			autotest_logf("Mission '%s': event '%s' %s at mission time %.2f\n", Game_current_mission_filename, Mission_events[i].name,
+				(state == AUTOTEST_EVENT_TRUE) ? "true" : ((state == AUTOTEST_EVENT_FALSE) ? "false" : "pending"), f2fl(Missiontime));
+		}
+	}
+
+	for (i = 0; i < Num_goals; i++) {
+		if (Mission_goals[i].satisfied != Autotest_goal_state[i]) {
+			Autotest_goal_state[i] = Mission_goals[i].satisfied;
+			autotest_logf("Mission '%s': goal '%s' %s at mission time %.2f\n", Game_current_mission_filename, Mission_goals[i].name,
+				(Mission_goals[i].satisfied == GOAL_COMPLETE) ? "complete" : ((Mission_goals[i].satisfied == GOAL_FAILED) ? "failed" : "incomplete"), f2fl(Missiontime));
+		}
+	}
+}
+
 void autotest_frame()
 {
 	ship *shipp;
+	int i;
 
 	if (!Autotest_rules) {
 		return;
@@ -386,8 +448,19 @@ void autotest_frame()
 	// before game_set_frametime, so this frame already runs at the test speed
 	Game_time_compression = F1_0 * Autotest_speed;
 
+	if (!Autotest_in_mission) {
+		Autotest_mission_vulnerability = (strstr(The_mission.notes, AUTOTEST_VULNERABILITY_NOTE) != NULL);
+		Autotest_player_npc = Autotest_player_npc_asked && (strstr(The_mission.notes, AUTOTEST_STILL_NOTE) == NULL);
+		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
+			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
+		}
+		for (i = 0; i < MAX_GOALS; i++) {
+			Autotest_goal_state[i] = GOAL_INCOMPLETE;
+		}
+	}
+
 	// every frame: the player may not exist on the first frame, and mission events can clear it
-	if ((Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
+	if (!Autotest_mission_vulnerability && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
 		shipp = &Ships[Player_obj->instance];
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
@@ -396,12 +469,15 @@ void autotest_frame()
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
 		Autotest_mission_start = Missiontime;
-		autotest_logf("Mission '%s': in gameplay\n", Game_current_mission_filename);
+		autotest_logf("Mission '%s': in gameplay%s%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "",
+			Autotest_player_npc ? ", the AI flies the player" : (Autotest_player_npc_asked ? ", the player stays still (mission notes)" : ""));
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));
 		gameseq_post_event(GS_EVENT_END_GAME);
 	}
+
+	autotest_log_events();
 }
 
 int autotest_popup(char *text)

@@ -194,6 +194,7 @@
 #include "cfile.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "OsRegistry.h"	// Claude
 
 // variables
 class cmdline_parm {
@@ -245,6 +246,9 @@ cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 cmdline_parm no_ship_glow_arg("-noshipglow", NULL);	// Claude: turn off the D3D ship glow
 cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced red ship glow
+cmdline_parm autotest_skill_arg("-at_skill", NULL);
+cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
+cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -640,10 +644,16 @@ int parse_cmdline(char *cmdline)
 		replay_set_autorecord(autorecord_arg.str());
 	}
 
+	// Claude: -ini, before the settings are first read
+	if(ini_arg.found()){
+		os_config_set_ini(ini_arg.str());
+	}
+
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
-			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL);
+			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
+			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
 	}
 
 	// Claude: -noshipglow turns off the D3D ship glow (Graphics/GrD3DGlow.cpp)

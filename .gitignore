@@ -47,3 +47,15 @@ Release/
 /replays/
 *.fs2rec.*.log
 recordings/**/*.autotest.log
+HelpEd.exe
+Ac.exe
+Fonttool.exe
+Nebedit.exe
+Pofview.exe
+AcRelease/
+FonttoolRelease/
+NebeditRelease/
+PofViewRelease/
+CFileArchiverRelease/
+CryptstringRelease/
+ScrambleRelease/

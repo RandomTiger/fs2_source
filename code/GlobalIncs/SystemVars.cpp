@@ -193,6 +193,8 @@
 #include "Timer.h"
 #include "neb.h"
 #include "Replay.h"
+#include "OsRegistry.h"	// Claude
+#include <stddef.h>	// Claude: offsetof
 
 fix Missiontime;
 fix Frametime;
@@ -640,6 +642,55 @@ void detail_level_set(int level)
 
 	// reset nebula stuff
 	neb2_set_detail_level(level);
+}
+
+// Claude: the detail levels come from the [Detail] section of the settings file (OsRegistry.cpp) for
+// every pilot, instead of the pilot file.  If the section is missing it is written with the highest
+// preset.  The options screen saves changes back to it.
+#define DETAIL_SECTION	"Detail"
+
+static struct { char *name; int offset; } Detail_config_keys[] = {
+	{ "Setting",				offsetof(detail_levels, setting) },
+	{ "NebulaDetail",			offsetof(detail_levels, nebula_detail) },
+	{ "DetailDistance",		offsetof(detail_levels, detail_distance) },
+	{ "HardwareTextures",	offsetof(detail_levels, hardware_textures) },
+	{ "SmallDebris",			offsetof(detail_levels, num_small_debris) },
+	{ "Particles",				offsetof(detail_levels, num_particles) },
+	{ "Stars",					offsetof(detail_levels, num_stars) },
+	{ "ShieldEffects",		offsetof(detail_levels, shield_effects) },
+	{ "Lighting",				offsetof(detail_levels, lighting) },
+	{ "TargetViewModel",		offsetof(detail_levels, targetview_model) },
+	{ "PlanetsSuns",			offsetof(detail_levels, planets_suns) },
+	{ "WeaponExtras",			offsetof(detail_levels, weapon_extras) },
+};
+#define NUM_DETAIL_CONFIG_KEYS	(sizeof(Detail_config_keys) / sizeof(Detail_config_keys[0]))
+
+void detail_level_save_config()
+{
+	char num[16];
+	int i;
+
+	for (i = 0; i < NUM_DETAIL_CONFIG_KEYS; i++) {
+		sprintf(num, "%d", *(int *)((char *)&Detail + Detail_config_keys[i].offset));
+		os_config_write_string(DETAIL_SECTION, Detail_config_keys[i].name, num);
+	}
+}
+
+void detail_level_load_config()
+{
+	int i;
+
+	if (os_config_read_string(DETAIL_SECTION, "Setting", NULL) == NULL) {
+		Detail = Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS - 1];
+		detail_level_save_config();
+		return;
+	}
+	for (i = 0; i < NUM_DETAIL_CONFIG_KEYS; i++) {
+		char *value = os_config_read_string(DETAIL_SECTION, Detail_config_keys[i].name, NULL);
+		if (value) {
+			*(int *)((char *)&Detail + Detail_config_keys[i].offset) = atoi(value);
+		}
+	}
 }
 
 // Returns the current detail level or -1 if custom.

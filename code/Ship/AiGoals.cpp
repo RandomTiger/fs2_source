@@ -457,6 +457,7 @@
 #include "player.h"
 #include "MultiMsgs.h"
 #include "Multi.h"
+#include "Autotest.h"	// Claude
 
 // all ai goals dealt with in this code are goals that are specified through
 // sexpressions in the mission file.  They are either specified as part of a
@@ -1982,7 +1983,7 @@ void ai_process_mission_orders( int objnum, ai_info *aip )
 	aip->ai_flags &= ~AIF_FORMATION_OBJECT;
 
 	// AL 3-7-98: If this is a player ship, and the goal is not a formation goal, then do a quick out
-	if ( (objp->flags & OF_PLAYER_SHIP) && (current_goal->ai_mode != AI_GOAL_FORM_ON_WING) ) {
+	if ( (objp->flags & OF_PLAYER_SHIP) && !Autotest_player_npc && (current_goal->ai_mode != AI_GOAL_FORM_ON_WING) ) {	// Claude: -playernpc
 		return;
 	}	
 

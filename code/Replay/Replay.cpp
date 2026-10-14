@@ -105,7 +105,7 @@ typedef struct replay_header {
 	int	missiontime;
 	int	pilot_size;
 	int	campaign_size;
-	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h)
+	int	autotest;					// Claude: version 2 adds these three.  The mission was played under autotest rules (Autotest.h); bit 1 is -playernpc
 	int	autotest_time;
 	int	autotest_speed;
 	float	view_position[3];			// Claude: version 3.  Left by whatever the menus last drew in 3D; engine sounds use it until the player enters
@@ -1108,7 +1108,11 @@ void replay_load_begin()
 		if (Hdr.mission_checksum != replay_mission_checksum()) {
 			replay_fatal("Mission file '%s' differs from the recorded one", Hdr.mission);
 		}
-		replay_check_int("Skill level", Hdr.skill_level, Game_skill_level);
+		if (Hdr.autotest) {
+			Game_skill_level = Hdr.skill_level;	// autotest may have played at -at_skill, and does not save the pilot
+		} else {
+			replay_check_int("Skill level", Hdr.skill_level, Game_skill_level);
+		}
 		replay_check_int("Screen width", Hdr.screen_w, gr_screen.max_w);
 		replay_check_int("Screen height", Hdr.screen_h, gr_screen.max_h);
 		replay_check_int("Sound enabled", Hdr.sound_enabled, Sound_enabled);

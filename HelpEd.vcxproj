@@ -156,7 +156,9 @@
     <ClCompile Include="code\HelpEd\HelpEdLine.cpp" />
     <ClCompile Include="code\HelpEd\HelpEdView.cpp" />
     <ClCompile Include="code\HelpEd\MainFrm.cpp" />
-    <ClCompile Include="code\HelpEd\StdAfx.cpp" />
+    <ClCompile Include="code\HelpEd\StdAfx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="code\HelpEd\HelpEd.h" />
