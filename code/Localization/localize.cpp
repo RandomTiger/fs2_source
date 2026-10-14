@@ -589,11 +589,14 @@ void lcl_xstr_init()
 					Error(LOCATION, NOX("Strings.tbl is corrupt"));
 				}
 			}
-			Xstr_table[index].offset_x = offset_lo;
-			if (num_offsets_on_this_line == 2) {
-				Xstr_table[index].offset_x_hi = offset_hi;
-			} else {
-				Xstr_table[index].offset_x_hi = offset_lo;						
+			// Claude: same range check as the string above; an index outside it wrote past Xstr_table
+			if (index >= 0 && index < XSTR_SIZE) {
+				Xstr_table[index].offset_x = offset_lo;
+				if (num_offsets_on_this_line == 2) {
+					Xstr_table[index].offset_x_hi = offset_hi;
+				} else {
+					Xstr_table[index].offset_x_hi = offset_lo;						
+				}
 			}
 
 			// clear out our vars
@@ -1158,7 +1161,8 @@ int lcl_ext_lookup_sub(char *text, char *out, int id)
 
 		case TS_STRING:
 			// if we have an end quote, we need to look for a comma
-			if((*p == '\"') /*&& (Ts_text_size > 0)*/ && (Ts_text[Ts_text_size - 1] != '\\')){
+			// Claude: an empty string has no previous char; Ts_text[-1] is outside the array
+			if((*p == '\"') /*&& (Ts_text_size > 0)*/ && ((Ts_text_size == 0) || (Ts_text[Ts_text_size - 1] != '\\'))){
 				// we're now done - we have a string
 				Ts_current_state = TS_SCANNING;
 
