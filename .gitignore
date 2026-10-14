@@ -42,3 +42,15 @@ UpgradeLog\.htm
 Release/
 /.vs/freespace2/v17
 /.vs
+HelpEd.exe
+Ac.exe
+Fonttool.exe
+Nebedit.exe
+Pofview.exe
+AcRelease/
+FonttoolRelease/
+NebeditRelease/
+PofViewRelease/
+CFileArchiverRelease/
+CryptstringRelease/
+ScrambleRelease/
