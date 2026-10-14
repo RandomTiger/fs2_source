@@ -243,6 +243,8 @@ void CObjectTree::OnSelchangedTree1(NMHDR* pNMHDR, LRESULT* pResult)
 				if ( sm->num_details > 5 )
 					m_txt_detail6.SetWindowText(pm->submodel[sm->details[5]].name);
 
+				// Claude: polymodel has debug_info only in Debug builds
+#ifndef NDEBUG
 				if ( sm->i_replace > -1 )	{
 					sprintf( tmp, "%s\n[I replace %s]", pm->debug_info, pm->submodel[sm->i_replace].name );
 					m_txt_pof_info.SetWindowText(tmp);
@@ -252,6 +254,9 @@ void CObjectTree::OnSelchangedTree1(NMHDR* pNMHDR, LRESULT* pResult)
 				} else {
 					m_txt_pof_info.SetWindowText(pm->debug_info);
 				}
+#else
+				m_txt_pof_info.SetWindowText("");
+#endif
 
 				
 			} else {
