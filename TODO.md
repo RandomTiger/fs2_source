@@ -19,8 +19,8 @@
         PlayerMenu.cpp one to player_menu_buttons.
 
 ## Fred2
-- [ ] Release defines FRED but links code.lib built without it (MAX_SHIPS 100 vs 150).
-- [ ] Debug uses /MDd while code.lib uses /MTd.
+- [x] Release defines FRED but links code.lib built without it (MAX_SHIPS 100 vs 150). FRED now uses 150 too, review 40.
+- [x] Debug uses /MDd while code.lib uses /MTd. FRED Debug now uses static MFC and /MTd, review 41.
 
 ## Original-source bugs from /analyze (fix on OriginalSourceBugFixes, one review doc each)
 Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29 fixed the two that matter.
