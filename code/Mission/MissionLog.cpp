@@ -448,7 +448,7 @@ void mission_log_add_entry(int type, char *pname, char *sname, int info_index)
 			if ( sname ) {
 				index = ship_name_lookup( sname );
 				Assert( index != -1 );
-				mission_log_flag_team( entry, ML_FLAG_SECONDARY, Ships[index].team );
+				mission_log_flag_team( entry, ML_FLAG_SECONDARY, (index >= 0) ? Ships[index].team : TEAM_FRIENDLY );	// Claude: index is -1 when the ship was not found; same default as the primary above
 			}
 		} else if ( type == LOG_SHIP_DESTROYED ) {
 			if ( sname ) {
@@ -486,10 +486,10 @@ void mission_log_add_entry(int type, char *pname, char *sname, int info_index)
  			} else {
 				nprintf(("missionlog", "No secondary name for ship destroyed log entry!\n"));
 			}
-		} else if ( (type == LOG_SHIP_SUBSYS_DESTROYED) && (Ship_info[Ships[index].ship_info_index].flags & SIF_SMALL_SHIP) ) {
+		} else if ( (type == LOG_SHIP_SUBSYS_DESTROYED) && (index >= 0) && (Ship_info[Ships[index].ship_info_index].flags & SIF_SMALL_SHIP) ) {	// Claude: index is -1 when the ship was not found
 			// make subsystem destroyed entries for small ships hidden
 			entry->flags |= MLF_HIDDEN;
-		} else if ( (type == LOG_SHIP_ARRIVE) && (Ships[index].wingnum != -1 ) ) {
+		} else if ( (type == LOG_SHIP_ARRIVE) && (index >= 0) && (Ships[index].wingnum != -1 ) ) {	// Claude: index is -1 when the ship was not found
 			// arrival of ships in wings don't display
 			entry->flags |= MLF_HIDDEN;
 		}
