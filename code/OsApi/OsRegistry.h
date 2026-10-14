@@ -29,15 +29,17 @@ extern char *Osreg_title;
 // initialize the registry. setup default keys to use
 void os_init_registry_stuff(char *company, char *app, char *version);
 
+// Claude: settings are kept in an ini file (fs2.ini in the game folder) instead of the registry.
+// -ini <file> picks another file; call before os_init.
+void os_config_set_ini(char *file);
+char *os_config_ini_file();
+
 // Removes a value from to the INI file.  Passing
 // name=NULL will delete the section.
 void os_config_remove( char *section, char *name );
 
 // Writes a string to the registry
 void os_config_write_string( char *section, char *name, char *value );
-
-// same as previous function except we don't use the application name to build up the keyname
-void os_config_write_string2( char *section, char *name, char *value );
 
 // Writes an unsigned int to the INI file.  
 void os_config_write_uint( char *section, char *name, unsigned int value );
@@ -49,14 +51,8 @@ void os_config_write_uint( char *section, char *name, unsigned int value );
 // same buffer.
 char * os_config_read_string( char *section, char *name, char *default_value=NULL );
 
-// same as previous function except we don't use the application name to build up the keyname
-char * os_config_read_string2( char *section, char *name, char *default_value=NULL );
-
 // Reads a string from the INI file.  Default_value must 
 // be passed, and if 'name' isn't found, then returns default_value
 unsigned int  os_config_read_uint( char *section, char *name, unsigned int default_value );
-
-// uses Ex versions of Windows registry functions
-char * os_config_read_string_ex( char *keyname, char *name, char *default_value );
 
 #endif
