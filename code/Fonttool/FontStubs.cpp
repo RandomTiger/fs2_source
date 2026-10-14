@@ -103,3 +103,11 @@ int Player_multi_died_check;
 int tst;
 int game_single_step;
 int last_single_step;
+
+// Claude: game globals the recorder (code/Replay) uses. They live in FreeSpace.cpp, which this tool does not
+// link; FRED has the same stubs in FredStubs.cpp. With a mission count of 0 nothing reads the list.
+struct fs_builtin_mission *Game_builtin_mission_list = 0;
+int Game_builtin_mission_count = 0;
+long Last_time = 0;					// fix
+long Last_delta_time = 0;				// fix
+int saved_timestamp_ticker = -1;
