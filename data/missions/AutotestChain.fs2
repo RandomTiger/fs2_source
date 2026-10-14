@@ -18,6 +18,7 @@ waypoints, escort list, wings and waves, wingman messages, fighters attacking th
 bombers and a kamikaze against a corvette, beams, turrets, a destroyed subsystem, damage
 arcs, two capital ships breaking up (one in front of the player, one behind), a
 shockwave over the player, asteroids, IFF change, warp in and out, and the supernova.
+autotest: player stays still
 $End Notes:
 
 $Mission Desc:
