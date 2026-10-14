@@ -1,0 +1,737 @@
+#Mission Info
+
+$Version: 0.10
+$Name:  XSTR("Autotest Chain", -1)
+$Author: Claude
+$Created: 10/14/26 at 12:00:00
+$Modified: 10/14/26 at 13:00:00
+$Notes:
+Written by hand (not FRED) as a test of chained events. Based on Tom's Autotest.fs2:
+the EMP storm scrambles the player's target, so the unflown autotest player scans the
+freighter. The scan starts a chain of events, each one a few seconds after the last,
+and the last one starts the supernova. Run with a longer time limit: -at_time 300.
+autotest: mission controls vulnerability
+The player starts invulnerable and is made vulnerable just before the supernova, which kills
+the player and so ends the mission.
+Covers: cargo scan, EMP storm, talking heads, directives, goals and objective notices,
+waypoints, escort list, wings and waves, wingman messages, fighters attacking the player,
+bombers and a kamikaze against a corvette, beams, turrets, a destroyed subsystem, damage
+arcs, two capital ships breaking up (one in front of the player, one behind), a
+shockwave over the player, asteroids, IFF change, warp in and out, and the supernova.
+$End Notes:
+
+$Mission Desc:
+ XSTR("Autotest: cargo scan, then a chain of events ending in a supernova.", -1)
+$end_multi_text
+
++Game Type Flags: 1
+
++Flags: 4
++NebAwacs: 3000.000000
+
++Storm: s_emp
+
+
++Red Alert: 0
+
++Scramble: 0
+
++Disallow Support: 1
+
++Viewer pos: 0.000000, 100.000000, -200.000000
++Viewer orient:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+
+#Plot Info
+
+$Tour:  XSTR("Blah", -1)
+$Pre-Briefing Cutscene: Blah
+$Pre-Mission Cutscene: Blah
+$Next Mission Success: Blah
+$Next Mission Partial: Blah
+$Next Mission Failure: Blah
+
+#Command Briefing
+
+#Briefing
+$start_briefing
+$num_stages: 0
+$end_briefing
+
+#Debriefing_info
+
+$Num stages: 0
+
+#Players		;! 1 total
+
+$Starting Shipname: Alpha 1
+$Ship Choices: (
+	"GTF Ulysses"	5
+)
+
++Weaponry Pool: (
+	"Subach HL-7"	17
+	"Harpoon"	500
+)
+
+#Objects		;! 14 total
+
+$Name: Alpha 1		;! Object #0
+$Class: GTF Ulysses
+$Team: Friendly
+$Location: -17.260008, -0.000107, 43.723938
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Hull: 10
++Initial Shields: 10
++Subsystem: Pilot
++Subsystem: communication
+$Damage: 90
++Subsystem: navigation
+$Damage: 90
++Subsystem: weapons
+$Damage: 90
++Subsystem: sensors
+$Damage: 90
++Subsystem: engines
+$Damage: 90
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( "cargo-known" "player-start" "invulnerable" )
++Group: 0
++Score: 8
+
+$Name: Freighter		;! Object #1
+$Class: TSC 2
+$Team: Friendly
+$Location: -20.427986, 0.000000, 91.690552
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$Cargo 1:  XSTR("AI software", -1)
++Initial Velocity: 33
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( true )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( "no-shields" "scannable" "escort" )
++Escort Priority: 20
++Group: 0
+
+$Name: Kappa 1		;! Object #2
+$Class: SF Mara
+$Team: Hostile
+$Location: 200.000000, 40.000000, 700.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Alpha 1" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 40
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Kappa 2		;! Object #3
+$Class: SF Mara
+$Team: Hostile
+$Location: 240.000000, 60.000000, 720.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Freighter" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 40
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Kappa 3		;! Object #4
+$Class: SF Mara
+$Team: Hostile
+$Location: 160.000000, 20.000000, 740.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Alpha 1" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 40
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Beta 1		;! Object #5
+$Class: GTF Myrmidon
+$Team: Friendly
+$Location: -60.000000, 10.000000, -300.000000
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Kappa 1" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 40
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Beta 2		;! Object #6
+$Class: GTF Myrmidon
+$Team: Friendly
+$Location: 40.000000, -10.000000, -320.000000
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Kappa 3" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 40
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( false )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Lilith		;! Object #7
+$Class: SC Lilith
+$Team: Hostile
+$Location: 500.000000, 100.000000, 1400.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Deimos" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 20
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Cruiser" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 100
+
+$Name: Cain		;! Object #8
+$Class: SC Cain
+$Team: Hostile
+$Location: 0.000000, 50.000000, -1500.000000
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 0
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Cruiser" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 100
+
+$Name: Deimos		;! Object #9
+$Class: GTCv Deimos
+$Team: Friendly
+$Location: -500.000000, 0.000000, 1000.000000
+$Orientation:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Lilith" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 20
++Initial Hull: 45
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Corvette" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( "escort" )
++Escort Priority: 10
++Group: 0
++Score: 100
+
+$Name: Theta 1		;! Object #10
+$Class: SB Nephilim
+$Team: Hostile
+$Location: 300.000000, -50.000000, 1500.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Deimos" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Bombers" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+$Name: Theta 2		;! Object #11
+$Class: SF Dragon
+$Team: Hostile
+$Location: 260.000000, -30.000000, 1520.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$AI Goals: ( goals ( ai-chase "Deimos" 89 ) )
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 50
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Bombers" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( "kamikaze" )
++Kamikaze Damage: 400
++Group: 0
++Score: 10
+
+$Name: Dis		;! Object #12
+$Class: SFr Dis
+$Team: Hostile
+$Location: 80.000000, 30.000000, 300.000000
+$Orientation:
+	-1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, -1.000000
+$IFF: IFF 1
+$AI Behavior: None
+$Cargo 1:  XSTR("Nothing", -1)
++Initial Velocity: 0
++Initial Hull: 100
++Initial Shields: 100
++Subsystem: Pilot
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Cruiser" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Determination: 10
++Flags: ( )
++Group: 0
++Score: 10
+
+#Wings		;! 3 total
+
+$Name: Alpha
+$Waves: 1
+$Wave Threshold: 0
+$Special Ship: 0		;! Alpha 1
+
+$Arrival Location: Hyperspace
+$Arrival Cue: ( true )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Ships: (		;! 1 total
+	"Alpha 1"
+)
++Hotkey: 0
++Flags:( )
+
+$Name: Kappa
+$Waves: 2
+$Wave Threshold: 0
+$Special Ship: 0		;! Kappa 1
+
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Hostiles" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Ships: (		;! 3 total
+	"Kappa 1"
+	"Kappa 2"
+	"Kappa 3"
+)
++Flags:( )
+
+$Name: Beta
+$Waves: 1
+$Wave Threshold: 0
+$Special Ship: 0		;! Beta 1
+
+$Arrival Location: Hyperspace
+$Arrival Cue: ( is-event-true-delay "Allies" 0 )
+$Departure Location: Hyperspace
+$Departure Cue: ( false )
+$Ships: (		;! 2 total
+	"Beta 1"
+	"Beta 2"
+)
++Flags:( )
+
+#Events		;! 15 total
+
+$Formula: ( when
+   ( is-cargo-known-delay 0 "Freighter" )
+   ( send-message "#Command" "High" "Scan complete" )
+   ( add-goal "Freighter" ( ai-waypoints-once "Freighter path" 89 ) )
+)
++Name: Scanned
++Repeat Count: 1
++Interval: 1
++Objective:  XSTR("Scan the freighter", -1)
+
+$Formula: ( when
+   ( true )
+   ( send-message "#Command" "High" "Hostiles inbound" )
+)
++Name: Hostiles
++Repeat Count: 1
++Interval: 1
++Chained: 2
+
+$Formula: ( when
+   ( true )
+   ( send-message "Beta 1" "Normal" "Beta on station" )
+)
++Name: Allies
++Repeat Count: 1
++Interval: 1
++Chained: 5
+
+$Formula: ( when
+   ( true )
+   ( add-goal "Kappa 2" ( ai-chase "Beta 1" 89 ) )
+)
++Name: Dogfight
++Repeat Count: 1
++Interval: 1
++Chained: 3
+
+$Formula: ( when
+   ( true )
+   ( send-message "#Command" "High" "Cruiser inbound" )
+)
++Name: Cruiser
++Repeat Count: 1
++Interval: 1
++Chained: 5
+
+$Formula: ( when
+   ( true )
+   ( send-message "#Command" "High" "Corvette inbound" )
+)
++Name: Corvette
++Repeat Count: 1
++Interval: 1
++Chained: 4
+
+$Formula: ( when
+   ( true )
+   ( beam-free-all "Lilith" )
+   ( beam-free-all "Deimos" )
+   ( turret-free-all "Lilith" )
+   ( turret-free-all "Deimos" )
+)
++Name: Beams
++Repeat Count: 1
++Interval: 1
++Chained: 4
+
+$Formula: ( when
+   ( true )
+   ( send-message "#Command" "High" "Bombers inbound" )
+)
++Name: Bombers
++Repeat Count: 1
++Interval: 1
++Chained: 2
+
+$Formula: ( when
+   ( true )
+   ( sabotage-subsystem "Deimos" "turret01" 100 )
+)
++Name: Sabotage
++Repeat Count: 1
++Interval: 1
++Chained: 6
+
+$Formula: ( when
+   ( true )
+   ( self-destruct "Lilith" )
+   ( send-message "#Command" "High" "Cruiser scuttled" )
+)
++Name: Scuttle
++Repeat Count: 1
++Interval: 1
++Chained: 9
+
+$Formula: ( when
+   ( true )
+   ( self-destruct "Cain" )
+)
++Name: Scuttle behind
++Repeat Count: 1
++Interval: 1
++Chained: 3
+
+$Formula: ( when
+   ( true )
+   ( self-destruct "Dis" )
+)
++Name: Blast
++Repeat Count: 1
++Interval: 1
++Chained: 3
+
+$Formula: ( when
+   ( true )
+   ( add-goal "Beta 1" ( ai-warp-out 89 ) )
+   ( add-goal "Beta 2" ( ai-warp-out 89 ) )
+   ( add-goal "Deimos" ( ai-warp-out 89 ) )
+   ( change-iff "Hostile" "Freighter" )
+   ( send-message "#Command" "High" "Withdraw" )
+)
++Name: Withdraw
++Repeat Count: 1
++Interval: 1
++Chained: 5
+
+$Formula: ( when
+   ( true )
+   ( supernova-start 10 )
+   ( ship-vulnerable "Alpha 1" )
+)
++Name: Supernova
++Repeat Count: 1
++Interval: 1
++Chained: 5
+
+$Formula: ( when
+   ( is-destroyed-delay 0 "Kappa" )
+   ( send-message "Beta 1" "Normal" "Fighters down" )
+)
++Name: Fighters down
++Repeat Count: 1
++Interval: 1
++Objective:  XSTR("Destroy the Shivan fighters", -1)
+
+#Goals		;! 3 total
+
+$Type: Primary
++Name: Destroy fighters
+$MessageNew:  XSTR("Destroy the Shivan fighters", -1)
+$end_multi_text
+$Formula: ( is-destroyed-delay 0 "Kappa" )
+
+$Type: Secondary
++Name: Cruiser gone
+$MessageNew:  XSTR("The Shivan Lilith is destroyed", -1)
+$end_multi_text
+$Formula: ( is-destroyed-delay 0 "Lilith" )
+
+$Type: Bonus
++Name: Second cruiser gone
+$MessageNew:  XSTR("The Shivan Cain is destroyed", -1)
+$end_multi_text
+$Formula: ( is-destroyed-delay 0 "Cain" )
+
+#Waypoints		;! 1 lists total
+
+$Name: Freighter path
+$List: (		;! 2 points in list
+	( -20.000000, 0.000000, 600.000000 )
+	( 300.000000, 0.000000, 1200.000000 )
+)
+
+#Messages		;! 9 total
+
+$Name: Scan complete
+$Team: -1
+$MessageNew:  XSTR("Scan complete. That cargo has drawn attention: Shivan fighters are on their way.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Hostiles inbound
+$Team: -1
+$MessageNew:  XSTR("Shivan fighters arriving. Protect the freighter.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Beta on station
+$Team: -1
+$MessageNew:  XSTR("Beta wing on station. Engaging.", -1)
+$end_multi_text
++AVI Name: Head-TP1
+
+$Name: Cruiser inbound
+$Team: -1
+$MessageNew:  XSTR("Two Shivan cruisers are jumping in, one behind you.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Corvette inbound
+$Team: -1
+$MessageNew:  XSTR("The Deimos is arriving to engage the cruiser. All beams free.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Bombers inbound
+$Team: -1
+$MessageNew:  XSTR("Shivan bombers going for the Deimos.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Cruiser scuttled
+$Team: -1
+$MessageNew:  XSTR("The Shivans are scuttling their ships. Brace for shockwaves.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Withdraw
+$Team: -1
+$MessageNew:  XSTR("The star is going nova. All ships withdraw. The freighter has been taken over.", -1)
+$end_multi_text
++Persona: Terran Command
++AVI Name: Head-CM1
+
+$Name: Fighters down
+$Team: -1
+$MessageNew:  XSTR("Shivan fighters destroyed.", -1)
+$end_multi_text
++AVI Name: Head-TP1
+
+#Reinforcements		;! 0 total
+
+
+#Background bitmaps		;! 1 total
+
+$Num stars: 500
+$Ambient light level: 0
++Neb2: nbackpurp2
+
++Neb2Flags: 63
+
+$Sun: SunWhite
++Angles: 0.000000 0.000000 0.000000
++Scale: 1.000000
+$Starbitmap: neb08
++Angles: 0.000000 0.000000 0.000000
++ScaleX: 10.000000
++ScaleY: 10.000000
++DivX: 1
++DivY: 1
+
+#Asteroid Fields
+
+$Density: 100
++Field Type: 0
++Debris Genre: 0
++Field Debris Type: 0
++Field Debris Type: 1
++Field Debris Type: 2
+$Average Speed: 9.999999
+$Minimum: -1000.000000, -1000.000000, -1000.000000
+$Maximum: 1000.000000, 1000.000000, 1000.000000
+
+#Music
+
+$Event Music: None
+$Briefing Music: None
+
+#End
