@@ -41,9 +41,6 @@ void os_config_remove( char *section, char *name );
 // Writes a string to the registry
 void os_config_write_string( char *section, char *name, char *value );
 
-// same as previous function except we don't use the application name to build up the keyname
-void os_config_write_string2( char *section, char *name, char *value );
-
 // Writes an unsigned int to the INI file.  
 void os_config_write_uint( char *section, char *name, unsigned int value );
 
@@ -54,14 +51,8 @@ void os_config_write_uint( char *section, char *name, unsigned int value );
 // same buffer.
 char * os_config_read_string( char *section, char *name, char *default_value=NULL );
 
-// same as previous function except we don't use the application name to build up the keyname
-char * os_config_read_string2( char *section, char *name, char *default_value=NULL );
-
 // Reads a string from the INI file.  Default_value must 
 // be passed, and if 'name' isn't found, then returns default_value
 unsigned int  os_config_read_uint( char *section, char *name, unsigned int default_value );
-
-// uses Ex versions of Windows registry functions
-char * os_config_read_string_ex( char *keyname, char *name, char *default_value );
 
 #endif
