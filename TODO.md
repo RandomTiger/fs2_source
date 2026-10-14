@@ -24,18 +24,18 @@
 
 ## Original-source bugs from /analyze (fix on OriginalSourceBugFixes, one review doc each)
 Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29 fixed the two that matter.
-- [ ] `SEXP.CPP` add_sexps, sexp_gt, sexp_lt, sexp_equal: read `Sexp_nodes[-1].value` when the
-      first argument is a plain number (CAR is -1). Only compared with the NAN markers.
-- [ ] `SEXP.CPP` sexp_and_in_sequence: writes `Sexp_nodes[-1].value` when the first argument
-      is a plain non-zero number.
-- [ ] `BmpMan.cpp` bm_create: `first_slot` starts at MAX_BITMAPS but the check is for -1, so
-      with no free slot it writes `bm_bitmaps[MAX_BITMAPS]`.
-- [ ] `localize.cpp` lcl_xstr_init writes `Xstr_table[index]` offsets outside the range check;
-      lcl_ext_lookup_sub reads `Ts_text[-1]` on an empty string.
-- [ ] Reached only after a failed Assert/Int3 or not at all in normal play: KeyControl debug
+- [x] `SEXP.CPP` add_sexps, sexp_gt, sexp_lt, sexp_equal: read `Sexp_nodes[-1].value` when the
+      first argument is a plain number (CAR is -1). Only compared with the NAN markers. Review 32.
+- [x] `SEXP.CPP` sexp_and_in_sequence: writes `Sexp_nodes[-1].value` when the first argument
+      is a plain non-zero number. Review 32.
+- [x] `BmpMan.cpp` bm_create: `first_slot` starts at MAX_BITMAPS but the check is for -1, so
+      with no free slot it writes `bm_bitmaps[MAX_BITMAPS]`. Review 33.
+- [x] `localize.cpp` lcl_xstr_init writes `Xstr_table[index]` offsets outside the range check;
+      lcl_ext_lookup_sub reads `Ts_text[-1]` on an empty string. Review 34.
+- [x] Reached only after a failed Assert/Int3 or not at all in normal play: KeyControl debug
       ship cycling (`> MAX_SHIP_TYPES` should be `>=`), MissionDebrief award text (`>` should
-      be `>=`) and `Campaign.missions[-1]`, MissionLog `Ships[-1]`, AiCode `goals[-1]`.
-- [ ] FRED only: `fhash.cpp` fhash_init clears `sizeof(fhash_node)` per entry of a pointer table.
+      be `>=`) and `Campaign.missions[-1]`, MissionLog `Ships[-1]`, AiCode `goals[-1]`. Reviews 35 to 38.
+- [x] FRED only: `fhash.cpp` fhash_init clears `sizeof(fhash_node)` per entry of a pointer table. Review 39.
 
 ## Recorder (RecordPlayback branch)
 - [x] ASan campaign run at 6ee5ce3 (after the focus fix and reviews 27 to 29): all 34
