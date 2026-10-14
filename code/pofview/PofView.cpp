@@ -117,7 +117,10 @@ BOOL CPofViewApp::InitInstance()
 	Assert(tok != NULL);	
 	*/
 
+	// Claude: the debug output window exists only in Debug builds, as in FRED
+	#ifndef NDEBUG
 	outwnd_init();
+	#endif
 	timer_init();
 	cfile_init(__argv[0]);
 	palette_load_table( "gamepalette1-01" );
