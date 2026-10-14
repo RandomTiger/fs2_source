@@ -29,6 +29,8 @@ if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\check_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $Out | Out-Null
+# the test missions the autotest recordings play
+Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
