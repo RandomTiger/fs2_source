@@ -32,7 +32,7 @@ Reading a failure:
 - `-nodraw` still clears and flips the screen, so the flip's own reads stay; only the mission's 3D scene, the target box model and the HUD are skipped.
 
 ## Done
-On `PrePort` (093683c, pieces 1 and 2): the game view and the eye position, orientation and shake set in the logic phase; `OF_WAS_RENDERED` set from the view cone there (`game_view_update_was_rendered`); the `-nodraw` flag.
+Pieces 1 and 2 (093683c, made on `PrePort`, reverted there by 6ab7303 and kept on this branch; see item 0 below): the game view and the eye position, orientation and shake set in the logic phase; `OF_WAS_RENDERED` set from the view cone there (`game_view_update_was_rendered`); the `-nodraw` flag.
 
 On this branch (first commit, work in progress):
 - HUD sounds moved to the logic phase: the homing-missile beep (`hud_update_homing_beep`, `HUDtarget.cpp`), the lock threat warning (`hud_update_lock_threat`, `HUDreticle.cpp`), the subspace and objective notifies (`HUD.cpp`). Called from `HUD_update_3d` and `HUD_update_2d`.
