@@ -91,7 +91,7 @@ static LONG os_reg_open_read( char *keyname, HKEY *hKey, char *name )
 //
 // Settings live in an ini file (fs2.ini in the game folder, or the file given with -ini) instead of
 // the registry.  The first run without the file creates it from the registry values; after that the
-// registry is never read or written.  Settings with no section go in [Settings].  The launcher's
+// registry is never read or written.  Settings the game needs that neither has get defaults.  Settings with no section go in [Settings].  The launcher's
 // Videocard string is kept as Renderer, Device, ColourDepth and Resolution, and put back together
 // when the game reads Videocard.
 
@@ -254,7 +254,7 @@ static void os_ini_create()
 	if ( fp == NULL ) {
 		return;
 	}
-	fprintf( fp, "; FreeSpace 2 settings.  Made from the registry on the first run; the game now reads only this file.\n" );
+	fprintf( fp, "; FreeSpace 2 settings.  Made on the first run from the registry, with defaults for what it lacks; the game reads only this file.\n" );
 	fprintf( fp, "; Renderer, Device, ColourDepth and Resolution replace the launcher's Videocard setting.\n" );
 	fprintf( fp, "; [Detail] sets the detail levels for every pilot (0 lowest, 4 highest; the last three 0 or 1).\n\n" );
 	fclose( fp );
@@ -277,6 +277,34 @@ char *os_config_ini_file()
 	return Os_ini_file;
 }
 
+// settings the game needs that the launcher used to write.  Any that the ini (and on the first run the
+// registry) does not have are written with these values, so the game never needs the launcher.
+static char *Os_ini_defaults[][2] = {
+	{ "Renderer",		"Direct3D" },
+	{ "Device",			"Primary Display Driver" },
+	{ "ColourDepth",	"32" },
+	{ "Resolution",	"1024x768" },
+	{ "Soundcard",		"DirectSound" },
+	{ "Language",		"English" },
+};
+#define OS_INI_NUM_DEFAULTS	(sizeof(Os_ini_defaults) / sizeof(Os_ini_defaults[0]))
+
+static void os_ini_write_defaults()
+{
+	char buf[1024];
+	int i;
+
+	for ( i = 0; i < OS_INI_NUM_DEFAULTS; i++ ) {
+		if ( !os_ini_get( NULL, Os_ini_defaults[i][0], buf, sizeof(buf) ) ) {
+			// a launcher string kept as Videocard (not in the usual form) still decides the renderer
+			if ( (i < 4) && os_ini_get( NULL, "Videocard", buf, sizeof(buf) ) ) {
+				continue;
+			}
+			WritePrivateProfileString( OS_INI_MAIN_SECTION, Os_ini_defaults[i][0], Os_ini_defaults[i][1], Os_ini_file );
+		}
+	}
+}
+
 static void os_ini_init()
 {
 	if ( !Os_ini_file[0] ) {
@@ -286,6 +314,7 @@ static void os_ini_init()
 	if ( GetFileAttributes( Os_ini_file ) == INVALID_FILE_ATTRIBUTES ) {
 		os_ini_create();
 	}
+	os_ini_write_defaults();
 	Os_ini_active = 1;
 }
 

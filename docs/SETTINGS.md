@@ -5,6 +5,8 @@ The game keeps its settings in `fs2.ini` in the game folder instead of the Windo
 ## First run
 If the file doesn't exist, the game creates it from the registry on start-up, taking each value from where a registry read would have found it: the current user's `Volition\FreeSpace2` key first, then the machine's `Volition\FreeSpace2`, then the launcher's `Volition\Free`. After that the registry is never read or written, so the original launcher no longer changes the game's settings. Delete `fs2.ini` to copy the registry again.
 
+The game does not need the registry or the launcher. On every start, any of these the file lacks is written with a default: `Renderer=Direct3D`, `Device=Primary Display Driver`, `ColourDepth=32`, `Resolution=1024x768`, `Soundcard=DirectSound`, `Language=English`. Everything else has a default in the code. On a machine where the launcher never ran, the first start makes a complete file from these.
+
 ## Other files
 `-ini <file>` uses another settings file, for example one per configuration in a test run. A file that doesn't exist is created from the registry in the same way.
 
