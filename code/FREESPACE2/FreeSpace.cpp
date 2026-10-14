@@ -560,7 +560,6 @@
 #include "MainHalltemp.h"
 #include "ExceptionHandler.h"
 #include "supernova.h"
-#include "GameView.h"	// Claude: logic phase camera
 #include "HUDshield.h"
 #include <io.h>
 // #include "names.h"
@@ -4087,11 +4086,7 @@ void game_frame()
 			clear_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			render3_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			game_render_frame_setup(&eye_pos, &eye_orient);
-			// Claude: logic phase. Gameplay used to take these from drawing: the camera from g3_set_view_matrix,
-			// OF_WAS_RENDERED from obj_render_all. Set here, at the same point in the frame, without drawing.
-			game_view_set(&eye_pos, &eye_orient, Viewer_zoom);
-			game_view_update_was_rendered();
-			if ( !Cmdline_nodraw ) game_render_frame( &eye_pos, &eye_orient );	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+			game_render_frame( &eye_pos, &eye_orient );
 
 			// save the eye position and orientation
 			if ( Game_mode & GM_MULTIPLAYER ) {
@@ -4099,7 +4094,7 @@ void game_frame()
 				Net_player->s_info.eye_orient = eye_orient;
 			}
 
-			if ( !Cmdline_nodraw ) hud_show_target_model();	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+			hud_show_target_model();
 
 			// check to see if we should display the death died popup
 			if(Game_mode & GM_DEAD_BLEW_UP){				
@@ -4141,13 +4136,13 @@ void game_frame()
 
 			// Draw the 2D HUD gauges
 			if(supernova_active() <	3){
-				if ( !Cmdline_nodraw ) game_render_hud_2d();	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+				game_render_hud_2d();
 			}
 
 			game_set_view_clip();
 
 			// Draw 3D HUD gauges			
-			if ( !Cmdline_nodraw ) game_render_hud_3d(&eye_pos, &eye_orient);	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing									
+			game_render_hud_3d(&eye_pos, &eye_orient);									
 
 			game_tst_frame();
 

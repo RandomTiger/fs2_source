@@ -315,7 +315,6 @@
     <ClCompile Include="Render\3dLaser.cpp" />
     <ClCompile Include="Render\3dMath.cpp" />
     <ClCompile Include="Render\3dSetup.cpp" />
-    <ClCompile Include="Render\GameView.cpp" />
     <ClCompile Include="Ship\Afterburner.cpp" />
     <ClCompile Include="Ship\ai.cpp" />
     <ClCompile Include="Ship\AiBig.cpp" />
@@ -566,7 +565,6 @@
     <ClInclude Include="Radar\Radar.h" />
     <ClInclude Include="Render\3D.H" />
     <ClInclude Include="Render\3dInternal.h" />
-    <ClInclude Include="Render\GameView.h" />
     <ClInclude Include="Ship\Afterburner.h" />
     <ClInclude Include="Ship\ai.h" />
     <ClInclude Include="Ship\AiBig.h" />
