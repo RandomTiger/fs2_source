@@ -236,8 +236,10 @@ extern vector	Dead_camera_pos, Original_vec_to_deader;
 
 #ifdef NDEBUG
 	#ifdef FRED
-		#define	MAX_SHIPS					100			// max number of ship instances there can be.
-		#define	SHIPS_LIMIT					100			// what MAX_SHIPS will be at release time (for error checking in debug mode)
+		// Claude: was 100, but code.lib (the game code FRED links) is built without FRED and uses 150, so FRED's own arrays
+		// (Fred_alt_names) were smaller than Ships[]. FRED now has the game's limit.
+		#define	MAX_SHIPS					150			// max number of ship instances there can be.
+		#define	SHIPS_LIMIT					150			// what MAX_SHIPS will be at release time (for error checking in debug mode)
 	#else
 		#define	MAX_SHIPS					150			// max number of ship instances there can be.
 		#define	SHIPS_LIMIT					150			// what MAX_SHIPS will be at release time (for error checking in debug mode)
