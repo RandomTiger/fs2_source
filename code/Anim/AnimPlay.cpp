@@ -224,10 +224,38 @@ void anim_init()
 	Anim_inited = TRUE;
 }
 
-// -------------------------------------------------------------------------------------------------
-// anim_render_all() will display the frames for the currently playing anims
-//
-void anim_render_all(int screen_id, float frametime)
+// Claude: the screen whose anims anim_update_all advanced this frame, so that anim_render_all only draws them (-1 if none)
+static int Anim_updated_screen = -1;
+
+// Claude: draws an anim's current frame (the bitmap anim_show_next_frame made last). Split out of anim_show_next_frame
+// so that anim_render_all can draw frames that anim_update_all decoded in the logic phase.
+static void anim_blit_frame(anim_instance *instance)
+{
+	vertex	image_vertex;
+
+	gr_set_bitmap(instance->last_bitmap);
+	
+	// determine x,y to display the bitmap at
+	if ( instance->world_pos == NULL ) {
+		if ( instance->aa_color == NULL ) {
+			gr_bitmap(instance->x, instance->y);
+		}
+		else {
+			gr_set_color_fast( (color*)instance->aa_color );
+			gr_aabitmap(instance->x, instance->y);
+		}
+	}
+	else {
+		g3_rotate_vertex(&image_vertex,instance->world_pos);
+		Assert(instance->radius != 0.0f);
+		g3_draw_bitmap(&image_vertex, 0, instance->radius*1.5f, TMAP_FLAG_TEXTURED );
+	}
+}
+
+// Claude: the logic phase part of anim_render_all. It advances and decodes the anims for screen_id without
+// drawing them, so that animation timing (talking heads, which mission messages wait for) does not depend on
+// drawing. anim_render_all for the same screen then only draws them.
+void anim_update_all(int screen_id, float frametime)
 {
 	anim_instance* A;
 	anim_instance* temp;
@@ -235,6 +263,40 @@ void anim_render_all(int screen_id, float frametime)
 	A = GET_FIRST(&anim_render_list);
 	while( A !=END_OF_LIST(&anim_render_list) )	{
 		temp = GET_NEXT(A);
+		if ( A->screen_id == screen_id ) {
+			if ( Anim_ignore_frametime ) {
+				frametime = 0.0f;
+				Anim_ignore_frametime=0;
+			}
+			if ( anim_show_next_frame(A, frametime, 0) == -1 ) {
+				A->data = NULL;
+				anim_release_render_instance(A);	
+			}
+		}
+		A = temp;
+	}
+
+	Anim_updated_screen = screen_id;
+}
+
+// -------------------------------------------------------------------------------------------------
+// anim_render_all() will display the frames for the currently playing anims
+//
+void anim_render_all(int screen_id, float frametime)
+{
+	anim_instance* A;
+	anim_instance* temp;
+	int draw_only = (Anim_updated_screen == screen_id);	// Claude: anim_update_all already advanced them this frame
+
+	Anim_updated_screen = -1;	// Claude
+	A = GET_FIRST(&anim_render_list);
+	while( A !=END_OF_LIST(&anim_render_list) )	{
+		temp = GET_NEXT(A);
+		if ( draw_only ) {	// Claude: draw the frame anim_update_all decoded (none yet for an anim started since)
+			if ( (A->screen_id == screen_id) && (A->last_bitmap != -1) ) {
+				anim_blit_frame(A);
+			}
+		} else
 		if ( A->screen_id == screen_id ) {
 			if ( Anim_ignore_frametime ) {
 				frametime = 0.0f;
@@ -442,12 +504,11 @@ anim_instance *anim_play(anim_play_struct *aps)
 //	input:	instance		=>		pointer to animation instance
 //				frametime	=>		time elapsed since last call, in seconds
 //
-int anim_show_next_frame(anim_instance *instance, float frametime)
+int anim_show_next_frame(anim_instance *instance, float frametime, int blit)	// Claude: blit
 {
 	int		bitmap_id, bitmap_flags=0, new_frame_num, frame_diff=0, i, n_frames=0,frame_save;
 	float		percent_through, decompress_time, render_time, time;
-	vertex	image_vertex;
-	int aabitmap = 0;
+	int aabitmap = 0;	// Claude: image_vertex moved to anim_blit_frame
 	int bpp = 16;
 
 	Assert( instance != NULL );
@@ -672,26 +733,11 @@ int anim_show_next_frame(anim_instance *instance, float frametime)
 		//       part of the anim_free_list
 	}
 	else {
-		gr_set_bitmap(bitmap_id);
-		
-		// determine x,y to display the bitmap at
-		if ( instance->world_pos == NULL ) {
-			if ( instance->aa_color == NULL ) {
-				gr_bitmap(instance->x, instance->y);
-			}
-			else {
-				gr_set_color_fast( (color*)instance->aa_color );
-				gr_aabitmap(instance->x, instance->y);
-			}
-		}
-		else {
-			g3_rotate_vertex(&image_vertex,instance->world_pos);
-			Assert(instance->radius != 0.0f);
-			g3_draw_bitmap(&image_vertex, 0, instance->radius*1.5f, TMAP_FLAG_TEXTURED );
-		}
-
 		//bm_release(bitmap_id);
-		instance->last_bitmap = bitmap_id;
+		instance->last_bitmap = bitmap_id;	// Claude: set before drawing now; anim_blit_frame draws it
+		if ( blit ) {	// Claude: the drawing, moved to anim_blit_frame
+			anim_blit_frame(instance);
+		}
 	}
 
 	t2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording

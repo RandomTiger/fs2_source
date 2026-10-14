@@ -4091,7 +4091,11 @@ void game_frame()
 			// OF_WAS_RENDERED from obj_render_all. Set here, at the same point in the frame, without drawing.
 			game_view_set(&eye_pos, &eye_orient, Viewer_zoom);
 			game_view_update_was_rendered();
-			if ( !Cmdline_nodraw ) game_render_frame( &eye_pos, &eye_orient );	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+			// Claude: logic phase of the HUD anims (talking heads, which messages wait for), same condition as in game_render_frame
+			if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
+				anim_update_all(0, flFrametime);
+			}
+			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_frame( &eye_pos, &eye_orient ); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
 
 			// save the eye position and orientation
 			if ( Game_mode & GM_MULTIPLAYER ) {
@@ -4099,7 +4103,7 @@ void game_frame()
 				Net_player->s_info.eye_orient = eye_orient;
 			}
 
-			if ( !Cmdline_nodraw ) hud_show_target_model();	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; hud_show_target_model(); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
 
 			// check to see if we should display the death died popup
 			if(Game_mode & GM_DEAD_BLEW_UP){				
@@ -4141,13 +4145,19 @@ void game_frame()
 
 			// Draw the 2D HUD gauges
 			if(supernova_active() <	3){
-				if ( !Cmdline_nodraw ) game_render_hud_2d();	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
+				if ( Game_detail_flags & DETAIL_FLAG_HUD ) HUD_update_2d();	// Claude: logic phase of the 2D HUD, same conditions as in game_render_hud_2d
+				if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_hud_2d(); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
 			}
 
 			game_set_view_clip();
 
+			// Claude: logic phase of the 3D HUD, same conditions as in game_render_hud_3d
+			if ( (Game_detail_flags & DETAIL_FLAG_HUD) && (supernova_active() < 3) ) {
+				HUD_update_3d();
+			}
+
 			// Draw 3D HUD gauges			
-			if ( !Cmdline_nodraw ) game_render_hud_3d(&eye_pos, &eye_orient);	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing									
+			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_hud_3d(&eye_pos, &eye_orient); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream									
 
 			game_tst_frame();
 

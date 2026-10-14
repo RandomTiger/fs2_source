@@ -384,6 +384,7 @@ void hud_show_cmeasure_gague();
 void hud_show_brackets(object *targetp, vertex *projected_v);
 void hud_draw_offscreen_indicator(vertex* target_point, vector *tpos, float distance=0.0f);
 void hud_show_homing_missiles(void);
+void hud_update_homing_beep();	// Claude: logic phase part of hud_show_homing_missiles
 
 int hud_sensors_ok(ship *sp, int show_msg = 1);
 int hud_communications_state(ship *sp, int show_msg = 0);

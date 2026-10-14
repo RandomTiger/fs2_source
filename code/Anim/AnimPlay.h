@@ -121,12 +121,13 @@ void				anim_init();
 void				anim_level_init();
 void				anim_level_close();
 void				anim_render_all(int screen_id, float frametime);
+void				anim_update_all(int screen_id, float frametime);	// Claude: logic phase part of anim_render_all
 void				anim_render_one(int screen_id, anim_instance *ani, float frametime);
 void				anim_play_init(anim_play_struct *aps, anim *a_info, int x, int y);
 anim_instance *anim_play(anim_play_struct *aps);
 void				anim_ignore_next_frametime();
 int				anim_stop_playing(anim_instance* anim_instance);
-int				anim_show_next_frame(anim_instance *instance, float frametime);
+int				anim_show_next_frame(anim_instance *instance, float frametime, int blit = 1);	// Claude: blit = 0 advances and decodes without drawing
 void				anim_release_all_instances(int screen_id = 0);
 void				anim_release_render_instance(anim_instance* instance);
 anim			  *anim_load(char *name, int file_mapped = 0);

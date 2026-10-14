@@ -317,6 +317,8 @@ extern float Pl_target_integrity;
 void HUD_init_colors();
 void HUD_init();
 void hud_update_frame();		// updates hud systems not dependant on rendering
+void HUD_update_2d();	// Claude: logic phase part of HUD_render_2d
+void HUD_update_3d();	// Claude: logic phase part of HUD_render_3d
 void HUD_render_3d(float frametime);			// renders 3d dependant gauges
 void HUD_render_2d(float frametime);			// renders the 2d gauges
 void hud_stop_looped_engine_sounds();

@@ -3020,9 +3020,9 @@ void hud_render_triangle(vector *hostile_pos, int aspect_flag, int show_interior
 	}
 }
 
-//	Show all homing missiles locked onto the player.
-//	Also, play the beep!
-void hud_show_homing_missiles()
+// Claude: the warning beep, split out of hud_show_homing_missiles so that it runs in the logic phase
+// (HUD_update_3d) whether or not the HUD is drawn. Same loop and beep as before, without the triangles.
+void hud_update_homing_beep()
 {
 	object		*A;
 	missile_obj	*mo;
@@ -3030,7 +3030,6 @@ void hud_show_homing_missiles()
 	float			dist, nearest_dist;
 	int			closest_is_aspect=0;
 
-	gr_set_color_fast(&HUD_color_homing_indicator);
 	nearest_dist = Homing_beep.max_cycle_dist;
 
 	for ( mo = GET_NEXT(&Missile_obj_list); mo != END_OF_LIST(&Missile_obj_list); mo = GET_NEXT(mo) ) {
@@ -3040,7 +3039,6 @@ void hud_show_homing_missiles()
 		wp = &Weapons[A->instance];
 
 		if (wp->homing_object == Player_obj) {
-			hud_render_triangle(&A->pos, Weapon_info[wp->weapon_info_index].wi_flags & WIF_HOMING_ASPECT, 1, 1);
 			dist = vm_vec_dist_quick(&A->pos, &Player_obj->pos);
 
 			if (dist < nearest_dist) {
@@ -3076,6 +3074,29 @@ void hud_show_homing_missiles()
 			} else {
 				Homing_beep.snd_handle = snd_play(&Snds[SND_PROXIMITY_WARNING]);
 			}
+		}
+	}
+}
+
+//	Show all homing missiles locked onto the player.
+//	Also, play the beep!
+// Claude: the beep is in hud_update_homing_beep now; this only draws
+void hud_show_homing_missiles()
+{
+	object		*A;
+	missile_obj	*mo;
+	weapon		*wp;
+
+	gr_set_color_fast(&HUD_color_homing_indicator);
+
+	for ( mo = GET_NEXT(&Missile_obj_list); mo != END_OF_LIST(&Missile_obj_list); mo = GET_NEXT(mo) ) {
+		A = &Objects[mo->objnum];
+		Assert((A->instance >= 0) && (A->instance < MAX_WEAPONS));
+
+		wp = &Weapons[A->instance];
+
+		if (wp->homing_object == Player_obj) {
+			hud_render_triangle(&A->pos, Weapon_info[wp->weapon_info_index].wi_flags & WIF_HOMING_ASPECT, 1, 1);
 		}
 	}
 }

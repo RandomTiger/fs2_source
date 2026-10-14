@@ -538,6 +538,7 @@ int myrand();
 // Claude: Separate random stream for cosmetic effects (particles, sparks, stars, HUD effects), so they don't shift gameplay randomness.
 int cosmetic_rand();
 void cosmetic_srand(int seed);
+extern int Cosmetic_rand_drawing;	// Claude: 1 while drawing, which then uses its own cosmetic stream
 
 
 
