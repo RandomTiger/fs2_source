@@ -37,53 +37,140 @@ char *Osreg_title = "Freespace 2";
 
 int Os_reg_inited = 0;
 
-// Some installs (GOG) keep the launcher's settings under "Volition\Free" instead of
-// "Volition\FreeSpace2", so reads fall back to that name.
-static char *Osreg_launcher_app_name = "Free";
+// ------------------------------------------------------------------------------------------------------------
+// Claude: SETTINGS FILE
+//
+// Settings live in an ini file (fs2.ini in the game folder, or the file given with -ini) instead of
+// the registry, which the game never reads or writes.  Settings the game needs that the file lacks
+// are written with defaults.  Settings with no section go in [Settings].  The launcher's Videocard
+// string is kept as Renderer, Device, ColourDepth and Resolution, and put back together when the
+// game reads Videocard.
 
-// open keyname under root if it holds the value 'name' (or just exists, if name is NULL)
-static LONG os_reg_try_open( HKEY root, char *keyname, HKEY *hKey, char *name )
+#define OS_INI_DEFAULT_FILE	"fs2.ini"
+#define OS_INI_MAIN_SECTION	"Settings"
+#define OS_INI_MISSING			"<missing>"
+
+static char Os_ini_file[MAX_PATH] = "";
+static int Os_ini_active = 0;
+
+static char *os_ini_section( char *section )
 {
-	LONG lResult;
-
-	lResult = RegOpenKeyEx( root, keyname, NULL, KEY_QUERY_VALUE, hKey );
-	if ( lResult != ERROR_SUCCESS )	{
-		*hKey = NULL;
-		return lResult;
-	}
-	if ( name && (RegQueryValueEx( *hKey, name, NULL, NULL, NULL, NULL ) != ERROR_SUCCESS) )	{
-		RegCloseKey( *hKey );
-		*hKey = NULL;
-		return ERROR_FILE_NOT_FOUND;
-	}
-	return ERROR_SUCCESS;
+	return section ? section : OS_INI_MAIN_SECTION;
 }
 
-// Settings the game writes go to HKEY_CURRENT_USER, which needs no admin rights.  The launcher's
-// settings are in HKEY_LOCAL_MACHINE.  A read takes the value from the first place that has it:
-// HKEY_CURRENT_USER, then HKEY_LOCAL_MACHINE, then HKEY_LOCAL_MACHINE under the launcher's
-// alternative key name.
-static LONG os_reg_open_read( char *keyname, HKEY *hKey, char *name )
+// 1 and the value in buf if the ini has the key
+static int os_ini_get( char *section, char *name, char *buf, int size )
 {
-	char prefix[256], alt_keyname[1024];
-	int len;
+	GetPrivateProfileString( os_ini_section(section), name, OS_INI_MISSING, buf, size, Os_ini_file );
+	return strcmp( buf, OS_INI_MISSING ) != 0;
+}
 
-	if ( os_reg_try_open( HKEY_CURRENT_USER, keyname, hKey, name ) == ERROR_SUCCESS )	{
-		return ERROR_SUCCESS;
-	}
-	if ( os_reg_try_open( HKEY_LOCAL_MACHINE, keyname, hKey, name ) == ERROR_SUCCESS )	{
-		return ERROR_SUCCESS;
-	}
+// the launcher's Videocard string from the ini keys, or NULL if there is no Renderer
+static char *os_ini_join_videocard( char *buf )
+{
+	char renderer[64], device[256], depth[16], res[64];
 
-	// same key with the application part of the name swapped for the launcher's
-	sprintf( prefix, "Software\\%s\\%s", szCompanyName, szAppName );
-	len = strlen( prefix );
-	if ( strnicmp( keyname, prefix, len ) || ((keyname[len] != 0) && (keyname[len] != '\\')) )	{
-		return ERROR_FILE_NOT_FOUND;
+	if ( !os_ini_get( NULL, "Renderer", renderer, sizeof(renderer) ) ) {
+		return NULL;
 	}
-	sprintf( alt_keyname, "Software\\%s\\%s%s", szCompanyName, Osreg_launcher_app_name, keyname + len );
+	if ( !stricmp( renderer, "Direct3D" ) ) {
+		if ( !os_ini_get( NULL, "Device", device, sizeof(device) ) ) {
+			strcpy( device, "Primary Display Driver" );
+		}
+		sprintf( buf, "Direct 3D - %s", device );
+	} else if ( !stricmp( renderer, "Glide" ) ) {
+		strcpy( buf, "3DFX Glide" );
+	} else {
+		strcpy( buf, renderer );
+	}
+	if ( os_ini_get( NULL, "ColourDepth", depth, sizeof(depth) ) ) {
+		sprintf( buf + strlen(buf), " (%s bit)", depth );
+	}
+	if ( os_ini_get( NULL, "Resolution", res, sizeof(res) ) ) {
+		sprintf( buf + strlen(buf), " (%s)", res );
+	}
+	return buf;
+}
 
-	return os_reg_try_open( HKEY_LOCAL_MACHINE, alt_keyname, hKey, name );
+// first run: create the ini with a header; os_ini_write_defaults fills it in
+static void os_ini_create()
+{
+	FILE *fp;
+
+	fp = fopen( Os_ini_file, "wt" );
+	if ( fp == NULL ) {
+		return;
+	}
+	fprintf( fp, "; FreeSpace 2 settings.  The game reads only this file, never the registry.\n" );
+	fprintf( fp, "; Renderer, Device, ColourDepth and Resolution replace the launcher's Videocard setting.\n" );
+	fprintf( fp, "; [Detail] sets the detail levels for every pilot (0 lowest, 4 highest; the last three 0 or 1).\n\n" );
+	fclose( fp );
+}
+
+// -ini <file>: called from parse_cmdline, before the game starts
+void os_config_set_ini( char *file )
+{
+	GetFullPathName( file, MAX_PATH, Os_ini_file, NULL );
+}
+
+char *os_config_ini_file()
+{
+	return Os_ini_file;
+}
+
+// settings the game needs that the launcher used to write.  Any that the ini does not have are
+// written with these values, so the game needs neither the launcher nor the registry.
+static char *Os_ini_defaults[][2] = {
+	{ "Renderer",		"Direct3D" },
+	{ "Device",			"Primary Display Driver" },
+	{ "ColourDepth",	"32" },
+	{ "Resolution",	"1024x768" },
+	{ "Soundcard",		"DirectSound" },
+	{ "Language",		"English" },
+};
+#define OS_INI_NUM_DEFAULTS	(sizeof(Os_ini_defaults) / sizeof(Os_ini_defaults[0]))
+
+static void os_ini_write_defaults()
+{
+	char buf[1024];
+	int i;
+
+	for ( i = 0; i < OS_INI_NUM_DEFAULTS; i++ ) {
+		if ( !os_ini_get( NULL, Os_ini_defaults[i][0], buf, sizeof(buf) ) ) {
+			// a launcher string kept as Videocard (not in the usual form) still decides the renderer
+			if ( (i < 4) && os_ini_get( NULL, "Videocard", buf, sizeof(buf) ) ) {
+				continue;
+			}
+			WritePrivateProfileString( OS_INI_MAIN_SECTION, Os_ini_defaults[i][0], Os_ini_defaults[i][1], Os_ini_file );
+		}
+	}
+}
+
+static void os_ini_init()
+{
+	if ( !Os_ini_file[0] ) {
+		GetCurrentDirectory( MAX_PATH - 16, Os_ini_file );
+		strcat( Os_ini_file, "\\" OS_INI_DEFAULT_FILE );
+	}
+	if ( GetFileAttributes( Os_ini_file ) == INVALID_FILE_ATTRIBUTES ) {
+		os_ini_create();
+	}
+	os_ini_write_defaults();
+	Os_ini_active = 1;
+}
+
+static char *os_ini_read_string( char *section, char *name, char *default_value, char *buf )
+{
+	if ( !name ) {
+		return default_value;
+	}
+	if ( os_ini_get( section, name, buf, 1024 ) ) {
+		return buf;
+	}
+	if ( !section && !stricmp( name, "Videocard" ) && os_ini_join_videocard( buf ) ) {
+		return buf;
+	}
+	return default_value;
 }
 
 
@@ -115,60 +202,17 @@ void os_init_registry_stuff(char *company, char *app, char *version)
 	}
 
 	Os_reg_inited = 1;
+	os_ini_init();	// Claude: settings come from the ini from now on
 }
 
 // Removes a value from to the INI file.  Passing
 // name=NULL will delete the section.
 void os_config_remove( char *section, char *name )
 {
-	HKEY hKey = NULL;
-	DWORD dwDisposition;
-	char keyname[1024];
-	LONG lResult;	
-
-	if(!Os_reg_inited){
-		return;
+	// Claude: settings are only in the ini, never the registry
+	if ( Os_ini_active && (section || name) ) {
+		WritePrivateProfileString( os_ini_section(section), name, NULL, Os_ini_file );
 	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
-	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
-	}
-
-	// remove the value
-	if ( !name )	{
-		if ( !section )	{			
-			goto Cleanup;
-		}
-		lResult = RegDeleteKey( HKEY_CURRENT_USER, keyname );
-		if ( lResult != ERROR_SUCCESS )	{			
-			goto Cleanup;
-		}
-	} else	{
-		lResult = RegCreateKeyEx( HKEY_CURRENT_USER,						// Where to add it
-												 keyname,								// name of key
-												 NULL,									// DWORD reserved
-												 "",										// Object class
-												 REG_OPTION_NON_VOLATILE,			// Save to disk
-												 KEY_ALL_ACCESS,						// Allows all changes
-												 NULL,									// Default security attributes
-												 &hKey,							// Location to store key
-												 &dwDisposition );					// Location to store status of key
-
-		if ( lResult != ERROR_SUCCESS )	{			
-			goto Cleanup;
-		}
-
-		lResult = RegDeleteValue( hKey, name );
-		if ( lResult != ERROR_SUCCESS )	{			
-			goto Cleanup;
-		}
-	}
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
 }
 
 // Writes a string to the INI file.  If value is NULL,
@@ -176,160 +220,22 @@ Cleanup:
 // the section.
 void os_config_write_string( char *section, char *name, char *value )
 {
-	HKEY hKey = NULL;
-	DWORD dwDisposition;
-	char keyname[1024];
-	LONG lResult;	
-
-	if(!Os_reg_inited){
-		return;
+	// Claude: settings go only to the ini, never the registry
+	if ( Os_ini_active && name ) {
+		WritePrivateProfileString( os_ini_section(section), name, value, Os_ini_file );
 	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
-	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
-	}
-
-	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,					// Where to add it
-											 keyname,							// name of key
-											 NULL,								// DWORD reserved
-											 "",									// Object class
-											 REG_OPTION_NON_VOLATILE,		// Save to disk
-											 KEY_ALL_ACCESS,					// Allows all changes
-											 NULL,								// Default security attributes
-											 &hKey,								// Location to store key
-											 &dwDisposition );				// Location to store status of key
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-		
-	lResult = RegSetValueEx( hKey,									// Handle to key
-									 name,									// The values name
-									 NULL,									// DWORD reserved
-									 REG_SZ,									// null terminated string
-									 (CONST BYTE *)value,				// value to set
-									 strlen(value) + 1 );				// How many bytes to set
-																			
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-}
-
-// same as previous function except we don't use the application name to build up the keyname
-void os_config_write_string2( char *section, char *name, char *value )
-{
-	HKEY hKey = NULL;
-	DWORD dwDisposition;
-	char keyname[1024];
-	LONG lResult;	
-
-	if(!Os_reg_inited){
-		return;
-	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, section );
-	} else {
-		sprintf( keyname, "Software\\%s", szCompanyName );
-	}
-
-	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,					// Where to add it
-											 keyname,							// name of key
-											 NULL,								// DWORD reserved
-											 "",									// Object class
-											 REG_OPTION_NON_VOLATILE,		// Save to disk
-											 KEY_ALL_ACCESS,					// Allows all changes
-											 NULL,								// Default security attributes
-											 &hKey,								// Location to store key
-											 &dwDisposition );				// Location to store status of key
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-		
-	lResult = RegSetValueEx( hKey,									// Handle to key
-									 name,									// The values name
-									 NULL,									// DWORD reserved
-									 REG_SZ,									// null terminated string
-									 (CONST BYTE *)value,				// value to set
-									 strlen(value) + 1 );				// How many bytes to set
-																			
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
 }
 
 // Writes an unsigned int to the INI file.  
 void os_config_write_uint( char *section, char *name, uint value )
 {
-	HKEY hKey = NULL;
-	DWORD dwDisposition;
-	char keyname[1024];
-	LONG lResult;	
+	// Claude: settings go only to the ini, never the registry
+	char num[16];
 
-	if(!Os_reg_inited){
-		return;
+	if ( Os_ini_active && name ) {
+		sprintf( num, "%u", value );
+		WritePrivateProfileString( os_ini_section(section), name, num, Os_ini_file );
 	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
-	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
-	}
-
-	lResult = RegCreateKeyEx( HKEY_CURRENT_USER,						// Where to add it
-											 keyname,								// name of key
-											 NULL,									// DWORD reserved
-											 "",										// Object class
-											 REG_OPTION_NON_VOLATILE,			// Save to disk
-											 KEY_ALL_ACCESS,						// Allows all changes
-											 NULL,									// Default security attributes
-											 &hKey,							// Location to store key
-											 &dwDisposition );					// Location to store status of key
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-		
-	lResult = RegSetValueEx( hKey,									// Handle to key
-									 name,											// The values name
-									 NULL,											// DWORD reserved
-									 REG_DWORD,										// null terminated string
-									 (CONST BYTE *)&value,						// value to set
-									 4 );								// How many bytes to set
-																				
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-
 }
 
 
@@ -341,194 +247,26 @@ Cleanup:
 static char tmp_string_data[1024];
 char * os_config_read_string( char *section, char *name, char *default_value )
 {
-	HKEY hKey = NULL;
-	DWORD dwType, dwLen;
-	char keyname[1024];
-	LONG lResult;	
-
-	if(!Os_reg_inited){
+	// Claude: settings come only from the ini, never the registry
+	if ( !Os_ini_active ) {
 		return NULL;
 	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
-	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
-	}
-
-	lResult = os_reg_open_read( keyname, &hKey, name );
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-
-	dwLen = 1024;
-	lResult = RegQueryValueEx( hKey,									// Handle to key
-									 name,											// The values name
-									 NULL,											// DWORD reserved
-	                         &dwType,										// What kind it is
-									 (ubyte *)&tmp_string_data,						// value to set
-									 &dwLen );								// How many bytes to set
-																				
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	default_value = tmp_string_data;
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-
-	return default_value;
-}
-
-// same as previous function except we don't use the application name to build up the keyname
-char * os_config_read_string2( char *section, char *name, char *default_value )
-{
-	HKEY hKey = NULL;
-	DWORD dwType, dwLen;
-	char keyname[1024];
-	LONG lResult;	
-
-	if(!Os_reg_inited){
-		return NULL;
-	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, section );
-	} else {
-		sprintf( keyname, "Software\\%s", szCompanyName );
-	}
-
-	lResult = os_reg_open_read( keyname, &hKey, name );
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-
-	dwLen = 1024;
-	lResult = RegQueryValueEx( hKey,									// Handle to key
-									 name,											// The values name
-									 NULL,											// DWORD reserved
-	                         &dwType,										// What kind it is
-									 (ubyte *)&tmp_string_data,						// value to set
-									 &dwLen );								// How many bytes to set
-																				
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	default_value = tmp_string_data;
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-
-	return default_value;
+	return os_ini_read_string( section, name, default_value, tmp_string_data );
 }
 
 // Reads a string from the INI file.  Default_value must 
 // be passed, and if 'name' isn't found, then returns default_value
 uint  os_config_read_uint( char *section, char *name, uint default_value )
 {
-	HKEY hKey = NULL;
-	DWORD dwType, dwLen;
-	char keyname[1024];
-	LONG lResult;
-	uint tmp_val;	
+	// Claude: settings come only from the ini, never the registry
+	char num[64];
 
-	if(!Os_reg_inited){
+	if ( !Os_ini_active ) {
 		return NULL;
 	}
-
-	if ( section )	{
-		sprintf( keyname, "Software\\%s\\%s\\%s", szCompanyName, szAppName, section );
-	} else {
-		sprintf( keyname, "Software\\%s\\%s", szCompanyName, szAppName );
+	if ( name && os_ini_get( section, name, num, sizeof(num) ) ) {
+		return (uint)strtoul( num, NULL, 10 );
 	}
-
-	lResult = os_reg_open_read( keyname, &hKey, name );
-
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	if ( !name )	 {		
-		goto Cleanup;
-	}
-
-	dwLen = 4;
-	lResult = RegQueryValueEx( hKey,									// Handle to key
-									 name,											// The values name
-									 NULL,											// DWORD reserved
-	                         &dwType,										// What kind it is
-									 (ubyte *)&tmp_val,						// value to set
-									 &dwLen );								// How many bytes to set
-																				
-	if ( lResult != ERROR_SUCCESS )	{		
-		goto Cleanup;
-	}
-
-	default_value = tmp_val;
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-
 	return default_value;
 }
 
-// uses Ex versions of Windows registry functions
-static char tmp_string_data_ex[1024];
-char * os_config_read_string_ex( char *keyname, char *name, char *default_value )
-{
-	HKEY hKey = NULL;
-	DWORD dwType, dwLen;
-	LONG lResult;
-
-	lResult = RegOpenKeyEx( HKEY_LOCAL_MACHINE,							// Where it is
-											 keyname,								// name of key
-											 NULL,									// DWORD reserved
-											 KEY_QUERY_VALUE,						// Allows all changes
-											 &hKey );								// Location to store key
-
-	if ( lResult != ERROR_SUCCESS )	{
-		//mprintf(( "Error opening registry key '%s'\n", keyname ));
-		goto Cleanup;
-	}
-
-	if ( !name )	 {
-		//mprintf(( "No variable name passed\n" ));
-		goto Cleanup;
-	}
-
-	dwLen = 1024;
-	lResult = RegQueryValueEx( hKey,									// Handle to key
-									 name,											// The values name
-									 NULL,											// DWORD reserved
-	                         &dwType,										// What kind it is
-									 (ubyte *)&tmp_string_data_ex,						// value to set
-									 &dwLen );								// How many bytes to set
-																				
-	if ( lResult != ERROR_SUCCESS )	{
-		//mprintf(( "Error reading registry key '%s'\n", name ));
-		goto Cleanup;
-	}
-
-	default_value = tmp_string_data_ex;
-
-Cleanup:
-	if ( hKey )
-		RegCloseKey(hKey);
-
-	return default_value;
-}

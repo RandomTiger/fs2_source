@@ -713,6 +713,7 @@
 #include "StaticRand.h"
 #include "MissionShipChoice.h"
 #include "HudArtillery.h"
+#include "Autotest.h"	// Claude
 
 #ifdef FS2_DEMO
 	#define MAX_SHIP_SUBOBJECTS		360
@@ -4193,7 +4194,7 @@ void ship_process_post(object * obj, float frametime)
 		}
 
 		// if the ship is a player ship or an observer ship don't need to do AI
-		if ( (obj->flags & OF_PLAYER_SHIP) || (obj->type == OBJ_OBSERVER) ) {
+		if ( ((obj->flags & OF_PLAYER_SHIP) && !Autotest_player_npc) || (obj->type == OBJ_OBSERVER) ) {	// Claude: -playernpc runs the AI on the player ship
 			return;
 		}
 

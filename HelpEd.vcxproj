@@ -54,7 +54,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
-    <IntDir>.\Release\</IntDir>
+    <IntDir>.\HelpEdRelease\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -72,12 +72,12 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\Release\HelpEd.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\HelpEdRelease\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\HelpEdRelease\HelpEd.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-      <ObjectFileName>.\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
+      <ObjectFileName>.\HelpEdRelease\</ObjectFileName>
+      <ProgramDataBaseFileName>.\HelpEdRelease\</ProgramDataBaseFileName>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -156,7 +156,9 @@
     <ClCompile Include="code\HelpEd\HelpEdLine.cpp" />
     <ClCompile Include="code\HelpEd\HelpEdView.cpp" />
     <ClCompile Include="code\HelpEd\MainFrm.cpp" />
-    <ClCompile Include="code\HelpEd\StdAfx.cpp" />
+    <ClCompile Include="code\HelpEd\StdAfx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="code\HelpEd\HelpEd.h" />
