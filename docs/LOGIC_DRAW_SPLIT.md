@@ -18,7 +18,7 @@ The game makes gameplay decisions inside its drawing code: sounds, missile lock,
 - Missile lock and the view-cone test use the fixed game view (art resolution, 4:3, original FOV), not the display.
 
 ## Test
-Build Release (and Debug for the final run) from `fs2_LogicDrawSplit`, then:
+Build Release (and Debug for the final run) from `fs2_LogicDrawSplit`. `tools\bin\TraceDiff.exe` is a build output, so a new folder has to build it once: `MSBuild tools\TraceDiff\TraceDiff.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:SolutionDir=<folder>\`. Then:
 ```
 tools\nodraw_check.ps1 -Missions sm1-01
 tools\nodraw_check.ps1
@@ -54,8 +54,11 @@ On this branch (first commit, work in progress):
 
 Not run yet: sm3-04 to sm3-09, loop2-1, loop2-2, and the Autotest* missions (`data/missions/Autotest*.fs2`).
 
+**Pieces 1-2 are not gameplay-neutral (found 2026-10-14).** The recordings added later on `RecordPlayback` (the Autotest* missions, re-recorded with `-playernpc` so the AI flies the player ship, and the hand-played SM1-07) pass on `Enhanced` but fail on `PrePort`: Autotest diverges at frame 615, AutotestChain at 2208, SM1-07 at 12815, and AutotestPlayer desyncs at 5580 (diverged at 5558). With 093683c reverted all four match, so the cause is in pieces 1-2 (the game view, the eye set in the logic phase, `OF_WAS_RENDERED` from the view cone). The original 34 autotest missions never move the player ship, which is why they didn't show it.
+
 ## Still to do
 Roughly in this order; each is one or more commits.
+0. **Make pieces 1-2 match when the player flies.** Replay AutotestPlayer (the earliest clear case) on `PrePort` and on `Enhanced` with `-fulltrace` and TraceDiff the two for the first differing field. Suspects: the eye position or orientation in the logic phase differing from the one drawing sets (shake, chase or padlock views, zoom), and the view-cone test disagreeing with `obj_render_all` near the edge of the screen (same-team collisions, fireball freeing, shield effects read `OF_WAS_RENDERED`). This comes first: every other result builds on it.
 1. **Drift from frame 2** (sm1-05, sm1-08 and probably the desyncs that diverge at frame 2 before desyncing, such as sm1-06, sm1-07, sm2-01). Something read every frame still comes from drawing: likely missile lock (`hud_update_lock_indicator`, in screen pixels) or something still using the display instead of the game view.
 2. **Missile lock and cargo scan** (piece 3): `HUD_render_3d` → `hud_update_lock_indicator` (`HUDtarget.cpp`, `HUDlock.cpp`) and `hud_cargo_scan_update` → `player_inspect_cargo`, `ship_do_cargo_revealed`. Lock moves to the game view.
 3. **Effects and sounds out of step**: the most common desync. Sparks, impact effects and their sounds still started from drawing code; find the caller of the sound in each desync (Debug replays log the call stack).

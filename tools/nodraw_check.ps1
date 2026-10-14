@@ -29,6 +29,7 @@ $repo = Split-Path $PSScriptRoot
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\nodraw_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
+if (-not (Test-Path $td)) { throw "No $td. Build it: MSBuild tools\TraceDiff\TraceDiff.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:SolutionDir=$repo\" }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $summary = Join-Path $Out 'summary.txt'
 
@@ -76,7 +77,7 @@ foreach ($m in $Missions) {
 			# a divergence ends with advice, so take the verdict line
 			$tdout = & $td $trace $rtrace
 			$diff = ($tdout | Select-String '^(MATCH|DIVERGED)' | Select-Object -First 1).Line
-			if (-not $diff) { $diff = $tdout | Select-Object -Last 1 }
+			if (-not $diff) { $diff = "NO VERDICT: $($tdout | Select-Object -Last 1)" }
 		}
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $mode exit=$code $res / $diff"
