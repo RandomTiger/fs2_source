@@ -4371,7 +4371,9 @@ void game_set_frametime(int state)
 		if (Frametime < cap) {
 			thistime = cap - Frametime;
 			//mprintf(("Sleeping for %6.3f seconds.\n", f2fl(thistime)));
-			Sleep( DWORD(f2fl(thistime) * 1000.0f) );
+			if (!replay_should_read()) {	// Claude: while a replay feeds the clock from the recording, waiting only costs wall time
+				Sleep( DWORD(f2fl(thistime) * 1000.0f) );
+			}
 			Frametime = cap;
 			thistime = timer_get_fixed_seconds();
 		}
