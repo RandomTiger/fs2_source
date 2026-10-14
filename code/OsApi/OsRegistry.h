@@ -29,6 +29,11 @@ extern char *Osreg_title;
 // initialize the registry. setup default keys to use
 void os_init_registry_stuff(char *company, char *app, char *version);
 
+// Claude: settings are kept in an ini file (fs2.ini in the game folder) instead of the registry.
+// -ini <file> picks another file; call before os_init.
+void os_config_set_ini(char *file);
+char *os_config_ini_file();
+
 // Removes a value from to the INI file.  Passing
 // name=NULL will delete the section.
 void os_config_remove( char *section, char *name );

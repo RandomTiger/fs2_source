@@ -1262,6 +1262,7 @@ void options_menu_close()
 	Ui_window.destroy();
 	common_free_interface_palette();		// restore game palette
 	write_pilot_file();
+	detail_level_save_config();	// Claude: the detail levels are kept in the settings file
 	game_flush();
 	
 	// unpause all sounds, since we could be headed back to the game

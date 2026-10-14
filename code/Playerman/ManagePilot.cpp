@@ -675,6 +675,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 	}
 
 	cfread( &Detail, sizeof(detail_levels), 1, file );
+	detail_level_load_config();	// Claude: the settings file decides the detail levels, not the pilot
 
 	// restore list of most recently played missions
 	Num_recent_missions = cfread_int( file );
@@ -1172,6 +1173,7 @@ void init_new_pilot(player *p, int reset)
 #endif
 
 		detail_level_set(cur_speed);
+		detail_level_load_config();	// Claude: the settings file decides the detail levels, not the pilot
 
 		Game_skill_level = game_get_default_skill_level();
 

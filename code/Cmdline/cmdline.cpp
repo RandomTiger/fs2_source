@@ -194,6 +194,7 @@
 #include "cfile.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "OsRegistry.h"	// Claude
 
 // variables
 class cmdline_parm {
@@ -243,6 +244,7 @@ cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
+cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
@@ -634,6 +636,11 @@ int parse_cmdline(char *cmdline)
 	// Claude: -autorecord.  -record and -replay take precedence.
 	if(autorecord_arg.found() && !record_arg.found() && !replay_arg.found()){
 		replay_set_autorecord(autorecord_arg.str());
+	}
+
+	// Claude: -ini, before the settings are first read
+	if(ini_arg.found()){
+		os_config_set_ini(ini_arg.str());
 	}
 
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
