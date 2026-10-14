@@ -27,6 +27,12 @@ The `-at_` flags do nothing without `-autotest`. An invalid value stops the run 
 4. When the time limit is reached, the mission ends the way it does when the player quits. A mission that ends itself goes through the debriefing and back to the main hall.
 5. After the last mission the game quits.
 
+## Test missions
+Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy them to the game's `data\missions` folder to run them.
+- A mission whose `$Notes:` contain `autotest: mission controls vulnerability` sets the player's vulnerability itself, through the `invulnerable` flag and the `ship-vulnerable` and `ship-invulnerable` sexps. Autotest then stops forcing the player invulnerable. A mission can use this to let the player die and so end itself, for example in a supernova.
+- When the player dies, autotest answers the death popup with "quit mission", as the time limit does.
+- The log lists each mission event and goal as it becomes true, false or complete, with the mission time, so a test mission can be checked to have run to its end.
+
 While an autotest runs:
 - Every popup is answered with its first choice and not shown. The one exception is the training popup for an action with no control bound, whose first choice opens the control config screen: the autotest aborts the mission instead.
 - The game keeps running when its window is not in front.

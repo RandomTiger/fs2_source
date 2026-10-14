@@ -27,6 +27,8 @@
 #include "Object.h"
 #include "Ship.h"
 #include "MissionScreenCommon.h"
+#include "MissionParse.h"
+#include "MissionGoals.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -37,6 +39,11 @@
 #define AUTOTEST_EXIT_ERROR		1
 #define AUTOTEST_EXIT_FAILED		2
 #define AUTOTEST_EXIT_STUCK		5
+
+// A test mission whose notes contain this decides the player's vulnerability itself (ship-vulnerable,
+// ship-invulnerable), for example so that a supernova can end it.  Campaign missions do not, so
+// they keep the player invulnerable however their events change it.
+#define AUTOTEST_VULNERABILITY_NOTE	"autotest: mission controls vulnerability"
 
 extern fs_builtin_mission Game_builtin_mission_list[];
 extern int Game_builtin_mission_count;
@@ -61,6 +68,14 @@ static int Autotest_ending = 0;			// the time limit has posted GS_EVENT_END_GAME
 static int Autotest_gave_up = 0;			// a menu did not move on, so the mission was abandoned
 static fix Autotest_mission_start;		// Missiontime on the first gameplay frame
 static char Autotest_current[MAX_FILENAME_LEN] = "";
+static int Autotest_mission_vulnerability = 0;	// the mission has AUTOTEST_VULNERABILITY_NOTE
+
+// the event and goal states last logged, so each change is logged once
+#define AUTOTEST_EVENT_PENDING	0
+#define AUTOTEST_EVENT_TRUE		1
+#define AUTOTEST_EVENT_FALSE		2		// false and will not be evaluated again
+static int Autotest_event_state[MAX_MISSION_EVENTS];
+static int Autotest_goal_state[MAX_GOALS];
 
 // results
 static int Autotest_missions_run = 0;
@@ -375,9 +390,39 @@ void autotest_drive_state(int state)
 	}
 }
 
+// log each mission event and goal as its state changes, so the log shows how far a mission got
+static void autotest_log_events()
+{
+	int i, state;
+
+	for (i = 0; i < Num_mission_events; i++) {
+		if (Mission_events[i].result) {
+			state = AUTOTEST_EVENT_TRUE;
+		} else if (Mission_events[i].formula == -1) {
+			state = AUTOTEST_EVENT_FALSE;
+		} else {
+			state = AUTOTEST_EVENT_PENDING;
+		}
+		if (state != Autotest_event_state[i]) {
+			Autotest_event_state[i] = state;
+			autotest_logf("Mission '%s': event '%s' %s at mission time %.2f\n", Game_current_mission_filename, Mission_events[i].name,
+				(state == AUTOTEST_EVENT_TRUE) ? "true" : ((state == AUTOTEST_EVENT_FALSE) ? "false" : "pending"), f2fl(Missiontime));
+		}
+	}
+
+	for (i = 0; i < Num_goals; i++) {
+		if (Mission_goals[i].satisfied != Autotest_goal_state[i]) {
+			Autotest_goal_state[i] = Mission_goals[i].satisfied;
+			autotest_logf("Mission '%s': goal '%s' %s at mission time %.2f\n", Game_current_mission_filename, Mission_goals[i].name,
+				(Mission_goals[i].satisfied == GOAL_COMPLETE) ? "complete" : ((Mission_goals[i].satisfied == GOAL_FAILED) ? "failed" : "incomplete"), f2fl(Missiontime));
+		}
+	}
+}
+
 void autotest_frame()
 {
 	ship *shipp;
+	int i;
 
 	if (!Autotest_rules) {
 		return;
@@ -386,8 +431,18 @@ void autotest_frame()
 	// before game_set_frametime, so this frame already runs at the test speed
 	Game_time_compression = F1_0 * Autotest_speed;
 
+	if (!Autotest_in_mission) {
+		Autotest_mission_vulnerability = (strstr(The_mission.notes, AUTOTEST_VULNERABILITY_NOTE) != NULL);
+		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
+			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
+		}
+		for (i = 0; i < MAX_GOALS; i++) {
+			Autotest_goal_state[i] = GOAL_INCOMPLETE;
+		}
+	}
+
 	// every frame: the player may not exist on the first frame, and mission events can clear it
-	if ((Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
+	if (!Autotest_mission_vulnerability && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
 		shipp = &Ships[Player_obj->instance];
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
@@ -396,12 +451,14 @@ void autotest_frame()
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
 		Autotest_mission_start = Missiontime;
-		autotest_logf("Mission '%s': in gameplay\n", Game_current_mission_filename);
+		autotest_logf("Mission '%s': in gameplay%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "");
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));
 		gameseq_post_event(GS_EVENT_END_GAME);
 	}
+
+	autotest_log_events();
 }
 
 int autotest_popup(char *text)
