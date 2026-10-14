@@ -4798,7 +4798,7 @@ void ai_waypoints()
 							Int3();	//	Look at the ship, find out of it's supposed to be flying waypoints. -- MK.
 						}
 
-						type = aip->goals[aip->active_goal].type;
+						type = ((aip->active_goal == AI_GOAL_NONE) || (aip->active_goal == AI_ACTIVE_GOAL_DYNAMIC)) ? -1 : aip->goals[aip->active_goal].type;	// Claude: no goal slot to read (goals[-1] or goals[999]); -1 treats it as a ship
 						if ( (type == AIG_TYPE_EVENT_WING) || (type == AIG_TYPE_PLAYER_WING) ) {
 							treat_as_ship = 0;
 						} else {
