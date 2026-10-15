@@ -60,7 +60,7 @@ The earlier tables (2026-10-14 and the first 2026-10-15 run) were recorded witho
 Roughly in this order; each is one or more commits.
 Done 2026-10-15: pieces 1-2 matching on the four newer recordings (the game view letterbox), the drift from frame 2 (it was the laser flyby flag), missile lock and cargo scan (piece 3), nebula lightning (piece 5, apart from debris), and the sound and clock desyncs (they were consequences of the above).
 1. **Capital-ship debris** (piece 5, the rest): on `DebrisOffscreenFix`, then `git merge PrePort` here and re-run the check.
-2. **Squad orders and reinforcements** (piece 4): the squad message menu ended itself while drawing in one old sm2-01 recording (`hud_squadmsg_toggle`); no current failure shows it, but check `HUDsquadmsg.cpp` for gameplay in the drawing path.
+2. **Squad orders and reinforcements** (piece 4), deferred by Tom 2026-10-15: the squad message menu ended itself while drawing in one old sm2-01 recording (`hud_squadmsg_toggle`); no current failure shows it, but check `HUDsquadmsg.cpp` for gameplay in the drawing path.
 3. **Lock start position**: `hud_calculate_lock_start_pos` still takes the screen centre and clamp from `gr_screen.clip_*` (set by `game_set_view_clip`, so identical today). For the game view it should use the game view canvas.
 4. **Mouse read in the screen flip**: `gr_d3d_flip` reads the mouse to draw the cursor; move the read to the end of the frame so drawing makes no recorded reads. `-nodraw` still flips, so the check does not cover it.
 5. **`next_hit_spark` using `Viewer_obj`** (`Ship.cpp`): not seen in any failure yet.
