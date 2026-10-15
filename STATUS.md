@@ -1,81 +1,56 @@
-# PadControl status
+# PrePort status
 
-Design: `docs/PAD_CONTROL.md`.
+Branch `PrePort`: everything that can be done before the engine moves, nothing Godot-specific.
+Plan and survey: `docs/PREPORT.md`. Branch layers: `docs/BRANCHES.md`. Decisions are made by the
+decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers below are its entries.
 
-## Batch 1: core layout (built, not yet tested in game)
-1. `code/Pad/PadXInput.*`: XInput backend (loaded at run time), first connected pad,
-   normalised state in `PadState.h`.
-2. `code/Pad/PadCore.*`: deadzone, curve, sensitivity, invert; gestures (press, release,
-   hold, double tap, double tap and hold); layer field (only the base layer used).
-3. `code/Pad/PadGame.*`: the core layout table; feeds `button_info`, `check_control`
-   and the flight values; Start pauses and unpauses.
-4. Hooks (marked `// Claude:`): code.vcxproj/.filters, `game_process_keys`,
-   `check_control`, `read_keyboard_controls`, `pause_do`. No init hook: the pad
-   initialises on first use.
-5. Optional `pad.cfg` in the game folder; built-in defaults otherwise.
-6. Debug and Release build clean: `FS2pad_d.exe`, `FS2pad_r.exe`.
+Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 46 recordings in
+`recordings/autotest` are in it (header checked 2026-10-15: skill 2, 1024x768, AI pilot, 4x).
 
-Defaults taken on open questions: pause = Start; double taps act on the first tap
-with no delay.
+## Stage gates (D-026)
+| Gate | State |
+|---|---|
+| 1. Logic runs headless, every suite mission plays to its end under the AI pilot | Not met. `-nodraw` skips drawing but still clears and flips; window, sound and input are live. Campaign recordings stop at 120 s of mission time, so most do not reach their end. |
+| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress on `LogicDrawSplit` (pieces 1-3 and 5 done there). Left: piece 4 (squad orders), lock start position from `gr_screen.clip_*`, mouse read in `gr_d3d_flip`, `next_hit_spark` using `Viewer_obj`. |
+| 3. Engine interface (render, audio, input, platform) documented and the only path | Not started. |
+| 4. PrePort recording suite green in the reference configuration | Baseline being re-established on DESKTOP-CLAUDE. |
 
-First test fixes (built): D-pad was driving padlock views because the legacy joystick
-code also read the pad; it is now off while an XInput pad is connected (hook in
-`joy_init`). LB hold = slow, LB double tap = hard stop, RB hold = fire secondary.
-Match speed is unassigned until the pad tree.
+## Current batch
+1. Baseline: build PrePort and replay all 46 recordings on DESKTOP-CLAUDE.
+2. Measure `LogicDrawSplit` against PrePort's recordings: how many fail, where, and why.
+3. Decision request to the steward on merging `LogicDrawSplit` (it invalidates recordings).
+4. Docs: this file, PrePort and GodotPrep in `docs/BRANCHES.md`.
 
-## Batch 2: face button D-pad overrides (pad tree) (built, not yet tested in game)
-1. Core: hold a face button = its category; the D-pad picks; Left = back below the top
-   level; releasing the face button closes. The action fires on the D-pad press. With
-   no face button held, the D-pad stays shields.
-2. HUD (`PadHud.cpp`): the four options drawn after 200 ms held, so quick clicks never
-   show it.
-3. West = Targeting:
-   Up = target in reticle; Right = Hostile > (Up next, Down prev, Right closest attacking me);
-   Down = Subsystem > (Up next, Down prev, Right in reticle);
-   Left = Other > (Up next cargo, Down next turret, Right next friendly).
-4. North = Weapons: Up cycle primary, Down cycle secondary, Right missile link,
-   Left countermeasure.
-5. East = Commands: opens the squad message menu; Up/Down move a highlight, Right
-   sends, Left back. Needs a small marked hook in the squad menu to draw the highlight.
-6. South = Flight: Up match speed; the rest empty for now.
-7. Tap (press and release under 200 ms, no D-pad used) does nothing yet.
+## Open items
+- Merge `LogicDrawSplit` into `PrePort` once green (steward's log, D-008).
+- SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
 
-First test fixes (built): menu drawn in the top quarter of the screen; Back at the
-Commands root no longer closes the squad menu; countermeasure on right stick down
-(removed from Weapons); South press = target in reticle; match speed moved to
-Targeting Up (Flight category removed). Then South press = nearest hostile (again: next
-closest), in place of target in reticle.
+## What the port needs from the C++ side
+Both the PrePort backlog and the GodotPrep plan. Background for each is in `docs/PREPORT.md`.
 
-Code: tree in `PadCore` (data tables in `PadGame.cpp`), drawing in `PadHud.cpp`, hook in
-`HUD.cpp` after the supernova gauge. The squad menu driver is a marked block in
-`HUDsquadmsg.cpp` (it needs that file's statics) plus a ">" highlight in its menu drawing.
+Logic and presentation
+- Logic and drawing separated, drawing only reads state (`LogicDrawSplit`).
+- Logic uses the GR_1024 game view for any screen-space maths, never the window (D-006, D-022).
+- A read-only snapshot of objects after each simulation step (number, signature, model, transform) for the host to draw from.
+- Fonts: real metrics without a renderer (`split_str` and HUD message wrapping measure in pixels).
+- Every `gr_screen.mode` switch outside the `gf_*` table (`gr_bitmap`, `gr_activate`, `neb2_*`, `BM_SELECT_*`) handles a new backend.
 
-## Batch 3: record and replay pad input (written, waiting on RecordPlayback)
-1. Recorder (branch `RecorderInputDevice`, off `RecordPlayback`, commit e6cdc32):
-   `RT_INPUT_DEVICE` entries and `replay_input_device()`. A missing entry reads as "not
-   connected", so recordings replay across builds with and without the pad. Format version
-   unchanged. No pad code there.
-2. Pad (this branch, uncommitted): `pad_game_update` records the pad's output (actions,
-   flight values, tree state) once per update, as fixed point, and plays it back. Replays
-   do not depend on pad.cfg or a pad being plugged in.
-3. Needs (1) in `RecordPlayback`, then merged into this branch, before (2) builds.
-4. Test: record a mission flown with the pad, replay it; replay an existing recording.
+Host and platform
+- `WinMain` split into init, one frame, shutdown; the game keeps its own clock.
+- No blocking loops: popups and other modal loops run per frame.
+- Restartable in one process: all game state reset in one place, no `atexit` teardown.
+- Platform hooks as function tables the host fills in: time, input, sound, files, window; the same hooks the recorder uses, so recordings can referee the port.
+- `cfile` takes an explicit root instead of the current directory.
+- Sound behind an interface that does not need a window handle.
+- No `windows.h` in any header the host binding includes.
+- Settings from an ini, not the registry (D-016).
 
-## Next
-- Tom tests batch 2 with the 360 pad.
-- Get `RecorderInputDevice` into `RecordPlayback`.
+Build and determinism
+- x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
+- Out-of-bounds reads that affect gameplay fixed before x64 (`AiBig.cpp:870`).
+- `#pragma optimize("", off)` blocks reviewed for another compiler.
 
-## Proposed batch 4: energy (ETS) mode, from Tom, waiting for go-ahead
-1. Hold Back (left special button): energy mode. A radial display of the three energy
-   bars (engines, weapons, shields).
-2. Right stick adjusts them; right stick click resets to defaults (`ETS_EQUALIZE`).
-3. While Back is held, the right stick does nothing else (no roll, no countermeasure).
-4. Proposed default for the radial: the three bars 120 degrees apart (Weapons top left,
-   Shields top right, Engines bottom). Push the stick towards a bar to raise it one step
-   (`INCREASE_*`, the game takes the energy from the others); back to centre before the
-   next step. Holding to repeat is the alternative.
-
-## Later batches (not proposed yet)
-- Tier 1 controls not in the core layout.
-- Tier 2 in the pad tree.
-- Other backends (DirectInput / SDL), rumble.
+Later (GodotPrep or after)
+- Coordinates: Godot is right-handed; mirror one axis and flip winding at the boundary.
+- Cutscenes: there is no movie player; new work.
+- Real 3D, one system at a time, after a backend drawing the existing projected triangles.
