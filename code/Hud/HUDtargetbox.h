@@ -158,6 +158,7 @@ int	hud_targetbox_flash_expired(int index);
 // functions to manage the targetbox static that appears when sensors are severely damaged
 void	hud_targetbox_static_init();
 int	hud_targetbox_static_maybe_blit(float frametime);
+void hud_targetbox_static_update();	// Claude: logic phase part of hud_targetbox_static_maybe_blit
 
 void hud_render_target_ship(object *target_objp);
 void hud_render_target_debris(object *target_objp);
@@ -165,6 +166,7 @@ void hud_render_target_weapon(object *target_objp);
 
 void hud_update_cargo_scan_sound();
 void hud_cargo_scan_update(object *targetp, float frametime);
+void hud_cargo_scan_logic(object *targetp, float frametime);	// Claude: logic phase part of hud_cargo_scan_update
 
 char *hud_targetbox_truncate_subsys_name(char *outstr);
 

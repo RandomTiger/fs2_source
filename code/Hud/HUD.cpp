@@ -1244,14 +1244,23 @@ void hud_show_common_3d_gauges(float frametime, int in_cockpit)
 // Called just before HUD_render_3d, under the same conditions, so the game does the same things in the same order.
 void HUD_update_3d()
 {
+	Player->subsys_in_view = -1;	// Claude: as HUD_render_3d does, so the lock and cargo scan check the line of sight afresh
+
 	if ( hud_disabled() ) {
 		return;
 	}
 
 	if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY))) {
+		hud_update_targeting(flFrametime, 1);	// Claude: logic phase of the targeting gauges
 		if ( hud_gauge_active(HUD_MISSILE_WARNING_ARROW) ) {
 			hud_update_homing_beep();
 		}
+	} else if ( Viewer_mode & (VM_CHASE | VM_EXTERNAL | VM_WARP_CHASE | VM_PADLOCK_ANY ) ) {	// Claude: the external views, as in HUD_render_3d
+		// If the player is warping out, don't draw the targeting gauges
+		if ( Player->control_mode != PCM_NORMAL ) {
+			return;
+		}
+		hud_update_targeting(flFrametime, 0);
 	}
 }
 

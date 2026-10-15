@@ -342,6 +342,7 @@ void	hud_target_in_reticle_old();
 void	hud_target_in_reticle_new();
 void	hud_target_subsystem_in_reticle();
 void	hud_show_targeting_gauges(float frametime, int in_cockpit=1);
+void hud_update_targeting(float frametime, int in_cockpit);	// Claude: logic phase part of hud_show_targeting_gauges
 void	hud_target_targets_target();
 void	hud_check_reticle_list();
 void	hud_target_closest_locked_missile(object *A);

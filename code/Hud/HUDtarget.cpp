@@ -3522,6 +3522,51 @@ void hud_update_target_in_reticle(vertex *projected_v)
 
 
 
+// Claude: the gameplay part of hud_show_targeting_gauges, split out so that it runs whether or not the HUD is
+// drawn: the hostile ship warning, the target distance, the target box static and its sound, the cargo scan
+// and the missile lock. Called from HUD_update_3d under the conditions HUD_render_3d calls
+// hud_show_targeting_gauges, doing the same things in the same order.
+void hud_update_hostile_triangle();
+void hud_update_targeting(float frametime, int in_cockpit)
+{
+	vector target_pos;
+
+	if ( in_cockpit ) {
+		hud_update_hostile_triangle();
+	}
+
+	if (Player_ai->target_objnum == -1)
+		return;
+
+	object * targetp = &Objects[Player_ai->target_objnum];
+
+	// check to see if there is even a current target
+	if ( targetp == &obj_used_list ) {
+		return;
+	}
+
+	if ( Player_ai->targeted_subsys != NULL ) {
+		get_subsystem_world_pos(targetp, Player_ai->targeted_subsys, &target_pos);
+		Player_ai->current_target_distance = vm_vec_dist_quick(&target_pos,&Player_obj->pos);
+	} else {
+		Player_ai->current_target_distance = hud_find_target_distance(targetp,Player_obj);
+	}
+
+	if ( in_cockpit ) {
+		if ( hud_gauge_active(HUD_TARGET_MONITOR) ){
+			hud_targetbox_static_update();
+		}
+		hud_cargo_scan_logic(targetp, frametime);
+	} else {
+		Player->cargo_inspect_time = 0;
+		player_stop_cargo_scan_sound();
+	}
+
+	if (!Player->target_is_dying) {
+		hud_update_lock_indicator(frametime);
+	}
+}
+
 // hud_show_targeting_gauges() will display the targeting information on the HUD.  Called once per frame.
 //
 // Must be inside a g3_start_frame()
@@ -3604,7 +3649,7 @@ void hud_show_targeting_gauges(float frametime, int in_cockpit)
 		}
 
 		// update cargo scanning
-		hud_cargo_scan_update(targetp, frametime);
+		hud_cargo_scan_update(targetp, frametime);	// Claude: drawing only now, the scan runs in hud_update_targeting
 
 		// draw the shield icon for the current target
 		if ( hud_gauge_active(HUD_TARGET_SHIELD_ICON) ) {
@@ -3625,14 +3670,11 @@ void hud_show_targeting_gauges(float frametime, int in_cockpit)
 				hud_shield_show_mini(targetp);
 			}
 		}
-	} else {
-		Player->cargo_inspect_time = 0;
-		player_stop_cargo_scan_sound();
-	}
+	}	// Claude: outside the cockpit hud_update_targeting stops the cargo scan now
 
 	// display the lock indicator
 	if (!Player->target_is_dying) {
-		hud_update_lock_indicator(frametime);
+		// Claude: hud_update_lock_indicator runs in hud_update_targeting now
 		hud_show_lock_indicator(frametime);
 
 		// update and render artillery 
@@ -3666,7 +3708,8 @@ void hud_show_targeting_gauges(float frametime, int in_cockpit)
 // Currently, it points to the closest enemy that has the player as its target_objnum and has
 // SM_ATTACK or SM_SUPER_ATTACK as its ai submode.
 
-void hud_show_hostile_triangle()
+static int Hud_hostile_objnum = -1;	// Claude: the ship hud_update_hostile_triangle picked for the triangle, or -1
+void hud_update_hostile_triangle()	// Claude: was hud_show_hostile_triangle, now the logic phase part
 {
 	object* A;
 	float min_distance=1e20f;
@@ -3681,6 +3724,7 @@ void hud_show_hostile_triangle()
 	int player_obj_index = OBJ_INDEX(Player_obj);
 	int turret_is_attacking = 0;
 	
+	Hud_hostile_objnum = -1;	// Claude: nothing to draw unless set below
 	so = GET_FIRST(&Ship_obj_list);
 	for ( so = GET_FIRST(&Ship_obj_list); so != END_OF_LIST(&Ship_obj_list);  so = GET_NEXT(so) ) {
 
@@ -3773,14 +3817,26 @@ void hud_show_hostile_triangle()
 	if (OBJ_INDEX(hostile_obj) == Player_ai->target_objnum)
 		return;
 
+	Hud_hostile_objnum = OBJ_INDEX(hostile_obj);	// Claude: drawn by hud_show_hostile_triangle
+}
+// Claude: drawing only now; hud_update_hostile_triangle finds the ship and warns the player in the logic phase
+void hud_show_hostile_triangle()
+{
+	object *hostile_obj;
+
+	if ( Hud_hostile_objnum < 0 ) {
+		return;
+	}
+	hostile_obj = &Objects[Hud_hostile_objnum];
+
 	if ( hud_gauge_active(HUD_HOSTILE_TRIANGLE) ) {
 		if ( hud_gauge_maybe_flash(HUD_HOSTILE_TRIANGLE) != 1 ) {
-//			hud_set_iff_color( TEAM_HOSTILE, 1 );	//	Note: This should really be TEAM_HOSTILE, not opposite of Player_ship->team.
 			hud_set_iff_color( hostile_obj, 1 );
 			hud_render_triangle(&hostile_obj->pos, 0, 1, 0);
 		}
 	}
 }
+
 
 // Return the bank number for the primary weapon that can fire the farthest, from
 // the number of active primary weapons
