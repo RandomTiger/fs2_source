@@ -23,7 +23,7 @@ Build Release (and Debug for the final run) from `fs2_LogicDrawSplit`. `tools\bi
 tools\nodraw_check.ps1 -Missions sm1-01
 tools\nodraw_check.ps1
 ```
-For each mission it records a fresh run with the current build, replays it normally (`draw`) and with `-nodraw`, and TraceDiffs each against the recorded trace. `summary.txt` in the output folder has one line per mission. All missions take about 1.5 hours.
+For each mission it records a fresh run with the current build, replays it normally (`draw`) and with `-nodraw`, and TraceDiffs each against the recorded trace. `summary.txt` in the output folder has one line per mission. All 46 missions take about 2 hours.
 
 Reading a failure:
 - `nodraw ... DESYNC at frame F: this run asked for X, the recording has Y`: the recorded run made the read Y while drawing (usually a sound or the clock), which `-nodraw` skips, or the other way round. Find what in drawing makes that read and move it to the logic phase.
@@ -39,20 +39,20 @@ On this branch (first commit, work in progress):
 - Talking-head and other HUD anims advance in the logic phase (`anim_update_all`, `anim_show_next_frame(..., blit = 0)`, `AnimPlay.cpp`), since messages wait for them to finish.
 - Drawing has its own cosmetic random stream (`Cosmetic_rand_drawing`, `SystemVars.cpp`), set around the drawing calls in `game_frame`, so effects drawn on screen don't shift the numbers that logic-side effects draw (some of which pick sounds, which are in the recording).
 
-## Status (2026-10-14, Release, 27 of the missions)
-`draw` matched for all 27. `-nodraw`:
+## Status (2026-10-15, Release, all 46 missions, at d301b0e)
+`draw` matched for all 46. `-nodraw` (frame numbers are where the traces first differ, or the desync frame):
 
 | Result | Missions |
 |---|---|
-| Identical | sm1-01, sm1-03, loop1-1 |
-| Replay OK, traces differ from frame 2 | sm1-05, sm1-08 |
-| Replay OK, traces differ later | sm1-09 (563), loop1-3 (244), sm2-06 (1108), sm2-10 (3422), sm3-02 (3466) |
-| Desync, sounds out of step (`snd_play_3d` / `snd_time_remaining`) | sm1-04, sm1-06, sm1-07, loop1-2, sm2-03, sm2-05, sm2-07, sm2-09, sm3-01 |
-| Desync, recorded run played a sound while drawing (`mouse_pos` vs `snd_play`, nebula missions, likely lightning) | sm2-01, sm2-02, sm2-08, sm3-03 |
-| Desync on a clock read drawing makes (`timer_ms`) | sm1-10, sm2-04 |
-| Desync, real gameplay difference at frame 430 | sm1-02 |
+| Identical | sm1-01, sm1-03, sm3-09 |
+| Replay OK, traces differ from frame 2 | AutotestFlow, sm1-05, sm1-08, sm3-07 |
+| Replay OK, traces differ later | AutotestSupport (78), AutotestAI (402), AutotestArrivals (928), loop1-3 (276), sm1-04 (867), sm1-09 (1942), sm2-06 (1114), sm2-10 (3420), sm3-02 (3460), sm3-08 (889) |
+| Desync, sounds out of step (`snd_play_3d` / `snd_time_remaining` / `timer_ms`) | AutotestWeapons, loop1-1, loop1-2, loop2-2, sm1-02, sm1-06, sm2-03, sm2-05, sm2-07, sm2-08, sm2-09, sm3-01, sm3-03, sm3-05, sm3-06 |
+| Desync, nebula missions (`snd_is_playing` vs `snd_play_3d`, likely lightning) | AutotestNebActive, AutotestNebMedium, AutotestNebStandard |
+| Desync, recorded run played a sound while drawing (`mouse_pos` vs `snd_play`) | Autotest, AutotestChain, AutotestDamage, loop2-1, sm2-01, sm2-02, sm3-04 |
+| Desync on a clock read drawing makes (`timer_ms`) | AutotestPlayer, sm1-07 (frame 2), sm1-10, sm2-04 |
 
-Not run yet: sm3-04 to sm3-09, loop2-1, loop2-2, and the Autotest* missions (`data/missions/Autotest*.fs2`).
+Changed since the 2026-10-14 run of 27 missions: loop1-1 was identical and now desyncs at frame 1528 (traces differ from 1258); sm1-04 no longer desyncs; sm1-02 now differs from frame 75 and desyncs at 470 (was a difference at 430); sm1-07 now desyncs at frame 2 on a clock read.
 
 **Pieces 1-2 are not gameplay-neutral (found 2026-10-14).** The recordings added later on `RecordPlayback` (the test missions in `data/missions/Autotest*.fs2` and the hand-played SM1-07) pass on `Enhanced` but fail on `PrePort`: Autotest diverges at frame 615, AutotestChain at 2208, SM1-07 at 12815, and AutotestPlayer desyncs at 5580 (diverged at 5558). With 093683c reverted all four match, so the cause is in pieces 1-2 (the game view, the eye set in the logic phase, `OF_WAS_RENDERED` from the view cone). The 34 campaign recordings, in which the AI flies the player ship (`-playernpc`), all pass, and Autotest and AutotestChain keep the player still, so it is not simply the player moving. **Fixed 2026-10-15:** the first difference (Autotest, frame 615) was `OF_WAS_RENDERED` on asteroids. When the player is dead or the supernova is at stage 2 or later, `game_set_view_clip` letterboxes the 3D view to half height, and `g3_start_frame` takes its aspect from that clip; the game view always used the full canvas, so its view cone was taller. `game_view_canvas` (`Render/GameView.cpp`) now cuts the art-resolution canvas the same way, including the shrunken view below 100%. All four recordings then replay identically to `Enhanced` with full traces (the supernova missions, AutotestPlayer whose player dies, and SM1-07).
 
@@ -63,8 +63,8 @@ Roughly in this order; each is one or more commits.
 2. **Missile lock and cargo scan** (piece 3): `HUD_render_3d` → `hud_update_lock_indicator` (`HUDtarget.cpp`, `HUDlock.cpp`) and `hud_cargo_scan_update` → `player_inspect_cargo`, `ship_do_cargo_revealed`. Lock moves to the game view.
 3. **Effects and sounds out of step**: the most common desync. Sparks, impact effects and their sounds still started from drawing code; find the caller of the sound in each desync (Debug replays log the call stack).
 4. **Nebula lightning** (piece 5): `nebl_render_all` applies EMP, plays thunder and draws gameplay random numbers while drawing.
-5. **Clock reads in drawing** (sm1-10, sm2-04): find the `timer_ms` call in drawing; either it moves to the logic phase or, if it only affects drawing, it reads an unrecorded clock (as was done for the timing display, 91fe2c0).
-6. **sm1-02 frame 430**: a real state difference; investigate with `-fulltrace`.
+5. **Clock reads in drawing** (AutotestPlayer, sm1-07, sm1-10, sm2-04): find the `timer_ms` call in drawing; either it moves to the logic phase or, if it only affects drawing, it reads an unrecorded clock (as was done for the timing display, 91fe2c0).
+6. **sm1-02 from frame 75** (was frame 430 before the game view fix): a real state difference; investigate with `-fulltrace`.
 7. **Squad orders, reinforcements, wingman warnings** (piece 4): HUD-gated gameplay, same treatment as lock.
 8. **Mouse read in the screen flip**: `gr_d3d_flip` reads the mouse to draw the cursor; move the read to the end of the frame so drawing makes no recorded reads.
 9. **Brackets and subsystem view**: `Player->subsys_in_view` set while drawing brackets (`HUDbrackets.cpp`), `next_hit_spark` using `Viewer_obj` (`Ship.cpp`).
