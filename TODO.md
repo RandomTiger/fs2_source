@@ -59,5 +59,8 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [ ] Before Latest: replay every recording in Release and Debug, at 32 and 16 bit.
 
 ## Other
+- [ ] Tom: play SM1-07 again on `PrePort` and commit it as `recordings/played/SM1-07`.
+      The old one was removed there because the debris change (docs/DEBRIS_OFFSCREEN_FIX.md)
+      makes it desync; it still passes on `Enhanced` and below.
 - [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT
       numbers from event 15 on (debug output only).
