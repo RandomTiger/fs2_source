@@ -782,7 +782,12 @@ void radar_draw_range()
 	hud_set_default_color();
 }
 
-void radar_frame_render(float frametime)
+static int Radar_ok_to_blit = 1;	// Claude: set by radar_frame_update, read by radar_frame_render
+
+// Claude: the gameplay part of radar_frame_render, split out so that it runs whether or not the radar is drawn:
+// the sensor damage timers and the static, whose sound is in the recording. Called in the logic phase under the
+// conditions hud_show_radar draws the radar (hud_update_radar).
+void radar_frame_update()
 {
 	float	sensors_str;
 	int ok_to_blit_radar;
@@ -817,10 +822,6 @@ void radar_frame_render(float frametime)
 		ok_to_blit_radar = 0;
 	}
 
-	hud_set_gauge_color(HUD_RADAR);
-	radar_blit_gauge();
-	radar_draw_range();
-
 	if ( timestamp_elapsed(Radar_static_next) ) {
 		Radar_static_playing ^= 1;
 		Radar_static_next = cosmetic_timestamp_rand(50, 750);
@@ -833,12 +834,10 @@ void radar_frame_render(float frametime)
 
 	if ( ok_to_blit_radar ) {
 		if ( Radar_static_playing ) {
-			radar_draw_blips_sorted(1);	// passing 1 means to draw distorted
 			if ( Radar_static_looping == -1 ) {
 				Radar_static_looping = snd_play_looping(&Snds[SND_STATIC]);
 			}
 		} else {
-			radar_draw_blips_sorted();
 			if ( Radar_static_looping != -1 ) {
 				snd_stop(Radar_static_looping);
 				Radar_static_looping = -1;
@@ -848,6 +847,24 @@ void radar_frame_render(float frametime)
 		if ( Radar_static_looping != -1 ) {
 			snd_stop(Radar_static_looping);
 			Radar_static_looping = -1;
+		}
+	}
+
+	Radar_ok_to_blit = ok_to_blit_radar;	// Claude: for radar_frame_render
+}
+
+// Claude: drawing only now; the timers and the static sound are in radar_frame_update
+void radar_frame_render(float frametime)
+{
+	hud_set_gauge_color(HUD_RADAR);
+	radar_blit_gauge();
+	radar_draw_range();
+
+	if ( Radar_ok_to_blit ) {
+		if ( Radar_static_playing ) {
+			radar_draw_blips_sorted(1);	// passing 1 means to draw distorted
+		} else {
+			radar_draw_blips_sorted();
 		}
 	}
 }

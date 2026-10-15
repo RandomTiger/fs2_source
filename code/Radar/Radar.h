@@ -55,6 +55,7 @@ extern void radar_plot_object( object *objp );
 extern void radar_frame_init();
 extern void radar_mission_init();
 extern void radar_frame_render(float frametime);
+extern void radar_frame_update();	// Claude: logic phase part of radar_frame_render
 
 // observer hud rendering code uses this function
 void radar_draw_blips_sorted(int distort=0);

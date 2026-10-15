@@ -1191,6 +1191,23 @@ void hud_show_radar()
 	}
 }
 
+// Claude: the gameplay part of hud_show_radar (the static and its sound), under the same conditions.
+// Called in the logic phase, so it runs whether or not the radar is drawn.
+void hud_update_radar()
+{
+	if ( hud_disabled() ) {
+		return;
+	}
+
+	if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY ))) {
+		if ( Game_detail_flags & DETAIL_FLAG_HUD )	{
+			if ( hud_gauge_active(HUD_RADAR) ) {
+				radar_frame_update();
+			}
+		}
+	}
+}
+
 // Render model of target in the target view box
 void hud_show_target_model()
 {

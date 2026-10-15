@@ -392,6 +392,7 @@ int	hud_wing_index_from_ship(int shipnum);
 int	hud_wing_slot_from_name(char *name);
 int	hud_support_get_dock_time( int objnum );
 void	hud_show_radar();
+void	hud_update_radar();	// Claude: logic phase part of hud_show_radar
 void	hud_show_target_model();
 void	hud_show_voice_status();
 

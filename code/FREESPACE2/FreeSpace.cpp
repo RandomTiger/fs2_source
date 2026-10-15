@@ -4095,6 +4095,7 @@ void game_frame()
 			if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
 				anim_update_all(0, flFrametime);
 			}
+			hud_update_radar();	// Claude: logic phase of the radar (static and its sound), same conditions as hud_show_radar in game_render_frame
 			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_frame( &eye_pos, &eye_orient ); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
 
 			// save the eye position and orientation
