@@ -28,6 +28,9 @@ ubyte game_view_rotate_vector(vector *dest, vector *src);
 // get the full screen size of the game view, which is what gr_screen.max_w and max_h have been.
 int game_view_project(vector *src, float *sx, float *sy, int *max_w, int *max_h);
 
+// 1 if g3_draw_laser would draw a laser from headp to tailp in the game view.
+int game_view_laser_in_view(vector *headp, vector *tailp);
+
 // 1 if the object may be inside the game view's view cone, as obj_in_view_cone.
 int game_view_in_cone(object *objp);
 

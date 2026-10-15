@@ -4091,6 +4091,7 @@ void game_frame()
 			// OF_WAS_RENDERED from obj_render_all. Set here, at the same point in the frame, without drawing.
 			game_view_set(&eye_pos, &eye_orient, Viewer_zoom);
 			game_view_update_was_rendered();
+			weapon_update_flyby_consider();	// Claude: logic phase of the laser flyby sound, which weapon_render decided while drawing
 			// Claude: logic phase of the HUD anims (talking heads, which messages wait for), same condition as in game_render_frame
 			if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
 				anim_update_all(0, flFrametime);
