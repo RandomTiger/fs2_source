@@ -1,7 +1,8 @@
 <#
 Checks that the game logic does not depend on drawing (PrePort step 3, docs\LOGIC_DRAW_SPLIT.md).
 
-For each autotest mission it records a fresh run with the current build, then replays that recording twice:
+For each autotest mission it records a fresh run with the current build, with the AI flying the player ship
+(-playernpc) as tools\record_autotest.ps1 does, then replays that recording twice:
 once normally and once with -nodraw, and compares each replay's trace with the recorded one.
 
   draw     must always match. If it does not, the build itself is not deterministic: stop and fix that first.
@@ -57,7 +58,14 @@ foreach ($m in $Missions) {
 	$trace = Join-Path $Out "$m.trace"
 	# the recorder never overwrites
 	Remove-Item "$rec*", $trace -ErrorAction SilentlyContinue
-	$code = Run-Game "-window -autotest -at_mission $m -record `"$rec`" -trace `"$trace`""
+	# record the way tools\record_autotest.ps1 does: the AI flies the player, and the mission's notes may set the time
+	$t = 120
+	$file = Join-Path $repo "data\missions\$m.fs2"
+	if (Test-Path $file) {
+		$found = [regex]::Match([regex]::Match((Get-Content -Raw $file), '(?s)\$Notes:(.*?)\$End Notes:').Groups[1].Value, '-at_time (\d+)')
+		if ($found.Success) { $t = [int]$found.Groups[1].Value }
+	}
+	$code = Run-Game "-window -autotest -at_mission $m -at_time $t -playernpc -record `"$rec`" -trace `"$trace`""
 	$line = "$m | record exit=$code"
 	$ok = Test-Path $trace
 	foreach ($mode in 'draw', 'nodraw') {
