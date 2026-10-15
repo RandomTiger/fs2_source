@@ -30,6 +30,7 @@ Reading a failure:
 - `nodraw REPLAY OK / DIVERGED at frame F`: same inputs, different game state. Replay both with `-fulltrace` and TraceDiff again for the field. Frame 2 means something every frame depends on (the camera, the view cone, lock).
 - `draw` not MATCH: the build is not deterministic; fix that before anything else (see the `fs2-replay-debugging` notes and `docs/REPLAY.md`).
 - `-nodraw` still clears and flips the screen, so the flip's own reads stay; only the mission's 3D scene, the target box model and the HUD are skipped.
+- To find what drawing does that gameplay depends on: in a Debug build, temporarily log a call stack (as `replay_log_stack` in `Replay.cpp` does) from `w_tag` (recording) or `r_tag` (replay) and from `myrand` (`SystemVars.cpp`) whenever `Cosmetic_rand_drawing` is set, once per distinct stack, then record or replay the mission normally. Each logged stack is a recorded read or a gameplay random number made inside drawing. That is how the 2026-10-15 fixes were found; the logging is not committed. If a mission diverges with no such read, replay with `-fulltrace` and TraceDiff for the field (the flyby flag was found that way).
 
 ## Done
 Pieces 1 and 2 (093683c on `PrePort`; reverted there for a day by 6ab7303, then brought back with the game view fix, 0f4fe41 and 9983a7a; see item 0 below): the game view and the eye position, orientation and shake set in the logic phase; `OF_WAS_RENDERED` set from the view cone there (`game_view_update_was_rendered`); the `-nodraw` flag.
@@ -39,35 +40,31 @@ On this branch (first commit, work in progress):
 - Talking-head and other HUD anims advance in the logic phase (`anim_update_all`, `anim_show_next_frame(..., blit = 0)`, `AnimPlay.cpp`), since messages wait for them to finish.
 - Drawing has its own cosmetic random stream (`Cosmetic_rand_drawing`, `SystemVars.cpp`), set around the drawing calls in `game_frame`, so effects drawn on screen don't shift the numbers that logic-side effects draw (some of which pick sounds, which are in the recording).
 
-## Status (2026-10-15, Release, all 46 missions, at d301b0e)
-`draw` matched for all 46. `-nodraw` (frame numbers are where the traces first differ, or the desync frame):
+Found 2026-10-15 by logging every recorded read and gameplay random number made while drawing (see Test), one commit each:
+- `c95bfc4` `nodraw_check.ps1` records with `-playernpc` and the mission's `-at_time`, like `record_autotest.ps1`. Before this nobody flew the player, so lock and combat were never covered.
+- `475a3e4` Radar static and its sound (`radar_frame_update`, `hud_update_radar`).
+- `64b15fa` Nebula poofs (`neb2_update_player`) and lightning (`nebl_update_all`): timers, jitter, thunder and EMP. The on-screen count that gates thunder and EMP is taken in the game view (`game_view_project`).
+- `fb4545f` Laser flyby sound: `WF_CONSIDER_FOR_FLYBY_SOUND` was set when `g3_draw_laser` drew the laser; now `weapon_update_flyby_consider` with `game_view_laser_in_view`.
+- `3686177` Piece 3: missile lock (lock point projected in the game view), cargo scan, target box static, target distance, and the hostile ship search that triggers wingman warnings (`hud_update_targeting`, from `HUD_update_3d`).
 
-| Result | Missions |
-|---|---|
-| Identical | sm1-01, sm1-03, sm3-09 |
-| Replay OK, traces differ from frame 2 | AutotestFlow, sm1-05, sm1-08, sm3-07 |
-| Replay OK, traces differ later | AutotestSupport (78), AutotestAI (402), AutotestArrivals (928), loop1-3 (276), sm1-04 (867), sm1-09 (1942), sm2-06 (1114), sm2-10 (3420), sm3-02 (3460), sm3-08 (889) |
-| Desync, sounds out of step (`snd_play_3d` / `snd_time_remaining` / `timer_ms`) | AutotestWeapons, loop1-1, loop1-2, loop2-2, sm1-02, sm1-06, sm2-03, sm2-05, sm2-07, sm2-08, sm2-09, sm3-01, sm3-03, sm3-05, sm3-06 |
-| Desync, nebula missions (`snd_is_playing` vs `snd_play_3d`, likely lightning) | AutotestNebActive, AutotestNebMedium, AutotestNebStandard |
-| Desync, recorded run played a sound while drawing (`mouse_pos` vs `snd_play`) | Autotest, AutotestChain, AutotestDamage, loop2-1, sm2-01, sm2-02, sm3-04 |
-| Desync on a clock read drawing makes (`timer_ms`) | AutotestPlayer, sm1-07 (frame 2), sm1-10, sm2-04 |
+## Status (2026-10-15, Release, all 46 missions, at 3686177, player flown by the AI)
+`draw` matched for all 46. `-nodraw` matched for 36.
 
-Changed since the 2026-10-14 run of 27 missions: loop1-1 was identical and now desyncs at frame 1528 (traces differ from 1258); sm1-04 no longer desyncs; sm1-02 now differs from frame 75 and desyncs at 470 (was a difference at 430); sm1-07 now desyncs at frame 2 on a clock read.
+The 10 that fail are all capital-ship break-up debris, which `half_ship_render_ship_and_debris` creates only while drawing the ship: AutotestChain, AutotestDamage, AutotestNebStandard, AutotestWeapons, loop1-1, sm2-04, sm2-07, sm3-01, sm3-06, sm3-08. sm2-07 and sm3-01 were confirmed on the failing recordings; the other eight showed the same debris creation in the logging run. That fix is the intended gameplay change on its own branch, `DebrisOffscreenFix` off `PrePort` (decided 2026-10-13): debris always spawns. This branch picks it up through `git merge PrePort`.
+
+The earlier tables (2026-10-14 and the first 2026-10-15 run) were recorded without `-playernpc`, so they are not comparable.
 
 **Pieces 1-2 are not gameplay-neutral (found 2026-10-14).** The recordings added later on `RecordPlayback` (the test missions in `data/missions/Autotest*.fs2` and the hand-played SM1-07) pass on `Enhanced` but fail on `PrePort`: Autotest diverges at frame 615, AutotestChain at 2208, SM1-07 at 12815, and AutotestPlayer desyncs at 5580 (diverged at 5558). With 093683c reverted all four match, so the cause is in pieces 1-2 (the game view, the eye set in the logic phase, `OF_WAS_RENDERED` from the view cone). The 34 campaign recordings, in which the AI flies the player ship (`-playernpc`), all pass, and Autotest and AutotestChain keep the player still, so it is not simply the player moving. **Fixed 2026-10-15:** the first difference (Autotest, frame 615) was `OF_WAS_RENDERED` on asteroids. When the player is dead or the supernova is at stage 2 or later, `game_set_view_clip` letterboxes the 3D view to half height, and `g3_start_frame` takes its aspect from that clip; the game view always used the full canvas, so its view cone was taller. `game_view_canvas` (`Render/GameView.cpp`) now cuts the art-resolution canvas the same way, including the shrunken view below 100%. All four recordings then replay identically to `Enhanced` with full traces (the supernova missions, AutotestPlayer whose player dies, and SM1-07).
 
 ## Still to do
 Roughly in this order; each is one or more commits.
-0. Done: **Make pieces 1-2 match on the four recordings above** (see above). Replay Autotest (the earliest, frame 615) on `PrePort` and on `Enhanced` with `-fulltrace` and TraceDiff the two for the first differing field. Suspects: the eye position or orientation in the logic phase differing from the one drawing sets (shake, chase or padlock views, zoom), and the view-cone test disagreeing with `obj_render_all` near the edge of the screen (same-team collisions, fireball freeing, shield effects read `OF_WAS_RENDERED`). This comes first: every other result builds on it.
-1. **Drift from frame 2** (sm1-05, sm1-08 and probably the desyncs that diverge at frame 2 before desyncing, such as sm1-06, sm1-07, sm2-01). Something read every frame still comes from drawing: likely missile lock (`hud_update_lock_indicator`, in screen pixels) or something still using the display instead of the game view.
-2. **Missile lock and cargo scan** (piece 3): `HUD_render_3d` → `hud_update_lock_indicator` (`HUDtarget.cpp`, `HUDlock.cpp`) and `hud_cargo_scan_update` → `player_inspect_cargo`, `ship_do_cargo_revealed`. Lock moves to the game view.
-3. **Effects and sounds out of step**: the most common desync. Sparks, impact effects and their sounds still started from drawing code; find the caller of the sound in each desync (Debug replays log the call stack).
-4. **Nebula lightning** (piece 5): `nebl_render_all` applies EMP, plays thunder and draws gameplay random numbers while drawing.
-5. **Clock reads in drawing** (AutotestPlayer, sm1-07, sm1-10, sm2-04): find the `timer_ms` call in drawing; either it moves to the logic phase or, if it only affects drawing, it reads an unrecorded clock (as was done for the timing display, 91fe2c0).
-6. **sm1-02 from frame 75** (was frame 430 before the game view fix): a real state difference; investigate with `-fulltrace`.
-7. **Squad orders, reinforcements, wingman warnings** (piece 4): HUD-gated gameplay, same treatment as lock.
-8. **Mouse read in the screen flip**: `gr_d3d_flip` reads the mouse to draw the cursor; move the read to the end of the frame so drawing makes no recorded reads.
-9. **Brackets and subsystem view**: `Player->subsys_in_view` set while drawing brackets (`HUDbrackets.cpp`), `next_hit_spark` using `Viewer_obj` (`Ship.cpp`).
+Done 2026-10-15: pieces 1-2 matching on the four newer recordings (the game view letterbox), the drift from frame 2 (it was the laser flyby flag), missile lock and cargo scan (piece 3), nebula lightning (piece 5, apart from debris), and the sound and clock desyncs (they were consequences of the above).
+1. **Capital-ship debris** (piece 5, the rest): on `DebrisOffscreenFix`, then `git merge PrePort` here and re-run the check.
+2. **Squad orders and reinforcements** (piece 4): the squad message menu ended itself while drawing in one old sm2-01 recording (`hud_squadmsg_toggle`); no current failure shows it, but check `HUDsquadmsg.cpp` for gameplay in the drawing path.
+3. **Lock start position**: `hud_calculate_lock_start_pos` still takes the screen centre and clamp from `gr_screen.clip_*` (set by `game_set_view_clip`, so identical today). For the game view it should use the game view canvas.
+4. **Mouse read in the screen flip**: `gr_d3d_flip` reads the mouse to draw the cursor; move the read to the end of the frame so drawing makes no recorded reads. `-nodraw` still flips, so the check does not cover it.
+5. **`next_hit_spark` using `Viewer_obj`** (`Ship.cpp`): not seen in any failure yet.
+6. **Debug run**: `tools\nodraw_check.ps1 -Config d` for every mission (Finishing step 1).
 
 ## Finishing
 1. `tools\nodraw_check.ps1` passes for every mission in Release, and again in Debug (`-Config d`).
