@@ -46,8 +46,12 @@ Found 2026-10-15 by logging every recorded read and gameplay random number made 
 - `64b15fa` Nebula poofs (`neb2_update_player`) and lightning (`nebl_update_all`): timers, jitter, thunder and EMP. The on-screen count that gates thunder and EMP is taken in the game view (`game_view_project`).
 - `fb4545f` Laser flyby sound: `WF_CONSIDER_FOR_FLYBY_SOUND` was set when `g3_draw_laser` drew the laser; now `weapon_update_flyby_consider` with `game_view_laser_in_view`.
 - `3686177` Piece 3: missile lock (lock point projected in the game view), cargo scan, target box static, target distance, and the hostile ship search that triggers wingman warnings (`hud_update_targeting`, from `HUD_update_3d`).
+- `8ae9e14` Shared model instance state: drawing a ship sets and clears its model's submodel state (`ship_model_start/stop`), and gameplay read what drawing left (in sm1-03, Debug, `ai_bpap`'s `model_collide` hit damaged replacement submodels of a ship drawing had never cleared). `game_drawing_begin/end` (`FreeSpace.cpp`) save and restore every loaded model's instance state around each drawing call (`model_instance_state_save/restore`, `ModelRead.cpp`). Found with `-fulltrace` and logging the values along the way; no recorded read was involved.
 
-## Status (2026-10-15, Release, all 46 missions, at 3686177, player flown by the AI)
+## Status (2026-10-15, at 8ae9e14, player flown by the AI)
+`tools\nodraw_check.ps1` passes all 46 missions in Release and in Debug: `draw` and `-nodraw` both match. Finishing step 1 is done.
+
+### Earlier run (Release, at 3686177)
 `draw` matched for all 46. `-nodraw` matched for 36.
 
 The 10 that fail are all capital-ship break-up debris, which `half_ship_render_ship_and_debris` creates only while drawing the ship: AutotestChain, AutotestDamage, AutotestNebStandard, AutotestWeapons, loop1-1, sm2-04, sm2-07, sm3-01, sm3-06, sm3-08. sm2-07 and sm3-01 were confirmed on the failing recordings; the other eight showed the same debris creation in the logging run. That fix is the intended gameplay change on its own branch, `DebrisOffscreenFix` off `PrePort` (decided 2026-10-13): debris always spawns. This branch picks it up through `git merge PrePort`.
@@ -66,10 +70,10 @@ Done 2026-10-15: pieces 1-2 matching on the four newer recordings (the game view
 3. **Lock start position**: `hud_calculate_lock_start_pos` still takes the screen centre and clamp from `gr_screen.clip_*` (set by `game_set_view_clip`, so identical today). For the game view it should use the game view canvas.
 4. **Mouse read in the screen flip**: `gr_d3d_flip` reads the mouse to draw the cursor; move the read to the end of the frame so drawing makes no recorded reads. `-nodraw` still flips, so the check does not cover it.
 5. **`next_hit_spark` using `Viewer_obj`** (`Ship.cpp`): not seen in any failure yet.
-6. **Debug run**: `tools\nodraw_check.ps1 -Config d` for every mission (Finishing step 1).
+6. Done: **Debug run** (Finishing step 1), all 46 after 8ae9e14.
 
 ## Finishing
-1. `tools\nodraw_check.ps1` passes for every mission in Release, and again in Debug (`-Config d`).
+1. Done 2026-10-15 (8ae9e14): `tools\nodraw_check.ps1` passes for every mission in Release, and again in Debug (`-Config d`).
 2. `git merge PrePort` one last time, rebuild, re-check.
 3. Re-record `recordings/autotest` with this branch (move the old folder aside first; the recorder never overwrites), commit.
 4. `tools\replay_check.ps1`: everything passes, sm1-01 builds identical.
