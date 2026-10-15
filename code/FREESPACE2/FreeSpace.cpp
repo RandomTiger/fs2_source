@@ -3978,6 +3978,21 @@ void game_render_hud_3d(vector *eye_pos, matrix *eye_orient)
 }
 
 
+// Claude: around each drawing call in game_frame. Drawing uses its own cosmetic random stream, so effects drawn on screen
+// don't shift the numbers gameplay draws, and leaves the shared model instance state as it found it, so gameplay
+// never reads what drawing set (model_instance_state_save, ModelRead.cpp).
+static void game_drawing_begin()
+{
+	Cosmetic_rand_drawing = 1;
+	model_instance_state_save();
+}
+
+static void game_drawing_end()
+{
+	model_instance_state_restore();
+	Cosmetic_rand_drawing = 0;
+}
+
 void game_frame()
 {
 	int actually_playing;
@@ -4099,7 +4114,7 @@ void game_frame()
 			nebl_update_all();	// Claude: logic phase of the lightning (timers, jitter, thunder, EMP), where game_render_frame drew it
 			neb2_update_player();	// Claude: logic phase of the nebula poofs, which the lightning starts and ends at
 			hud_update_radar();	// Claude: logic phase of the radar (static and its sound), same conditions as hud_show_radar in game_render_frame
-			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_frame( &eye_pos, &eye_orient ); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
+			if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_frame( &eye_pos, &eye_orient ); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 
 			// save the eye position and orientation
 			if ( Game_mode & GM_MULTIPLAYER ) {
@@ -4107,7 +4122,7 @@ void game_frame()
 				Net_player->s_info.eye_orient = eye_orient;
 			}
 
-			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; hud_show_target_model(); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
+			if ( !Cmdline_nodraw ) { game_drawing_begin(); hud_show_target_model(); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 
 			// check to see if we should display the death died popup
 			if(Game_mode & GM_DEAD_BLEW_UP){				
@@ -4150,7 +4165,7 @@ void game_frame()
 			// Draw the 2D HUD gauges
 			if(supernova_active() <	3){
 				if ( Game_detail_flags & DETAIL_FLAG_HUD ) HUD_update_2d();	// Claude: logic phase of the 2D HUD, same conditions as in game_render_hud_2d
-				if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_hud_2d(); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream
+				if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_hud_2d(); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 			}
 
 			game_set_view_clip();
@@ -4161,7 +4176,7 @@ void game_frame()
 			}
 
 			// Draw 3D HUD gauges			
-			if ( !Cmdline_nodraw ) { Cosmetic_rand_drawing = 1; game_render_hud_3d(&eye_pos, &eye_orient); Cosmetic_rand_drawing = 0; }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream									
+			if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_hud_3d(&eye_pos, &eye_orient); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it									
 
 			game_tst_frame();
 

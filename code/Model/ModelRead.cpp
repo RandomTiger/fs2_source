@@ -3173,6 +3173,70 @@ void model_clear_instance(int model_num)
 
 }
 
+// Claude: the submodel instance state (blown_off, angs, sii, num_arcs) is shared by every object using a model and
+// is left behind by whatever set it last. Drawing a ship sets and then clears it (ship_model_start/stop), and
+// gameplay reads it where it does not set it first: ai_bpap's model_collide, for example, then hit the damaged
+// replacement submodels of a ship that drawing had never cleared. Saving it before drawing and restoring it after
+// leaves gameplay with what gameplay last set, whether or not anything is drawn (docs/LOGIC_DRAW_SPLIT.md).
+typedef struct model_instance_saved {
+	int		blown_off;
+	angles	angs;
+	submodel_instance_info	*sii;
+	int		num_arcs;
+} model_instance_saved;
+
+static model_instance_saved *Model_instance_saved = NULL;
+static int Model_instance_saved_size = 0;
+
+void model_instance_state_save()
+{
+	int i, j, n;
+
+	n = 0;
+	for (i=0; i<MAX_POLYGON_MODELS; i++ )	{
+		if ( Polygon_models[i] )	{
+			n += Polygon_models[i]->n_models;
+		}
+	}
+	if ( n > Model_instance_saved_size )	{
+		Model_instance_saved = (model_instance_saved *)realloc(Model_instance_saved, n * sizeof(model_instance_saved));
+		Model_instance_saved_size = n;
+	}
+
+	n = 0;
+	for (i=0; i<MAX_POLYGON_MODELS; i++ )	{
+		polymodel *pm = Polygon_models[i];
+		if ( pm )	{
+			for (j=0; j<pm->n_models; j++, n++ )	{
+				Model_instance_saved[n].blown_off = pm->submodel[j].blown_off;
+				Model_instance_saved[n].angs = pm->submodel[j].angs;
+				Model_instance_saved[n].sii = pm->submodel[j].sii;
+				Model_instance_saved[n].num_arcs = pm->submodel[j].num_arcs;
+			}
+		}
+	}
+}
+
+// Drawing loads no models, so the list is the one model_instance_state_save walked.
+void model_instance_state_restore()
+{
+	int i, j, n;
+
+	n = 0;
+	for (i=0; i<MAX_POLYGON_MODELS; i++ )	{
+		polymodel *pm = Polygon_models[i];
+		if ( pm )	{
+			for (j=0; j<pm->n_models; j++, n++ )	{
+				Assert( n < Model_instance_saved_size );
+				pm->submodel[j].blown_off = Model_instance_saved[n].blown_off;
+				pm->submodel[j].angs = Model_instance_saved[n].angs;
+				pm->submodel[j].sii = Model_instance_saved[n].sii;
+				pm->submodel[j].num_arcs = Model_instance_saved[n].num_arcs;
+			}
+		}
+	}
+}
+
 // initialization during ship set
 void model_clear_instance_info( submodel_instance_info * sii )
 {
