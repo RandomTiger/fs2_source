@@ -127,6 +127,7 @@ void neb2_process_post(object *objp);
 
 // render the player nebula
 void neb2_render_player();
+void neb2_update_player();	// Claude: logic phase part of neb2_render_player
 
 // call this when the player's viewpoint has changed, this will cause the code to properly reset
 // the eye's local poofs

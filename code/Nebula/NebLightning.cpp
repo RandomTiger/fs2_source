@@ -57,6 +57,7 @@
 #include "freespace.h"
 #include "gamesnd.h"
 #include "3d.h"
+#include "GameView.h"	// Claude: the lightning counts its points on screen in the game view
 #include "Missionparse.h"
 #include "Neb.h"
 #include "NebLightning.h"
@@ -503,8 +504,85 @@ void nebl_level_init()
 	Storm = NULL;
 }
 
+// Claude: the logic phase of the lightning, split out of nebl_render_all so that it runs whether or not
+// anything is drawn: the bolt timers, the jitter (gameplay random numbers) and, on a bolt's first frame,
+// the thunder and the EMP. The original gated the thunder and the EMP on how many of the bolt's points
+// drawing put on screen; nebl_count takes that count in the game view, point for point as
+// nebl_generate_section did. nebl_update_all runs in the logic phase where nebl_render_all used to.
+static int Nebl_draw[MAX_LIGHTNING_BOLTS];		// draw this bolt this frame
+
+// the counting part of nebl_generate_section
+static void nebl_count_section(float width, l_node *a, l_node *b, int cap, int pinch_a)
+{
+	vector dir, dir_normal, temp, pt;
+	matrix m;
+	int idx, pass, max_w, max_h;
+	int on[3];
+	float sx[3], sy[3];
+
+	// direction matrix
+	vm_vec_sub(&dir, &a->pos, &b->pos);
+	vm_vec_copy_normalize(&dir_normal, &dir);
+	vm_vector_2_matrix(&m, &dir_normal, NULL, NULL);
+
+	// distance to player
+	float bang_dist = vm_vec_dist_quick(&Eye_position, &a->pos);
+	if(bang_dist < Nebl_bang){
+		Nebl_bang = bang_dist;
+	}
+
+	for(idx=0; idx<3; idx++){
+		if(pinch_a){
+			vm_vec_rotate(&pt, &Nebl_ring_pinched[idx], &m);
+		} else {
+			vm_vec_copy_scale(&temp, &Nebl_ring[idx], width);
+			vm_vec_rotate(&pt, &temp, &m);
+		}
+		vm_vec_add2(&pt, &a->pos);
+		on[idx] = game_view_project(&pt, &sx[idx], &sy[idx], &max_w, &max_h) && (sx[idx] >= 0) && (sx[idx] < max_w) && (sy[idx] >= 0) && (sy[idx] < max_h);
+	}
+
+	// with a cap the original tests the start section's points a second time (see nebl_generate_section)
+	for(pass=0; pass<(cap ? 2 : 1); pass++){
+		for(idx=0; idx<3; idx++){
+			if(on[idx]){
+				Nebl_flash_x += sx[idx];
+				Nebl_flash_y += sy[idx];
+				Nebl_flash_count++;
+			}
+		}
+	}
+}
+
+// walks the bolt as nebl_render does, counting instead of drawing
+static void nebl_count(l_node *whee, float width, int first)
+{
+	if(whee == NULL){
+		return;
+	}
+
+	if(first){
+		Assert(whee->links[LINK_RIGHT] != NULL);
+		nebl_count_section(width, whee, whee->links[LINK_RIGHT], 0, 1);
+	}
+
+	if(whee->links[LINK_CHILD]){
+		nebl_count_section(width * 0.5f, whee, whee->links[LINK_CHILD], 1, 0);
+		if(whee->links[LINK_CHILD]->links[LINK_RIGHT] != NULL){
+			nebl_count(whee->links[LINK_CHILD], width * 0.5f, 0);
+		}
+	}
+
+	if(whee->links[LINK_RIGHT]->links[LINK_RIGHT] == NULL){
+		nebl_count_section(width, whee, whee->links[LINK_RIGHT], 1, 0);
+	} else {
+		nebl_count_section(width, whee->links[LINK_RIGHT], whee->links[LINK_RIGHT]->links[LINK_RIGHT], 0, 0);
+		nebl_count(whee->links[LINK_RIGHT], width, 0);
+	}
+}
+
 // render all lightning bolts
-void nebl_render_all()
+void nebl_update_all()	// Claude: was nebl_render_all
 {
 	int idx;
 	l_bolt *b;
@@ -523,6 +601,7 @@ void nebl_render_all()
 	// traverse the list
 	for(idx=0; idx<MAX_LIGHTNING_BOLTS; idx++){
 		b = &Nebl_bolts[idx];		
+		Nebl_draw[idx] = 0;	// Claude: set below when the bolt is drawn this frame
 
 		// if this is being used
 		if(b->used){
@@ -577,16 +656,15 @@ void nebl_render_all()
 				}
 			}
 
-			// pick some cool alpha values
-			Nebl_alpha = cosmetic_frand();
-			Nebl_glow_alpha = cosmetic_frand();
+			// Claude: the alpha values are picked in nebl_render_all now
 
 			// otherwise render him
 			Nebl_flash_count = 0;
 			Nebl_flash_x = 0.0f;
 			Nebl_flash_y = 0.0f;
 			Nebl_bang = 10000000.0f;
-			nebl_render(bi, b->head, b->width);
+			Nebl_draw[idx] = 1;	// Claude: drawn in nebl_render_all
+			nebl_count(b->head, b->width, 1);	// Claude: was nebl_render, which counted the points on screen while drawing
 
 			// if this is the first frame he has been rendered, determine if we need to make a flash and sound effect
 			if(b->first_frame){
@@ -638,6 +716,41 @@ void nebl_render_all()
 			}
 		}
 	}	
+}
+
+// Claude: drawing only now: the bolts nebl_update_all marked, with the alpha values picked as before
+void nebl_render_all()
+{
+	int idx;
+	l_bolt *b;
+
+	// no lightning in non-nebula missions
+	if(!(The_mission.flags & MISSION_FLAG_FULLNEB)){
+		return;
+	}
+
+	// if we have no storm
+	if(Storm == NULL){
+		return;
+	}
+
+	for(idx=0; idx<MAX_LIGHTNING_BOLTS; idx++){
+		b = &Nebl_bolts[idx];
+		if(!Nebl_draw[idx] || !b->used || (b->head == NULL)){
+			continue;
+		}
+
+		// pick some cool alpha values
+		Nebl_alpha = cosmetic_frand();
+		Nebl_glow_alpha = cosmetic_frand();
+
+		// render him
+		Nebl_flash_count = 0;
+		Nebl_flash_x = 0.0f;
+		Nebl_flash_y = 0.0f;
+		Nebl_bang = 10000000.0f;
+		nebl_render(&Bolt_types[b->type], b->head, b->width);
+	}
 }
 
 // process lightning (randomly generate bolts, etc, etc);
