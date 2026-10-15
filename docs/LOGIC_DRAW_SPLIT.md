@@ -72,6 +72,11 @@ Done 2026-10-15: pieces 1-2 matching on the four newer recordings (the game view
 5. **`next_hit_spark` using `Viewer_obj`** (`Ship.cpp`): not seen in any failure yet.
 6. Done: **Debug run** (Finishing step 1), all 46 after 8ae9e14.
 
+## Against PrePort's recordings (2026-10-16, decision D-027)
+Replaying PrePort's 46 recordings: 4 match, and 42 desync on the order of sound and clock reads. In each of the 42 the game state is identical up to the desync. To see past the desync, `FS2_REPLAY_SOUND_LIVE=1` (an environment variable, a diagnostic only, in `Replay.cpp`) asks the sound device live and skips the recorded sound entries. Every other read still comes from the recording.
+
+With it, 41 of 46 match every frame to the end. The other 5 (loop1-2, sm1-08, sm1-09, sm2-09, sm3-04) differ in one bit, `SF_SHIP_HAS_SCREAMED` on one ship. `message_queue_process` sets it when a ship dies while its own message is still playing, and "still playing" is the live `snd_is_playing` answer. PrePort itself, with the same diagnostic applied and no LogicDrawSplit code, gives the same divergence, and its traces are identical to LogicDrawSplit's frame for frame. So the cause is live sound, not this branch.
+
 ## Finishing
 1. Done 2026-10-15 (8ae9e14): `tools\nodraw_check.ps1` passes for every mission in Release, and again in Debug (`-Config d`).
 2. `git merge PrePort` one last time, rebuild, re-check.

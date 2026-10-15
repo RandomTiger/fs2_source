@@ -63,6 +63,14 @@ static int Replay_frame = 0;
 static int Replay_entries = 0;
 static int Replay_entries_by_tag[RT_NUM_TAGS];
 static int Replay_snd_mismatch = 0;
+
+// Diagnostic, set by the environment variable FS2_REPLAY_SOUND_LIVE=1 (D-027): in replay, the sound
+// device is asked live and the recorded sound entries are skipped, so a build that makes the same
+// sound calls in another order can still be replayed to the end and its trace compared.  Never used
+// to make or check a reference recording.
+#define REPLAY_SOUND_LIVE_ENV		"FS2_REPLAY_SOUND_LIVE"
+static int Replay_sound_live = 0;
+static int Replay_sound_skipped = 0;
 static int Replay_last_int[RT_NUM_TAGS];
 static int Replay_clock_offset[RT_NUM_TAGS];	// after the replay, added to the live clocks so they carry on from the recorded ones
 static int Replay_clock_set[RT_NUM_TAGS];
@@ -359,11 +367,32 @@ static int r_peek_tag()
 
 static void replay_drain_events();
 
+// sound device reads, all recorded as one varint each
+static int replay_tag_is_sound(int tag)
+{
+	return (tag >= RT_SND_PLAY) && (tag <= RT_SND_NUM_PLAYING);
+}
+
+static int replay_tag_live(int tag)
+{
+	return Replay_sound_live && replay_tag_is_sound(tag);
+}
+
+static void replay_skip_live()
+{
+	while ((Rpos < Rsize) && replay_tag_live(Rdata[Rpos])) {
+		Rpos++;
+		r_varint();
+		Replay_sound_skipped++;
+	}
+}
+
 static void r_tag(int tag)
 {
 	int got;
 
 	replay_drain_events();
+	replay_skip_live();
 
 	if (Rpos >= Rsize) {
 		replay_desync("recording ended, this run asked for '%s'", Replay_tag_names[tag]);
@@ -398,6 +427,11 @@ void replay_pop()
 int replay_should_read()
 {
 	return (Replay_mode == REPLAY_PLAY) && replay_hook_live();
+}
+
+int replay_should_read_tag(int tag)
+{
+	return replay_should_read() && !replay_tag_live(tag);
 }
 
 static int replay_should_write()
@@ -507,7 +541,7 @@ int replay_snd_handle(int tag, int live_handle)
 {
 	int recorded;
 
-	if (replay_should_read()) {
+	if (replay_should_read_tag(tag)) {
 		recorded = replay_read_int(tag);
 		if ((recorded == -1) && (live_handle != -1)) {
 			// the recorded run could not play this sound, so neither may this one
@@ -587,6 +621,7 @@ static void replay_drain_events()
 	}
 
 	for (;;) {
+		replay_skip_live();
 		tag = r_peek_tag();
 		if ((tag != RT_EV_KEY) && (tag != RT_EV_MOUSE) && (tag != RT_EV_LOSTFOCUS) && (tag != RT_EV_GOTFOCUS)) {
 			return;
@@ -955,6 +990,12 @@ void replay_startup()
 	replay_logf("%s '%s'\n", (Replay_mode == REPLAY_RECORD) ? "Recording" : "Replaying", Replay_file);
 
 	if (Replay_mode == REPLAY_PLAY) {
+		char live[8];
+
+		if (GetEnvironmentVariable(REPLAY_SOUND_LIVE_ENV, live, sizeof(live)) && (live[0] == '1')) {
+			Replay_sound_live = 1;
+			replay_logf("DIAGNOSTIC: %s=1, sound device read live, recorded sound entries skipped\n", REPLAY_SOUND_LIVE_ENV);
+		}
 		replay_read_file();
 		replay_logf("Recorded by build '%s'\n", Hdr.build);
 		replay_logf("Mission '%s', pilot '%s', campaign '%s', seed %d\n", Hdr.mission, Hdr.callsign, Hdr.campaign, Hdr.level_seed);
@@ -1280,6 +1321,9 @@ void replay_mission_over()
 
 	trace_close();
 	replay_log_stats();
+	if (Replay_sound_live) {
+		replay_logf("DIAGNOSTIC: %d recorded sound entries skipped\n", Replay_sound_skipped);
+	}
 	replay_logf((Replay_mode == REPLAY_RECORD) ? "RECORD OK\n" : "REPLAY OK\n");
 
 	if (Replay_auto) {
