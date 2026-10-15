@@ -1,0 +1,2 @@
+# Recordings checksum the mission file bytes, and they were made from CRLF files.
+data/missions/*.fs2 text eol=crlf
