@@ -15,7 +15,7 @@ The break-off was done in `half_ship_render_ship_and_debris`, the function that 
 A break-up that is on screen happens as before, except that the pieces break off a little earlier in the frame (in the simulation, before drawing), so pieces from two ships breaking up at once are created in ship order instead of drawing (depth) order.
 
 ## Recordings
-Re-recorded with this change (`tools\record_autotest.ps1`, the AI flying the player): AutotestAI, AutotestChain, AutotestDamage, AutotestNebActive, AutotestNebMedium, AutotestNebStandard, AutotestWeapons, loop1-1, sm2-04, sm2-07, sm2-09, sm3-03, sm3-06. Every other recording replays unchanged.
+Re-recorded with this change (`tools\record_autotest.ps1`, the AI flying the player): AutotestAI, AutotestChain, AutotestDamage, AutotestNebActive, AutotestNebMedium, AutotestNebStandard, AutotestWeapons, loop1-1, sm2-04, sm2-07, sm2-09, sm3-03, sm3-06. Every other recording replays unchanged, except the hand-played `recordings/played/SM1-07`, which cannot be re-recorded automatically. It is removed on this branch (and so on `PrePort` and above) until Tom plays the mission again (Tom, 2026-10-15); it still passes on `Enhanced` and below.
 
 ## Checked
 - `tools\replay_check.ps1`: the recordings above failed before re-recording, all others passed, sm1-01 builds identical.
