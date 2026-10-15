@@ -1934,6 +1934,71 @@ static void split_ship_init( ship* shipp, split_ship* split_ship )
 }
 
 
+// Claude: the debris part of half_ship_render_ship_and_debris. The original created the free debris pieces
+// while drawing the split ship, so a capital ship that broke up off screen (or with nothing drawn) left no
+// debris. This runs from shipfx_large_blowup_do_frame every frame instead, on screen or not, with the same
+// test, positions and velocities. An intended gameplay change: docs/DEBRIS_OFFSCREEN_FIX.md.
+static void half_ship_create_debris(clip_ship* half_ship, ship *shipp)
+{
+	Assert( Split_ships_inited );
+
+	polymodel *pm = model_get(shipp->modelnum);
+
+	// world coord of original ship center
+	vector orig_ship_world_center;
+	vm_vec_unrotate(&orig_ship_world_center, &half_ship->model_center_disp_to_orig_center, &half_ship->orient);
+	vm_vec_add2(&orig_ship_world_center, &half_ship->local_pivot);
+
+	for (int i=0; i<pm->num_debris_objects; i++ )	{
+		if (half_ship->draw_debris[i] == DEBRIS_DRAW) {
+			vector temp_pos = orig_ship_world_center;
+			vector tmp = {0.0f, 0.0f, 0.0f};
+			vector tmp1 = pm->submodel[pm->debris_objects[i]].offset;
+
+			// determine if explosion front has past debris piece
+			// 67 ~ dist expl moves in 2 frames -- maybe fraction works better
+			int is_live_debris = pm->submodel[pm->debris_objects[i]].is_live_debris;
+			int create_debris = 0;
+			// front ship
+			if (half_ship->explosion_vel > 0) {
+				if (half_ship->cur_clip_plane_pt > tmp1.z + pm->submodel[pm->debris_objects[i]].max.z - 0.1f*half_ship->explosion_vel) {
+					create_debris = 1;
+				}
+			// back ship
+			} else {
+				if (half_ship->cur_clip_plane_pt < tmp1.z + pm->submodel[pm->debris_objects[i]].min.z - 0.1f*half_ship->explosion_vel) {
+					create_debris = 1;
+				}
+			}
+
+			// make free piece of debris
+			if ( create_debris ) {
+				half_ship->draw_debris[i] = DEBRIS_FREE;		// mark debris to not render with model
+				// do debris create here, but not for live debris
+				// debris vel (1) split ship vel (2) split ship rotvel (3) random
+				if ( !is_live_debris ) {
+					vector center_to_debris, debris_vel, radial_vel;
+					object* debris_obj;
+					model_find_world_point(&tmp, &tmp1, shipp->modelnum, -1, &half_ship->orient, &temp_pos);
+					debris_obj = debris_create(half_ship->parent_obj, shipp->modelnum, pm->debris_objects[i], &tmp, &half_ship->local_pivot, 1, 1.0f);
+					// AL: make sure debris_obj isn't NULL!
+					if ( debris_obj ) {
+						vm_vec_scale(&debris_obj->phys_info.rotvel, 4.0f);
+						debris_obj->orient = half_ship->orient;
+						vm_vec_sub(&center_to_debris, &tmp, &half_ship->local_pivot);
+						vm_vec_crossprod(&debris_vel, &center_to_debris, &half_ship->phys_info.rotvel);
+						vm_vec_add2(&debris_vel, &half_ship->phys_info.vel);
+						vm_vec_copy_normalize(&radial_vel, &center_to_debris);
+						float radial_mag = 10.0f + 30.0f*frand();
+						vm_vec_scale_add2(&debris_vel, &radial_vel, radial_mag);
+						debris_obj->phys_info.vel = debris_vel;
+					}
+				}
+			}
+		}
+	}
+}
+
 static void half_ship_render_ship_and_debris(clip_ship* half_ship,ship *shipp)
 {
 	Assert( Split_ships_inited );
@@ -1963,29 +2028,7 @@ static void half_ship_render_ship_and_debris(clip_ship* half_ship,ship *shipp)
 			vector tmp = {0.0f, 0.0f, 0.0f};
 			vector tmp1 = pm->submodel[pm->debris_objects[i]].offset;
 
-			// determine if explosion front has past debris piece
-			// 67 ~ dist expl moves in 2 frames -- maybe fraction works better
 			int is_live_debris = pm->submodel[pm->debris_objects[i]].is_live_debris;
-			int create_debris = 0;
-			// front ship
-			if (half_ship->explosion_vel > 0) {
-				if (half_ship->cur_clip_plane_pt > tmp1.z + pm->submodel[pm->debris_objects[i]].max.z - 0.1f*half_ship->explosion_vel) {
-					create_debris = 1;
-				}
-				// is the debris visible
-//				if (half_ship->cur_clip_plane_pt > tmp1.z + pm->submodel[pm->debris_objects[i]].min.z - 0.5f*half_ship->explosion_vel) {
-//					render_debris = 1;
-//				}
-			// back ship
-			} else {
-				if (half_ship->cur_clip_plane_pt < tmp1.z + pm->submodel[pm->debris_objects[i]].min.z - 0.1f*half_ship->explosion_vel) {
-					create_debris = 1;
-				}
-				// is the debris visible
-//				if (half_ship->cur_clip_plane_pt < tmp1.z + pm->submodel[pm->debris_objects[i]].max.z - 0.5f*half_ship->explosion_vel) {
-//					render_debris = 1;
-//				}
-			}
 
 			// Draw debris, but not live debris
 			if ( !is_live_debris ) {
@@ -1993,42 +2036,7 @@ static void half_ship_render_ship_and_debris(clip_ship* half_ship,ship *shipp)
 				submodel_render(shipp->modelnum, pm->debris_objects[i], &half_ship->orient, &tmp, render_flags);
 			}
 
-			// make free piece of debris
-			if ( create_debris ) {
-				half_ship->draw_debris[i] = DEBRIS_FREE;		// mark debris to not render with model
-				vector center_to_debris, debris_vel, radial_vel;
-				// check if last debris piece, ie, debris_count == 0
-				int debris_count = 0;
-				for (int j=0; j<pm->num_debris_objects; j++ ) {
-					if (half_ship->draw_debris[j] == DEBRIS_DRAW) {
-						debris_count++;
-					}
-				} 
-				// do debris create here, but not for live debris
-				// debris vel (1) split ship vel (2) split ship rotvel (3) random
-				if ( !is_live_debris ) {
-					object* debris_obj;
-					debris_obj = debris_create(half_ship->parent_obj, shipp->modelnum, pm->debris_objects[i], &tmp, &half_ship->local_pivot, 1, 1.0f);
-					// AL: make sure debris_obj isn't NULL!
-					if ( debris_obj ) {
-						vm_vec_scale(&debris_obj->phys_info.rotvel, 4.0f);
-						debris_obj->orient = half_ship->orient;
-						// if (debris_count > 0) {
-							//mprintf(( "base rotvel %.1f, debris rotvel mag %.2f\n", vm_vec_mag(&half_ship->phys_info.rotvel), vm_vec_mag(&debris_obj->phys_info.rotvel) ));
-							vm_vec_sub(&center_to_debris, &tmp, &half_ship->local_pivot);
-							vm_vec_crossprod(&debris_vel, &center_to_debris, &half_ship->phys_info.rotvel);
-							vm_vec_add2(&debris_vel, &half_ship->phys_info.vel);
-							vm_vec_copy_normalize(&radial_vel, &center_to_debris);
-							float radial_mag = 10.0f + 30.0f*frand();
-							vm_vec_scale_add2(&debris_vel, &radial_vel, radial_mag);
-							debris_obj->phys_info.vel = debris_vel;
-						/* } else {
-							debris_obj->phys_info.vel = half_ship->phys_info.vel;
-							debris_obj->phys_info.rotvel = half_ship->phys_info.rotvel;
-						} */
-					}
-				}
-			}
+			// Claude: the free pieces are created by half_ship_create_debris now, whether or not this is drawn
 		}
 	}
 
@@ -2298,6 +2306,16 @@ int shipfx_large_blowup_do_frame(ship *shipp, float frametime)
 
 	maybe_fireball_wipe(&the_split_ship->front_ship, (int*)&the_split_ship->sound_handle);
 	maybe_fireball_wipe(&the_split_ship->back_ship,  (int*)&the_split_ship->sound_handle);
+
+	// Claude: the debris pieces are created here now, not while drawing (half_ship_create_debris), for the
+	// halves shipfx_large_blowup_render draws
+	if (the_split_ship->front_ship.length_left > 0) {
+		half_ship_create_debris(&the_split_ship->front_ship,shipp);
+	}
+	if (the_split_ship->back_ship.length_left > 0) {
+		half_ship_create_debris(&the_split_ship->back_ship,shipp);
+	}
+
 	return 0;
 }
 
