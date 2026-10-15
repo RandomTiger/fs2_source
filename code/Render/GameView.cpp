@@ -8,19 +8,47 @@
 #include "3d.h"
 #include "2d.h"
 #include "object.h"
+#include "systemvars.h"
+#include "supernova.h"
+#include "floating.h"
 
 static matrix Game_view_matrix;		// scaled like View_matrix
 static vector Game_view_position;
 
-// The game view's canvas: the art resolution, not the display.
+extern int View_percent;	// FreeSpace.cpp
+
+// The game view's canvas: the art resolution, not the display, cut down the way
+// game_set_view_clip (FreeSpace.cpp) cuts the 3D view, since g3_start_frame takes its
+// aspect from that clip region: the letterbox when the player is dead or the supernova
+// is at stage 2 or later, and the shrunken view below 100%.
 static void game_view_canvas(int *w, int *h)
 {
+	int max_w, max_h;
+
 	if ( gr_screen.res == GR_1024 ) {
-		*w = 1024;
-		*h = 768;
+		max_w = 1024;
+		max_h = 768;
 	} else {
-		*w = 640;
-		*h = 480;
+		max_w = 640;
+		max_h = 480;
+	}
+
+	*w = max_w;
+	*h = max_h;
+
+	if ((Game_mode & GM_DEAD) || (supernova_active() >= 2))	{
+		int yborder = max_h/4;
+		*h = max_h - yborder*2;
+	} else if ( View_percent < 100 ) {
+		// game_set_view_clip has already raised View_percent to at least 5 this frame
+		float fp = i2fl(View_percent)/100.0f;
+		int fi = fl2i(fl_sqrt(fp)*100.0f);
+		if ( fi > 100 ) fi=100;
+
+		int xborder = ( max_w*(100-fi) )/200;
+		int yborder = ( max_h*(100-fi) )/200;
+		*w = max_w - xborder*2;
+		*h = max_h - yborder*2;
 	}
 }
 
