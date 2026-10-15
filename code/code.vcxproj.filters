@@ -606,6 +606,9 @@
     <ClCompile Include="Render\3dSetup.cpp">
       <Filter>Render</Filter>
     </ClCompile>
+    <ClCompile Include="Render\GameView.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
     <ClCompile Include="Ship\Afterburner.cpp">
       <Filter>Ship</Filter>
     </ClCompile>
@@ -1338,6 +1341,9 @@
       <Filter>Render</Filter>
     </ClInclude>
     <ClInclude Include="Render\3dInternal.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\GameView.h">
       <Filter>Render</Filter>
     </ClInclude>
     <ClInclude Include="Ship\Afterburner.h">
