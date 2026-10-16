@@ -63,6 +63,10 @@ The version string (`get_version_string`) stays in the game; it uses no Windows 
 - `pstypes.h`: `Assert`, `Error` and `Warning`, and the `vm_malloc`, `vm_strdup` and `vm_free` allocator. `Error` terminates. Under autotest none of them shows a dialog: each is logged through `autotest_report`, `Assert` and `Warning` carry on, and `Error` exits with code 1. Otherwise the Windows backend shows a dialog, copies the text to the clipboard and can dump the call stack; another host may only log.
 - `PadXInput.h`: the pad backend, or a null one that reports no pad. `PadGame.cpp` and the pad core hold the logic.
 
+## What gameplay may read from BmpMan and models (decision D-048)
+- `bm_get_info` for an animation: `w`, `h`, `nframes` and `fps` are the file's own values, set once by `bm_load_animation` from the anim header (`fps` is halved only in the low-memory mode, which only the LowMem setting selects, D-046). The explosion's art version and length come from them (`fireball_get_lod`), so a host's texture pipeline must not change them. Texture resizing belongs to the renderer's upload.
+- Collision reads no texture handle. It skips faces by `texture_invisible`, set from the model's texture names when the model is read (`ModelRead.cpp`). `Mc->hit_bitmap` is written for callers but no gameplay reads it.
+
 ## BmpMan is on the renderer's side (decision D-044)
 A leak is logic reading presentation state, or reaching presentation by a path other than this interface. BmpMan's pixel conversion (`bm_lock`, the `BM_SELECT_*` pointers, the `Gr_current_*`, `Gr_t_*`, `Gr_ta_*` and `Bm_pixel_format` globals) is presentation: it turns image files into the renderer's texture format, and nothing on the logic side reads it. Its boundary is `BmpMan.h`. A host either reuses BmpMan and sets its format globals from its own texture format, or replaces it behind `BmpMan.h`. Either way nothing in BmpMan names a Godot type.
 
