@@ -167,6 +167,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="code\FREESPACE2\FreeSpace.cpp" />
+    <ClCompile Include="code\FREESPACE2\FreeSpaceWin32.cpp" />
     <ClCompile Include="code\FREESPACE2\LevelPaging.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -332,6 +332,15 @@ int find_freespace_cd(char *volume_name=NULL);
 int set_cdrom_path(int drive_num);
 int game_do_cd_mission_check(char *filename);
 
+// Claude: shared between the game and the Windows host, FreeSpaceWin32.cpp (decision D-045)
+extern uint Freespace_total_ram;
+void game_init();
+void game_shutdown(void);
+void game_spew_pof_info();
+int init_cdrom();
+void game_launch_launcher_on_exit();
+void game_maybe_update_launcher(char *exe_dir);
+
 // Used to tell the player that a feature isn't available in the demo version of FreeSpace
 void game_feature_not_in_demo_popup();
 
