@@ -441,6 +441,7 @@
 // Includes for different rendering systems
 #include "GrSoft.h"
 #include "mouse.h"	// Claude: gr_flip_frame
+#include "Replay.h"	// Claude: gr_flip_frame
 #include "GrD3D.h"
 
 screen gr_screen;
@@ -1288,7 +1289,15 @@ void gr_flip_frame()
 {
 	mouse_eval_deltas();
 	if ( mouse_is_visible() )	{
-		mouse_get_pos( &Gr_flip_mouse_x, &Gr_flip_mouse_y );
+		// Claude: D-035: the cursor position only draws the cursor, so it stays out of the recording (replay_push
+		// bypasses the hooks), except in recordings made before that
+		if ( replay_flip_cursor_recorded() ) {
+			mouse_get_pos( &Gr_flip_mouse_x, &Gr_flip_mouse_y );
+		} else {
+			replay_push();
+			mouse_get_pos( &Gr_flip_mouse_x, &Gr_flip_mouse_y );
+			replay_pop();
+		}
 	}
 	(*gr_screen.gf_flip)();
 }

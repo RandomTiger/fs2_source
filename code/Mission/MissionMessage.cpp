@@ -1293,7 +1293,7 @@ void message_queue_process()
 
 //			if ( (Playing_messages[i].wave != -1) && snd_is_playing(Playing_messages[i].wave) )
 			// Claude: D-034: the voice's own clock decides (was snd_time_remaining(wave) > 250).  The device is still
-			// asked, so the recorded stream does not change, but its answer is not used.
+			// asked, as before, but its answer is not used (and from recording version 4 not recorded, D-035).
 			if ( Playing_messages[i].wave != -1 )
 				snd_time_remaining(Playing_messages[i].wave);
 			if ( Playing_messages[i].voice_left_ms > 250.0f )
