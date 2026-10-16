@@ -47,6 +47,7 @@ Host and platform
 - Sound behind an interface that does not need a window handle.
 - No `windows.h` in any header the host binding includes.
 - Settings from an ini, not the registry (D-016).
+- The host runs the C++ menu flow (D-038). Only if the port replaces the menus or runs a headless campaign: extract apply loadout (`MissionShipChoice.cpp:1952`), restore loadout (`common_select_init`), finish mission (`MissionDebrief.cpp:2203-2222`) and advance campaign (`:1635`).
 
 Build and determinism
 - x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.

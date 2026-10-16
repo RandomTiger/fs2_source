@@ -49,6 +49,7 @@ The aim is to move the view setup, lock, cargo scan and view-cone test into the 
 - **Sound:** `Sound\Sound.h`, `AudioStr.h`, `Gamesnd\GameSnd.h`; DirectSound with EAX and A3D, ACM decoding. Clean seam: nothing above Sound calls DirectSound.
 - **Files:** `CFile\cfile.h`; 4 files use Win32 directory calls. VP entries are read as a raw struct (`CfileSystem.cpp:515`).
 - **Video:** there is no movie player. Every `movie_play` call is commented out. Cutscenes are new work in Godot.
+- **Menus:** the host runs the C++ menu flow and draws it (D-038); the gameplay steps inside menu screens stay there. Details in `ENGINE_INTERFACE.md`.
 - **Game state** is fixed-size global arrays (`Objects`, `Ships`, `Wings`, `Weapons`, `Ai_info`, `Players`), one game per process.
 - **64-bit problems:** `bitmap.data` is a `uint` holding a pointer (`GlobalIncs\PsTypes.h:321`, 23 casts in `BmpMan.cpp`); 44 pointer-to-int casts in 21 files, 28 of them in Graphics; the timer's inline assembly (x64 MSVC has no inline assembly). `typedef long fix` is fine on Windows x64. Floating-point results on x64 may not match x86 exactly; test against TraceDiff's tolerances.
 
