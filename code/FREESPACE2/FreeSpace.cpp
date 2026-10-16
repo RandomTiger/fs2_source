@@ -2377,7 +2377,6 @@ void game_get_framerate()
 	} else {
 		sprintf( text, NOX("FPS: ?") );
 	}
-	Framecount++;
 
 	if (Show_framerate)	{
 		gr_set_color_fast(&HUD_color_debug);
@@ -2546,7 +2545,6 @@ void game_show_standalone_framerate()
 		}
 	}
 	std_set_standalone_fps(frame_rate);
-	Framecount++;
 }
 
 // function to show the time remaining in a mission.  Used only when the end-mission sexpression is used
@@ -4160,6 +4158,7 @@ void game_frame()
 
 			gr_reset_clip();
 			game_get_framerate();
+			Framecount++;	// Claude: game logic reads the frame count; it was advanced inside the frame rate display
 			game_show_framerate();		
 
 			game_show_time_left();
@@ -4203,6 +4202,7 @@ void game_frame()
 #endif		
 		} else {
 			game_show_standalone_framerate();
+			Framecount++;	// Claude: as above, advanced outside the frame rate display
 		}
 	}
 

@@ -657,6 +657,7 @@ typedef struct polymodel {
 	int			n_textures;
 	int			original_textures[MAX_MODEL_TEXTURES];		// what gets read in from file
 	int			textures[MAX_MODEL_TEXTURES];					// what textures you draw with.  reset to original_textures by model_set_instance
+	ubyte		texture_invisible[MAX_MODEL_TEXTURES];		// Claude: thruster and invisible faces, which collision skips; set from the names, so collision needs no loaded texture
 
 	vector		autocenter;							// valid only if PM_FLAG_AUTOCEN is set
 	

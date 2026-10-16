@@ -644,7 +644,7 @@ void model_collide_tmappoly(ubyte * p)
 
 	int tmap_num = w(p+40);
 
-	if ( (!(Mc->flags & MC_CHECK_INVISIBLE_FACES)) && (Mc_pm->textures[tmap_num] < 0) )	{
+	if ( (!(Mc->flags & MC_CHECK_INVISIBLE_FACES)) && Mc_pm->texture_invisible[tmap_num] )	{	// Claude: was textures[tmap_num] < 0, which only these texture names set (ModelRead.cpp)
 		// Don't check invisible polygons.
 		return;
 	}

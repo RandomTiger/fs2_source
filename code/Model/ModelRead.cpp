@@ -1802,9 +1802,11 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 					char tmp_name[256];
 					cfread_string_len(tmp_name,127,fp);
 
+					pm->texture_invisible[i] = 0;
 					if ( strstr(tmp_name, "thruster") || strstr(tmp_name, "invisible") )	{
 						// Don't load textures for thruster animations or invisible textures
 						pm->textures[i] = -1;
+						pm->texture_invisible[i] = 1;
 					} else {
 						pm->textures[i] = bm_load( tmp_name );
 						if (pm->textures[i]<0)	{
