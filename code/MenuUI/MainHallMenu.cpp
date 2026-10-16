@@ -1245,31 +1245,6 @@ void main_hall_do(float frametime)
 	// blit ship and weapon table status
 	main_hall_blit_table_status();
 
-	// if we're in nice D3D texture format
-#ifndef NDEBUG
-	gr_set_color_fast(&Color_white);
-
-	// d3d
-	if(gr_screen.mode == GR_DIRECT3D){
-		if(Bm_pixel_format == BM_PIXEL_FORMAT_ARGB_D3D){		
-			gr_string(320, gr_screen.max_h - 10, "D3D ARGB");
-		}
-		extern int D3d_rendition_uvs;
-		extern int D3D_32bit;
-		extern int D3D_fog_mode;	
-		extern int D3D_zbias;
-		if(D3d_rendition_uvs){
-			gr_string(320, gr_screen.max_h - 20, "D3D rendition");
-		}
-		if(D3D_32bit){
-			gr_string(320, gr_screen.max_h - 30, "D3D 32bit");
-		}
-		gr_printf(320, gr_screen.max_h - 40, "Fog : %d", D3D_fog_mode);
-		gr_printf(320, gr_screen.max_h - 50, "Zbias : %d", D3D_zbias);
-		// extern void d3d_test();
-		// d3d_test();
-	}	// Claude: Glide branch removed with the Glide, OpenGL and DirectDraw backends
-#endif	
 
 	gr_flip();
 

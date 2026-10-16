@@ -159,8 +159,7 @@ int transparent_code = 254;
 // Claude: 32 bit textures: anim frames are unpacked as ARGB 8888 instead of 16 bit
 int anim_frame_bpp()
 {
-	extern int D3D_32bit_textures;
-	return (D3D_32bit_textures && (gr_screen.mode == GR_DIRECT3D)) ? 32 : 16;
+	return gr_screen.texture_bpp;	// the renderer's answer (was D3D_32bit_textures under Direct3D)
 }
 
 void anim_check_for_palette_change(anim_instance *instance) {

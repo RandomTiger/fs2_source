@@ -366,6 +366,7 @@ typedef struct screen {
 	int	res;					// GR_640 or GR_1024
 	int	mode;					// What mode gr_init was called with.
 	int	hardware;			// Claude: a hardware 3D renderer (Direct3D, and the null renderer answering as it); was D3D_enabled
+	int	texture_bpp;		// Claude: the depth anim frames are unpacked at: 16, or 32 with 32 bit textures
 	float	aspect;				// Aspect ratio
 	int	rowsize;				// What you need to add to go to next row (includes bytes_per_pixel)
 	int	bits_per_pixel;	// How many bits per pixel it is. (7,8,15,16,24,32)
@@ -563,6 +564,9 @@ typedef struct screen {
 	void (*gf_preload_init)();
 	int (*gf_preload)(int bitmap_num, int is_aabitmap);
 	void (*gf_preload_done)();
+
+	// Claude: texture memory in use, and uploaded this frame, in bytes (the debug CPU display)
+	void (*gf_texture_memory)(int *total, int *this_frame);
 } screen;
 
 // cpu types
@@ -751,6 +755,7 @@ static int gr_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *
 #define gr_preload_init		GR_CALL(gr_screen.gf_preload_init)
 #define gr_preload			GR_CALL(gr_screen.gf_preload)
 #define gr_preload_done		GR_CALL(gr_screen.gf_preload_done)
+#define gr_texture_memory	GR_CALL(gr_screen.gf_texture_memory)
 
 // new bitmap functions
 extern int Gr_bitmap_poly;

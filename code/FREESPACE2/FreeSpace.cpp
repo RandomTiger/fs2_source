@@ -2422,11 +2422,11 @@ void game_show_framerate()
 		gr_set_color_fast(&HUD_color_debug);
 
 		{
-			extern int D3D_textures_in;
-			extern int D3D_textures_in_frame;
-			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in)/1024 );	// Claude: Glide counters removed with the Glide, OpenGL and DirectDraw backends
+			int tex_total, tex_frame;
+			gr_texture_memory(&tex_total, &tex_frame);	// Claude: the renderer's counters; Glide counters removed with the Glide, OpenGL and DirectDraw backends
+			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), tex_total/1024 );
 			sy += dy;
-			gr_printf( sx, sy, NOX("VRAM: +%d KB\n"), (D3D_textures_in_frame)/1024 );
+			gr_printf( sx, sy, NOX("VRAM: +%d KB\n"), tex_frame/1024 );
 			sy += dy;
 		}
 //		gr_printf( sx, sy, "BPP: %d", gr_screen.bits_per_pixel );
@@ -2498,8 +2498,9 @@ void game_show_framerate()
 		gr_printf( sx, sy, NOX("S-HRAM: %d KB\n"), Snd_hram/1024 );		// mem used to store game sound
 		sy += dy;
 		{
-			extern int D3D_textures_in;
-			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), (D3D_textures_in)/1024 );	// Claude: Glide counters removed with the Glide, OpenGL and DirectDraw backends
+			int tex_total, tex_frame;
+			gr_texture_memory(&tex_total, &tex_frame);	// Claude: the renderer's counters; Glide counters removed with the Glide, OpenGL and DirectDraw backends
+			gr_printf( sx, sy, NOX("VRAM: %d KB\n"), tex_total/1024 );
 			sy += dy;
 		}
 	}

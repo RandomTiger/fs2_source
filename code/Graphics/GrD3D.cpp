@@ -2664,6 +2664,15 @@ void d3d_detect_line_offset_16()
 
 #pragma optimize("",on)		
 
+// Claude: texture memory for the debug CPU display (gr_texture_memory)
+static void gr_d3d_texture_memory(int *total, int *this_frame)
+{
+	extern int D3D_textures_in;
+	extern int D3D_textures_in_frame;
+	*total = D3D_textures_in;
+	*this_frame = D3D_textures_in_frame;
+}
+
 void gr_d3d_init()
 {
 	gr_screen.hardware = 1;		// Tell Freespace code that we're using Direct3D.
@@ -2698,6 +2707,7 @@ void gr_d3d_init()
 	D3D_32bit = gr_screen.bits_per_pixel == 32 ? 1 : 0;
 	// Claude: 32 bit textures go with a 32 bit screen, unless -force_16bit. 32 bit is the minimum spec, so no fallback.
 	D3D_32bit_textures = (D3D_32bit && !Cmdline_force_16bit) ? 1 : 0;
+	gr_screen.texture_bpp = D3D_32bit_textures ? 32 : 16;
 	if ( D3D_inited && D3D_32bit_textures && !D3D_found_8888_tex )	{
 		Error( LOCATION, "No 32 bit ARGB texture format. Run with -force_16bit." );
 	}
@@ -2820,6 +2830,7 @@ void gr_d3d_init()
 	gr_screen.gf_preload_init = gr_d3d_preload_init;
 	gr_screen.gf_preload = gr_d3d_preload;
 	gr_screen.gf_preload_done = d3d_glow_level_load;	// ship glow textures are built once the level's bitmaps are in
+	gr_screen.gf_texture_memory = gr_d3d_texture_memory;
 	
 	// Claude: The startup test for this reads the front buffer, which on modern Windows is not reliably the game's
 	// own pixels, and ani frames came out offset.  Default to 1 (the half-texel offset D3D7 needs) instead.

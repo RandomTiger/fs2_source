@@ -1480,6 +1480,7 @@ static void gr_soft_flush() { }
 static void gr_soft_preload_init() { }
 static int gr_soft_preload(int bitmap_num, int is_aabitmap) { return 0; }
 static void gr_soft_preload_done() { }
+static void gr_soft_texture_memory(int *total, int *this_frame) { *total = 0; *this_frame = 0; }
 
 void gr_soft_set_clear_color(int r, int g, int b)
 {
@@ -1691,6 +1692,8 @@ void gr_soft_init()
 	gr_screen.gf_preload_init = gr_soft_preload_init;
 	gr_screen.gf_preload = gr_soft_preload;
 	gr_screen.gf_preload_done = gr_soft_preload_done;
+	gr_screen.gf_texture_memory = gr_soft_texture_memory;
+	gr_screen.texture_bpp = 16;
 
 	gr_reset_clip();
 	gr_clear();

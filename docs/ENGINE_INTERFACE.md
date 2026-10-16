@@ -41,14 +41,17 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 |---|---|---|
 | Branches on `gr_screen.mode` outside Graphics | 12 lines, 5 files | `BmpMan.cpp` 7 and `PackUnpack.cpp` 1 (texture colour format, with the colour globals below), the debug-only D3D overlay in `MainHallMenu.cpp`, the demo title screen in `FreeSpace.cpp` 2, and the null-renderer log line in `Autotest.cpp`. The dead Glide and DirectDraw tests were removed, and the other tests now ask the renderer `gr_screen.hardware`, which Direct3D and the null renderer set (2026-10-16) |
 | Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
-| Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics | 84 | `BmpMan.cpp` 75 |
+| Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics and BmpMan | 0 | Fixed 2026-10-16 (D-044): anim frames are unpacked at the renderer's `gr_screen.texture_bpp`, the debug VRAM display asks `gr_texture_memory`, and the Debug-only D3D settings overlay on the main hall was dropped. The 75 in `BmpMan.cpp` are inside the texture seam (below) |
 | Win32 calls in game code | ~55 | `FreeSpace.cpp` 35 (`MessageBox`, `Sleep`, registry, current directory, CD drive scan, `CreateProcess`); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp` |
 | `fopen` around cfile | ~6 game-side sites | `FreeSpace.cpp`, `SystemVars.cpp`, `Scoring.cpp`, `ModelRead.cpp` |
 | `windows.h` in game code | 4 files | `FreeSpace.cpp`, `WinDebug.cpp`, `Math/Fix.cpp`, `PadXInput.cpp` |
 
-Missing seams to add: a message box, current directory and directory listing, and renderer capability queries to replace the `gr_screen.mode` and `D3D_enabled` tests. `os_sleep` exists, but `FreeSpace.cpp` calls `Sleep` directly.
+Missing seams to add: a message box, and current directory and directory listing. The renderer capability queries exist: `gr_screen.hardware` and `gr_screen.texture_bpp`. `os_sleep` exists, but `FreeSpace.cpp` calls `Sleep` directly.
 
 Logic-side leaks (gameplay depending on drawing or window size) are tracked in `STATUS.md` under gate 2.
 
+## BmpMan is on the renderer's side (decision D-044)
+A leak is logic reading presentation state, or reaching presentation by a path other than this interface. BmpMan's pixel conversion (`bm_lock`, the `BM_SELECT_*` pointers, the `Gr_current_*`, `Gr_t_*`, `Gr_ta_*` and `Bm_pixel_format` globals) is presentation: it turns image files into the renderer's texture format, and nothing on the logic side reads it. Its boundary is `BmpMan.h`. A host either reuses BmpMan and sets its format globals from its own texture format, or replaces it behind `BmpMan.h`. Either way nothing in BmpMan names a Godot type.
+
 ## Size of a backend
-About 200 functions, or about 120 if cfile stays in the game. Render is about 65 to 70 plus about 25 for textures, audio 56, input 47, platform about 28. Clearing the leaks first means replacing about 65 renderer branches and 84 colour-global reads with a few capability queries.
+About 200 functions, or about 120 if cfile stays in the game. Render is about 65 to 70 plus about 25 for textures, audio 56, input 47, platform about 28. The renderer branches and colour-global reads outside the seams are now capability queries (`gr_screen.hardware`, `gr_screen.texture_bpp`, `gr_texture_memory`).

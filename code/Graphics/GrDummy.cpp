@@ -104,6 +104,7 @@ static void gr_dummy_flush() { }
 static void gr_dummy_preload_init() { }
 static int  gr_dummy_preload(int /*bitmap_num*/, int /*is_aabitmap*/) { return 0; }
 static void gr_dummy_preload_done() { }
+static void gr_dummy_texture_memory(int *total, int *this_frame) { *total = 0; *this_frame = 0; }
 
 // ---------------------------------------------------------------------------
 
@@ -115,6 +116,7 @@ void gr_dummy_init()
 	gr_screen.bits_per_pixel = 32;
 	gr_screen.bytes_per_pixel = 4;
 	gr_screen.hardware = 1;		// the hardware paths, as under Direct3D (the reference)
+	gr_screen.texture_bpp = 16;	// no textures to match; 16 keeps anim frames as before the null renderer had a say
 
 	gr_screen.gf_flip              = gr_dummy_flip;
 	gr_screen.gf_flip_window       = gr_dummy_flip_window;
@@ -175,6 +177,7 @@ void gr_dummy_init()
 	gr_screen.gf_preload_init      = gr_dummy_preload_init;
 	gr_screen.gf_preload           = gr_dummy_preload;
 	gr_screen.gf_preload_done      = gr_dummy_preload_done;
+	gr_screen.gf_texture_memory    = gr_dummy_texture_memory;
 }
 
 void gr_dummy_cleanup()
