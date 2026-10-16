@@ -35,7 +35,9 @@ Meanwhile "Convoy one lost" fires when Nebtuu is down to its last hull points, a
 The comment says the `Int3` is a request to be told about a name that may be a mistake, not a rule that the case cannot happen. Their own mission script reaches the destroyed-ship case on purpose, and the code around it does the right thing for it (nothing). So the intent is clear: warn about unknown names, not about ships that have gone.
 
 ## Proposed fix
-Before the `Int3`, ask the mission log whether the ship was destroyed (`LOG_SHIP_DESTROYED`), self-destructed (`LOG_SELF_DESTRUCT`) or departed (`LOG_SHIP_DEPART`), and skip the `Int3` if so. This is a new helper, `sexp_ship_has_left_mission`, under `#ifndef NDEBUG`, used in all five places. A name that never was a ship still stops a Debug build.
+Before the `Int3`, ask the ship system whether the ship has left the mission, and skip the `Int3` if so. The ship system keeps its own list of ships that left, `Ships_exited` (`Ship/Ship.cpp`), with a name lookup, `ship_find_exited_ship_by_name`. `ship_destroyed` adds a ship marked `SEF_DESTROYED`, and `ship_departed` marks it `SEF_DEPARTED`. A self-destructed ship goes through the normal death roll, so it is added as destroyed when it blows up. Until then `ship_name_lookup` still finds it, so the `Int3` is never reached in between. The new helper, `sexp_ship_has_left_mission`, is under `#ifndef NDEBUG` and used in all five places. It accepts a list entry marked destroyed or departed. Ships removed in ship select (`SEF_PLAYER_DELETED`) are left out, as before. A name that never was a ship still stops a Debug build.
+
+The first version of this fix asked the mission log instead (`LOG_SHIP_DESTROYED`, `LOG_SELF_DESTRUCT`, `LOG_SHIP_DEPART`). Tom preferred the ship system's own record, since the question is about ships rather than about what was logged (decision D-032, follow-up). The list holds the last 200 ships that left, the oldest replaced first. That is ample for a Debug check, and no retail mission comes near it.
 
 The five sites, all in `Parse/SEXP.CPP`. Each is the same case: a loop over ship names that sets or clears one flag, with the same lookup (ships present, then ships still to arrive) and the same `Int3` and comment for a name found in neither:
 | Function | Sexps | Flag |
@@ -52,7 +54,7 @@ Not covered, to watch: a ship that never arrives stays in the arrival list, so i
 
 ## What was checked
 - The `Int3` and the helper are both inside `#ifndef NDEBUG`, so Release compiles to the same code.
-- `mission_log_get_time` only reads the log. It draws no random numbers and makes no recorded reads, so Debug and Release traces stay identical.
+- `ship_find_exited_ship_by_name` only reads the list. It draws no random numbers and makes no recorded reads, so Debug and Release traces stay identical.
 - Retail reach: see "Classification" below.
 
 ## Classification (D-029)
