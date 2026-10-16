@@ -16,14 +16,13 @@ Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordi
 | 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 48/48, Release and Debug identical; `-nodraw` 48/48; no-sound check (`tools/sound_model_check.ps1`) 48/48 against the real device; no Assert, Int3 or Warning in any recording. |
 
 ## Current batch
-Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028); `LogicDrawSplit` merged (D-027); lock start position and flip mouse reads; training messages in the logic phase; review 42 (D-032); `replay_check` output names (D-033); the no-sound check and the leak and training test missions (D-031); sound out of gameplay and recording format version 4 (D-034, D-035).
+Done 2026-10-16: `nodraw_check.ps1` replays the checked-in recordings (`-Fresh` records fresh runs, for the "PrePort done?" check); baseline on DESKTOP-CLAUDE; CRLF mission files (D-028); `LogicDrawSplit` merged (D-027); lock start position and flip mouse reads; training messages in the logic phase; review 42 (D-032); `replay_check` output names (D-033); the no-sound check and the leak and training test missions (D-031); sound out of gameplay and recording format version 4 (D-034, D-035).
 
 ## Next batches (proposed order)
-1. `nodraw_check.ps1` replays the existing recordings with `-nodraw` instead of recording fresh runs (saves about 40 minutes per full check).
-2. Camera and supernova shake: their random numbers come from the gameplay stream while the view is set up. Moving them to the cosmetic stream changes every recording; steward brief first.
-3. `nebl_update_all`: the flash distance from the game view instead of `gr_screen.max_w/h`.
-4. Headless: the nebula background pre-render (`neb2_pre_render`) needs a real renderer even under `-nodraw`.
-5. Squad message menu (piece 4): Tom deferred it; lifting the deferral is his call. Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
+1. Camera and supernova shake: their random numbers come from the gameplay stream while the view is set up. Moving them to the cosmetic stream changes every recording; steward brief first.
+2. `nebl_update_all`: the flash distance from the game view instead of `gr_screen.max_w/h`.
+3. Headless: the nebula background pre-render (`neb2_pre_render`) needs a real renderer even under `-nodraw`.
+4. Squad message menu (piece 4): Tom deferred it; lifting the deferral is his call. Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
