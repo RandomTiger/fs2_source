@@ -39,7 +39,7 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 ## Leaks: where game code goes around the seams
 | Kind | Count | Main places |
 |---|---|---|
-| Branches on `gr_screen.mode` outside Graphics | 20 lines, 8 files | `BmpMan.cpp` 8, `Neb.cpp` 3. The dead Glide and DirectDraw tests were removed, and the 30 `D3D_enabled` tests now ask the renderer `gr_screen.hardware`, which Direct3D and the null renderer set (2026-10-16) |
+| Branches on `gr_screen.mode` outside Graphics | 12 lines, 5 files | `BmpMan.cpp` 7 and `PackUnpack.cpp` 1 (texture colour format, with the colour globals below), the debug-only D3D overlay in `MainHallMenu.cpp`, the demo title screen in `FreeSpace.cpp` 2, and the null-renderer log line in `Autotest.cpp`. The dead Glide and DirectDraw tests were removed, and the other tests now ask the renderer `gr_screen.hardware`, which Direct3D and the null renderer set (2026-10-16) |
 | Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics | 84 | `BmpMan.cpp` 75 |
 | Win32 calls in game code | ~55 | `FreeSpace.cpp` 35 (`MessageBox`, `Sleep`, registry, current directory, CD drive scan, `CreateProcess`); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp` |

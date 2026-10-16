@@ -403,18 +403,12 @@ void neb2_level_init()
 	neb_tossed_count = 0;
 
 	// setup proper fogging values
-	switch(gr_screen.mode){
-	case GR_DIRECT3D:
-	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
+	if(gr_screen.hardware){		// Claude: Direct3D, and the null renderer as Direct3D (the reference)
 		Neb_backg_fog_near = NEB_BACKG_FOG_NEAR_D3D;
-		Neb_backg_fog_far = NEB_BACKG_FOG_FAR_D3D;					
-		break;
-	case GR_SOFTWARE:
+		Neb_backg_fog_far = NEB_BACKG_FOG_FAR_D3D;
+	} else {
 		Assert(Fred_running);
-		break;
-	default :
-		Int3();
-	}	
+	}
 
 	// regen the nebula
 	neb2_eye_changed();
@@ -1130,16 +1124,9 @@ void neb2_get_fog_values(float *fnear, float *ffar, object *objp)
 	}
 
 	// get the values
-	switch(gr_screen.mode){
-	case GR_DIRECT3D:
-	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
-		*fnear = Neb_ship_fog_vals_d3d[fog_index][0];
-		*ffar = Neb_ship_fog_vals_d3d[fog_index][1];
-		break;
-
-	default:
-		Int3();
-	}
+	Assert(gr_screen.hardware);	// Claude: Direct3D, and the null renderer as Direct3D (the reference)
+	*fnear = Neb_ship_fog_vals_d3d[fog_index][0];
+	*ffar = Neb_ship_fog_vals_d3d[fog_index][1];
 }
 
 // given a position in space, return a value from 0.0 to 1.0 representing the fog level 

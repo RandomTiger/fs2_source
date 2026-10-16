@@ -442,7 +442,7 @@ void outwnd_print(char *id, char *tmp)
 	int i, nrows, ccol;
 	outwnd_filter_struct *temp;
 
-	if(gr_screen.mode == GR_DIRECT3D){
+	if(gr_screen.hardware){
 		return;
 	}
 
@@ -554,7 +554,7 @@ void outwnd_print(char *id, char *tmp)
 		sptr++;
 	} 
 
-	if(gr_screen.mode == GR_DIRECT3D){
+	if(gr_screen.hardware){
 		return;
 	}
 //	if ( D3D_enabled )	{

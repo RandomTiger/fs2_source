@@ -807,7 +807,7 @@ void main_hall_init(int main_hall_num)
 	
 	// init tooltip shader
 	float gray_intensity = 0.02f;													// nearly black
-	float c = (gr_screen.mode == GR_DIRECT3D) ? 0.11f : 0.07f;			// adjust for renderer differences
+	float c = gr_screen.hardware ? 0.11f : 0.07f;			// adjust for renderer differences
 	gr_create_shader(&Main_hall_tooltip_shader, gray_intensity, gray_intensity, gray_intensity, c);
 
 	// load the background bitmap
