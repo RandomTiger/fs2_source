@@ -331,6 +331,10 @@ typedef struct sound	{
 
 sound	Sounds[MAX_SOUNDS];
 
+// Claude: -nosounddevice: the sound system runs with no device.  Sounds load their header, so their length is known (message
+// voices are timed by it, D-034), and nothing plays: every play and query answers as when no channel is free.
+static int Snd_no_device = 0;
+
 int Sound_enabled = TRUE;				// global flag to turn sound on/off
 int Snd_sram;								// mem (in bytes) used up by storing sounds in system memory
 int Snd_hram;								// mem (in bytes) used up by storing sounds in soundcard memory
@@ -391,6 +395,12 @@ int snd_init(int use_a3d, int use_eax)
 
 	if ( Cmdline_freespace_no_sound )
 		return 0;
+
+	if ( Cmdline_nosounddevice ) {	// Claude: no sound device
+		snd_clear();
+		Snd_no_device = 1;
+		return 1;
+	}
 
 	if (ds_initialized)	{
 		nprintf(( "Sound", "SOUND => Direct Sound is already initialized!\n" ));
@@ -577,7 +587,7 @@ int snd_load( game_snd *gs, int allow_hardware_load )
 
 	snd = &Sounds[n];
 
-	if ( !ds_initialized )
+	if ( !ds_initialized && !Snd_no_device )	// Claude: no sound device
 		return -1;
 
 	si = &snd->info;
@@ -605,7 +615,14 @@ int snd_load( game_snd *gs, int allow_hardware_load )
 		type |= DS_USE_DS3D;
 	}
 	
-	rc = ds_load_buffer(&snd->sid, &snd->hid, &snd->uncompressed_size, header, si, type);
+	if ( Snd_no_device ) {	// Claude: no sound device: the length is all the game needs
+		snd->sid = -1;
+		snd->hid = -1;
+		snd->uncompressed_size = 0;
+		rc = 0;
+	} else {
+		rc = ds_load_buffer(&snd->sid, &snd->hid, &snd->uncompressed_size, header, si, type);
+	}
 
 	free(header);
 	free(si->data);	// don't want to keep this around
@@ -633,6 +650,13 @@ int snd_load( game_snd *gs, int allow_hardware_load )
 //
 int snd_unload( int n )
 {
+	if ( Snd_no_device ) {	// Claude: no sound device, so no buffer to free
+		if ( (n < 0) || (n >= MAX_SOUNDS) || !(Sounds[n].flags & SND_F_USED) )
+			return 0;
+		Sounds[n].flags &= ~SND_F_USED;
+		return 1;
+	}
+
 	if (!ds_initialized)
 		return 0;
 
@@ -1312,6 +1336,9 @@ uint sound_get_ds()
 // 
 int snd_is_inited()
 {
+	if ( Snd_no_device )
+		return TRUE;	// Claude: the sound system runs, with no device
+
 	if ( !ds_initialized )
 		return FALSE;
 

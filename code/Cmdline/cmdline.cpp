@@ -232,6 +232,7 @@ cmdline_parm client_dodamage("-clientdamage", NULL);
 cmdline_parm pof_spew("-pofspew", NULL);
 cmdline_parm force_16bit("-force_16bit", NULL);	// Claude: was -32bit, now that 32 bit is the default
 cmdline_parm nographics_arg("-nographics", NULL);	// Claude: no graphics device: the null renderer, and no drawing
+cmdline_parm nosounddevice_arg("-nosounddevice", NULL);	// Claude: the sound system with no device (Sound.cpp)
 cmdline_parm nodraw_arg("-nodraw", NULL);	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
@@ -275,6 +276,7 @@ int Cmdline_spew_pof_info = 0;
 int Cmdline_force_32bit = 0;
 int Cmdline_force_16bit = 0;	// Claude: 16 bit screen and textures instead of the 32 bit default
 int Cmdline_nographics = 0;	// Claude: no graphics device: the null renderer (GrDummy.cpp), and -nodraw
+int Cmdline_nosounddevice = 0;	// Claude: the sound system with no device: sounds load their length, nothing plays
 int Cmdline_nodraw = 0;	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
 int Cmdline_mouse_coords = 0;
 int Cmdline_timeout = -1;
@@ -625,6 +627,11 @@ int parse_cmdline(char *cmdline)
 	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
 	if(nodraw_arg.found()){
 		Cmdline_nodraw = 1;
+	}
+
+	// Claude: no sound device
+	if(nosounddevice_arg.found()){
+		Cmdline_nosounddevice = 1;
 	}
 
 	// Claude: no graphics device
