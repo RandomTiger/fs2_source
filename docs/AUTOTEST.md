@@ -45,6 +45,29 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestSupport` | AI wingmen calling the support ship |
 | `AutotestPlayer` | The player ship, flown by the AI (`-playernpc`): fighting with missiles, damage and the support ship, flak, guarding, waypoints, death |
 | `AutotestNebStandard`, `AutotestNebActive`, `AutotestNebMedium` | A fight in a full nebula under each lightning storm, AWACS range |
+| `AutotestLeaks` | Where sound or drawing fed gameplay (D-031): a voiced message cut short by its speaker's death, looping sounds across a kill, EMP missiles hitting the player, nebula lightning in an active storm |
+| `AutotestTraining` | Training messages: voiced, unvoiced, delayed with a set duration, two queued at once (D-031) |
+
+### Length (decision D-043)
+A test mission plays to its end when it ends itself, or when its last scripted event comes before the time limit its notes set (`-at_time`). New test missions end themselves. The figures are kept here, not in the mission notes: a recording checks the mission file's bytes, so editing the notes would stop it replaying. From the headless replays of 2026-10-16:
+
+| Mission | Last event or goal (mission time) | Ends |
+|---|---|---|
+| `Autotest` | 'Event name' true, 16.9 s | itself |
+| `AutotestChain` | 'Supernova' true, 68.3 s | itself (the player dies) |
+| `AutotestPlayer` | 'End' true, 186.1 s | itself |
+| `AutotestAI` | goal 'Disable' failed, 196.1 s | time limit 200 s |
+| `AutotestArrivals` | goal 'Courier' complete, 127.1 s | time limit 200 s |
+| `AutotestDamage` | 'Faustus' true, 96.4 s | time limit 180 s |
+| `AutotestFlow` | 'Branch' true, 69.4 s | time limit 180 s |
+| `AutotestLeaks` | goal 'Kappa' complete, 88.5 s | time limit 150 s |
+| `AutotestNebActive` | 'Cruiser down' true, 86.1 s | time limit 180 s |
+| `AutotestNebMedium` | 'Cruiser down' true, 86.1 s | time limit 180 s |
+| `AutotestNebStandard` | 'Theta down' true, 111.4 s | time limit 180 s |
+| `AutotestSupport` | 'Weapons fixed' true, 82.0 s | time limit 240 s |
+| `AutotestTraining` | 'Done' true, 66.1 s | time limit 90 s |
+| `AutotestWeapons` | 'Unlock' true, 118.3 s | time limit 180 s |
+
 - A mission whose `$Notes:` contain `autotest: mission controls vulnerability` sets the player's vulnerability itself, through the `invulnerable` flag and the `ship-vulnerable` and `ship-invulnerable` sexps. Autotest then stops forcing the player invulnerable. A mission can use this to let the player die and so end itself, for example in a supernova.
 - With `-playernpc` the AI flies the player ship like any other ship, following the orders the mission gives Alpha 1 (`$AI Goals`, `add-goal`). The recording stores it, so the replay does the same. Automatic recordings use it. A mission whose notes contain `autotest: player stays still` is played with nobody flying the player even with `-playernpc`: `Autotest` and `AutotestChain`, where the unflown player scans the cargo.
 - When the player dies, autotest answers the death popup with "quit mission", as the time limit does.
