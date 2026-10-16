@@ -20,8 +20,12 @@ Done 2026-10-16: under `-nodraw` the frame no longer clears the screen, sets cli
 
 ## Next batches (proposed order)
 Tom 2026-10-16: work that needs no re-recording first.
-1. Popups that do not block the frame (fs2ue only made every popup cancel at once); the training message's unbound-key popup goes to the steward.
-2. Squad message menu (piece 4): Tom deferred it; lifting the deferral is his call. Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
+1. Headless: a null renderer (`-nographics`, after fs2_source_ue's `GR_DUMMY`), so the suite replays with no renderer; then no window, sound or input device.
+2. Engine interface leaks (`docs/ENGINE_INTERFACE.md`): renderer-mode branches, colour-format globals, direct Win32 calls, `fopen` around cfile.
+
+Carried, by Tom's call:
+- Popups and other modal loops block a host frame. Tom 2026-10-16: decide later, at GodotPrep (D-041; the steward recommends running the game on a coroutine).
+- Squad message menu (piece 4): deferred by Tom; listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
