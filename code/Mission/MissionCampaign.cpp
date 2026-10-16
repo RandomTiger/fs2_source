@@ -161,7 +161,7 @@
 
 #include <stdio.h>
 #include <direct.h>
-#include <io.h>
+#include "OsApi.h"
 #include <string.h>
 #include <setjmp.h>
 
@@ -374,7 +374,7 @@ void mission_campaign_maybe_add( char *filename, int multiplayer )
 void mission_campaign_build_list( int multiplayer )
 {
 	int find_handle;
-	_finddata_t find;
+	os_find_data find;
 	char wild_card[256];
 
 	Num_campaigns = 0;
@@ -383,14 +383,14 @@ void mission_campaign_build_list( int multiplayer )
 	memset(wild_card, 0, 256);
 	strcpy(wild_card, NOX("data\\missions\\*"));
 	strcat(wild_card, FS_CAMPAIGN_FILE_EXT);
-	find_handle = _findfirst( wild_card, &find );
+	find_handle = os_find_first( wild_card, &find );
 	if( find_handle != -1 )	{
-		if ( !(find.attrib & _A_SUBDIR) && stricmp(find.name, BUILTIN_CAMPAIGN) ){
+		if ( !find.is_dir && stricmp(find.name, BUILTIN_CAMPAIGN) ){
 			mission_campaign_maybe_add( find.name, multiplayer);
 		}
 
-		while( !_findnext( find_handle, &find ) )	{
-			if ( !(find.attrib & _A_SUBDIR) && stricmp(find.name, BUILTIN_CAMPAIGN) )	{
+		while( !os_find_next( find_handle, &find ) )	{
+			if ( !find.is_dir && stricmp(find.name, BUILTIN_CAMPAIGN) )	{
 				if ( Num_campaigns >= MAX_CAMPAIGNS ){
 					//MessageBox( -2,-2, 1, "Only the first 300 files will be displayed.", "Ok" );
 					break;

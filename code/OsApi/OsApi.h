@@ -74,6 +74,20 @@ int os_message_box(const char *text, const char *caption, int flags);
 // Claude: a 1 ms timer and scheduler resolution while the game runs (1), or back to the default (0)
 void os_timer_precise(int on);
 
+// Claude: directory listing, so game code needs no io.h. Same use as the C runtime's _findfirst, _findnext and
+// _findclose; files come in the order the platform lists them.
+#include <time.h>
+typedef struct os_find_data {
+	char				name[260];
+	int				is_dir;
+	int				read_only;
+	unsigned int	size;
+	time_t			write_time;
+} os_find_data;
+int os_find_first(const char *filespec, os_find_data *fd);	// a handle, or -1 if nothing matches
+int os_find_next(int handle, os_find_data *fd);				// 0 if fd holds the next file, -1 at the end
+void os_find_close(int handle);
+
 // Used to stop message processing
 void os_suspend();
 

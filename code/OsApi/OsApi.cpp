@@ -255,6 +255,42 @@ void os_timer_precise(int on)
 	}
 }
 
+// Claude: directory listing through the C runtime (OsApi.h)
+static void os_find_copy(const _finddata_t *f, os_find_data *fd)
+{
+	strncpy(fd->name, f->name, sizeof(fd->name) - 1);
+	fd->name[sizeof(fd->name) - 1] = 0;
+	fd->is_dir = (f->attrib & _A_SUBDIR) ? 1 : 0;
+	fd->read_only = (f->attrib & _A_RDONLY) ? 1 : 0;
+	fd->size = f->size;
+	fd->write_time = f->time_write;
+}
+
+int os_find_first(const char *filespec, os_find_data *fd)
+{
+	_finddata_t f;
+	int handle = (int)_findfirst(filespec, &f);
+	if (handle != -1) {
+		os_find_copy(&f, fd);
+	}
+	return handle;
+}
+
+int os_find_next(int handle, os_find_data *fd)
+{
+	_finddata_t f;
+	if (_findnext(handle, &f)) {
+		return -1;
+	}
+	os_find_copy(&f, fd);
+	return 0;
+}
+
+void os_find_close(int handle)
+{
+	_findclose(handle);
+}
+
 // Used to stop message processing
 void os_suspend()
 {

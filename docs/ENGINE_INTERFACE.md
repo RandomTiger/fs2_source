@@ -46,7 +46,7 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 | `fopen` around cfile | 0 in the interface (D-046) | Debug dumps, not interface; a port compiles them out: `ShipTextures.txt`/`ShipTimings.txt` (`FreeSpace.cpp`), the monitor file (`SystemVars.cpp`), `dump` (`WinDebug.cpp`), `ui.out` (`WINDOW.cpp`), the PCX writer (`pcxutils.cpp`), the Scoring debug file. Start-up reads before cfile is up use standard C on paths relative to the exe directory, which the host provides with the files: `data\cmdline.cfg` (`cmdline.cpp`), `pad.cfg` (`PadGame.cpp`), `version_compare` (`version.cpp`). The recorder, the log and the launcher updater (`FreeSpaceWin32.cpp`) are host side |
 | `windows.h` in game code | 0 | Only the platform backends include it (D-047). `FreeSpace.cpp` dropped it, and `Math/Fix.cpp` computes `fixdiv` and `fixmuldiv` with its own copy of `MulDiv`, checked equal on 50 million cases (2026-10-16) |
 
-Missing seam to add: directory listing. The current directory is read with the C runtime's `_getcwd`. Added: `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
+No missing seams. The current directory is read with the C runtime's `_getcwd`. Added: `os_find_first`, `os_find_next` and `os_find_close` (`OsApi.h`, directory listing; the campaign list uses them, and CFile, the file seam itself, keeps its own), `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
 
 Logic-side leaks (gameplay depending on drawing or window size) are tracked in `STATUS.md` under gate 2.
 
