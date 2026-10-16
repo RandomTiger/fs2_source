@@ -39,8 +39,8 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 ## Leaks: where game code goes around the seams
 | Kind | Count | Main places |
 |---|---|---|
-| Branches on `gr_screen.mode` or `D3D_enabled` outside Graphics | ~65 lines, 16 files | `ModelInterp.cpp` 20, `BmpMan.cpp` 12, `Neb.cpp` 9, `FreeSpace.cpp` 5 |
-| Direct calls into the D3D backend | 7 | `d3d_zbias` (`ModelInterp.cpp`), `d3d_start_frame`/`d3d_stop_frame` (`FreeSpace.cpp`), D3D preload (`BmpMan.cpp`) |
+| Branches on `gr_screen.mode` or `D3D_enabled` outside Graphics | ~60 lines, 16 files | `ModelInterp.cpp` 17, `BmpMan.cpp` 12, `Neb.cpp` 7, `FreeSpace.cpp` 5 |
+| Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics | 84 | `BmpMan.cpp` 75 |
 | Win32 calls in game code | ~55 | `FreeSpace.cpp` 35 (`MessageBox`, `Sleep`, registry, current directory, CD drive scan, `CreateProcess`); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp` |
 | `fopen` around cfile | ~6 game-side sites | `FreeSpace.cpp`, `SystemVars.cpp`, `Scoring.cpp`, `ModelRead.cpp` |

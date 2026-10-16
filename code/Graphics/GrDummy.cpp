@@ -99,6 +99,11 @@ static void gr_dummy_cross_fade(int /*bmap1*/, int /*bmap2*/, int /*x1*/, int /*
 static void gr_dummy_filter_set(int /*filter*/) { }
 static int  gr_dummy_tcache_set(int /*bitmap_id*/, int /*bitmap_type*/, float * /*u_scale*/, float * /*v_scale*/, int /*fail_on_full*/, int /*sx*/, int /*sy*/, int /*force*/) { return 0; }
 static void gr_dummy_set_clear_color(int /*r*/, int /*g*/, int /*b*/) { }
+static void gr_dummy_zbias(int /*bias*/) { }
+static void gr_dummy_flush() { }
+static void gr_dummy_preload_init() { }
+static int  gr_dummy_preload(int /*bitmap_num*/, int /*is_aabitmap*/) { return 0; }
+static void gr_dummy_preload_done() { }
 
 // ---------------------------------------------------------------------------
 
@@ -164,6 +169,11 @@ void gr_dummy_init()
 	gr_screen.gf_filter_set        = gr_dummy_filter_set;
 	gr_screen.gf_tcache_set        = gr_dummy_tcache_set;
 	gr_screen.gf_set_clear_color   = gr_dummy_set_clear_color;
+	gr_screen.gf_zbias             = gr_dummy_zbias;
+	gr_screen.gf_flush             = gr_dummy_flush;
+	gr_screen.gf_preload_init      = gr_dummy_preload_init;
+	gr_screen.gf_preload           = gr_dummy_preload;
+	gr_screen.gf_preload_done      = gr_dummy_preload_done;
 }
 
 void gr_dummy_cleanup()

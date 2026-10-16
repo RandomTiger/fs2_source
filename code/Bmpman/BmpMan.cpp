@@ -2176,9 +2176,6 @@ void bm_page_in_start()
 
 }
 
-extern void gr_d3d_preload_init();
-extern int gr_d3d_preload(int bitmap_num, int is_aabitmap );
-extern void d3d_glow_level_load();	// Claude: ship glow
 
 void bm_page_in_stop()
 {	
@@ -2196,7 +2193,7 @@ void bm_page_in_stop()
 
 	int d3d_preloading = 1;
 
-	gr_d3d_preload_init();
+	gr_preload_init();
 
 	for (i = 0; i < MAX_BITMAPS; i++)	{
 		if ( bm_bitmaps[i].type != BM_TYPE_NONE )	{
@@ -2225,7 +2222,7 @@ void bm_page_in_stop()
 				bm_unlock( bm_bitmaps[i].handle );
 
 				if ( d3d_preloading )	{
-					if ( !gr_d3d_preload(bm_bitmaps[i].handle, (bm_bitmaps[i].preloaded==2) ) )	{
+					if ( !gr_preload(bm_bitmaps[i].handle, (bm_bitmaps[i].preloaded==2) ) )	{
 						mprintf(( "Out of VRAM.  Done preloading.\n" ));
 						d3d_preloading = 0;
 					}
@@ -2257,7 +2254,7 @@ void bm_page_in_stop()
 	mprintf(( "Bmpman: %d/%d bitmap slots in use.\n", total_bitmaps, MAX_BITMAPS ));
 	//mprintf(( "Bmpman: Usage went from %d KB to %d KB.\n", usage_before/1024, usage_after/1024 ));
 
-	d3d_glow_level_load();		// Claude: build ship glow textures now, not during play
+	gr_preload_done();		// Claude: the renderer builds ship glow textures now, not during play
 
 	Bm_paging = 0;
 }

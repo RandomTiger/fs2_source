@@ -1474,6 +1474,13 @@ int gr_soft_tcache_set(int bitmap_id, int bitmap_type, float *u_ratio, float *v_
 }
 
 // clear color
+// Claude: no-ops for the calls that used to go to D3D directly
+static void gr_soft_zbias(int bias) { }
+static void gr_soft_flush() { }
+static void gr_soft_preload_init() { }
+static int gr_soft_preload(int bitmap_num, int is_aabitmap) { return 0; }
+static void gr_soft_preload_done() { }
+
 void gr_soft_set_clear_color(int r, int g, int b)
 {
 }
@@ -1677,6 +1684,13 @@ void gr_soft_init()
 
 	// set clear color
 	gr_screen.gf_set_clear_color = gr_soft_set_clear_color;
+
+	// Claude: nothing to do in software for the calls that used to go to D3D directly
+	gr_screen.gf_zbias = gr_soft_zbias;
+	gr_screen.gf_flush = gr_soft_flush;
+	gr_screen.gf_preload_init = gr_soft_preload_init;
+	gr_screen.gf_preload = gr_soft_preload;
+	gr_screen.gf_preload_done = gr_soft_preload_done;
 
 	gr_reset_clip();
 	gr_clear();

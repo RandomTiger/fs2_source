@@ -550,6 +550,18 @@ typedef struct screen {
 
 	// set the color to be used when clearing the background
 	void (*gf_set_clear_color)(int r, int g, int b);
+
+	// Claude: calls game code used to make into the D3D backend directly
+	// z bias for decals drawn on a model (insignias, shields); 0 turns it off
+	void (*gf_zbias)(int bias);
+
+	// draw everything queued so far (before reading the frame back)
+	void (*gf_flush)();
+
+	// texture preload at level load: init, then one call per bitmap (0 when out of video memory), then done
+	void (*gf_preload_init)();
+	int (*gf_preload)(int bitmap_num, int is_aabitmap);
+	void (*gf_preload_done)();
 } screen;
 
 // cpu types
@@ -730,6 +742,14 @@ static int gr_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *
 
 
 #define gr_set_clear_color	GR_CALL(gr_screen.gf_set_clear_color)
+
+#define gr_start_frame		GR_CALL(gr_screen.gf_start_frame)
+#define gr_stop_frame		GR_CALL(gr_screen.gf_stop_frame)
+#define gr_zbias				GR_CALL(gr_screen.gf_zbias)
+#define gr_flush				GR_CALL(gr_screen.gf_flush)
+#define gr_preload_init		GR_CALL(gr_screen.gf_preload_init)
+#define gr_preload			GR_CALL(gr_screen.gf_preload)
+#define gr_preload_done		GR_CALL(gr_screen.gf_preload_done)
 
 // new bitmap functions
 extern int Gr_bitmap_poly;

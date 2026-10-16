@@ -8559,8 +8559,7 @@ void display_title_screen()
 
 	// d3d	
 	if((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)){
-		extern void d3d_start_frame();
-		d3d_start_frame();
+		gr_start_frame();
 	}
 
 	// set
@@ -8571,8 +8570,7 @@ void display_title_screen()
 
 	// d3d	
 	if((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)){
-		extern void d3d_stop_frame();
-		d3d_stop_frame();
+		gr_stop_frame();
 	}
 
 	// flip

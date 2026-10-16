@@ -2507,7 +2507,6 @@ DCF(tiling, "")
 	}
 }
 
-extern void d3d_zbias(int bias);
 void model_really_render(int model_num, matrix *orient, vector * pos, uint flags, int light_ignore_id )
 {
 	int i, detail_level;
@@ -2673,9 +2672,7 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 		g3_start_instance_matrix(&auto_back, NULL);		
 	}	
 
-	if(gr_screen.mode == GR_DIRECT3D){
-		d3d_zbias(1);
-	}
+	gr_zbias(1);
 
 	// Draw the subobjects	
 	i = pm->submodel[pm->detail[detail_level]].first_child;
@@ -2713,9 +2710,7 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 	
 	gr_zbuffer_set(zbuf_mode);
 
-	if(gr_screen.mode == GR_DIRECT3D){
-		d3d_zbias(0);	
-	}
+	gr_zbias(0);
 		
 	// draw the hull of the ship
 	model_interp_sub( (ubyte *)pm->submodel[pm->detail[detail_level]].bsp_data, pm, &pm->submodel[pm->detail[detail_level]], 0 );
@@ -2739,16 +2734,12 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 	}	
 			
 	// render model insignias
-	if(gr_screen.mode == GR_DIRECT3D){
-		d3d_zbias(1);
-	}
+	gr_zbias(1);
 	gr_zbuffer_set(GR_ZBUFF_READ);
 	model_render_insignias(pm, detail_level);	
 
 	// zbias back to 0	
-	if(gr_screen.mode == GR_DIRECT3D){
-		d3d_zbias(0);	
-	}	
+	gr_zbias(0);
 
 	// Draw the thruster glow
 	if ( (Interp_thrust_glow_bitmap != -1) && (Interp_flags & MR_SHOW_THRUSTERS) /*&& (Detail.engine_glows)*/ )	{

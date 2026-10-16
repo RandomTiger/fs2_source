@@ -1206,10 +1206,7 @@ void neb2_pre_render(vector *eye_pos, matrix *eye_orient)
 	Neb2_render_mode = neb_save;	
 
 	// HACK - flush d3d here so everything is rendered
-	if(gr_screen.mode == GR_DIRECT3D){
-		extern void d3d_flush();
-		d3d_flush();
-	}
+	gr_flush();
 
 	// grab the region
 	gr_get_region(0, this_esize, this_esize, (ubyte*)tpixels);	
@@ -1230,10 +1227,7 @@ void neb2_pre_render(vector *eye_pos, matrix *eye_orient)
 	gr_clear();	
 
 	// HACK - flush d3d here so everything is properly cleared
-	if(gr_screen.mode == GR_DIRECT3D){
-		extern void d3d_flush();
-		d3d_flush();
-	}
+	gr_flush();
 
 	// if the size has changed between frames, make a new bitmap
 	if(this_esize != last_esize){

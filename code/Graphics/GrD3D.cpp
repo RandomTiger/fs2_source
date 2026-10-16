@@ -2807,6 +2807,19 @@ void gr_d3d_init()
 
 	// set clear color
 	gr_screen.gf_set_clear_color = gr_d3d_set_clear_color;
+
+	// Claude: calls game code used to make into this backend directly
+	extern void d3d_zbias(int bias);
+	extern void gr_d3d_preload_init();
+	extern int gr_d3d_preload(int bitmap_num, int is_aabitmap);
+	extern void d3d_glow_level_load();
+	gr_screen.gf_start_frame = d3d_start_frame;
+	gr_screen.gf_stop_frame = d3d_stop_frame;
+	gr_screen.gf_zbias = d3d_zbias;
+	gr_screen.gf_flush = d3d_flush;
+	gr_screen.gf_preload_init = gr_d3d_preload_init;
+	gr_screen.gf_preload = gr_d3d_preload;
+	gr_screen.gf_preload_done = d3d_glow_level_load;	// ship glow textures are built once the level's bitmaps are in
 	
 	// Claude: The startup test for this reads the front buffer, which on modern Windows is not reliably the game's
 	// own pixels, and ani frames came out offset.  Default to 1 (the half-texel offset D3D7 needs) instead.
