@@ -409,6 +409,12 @@ int replay_flip_cursor_recorded()
 	return (Replay_mode == REPLAY_PLAY) && (Hdr.version < 4);
 }
 
+// clock reads that only time sound (a stream starting): recorded only in recordings made before version 4
+int replay_sound_clock_recorded()
+{
+	return (Replay_mode == REPLAY_PLAY) && (Hdr.version < 4);
+}
+
 static int replay_tag_live(int tag)
 {
 	if (replay_sound_unrecorded() && (replay_tag_is_sound(tag) || replay_tag_is_stream(tag))) {

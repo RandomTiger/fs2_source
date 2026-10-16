@@ -941,7 +941,15 @@ void AudioStream::Play (long volume, int looping)
 		// Begin DirectSound playback
 		HRESULT hr = m_pdsb->Play (0, 0, DSBPLAY_LOOPING);
 		if (hr == DS_OK) {
-			m_nTimeStarted = timer_get_milliseconds();
+			// Claude: D-035: when music or a streamed voice starts follows the stream's own answers, which from recording
+			// version 4 are not recorded, so this clock read, which only times the stream, stays out of the recording too
+			if (replay_sound_clock_recorded()) {
+				m_nTimeStarted = timer_get_milliseconds();
+			} else {
+				replay_push();
+				m_nTimeStarted = timer_get_milliseconds();
+				replay_pop();
+			}
 			Set_Volume(volume);
 			// Kick off timer to service buffer
 			m_timer.constructor();
