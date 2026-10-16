@@ -42,6 +42,14 @@ int game_view_laser_in_view(vector *headp, vector *tailp);
 // 1 if the object may be inside the game view's view cone, as obj_in_view_cone.
 int game_view_in_cone(object *objp);
 
+// The on-screen width, in game view pixels, of a bitmap of radius rad at pos, as g3_get_bitmap_dims
+// computes it for a bw x bh bitmap. Returns 1 when the point is behind the eye (nothing to size),
+// else 0 with *w.
+int game_view_bitmap_width(vector *pos, float rad, int bw, int bh, int *w);
+
+// The eye of the game view, unscaled: what Eye_position and Eye_matrix are after game_view_set.
+void game_view_eye(vector *eye_pos, matrix *eye_orient);
+
 // Set OF_WAS_RENDERED on every object in the game view's view cone and clear it on the
 // rest. obj_render_all used to do this while drawing.
 void game_view_update_was_rendered();

@@ -14,6 +14,9 @@
 
 static matrix Game_view_matrix;		// scaled like View_matrix
 static vector Game_view_position;
+static matrix Game_view_orient;		// unscaled, like Eye_matrix
+static vector Game_view_matrix_scale;	// like Matrix_scale
+static int Game_view_canvas_w;		// the canvas width the projection was set up with, like Canvas_width
 
 extern int View_percent;	// FreeSpace.cpp
 
@@ -103,6 +106,9 @@ void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom)
 	}
 
 	Game_view_position = *eye_pos;
+	Game_view_orient = *eye_orient;
+	Game_view_matrix_scale = matrix_scale;
+	Game_view_canvas_w = width;
 	Game_view_matrix = *eye_orient;
 	vm_vec_scale(&Game_view_matrix.rvec, matrix_scale.x);
 	vm_vec_scale(&Game_view_matrix.uvec, matrix_scale.y);
@@ -172,6 +178,42 @@ int game_view_project(vector *src, float *sx, float *sy, int *max_w, int *max_h)
 	*sx = (width + (x*width*w))*0.5f;
 	*sy = (height - (y*height*w))*0.5f;
 	return 1;
+}
+
+int game_view_bitmap_width(vector *pos, float rad, int bw, int bh, int *w)
+{
+	vector v;
+	float width, t;
+
+	// g3_get_bitmap_dims, statement for statement, for the width only
+	if ( bw < bh )	{
+		width = rad*2.0f;
+	} else if ( bw > bh )	{
+		float height = rad*2.0f;
+		width = height*i2fl(bw)/i2fl(bh);
+	} else {
+		width = rad*2.0f;
+	}
+
+	// the user clip plane is off here, as after g3_start_frame
+	if ( game_view_rotate_vector(&v, pos) & CC_BEHIND ) {
+		return 1;
+	}
+
+	// g3_project_vertex
+	if ( v.z <= 0.0f ) {		// MIN_Z: PF_OVERFLOW
+		return 1;
+	}
+
+	t = (width*((float)Game_view_canvas_w / 2.0f))/v.z;
+	*w = (int)(t*Game_view_matrix_scale.x);
+	return 0;
+}
+
+void game_view_eye(vector *eye_pos, matrix *eye_orient)
+{
+	*eye_pos = Game_view_position;
+	*eye_orient = Game_view_orient;
 }
 
 int game_view_laser_in_view(vector *headp, vector *tailp)

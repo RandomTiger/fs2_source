@@ -333,6 +333,7 @@
 #include "LinkList.h"
 #include "GameSnd.h"
 #include "localize.h"
+#include "GameView.h"
 
 #define WARPHOLE_GROW_TIME		(1.5f)	// time for warphole to reach max size (also time to shrink to nothing once it begins to shrink)
 
@@ -888,9 +889,9 @@ float fireball_lifeleft_percent( object *obj )
 // determine LOD to use
 int fireball_get_lod(vector *pos, fireball_info *fd, float size)
 {
-	vertex v;
-	int x, y, w, h, bm_size;
-	int must_stop = 0;
+	vector v, eye_pos, size_pos;
+	matrix eye_orient;
+	int w, bm_size, bw, bh;
 	int ret_lod = 1;
 	int behind = 0;
 
@@ -899,35 +900,27 @@ int fireball_get_lod(vector *pos, fireball_info *fd, float size)
 		return 1;
 	}
 
-	// start the frame
-	extern float Viewer_zoom;
-	extern int G3_count;
-
-	if(!G3_count){
-		g3_start_frame(1);
-		must_stop = 1;
-	}
-	g3_set_view_matrix(&Eye_position, &Eye_matrix, Viewer_zoom);
-
-	// get extents of the rotated bitmap
-	g3_rotate_vertex(&v, pos);
+	// Claude: sized in the game view (GameView.h), not in the renderer's current frame and clip region, since the
+	// version picked sets the explosion's length, and with it when a ship breaks up and an asteroid explodes
+	game_view_eye(&eye_pos, &eye_orient);
+	size_pos = *pos;
 
 	// if vertex is behind, find size if in front, then drop down 1 LOD
-	if (v.codes & CC_BEHIND) {
-		float dist = vm_vec_dist_quick(&Eye_position, pos);
-		vector temp;
+	if (game_view_rotate_vector(&v, pos) & CC_BEHIND) {
+		float dist = vm_vec_dist_quick(&eye_pos, pos);
 
 		behind = 1;
-		vm_vec_scale_add(&temp, &Eye_position, &Eye_matrix.fvec, dist);
-		g3_rotate_vertex(&v, &temp);
+		vm_vec_scale_add(&size_pos, &eye_pos, &eye_orient.fvec, dist);
 
 		// if still behind, bail and go with default
-		if (v.codes & CC_BEHIND) {
+		if (game_view_rotate_vector(&v, &size_pos) & CC_BEHIND) {
 			behind = 0;
 		}
 	}
 
-	if(!g3_get_bitmap_dims(fd->lod[0].bitmap_id, &v, size, &x, &y, &w, &h, &bm_size)) {
+	bm_get_info(fd->lod[0].bitmap_id, &bw, &bh, NULL);
+	bm_size = max(bw, bh);
+	if(!game_view_bitmap_width(&size_pos, size, bw, bh, &w)) {
 		if (Detail.hardware_textures == 4) {
 			// straight LOD
 			if(w <= bm_size/8){
@@ -956,11 +949,6 @@ int fireball_get_lod(vector *pos, fireball_info *fd, float size)
 	// if it's behind, bump up LOD by 1
 	if (behind) {
 		ret_lod++;
-	}
-
-	// end the frame
-	if(must_stop){
-		g3_end_frame();
 	}
 
 	// return the best lod
