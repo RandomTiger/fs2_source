@@ -23,6 +23,14 @@ void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom);
 // g3_rotate_vector does for the renderer's view.
 ubyte game_view_rotate_vector(vector *dest, vector *src);
 
+// Project a world point into the game view as g3_rotate_vertex and g3_project_vertex do. Returns 0
+// when the point is behind the eye (PF_OVERFLOW), else 1 with the screen position. max_w and max_h
+// get the full screen size of the game view, which is what gr_screen.max_w and max_h have been.
+int game_view_project(vector *src, float *sx, float *sy, int *max_w, int *max_h);
+
+// 1 if g3_draw_laser would draw a laser from headp to tailp in the game view.
+int game_view_laser_in_view(vector *headp, vector *tailp);
+
 // 1 if the object may be inside the game view's view cone, as obj_in_view_cone.
 int game_view_in_cone(object *objp);
 

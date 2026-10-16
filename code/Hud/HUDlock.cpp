@@ -283,6 +283,7 @@
 #include "LinkList.h"
 #include "multi.h"
 #include "Emp.h"
+#include "GameView.h"	// Claude: the lock point is projected in the game view
 
 
 static float Lock_start_dist;
@@ -1203,7 +1204,8 @@ void hud_lock_get_new_lock_pos(object *target_objp, vector *lock_world_pos)
 void hud_lock_determine_lock_point(vector *lock_world_pos_out)
 {
 	vector	lock_world_pos;
-	vertex	lock_point;
+	float	lock_sx, lock_sy;	// Claude: was vertex lock_point
+	int		lock_max_w, lock_max_h;
 	object	*target_objp;
 
 	Assert(Player_ai->target_objnum >= 0);
@@ -1229,12 +1231,11 @@ void hud_lock_determine_lock_point(vector *lock_world_pos_out)
 
 	*lock_world_pos_out=lock_world_pos;
 
-	g3_rotate_vertex(&lock_point,&lock_world_pos);
-	g3_project_vertex(&lock_point);
+	// Claude: projected in the game view (same maths as g3_rotate_vertex and g3_project_vertex), so the lock does not depend on drawing
 
-	if (!(lock_point.flags & PF_OVERFLOW)) {  // make sure point projected
-		Player->current_target_sx = (int)lock_point.sx;
-		Player->current_target_sy = (int)lock_point.sy;
+	if ( game_view_project(&lock_world_pos, &lock_sx, &lock_sy, &lock_max_w, &lock_max_h) ) {  // make sure point projected
+		Player->current_target_sx = (int)lock_sx;
+		Player->current_target_sy = (int)lock_sy;
 	}
 }
 

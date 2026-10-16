@@ -905,7 +905,21 @@ int neb_mode = 1;
 int frames_total = 0;
 int frame_count = 0;
 float frame_avg;
+// Claude: the poof positions move with the eye here, drawing gameplay random numbers, and lightning bolts
+// start and end at poofs (nebl_process), so this part runs in the logic phase (neb2_update_player) and
+// drawing (neb2_render_player) only reads it. Same conditions and order as before.
+static void neb2_player_sub(int update);
+void neb2_update_player()
+{
+	neb2_player_sub(1);
+}
+
 void neb2_render_player()
+{
+	neb2_player_sub(0);
+}
+
+static void neb2_player_sub(int update)	// Claude: was neb2_render_player
 {	
 	vertex p, ptemp;
 	int idx1, idx2, idx3;
@@ -930,7 +944,7 @@ void neb2_render_player()
 		return;
 	}		
 
-	if(Neb2_regen){
+	if(update && Neb2_regen){	// Claude: logic phase only
 		neb2_regen();
 		Neb2_regen = 0;
 	}
@@ -945,7 +959,7 @@ void neb2_render_player()
 	neb2_get_eye_orient(&eye_orient);
 	
 	// maybe swap stuff around if the player crossed a "border"	
-	for(idx2=0; idx2<3; idx2++){
+	if(update) for(idx2=0; idx2<3; idx2++){	// Claude: logic phase only
 		switch(crossed_border()){
 		case -1:
 			break;
@@ -999,6 +1013,7 @@ void neb2_render_player()
 			break;
 		}	
 	}	
+	if(update) return;	// Claude: the logic phase stops here, before drawing
 
 	// if we've switched nebula rendering off
 	if(Neb2_render_mode == NEB2_RENDER_NONE){

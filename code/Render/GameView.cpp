@@ -117,6 +117,65 @@ ubyte game_view_rotate_vector(vector *dest, vector *src)
 	return cc;
 }
 
+int game_view_project(vector *src, float *sx, float *sy, int *max_w, int *max_h)
+{
+	float tx, ty, tz, x, y, z, w;
+	int width, height;
+
+	// g3_rotate_vertex, statement for statement
+	tx = src->x - Game_view_position.x;
+	ty = src->y - Game_view_position.y;
+	tz = src->z - Game_view_position.z;
+
+	x = tx * Game_view_matrix.rvec.x;
+	x += ty * Game_view_matrix.rvec.y;
+	x += tz * Game_view_matrix.rvec.z;
+
+	y = tx * Game_view_matrix.uvec.x;
+	y += ty * Game_view_matrix.uvec.y;
+	y += tz * Game_view_matrix.uvec.z;
+
+	z = tx * Game_view_matrix.fvec.x;
+	z += ty * Game_view_matrix.fvec.y;
+	z += tz * Game_view_matrix.fvec.z;
+
+	game_view_canvas(&width, &height);
+	if ( gr_screen.res == GR_1024 ) {
+		*max_w = 1024;
+		*max_h = 768;
+	} else {
+		*max_w = 640;
+		*max_h = 480;
+	}
+
+	// g3_project_vertex
+	if ( z <= 0.0f ) {		// MIN_Z
+		return 0;
+	}
+	w = 1.0f / z;
+	*sx = (width + (x*width*w))*0.5f;
+	*sy = (height - (y*height*w))*0.5f;
+	return 1;
+}
+
+int game_view_laser_in_view(vector *headp, vector *tailp)
+{
+	vector head, tail;
+	ubyte head_codes, tail_codes;
+
+	head_codes = game_view_rotate_vector(&head, headp);
+	tail_codes = game_view_rotate_vector(&tail, tailp);
+
+	// g3_draw_laser draws nothing when an end is behind the eye (PF_OVERFLOW) or both ends are off the same side
+	if ( (head.z <= 0.0f) || (tail.z <= 0.0f) ) {		// MIN_Z
+		return 0;
+	}
+	if ( head_codes & tail_codes ) {
+		return 0;
+	}
+	return 1;
+}
+
 int game_view_in_cone(object *objp)
 {
 	static vector offsets[8] = {

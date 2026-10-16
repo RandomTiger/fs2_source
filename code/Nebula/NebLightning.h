@@ -93,6 +93,7 @@ void nebl_level_init();
 
 // render all lightning bolts
 void nebl_render_all();
+void nebl_update_all();	// Claude: logic phase part of nebl_render_all
 
 // create a lightning bolt - pass BOLT_TYPE_ANY to get a random bolt
 void nebl_bolt(int bolt_type, vector *start, vector *strike);

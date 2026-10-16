@@ -384,6 +384,9 @@
 #include "Localize.h"
 #include "Flak.h"
 #include "MuzzleFlash.h"
+#include "GameView.h"	// Claude: weapon_update_flyby_consider
+#include "Neb.h"			// Claude: weapon_update_flyby_consider
+#include "MissionParse.h"	// Claude: weapon_update_flyby_consider
 
 #ifndef NDEBUG
 int Weapon_flyby_sound_enabled = 1;
@@ -1483,6 +1486,46 @@ float weapon_glow_scale_r = 2.3f;
 float weapon_glow_scale_l = 1.5f;
 float weapon_glow_alpha_d3d = 0.85f;
 float weapon_glow_alpha_glide = 0.99f;
+// Claude: a laser is considered for the flyby sound when it is on screen. weapon_render used to decide that
+// while drawing (g3_draw_laser drew something); this makes the same test in the game view, for the lasers
+// obj_render_all would draw: in the view cone, not dead, and not hidden by the nebula. Called in the logic
+// phase after game_view_update_was_rendered.
+void weapon_update_flyby_consider()
+{
+	extern int Lasers;		// 3dLaser.cpp, a debug switch that stops lasers drawing
+	object *objp;
+	weapon *wp;
+	weapon_info *wip;
+	vector headp, to_obj;
+	int i;
+
+	objp = Objects;
+	for (i=0; i<=Highest_object_index; i++, objp++) {
+		if ( (objp->type != OBJ_WEAPON) || !(objp->flags & OF_RENDERS) || !(objp->flags & OF_WAS_RENDERED) || (objp->flags & OF_SHOULD_BE_DEAD) ) {
+			continue;
+		}
+		wp = &Weapons[objp->instance];
+		wip = &Weapon_info[wp->weapon_info_index];
+		if ( (wip->render_type != WRT_LASER) || (wip->laser_bitmap < 0) ) {
+			continue;
+		}
+
+		// obj_render_all skips weapons the nebula hides
+		if ( (The_mission.flags & MISSION_FLAG_FULLNEB) && (Neb2_render_mode != NEB2_RENDER_NONE) && !Fred_running ) {
+			vm_vec_sub( &to_obj, &objp->pos, &Eye_position );
+			if ( neb2_skip_render(objp, vm_vec_dot(&Eye_matrix.fvec, &to_obj)) ) {
+				continue;
+			}
+		}
+
+		vm_vec_scale_add(&headp, &objp->pos, &objp->orient.fvec, wip->laser_length);
+		wp->weapon_flags &= ~WF_CONSIDER_FOR_FLYBY_SOUND;
+		if ( Lasers && game_view_laser_in_view(&headp, &objp->pos) ) {
+			wp->weapon_flags |= WF_CONSIDER_FOR_FLYBY_SOUND;
+		}
+	}
+}
+
 void weapon_render(object *obj)
 {
 	int num;
@@ -1509,10 +1552,7 @@ void weapon_render(object *obj)
 
 				vector headp;
 				vm_vec_scale_add(&headp, &obj->pos, &obj->orient.fvec, wip->laser_length);
-				wp->weapon_flags &= ~WF_CONSIDER_FOR_FLYBY_SOUND;
-				if ( g3_draw_laser(&headp, wip->laser_head_radius, &obj->pos, wip->laser_tail_radius) ) {
-					wp->weapon_flags |= WF_CONSIDER_FOR_FLYBY_SOUND;
-				}
+				g3_draw_laser(&headp, wip->laser_head_radius, &obj->pos, wip->laser_tail_radius);	// Claude: WF_CONSIDER_FOR_FLYBY_SOUND is set in weapon_update_flyby_consider now
 			}			
 
 			// maybe draw laser glow bitmap

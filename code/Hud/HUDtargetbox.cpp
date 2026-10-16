@@ -1506,9 +1506,21 @@ void hud_render_target_model()
 	} // end switch
 }
 
-void hud_cargo_scan_update(object *targetp, float frametime)
+// Claude: the cargo scan itself, split out of hud_cargo_scan_update so that it runs whether or not the HUD is
+// drawn (player_inspect_cargo times the scan, reveals the cargo and plays the sound). Called from
+// hud_update_targeting; hud_cargo_scan_update draws what it found.
+static int Hud_cargo_scan_shown = 0;
+static char Hud_cargo_scan_str[256];
+void hud_cargo_scan_logic(object *targetp, float frametime)
 {
-	char outstr[256];						// temp buffer for sprintf'ing hud output
+	Hud_cargo_scan_shown = 0;
+	if ( targetp->type == OBJ_SHIP ) {
+		Hud_cargo_scan_shown = player_inspect_cargo(frametime, Hud_cargo_scan_str);
+	}
+}
+
+void hud_cargo_scan_update(object *targetp, float frametime)	// Claude: drawing only now
+{
 	int hx, hy;
 
 	// Account for HUD shaking
@@ -1517,7 +1529,7 @@ void hud_cargo_scan_update(object *targetp, float frametime)
 
 	// display cargo inspection status
 	if ( targetp->type == OBJ_SHIP ) {
-		if ( player_inspect_cargo(frametime, outstr) ) {
+		if ( Hud_cargo_scan_shown ) {	// Claude: player_inspect_cargo runs in hud_cargo_scan_logic now
 			if ( hud_gauge_active(HUD_TARGET_MONITOR) ) {
 				if ( Player->cargo_inspect_time > 0 ) {
 					hud_targetbox_start_flash(TBOX_FLASH_CARGO);
@@ -1531,7 +1543,7 @@ void hud_cargo_scan_update(object *targetp, float frametime)
 					hud_targetbox_maybe_flash(TBOX_FLASH_CARGO);
 				}
 
-				emp_hud_string(Targetbox_coords[gr_screen.res][TBOX_CARGO][0]+hx, Targetbox_coords[gr_screen.res][TBOX_CARGO][1]+hy, EG_TBOX_CARGO, outstr);				
+				emp_hud_string(Targetbox_coords[gr_screen.res][TBOX_CARGO][0]+hx, Targetbox_coords[gr_screen.res][TBOX_CARGO][1]+hy, EG_TBOX_CARGO, Hud_cargo_scan_str);				
 				hud_set_gauge_color(HUD_TARGET_MONITOR);
 			}
 		}
@@ -1835,17 +1847,17 @@ void hud_targetbox_static_init()
 }
 
 // determine if we should draw static on top of the target box
-int hud_targetbox_static_maybe_blit(float frametime)
+void hud_targetbox_static_update()	// Claude: was hud_targetbox_static_maybe_blit, now the logic phase part: the timers and the sound
 {
 	float	sensors_str;
 
 	// on lowest skill level, don't show static on target monitor
 	if ( Game_skill_level == 0 )
-		return 0;
+		return;
 
 	// if multiplayer observer, don't show static
 	if((Game_mode & GM_MULTIPLAYER) && (Net_player->flags & NETINFO_FLAG_OBSERVER)){
-		return 0;
+		return;
 	}
 
 	sensors_str = ship_get_subsystem_strength( Player_ship, SUBSYSTEM_SENSORS );
@@ -1868,9 +1880,6 @@ int hud_targetbox_static_maybe_blit(float frametime)
 	}
 
 	if ( Target_static_playing ) {
-		// hud_set_default_color();
-		hud_set_gauge_color(HUD_TARGET_MONITOR);
-		hud_anim_render(&Target_static, frametime, 1);
 		if ( Target_static_looping == -1 ) {
 			Target_static_looping = snd_play_looping(&Snds[SND_STATIC]);
 		}
@@ -1879,6 +1888,25 @@ int hud_targetbox_static_maybe_blit(float frametime)
 			snd_stop(Target_static_looping);
 			Target_static_looping = -1;
 		}
+	}
+}
+
+// Claude: drawing only now; hud_targetbox_static_update runs the timers and the sound in the logic phase
+int hud_targetbox_static_maybe_blit(float frametime)
+{
+	// on lowest skill level, don't show static on target monitor
+	if ( Game_skill_level == 0 )
+		return 0;
+
+	// if multiplayer observer, don't show static
+	if((Game_mode & GM_MULTIPLAYER) && (Net_player->flags & NETINFO_FLAG_OBSERVER)){
+		return 0;
+	}
+
+	if ( Target_static_playing ) {
+		// hud_set_default_color();
+		hud_set_gauge_color(HUD_TARGET_MONITOR);
+		hud_anim_render(&Target_static, frametime, 1);
 	}
 
 	return Target_static_playing;

@@ -859,6 +859,11 @@ void model_set_instance_info(submodel_instance_info *sii, float turn_rate, float
 // Clears all the values in a particular instance to their defaults.
 extern void model_clear_instance_info(submodel_instance_info * sii);
 
+// Claude: save the submodel instance state of every loaded model before drawing and restore it after, so drawing
+// leaves gameplay with the state gameplay last set (ModelRead.cpp)
+void model_instance_state_save();
+void model_instance_state_restore();
+
 // Sets the submodel instance data in a submodel
 extern void model_set_instance(int model_num, int sub_model_num, submodel_instance_info * sii );
 

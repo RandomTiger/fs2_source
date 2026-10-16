@@ -317,6 +317,8 @@ extern float Pl_target_integrity;
 void HUD_init_colors();
 void HUD_init();
 void hud_update_frame();		// updates hud systems not dependant on rendering
+void HUD_update_2d();	// Claude: logic phase part of HUD_render_2d
+void HUD_update_3d();	// Claude: logic phase part of HUD_render_3d
 void HUD_render_3d(float frametime);			// renders 3d dependant gauges
 void HUD_render_2d(float frametime);			// renders the 2d gauges
 void hud_stop_looped_engine_sounds();
@@ -390,6 +392,7 @@ int	hud_wing_index_from_ship(int shipnum);
 int	hud_wing_slot_from_name(char *name);
 int	hud_support_get_dock_time( int objnum );
 void	hud_show_radar();
+void	hud_update_radar();	// Claude: logic phase part of hud_show_radar
 void	hud_show_target_model();
 void	hud_show_voice_status();
 

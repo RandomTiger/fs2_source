@@ -549,6 +549,7 @@ int weapon_info_lookup(char *name);
 void weapon_init();					// called at game startup
 void weapon_level_init();			// called before the start of each level
 void weapon_render(object * obj);
+void weapon_update_flyby_consider();	// Claude: logic phase part of weapon_render
 void weapon_delete( object * obj );
 void weapon_process_pre( object *obj, float frame_time);
 void weapon_process_post( object *obj, float frame_time);

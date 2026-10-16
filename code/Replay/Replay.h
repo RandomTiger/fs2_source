@@ -91,6 +91,7 @@ void replay_pop();
 
 // value hooks.  replay_should_read() is true when the value must come from the recording.
 int   replay_should_read();
+int   replay_should_read_tag(int tag);	// as replay_should_read, but false for a tag the diagnostic FS2_REPLAY_SOUND_LIVE answers live
 int   replay_read_int(int tag);
 float replay_read_float(int tag);
 int   replay_write_int(int tag, int val);
@@ -117,7 +118,7 @@ void replay_os_poll();
 
 // wrap a function returning int / float.  The live expression is evaluated only when the
 // value is not coming from the recording.
-#define REPLAY_WRAP_INT(tag, expr)	{ if (replay_should_read()) return replay_read_int(tag); replay_push(); int replay_r_ = (expr); replay_pop(); return replay_write_int(tag, replay_r_); }
+#define REPLAY_WRAP_INT(tag, expr)	{ if (replay_should_read_tag(tag)) return replay_read_int(tag); replay_push(); int replay_r_ = (expr); replay_pop(); return replay_write_int(tag, replay_r_); }
 #define REPLAY_WRAP_FLOAT(tag, expr)	{ if (replay_should_read()) return replay_read_float(tag); replay_push(); float replay_r_ = (expr); replay_pop(); return replay_write_float(tag, replay_r_); }
 
 #endif

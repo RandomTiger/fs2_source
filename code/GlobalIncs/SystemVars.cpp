@@ -264,15 +264,22 @@ int myrand()
 // Claude: Cosmetic random stream.  Same generator as the MSVC CRT rand(), with its own seed.  Not counted in Rand_count.
 static unsigned int Cosmetic_rand_seed = 1;
 
+// Claude: drawing has a cosmetic stream of its own, so the numbers effects draw while drawing do not change the ones
+// the game logic draws for its effects (some of which pick sounds, so they are in the recording). Set while drawing.
+static unsigned int Cosmetic_draw_rand_seed = 1;
+int Cosmetic_rand_drawing = 0;
+
 int cosmetic_rand()
 {
-	Cosmetic_rand_seed = Cosmetic_rand_seed * 214013 + 2531011;
-	return (Cosmetic_rand_seed >> 16) & 0x7fff;
+	unsigned int *seed = Cosmetic_rand_drawing ? &Cosmetic_draw_rand_seed : &Cosmetic_rand_seed;	// Claude: drawing stream
+	*seed = *seed * 214013 + 2531011;
+	return (*seed >> 16) & 0x7fff;
 }
 
 void cosmetic_srand(int seed)
 {
 	Cosmetic_rand_seed = (unsigned int)seed;
+	Cosmetic_draw_rand_seed = (unsigned int)seed;	// Claude: drawing stream
 }
 
 

@@ -55,6 +55,7 @@ extern int Hud_reticle_center[GR_NUM_RESOLUTIONS][2];
 void hud_init_reticle();
 void hud_update_reticle( player *pp );
 void hud_show_reticle();
+void hud_update_lock_threat();	// Claude: logic phase part of the lock threat gauge
 
 void hud_draw_outer_reticle();
 void hud_draw_center_reticle();

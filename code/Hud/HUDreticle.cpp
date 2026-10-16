@@ -672,10 +672,10 @@ void hud_show_reticle_weapons()
 
 // Draw the lock threat gauge on the HUD.  Use Threat_flags to determine if a 
 // threat exists, and draw flashing frames.
-void hud_show_lock_threat()
+// Claude: the flash timer, frame and warning sound of the lock threat gauge, split out of hud_show_lock_threat
+// so that they run in the logic phase (HUD_update_2d) whether or not the HUD is drawn.
+void hud_update_lock_threat()
 {
-	int frame_offset;
-
 	if ( Player->threat_flags & (THREAT_LOCK | THREAT_ATTEMPT_LOCK) ) {
 		if ( timestamp_elapsed(Threat_lock_timer) ) {
 			if ( Player->threat_flags & THREAT_LOCK )  {
@@ -691,6 +691,15 @@ void hud_show_lock_threat()
 				snd_play( &Snds[SND_THREAT_FLASH]);
 			}
 		}
+	}
+}
+
+void hud_show_lock_threat()
+{
+	int frame_offset;
+
+	if ( Player->threat_flags & (THREAT_LOCK | THREAT_ATTEMPT_LOCK) ) {
+		// Claude: the timer, frame and sound are updated in hud_update_lock_threat now
 		frame_offset = Threat_lock_frame;
 	} else {
 		frame_offset = 0;

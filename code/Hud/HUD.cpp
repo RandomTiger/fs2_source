@@ -797,6 +797,8 @@ int hud_subspace_notify_active();
 int hud_objective_notify_active();
 void hud_subspace_notify_abort();
 void hud_maybe_display_subspace_notify();
+void hud_update_subspace_notify();	// Claude: logic phase parts of the notify gauges
+void hud_update_objective_notify();
 void hud_init_netlag_icon();
 void hud_maybe_show_netlag_icon();
 void hud_maybe_display_red_alert();
@@ -1189,6 +1191,23 @@ void hud_show_radar()
 	}
 }
 
+// Claude: the gameplay part of hud_show_radar (the static and its sound), under the same conditions.
+// Called in the logic phase, so it runs whether or not the radar is drawn.
+void hud_update_radar()
+{
+	if ( hud_disabled() ) {
+		return;
+	}
+
+	if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY ))) {
+		if ( Game_detail_flags & DETAIL_FLAG_HUD )	{
+			if ( hud_gauge_active(HUD_RADAR) ) {
+				radar_frame_update();
+			}
+		}
+	}
+}
+
 // Render model of target in the target view box
 void hud_show_target_model()
 {
@@ -1219,6 +1238,30 @@ void hud_show_common_3d_gauges(float frametime, int in_cockpit)
 
 	// draw brackets and distance to remote detonate missile
 	hud_show_remote_detonate_missile();
+}
+
+// Claude: the gameplay part of the 3D HUD gauges, split out so that it runs whether or not the HUD is drawn.
+// Called just before HUD_render_3d, under the same conditions, so the game does the same things in the same order.
+void HUD_update_3d()
+{
+	Player->subsys_in_view = -1;	// Claude: as HUD_render_3d does, so the lock and cargo scan check the line of sight afresh
+
+	if ( hud_disabled() ) {
+		return;
+	}
+
+	if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY))) {
+		hud_update_targeting(flFrametime, 1);	// Claude: logic phase of the targeting gauges
+		if ( hud_gauge_active(HUD_MISSILE_WARNING_ARROW) ) {
+			hud_update_homing_beep();
+		}
+	} else if ( Viewer_mode & (VM_CHASE | VM_EXTERNAL | VM_WARP_CHASE | VM_PADLOCK_ANY ) ) {	// Claude: the external views, as in HUD_render_3d
+		// If the player is warping out, don't draw the targeting gauges
+		if ( Player->control_mode != PCM_NORMAL ) {
+			return;
+		}
+		hud_update_targeting(flFrametime, 0);
+	}
 }
 
 // Render gauges that need to be between a g3_start_frame() and a g3_end_frame()
@@ -1428,6 +1471,28 @@ void hud_render_multi_ping()
 			// blit the string out
 			hud_set_default_color();
 			gr_string(Ping_coords[gr_screen.res][0], Ping_coords[gr_screen.res][1], ping_str);
+		}
+	}
+}
+
+// Claude: the gameplay part of the 2D HUD gauges, split out so that it runs whether or not the HUD is drawn.
+// Called just before HUD_render_2d, under the same conditions, so the game does the same things in the same order.
+void HUD_update_2d()
+{
+	if ( hud_disabled() ) {
+		return;
+	}
+
+	if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY ))) {
+		// the lock threat gauge, from hud_show_reticle and hud_show_top_arc
+		if ( !(Viewer_mode & VM_OTHER_SHIP) && hud_gauge_active(HUD_THREAT_GAUGE) ) {
+			hud_update_lock_threat();
+		}
+
+		hud_update_subspace_notify();
+
+		if ( hud_gauge_active(HUD_OBJECTIVES_NOTIFY_GAUGE) ) {
+			hud_update_objective_notify();
 		}
 	}
 }
@@ -2842,6 +2907,43 @@ void hud_maybe_display_red_alert()
 	// TODO: play a sound?
 }
 
+// Claude: the gameplay part of the subspace notify gauge, the same state changes as at the start of
+// hud_maybe_display_subspace_notify, which still makes them (repeating them in a frame changes nothing).
+void hud_update_subspace_notify()
+{
+	if ( (Player->control_mode == PCM_WARPOUT_STAGE1) || (Player->control_mode == PCM_WARPOUT_STAGE2) || (Player->control_mode == PCM_WARPOUT_STAGE3) ) {
+		if (!hud_subspace_notify_active()) {
+			hud_start_subspace_notify();
+		}
+	} else {
+		if ( timestamp_elapsed(HUD_abort_subspace_timer) ) {
+			hud_stop_subspace_notify();
+		}
+	}
+}
+
+// Claude: the gameplay part of hud_maybe_display_objective_message: it stops the notify, and starts it
+// with its sound, under the same conditions, so that this happens whether or not the HUD is drawn.
+void hud_update_objective_notify()
+{
+	if ( timestamp_elapsed(Objective_display.display_timer) ) {
+		hud_stop_objective_notify();
+		return;
+	}
+
+	if ( Objective_display_gauge.first_frame < 0 ) {
+		return;
+	}
+
+	if ( hud_subspace_notify_active() ) {
+		return;
+	}
+
+	if (!hud_objective_notify_active()) {
+		hud_start_objective_notify();
+	}
+}
+
 // Maybe show an objective status update on the HUD
 void hud_maybe_display_objective_message()
 {
@@ -2860,9 +2962,7 @@ void hud_maybe_display_objective_message()
 		return;
 	}
 
-	if (!hud_objective_notify_active()) {
-		hud_start_objective_notify();
-	}
+	// Claude: the notify is started (with its sound) in hud_update_objective_notify now
 	
 	// blit the background
 	hud_set_gauge_color(HUD_OBJECTIVES_NOTIFY_GAUGE);

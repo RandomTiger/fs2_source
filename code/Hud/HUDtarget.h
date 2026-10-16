@@ -342,6 +342,7 @@ void	hud_target_in_reticle_old();
 void	hud_target_in_reticle_new();
 void	hud_target_subsystem_in_reticle();
 void	hud_show_targeting_gauges(float frametime, int in_cockpit=1);
+void hud_update_targeting(float frametime, int in_cockpit);	// Claude: logic phase part of hud_show_targeting_gauges
 void	hud_target_targets_target();
 void	hud_check_reticle_list();
 void	hud_target_closest_locked_missile(object *A);
@@ -384,6 +385,7 @@ void hud_show_cmeasure_gague();
 void hud_show_brackets(object *targetp, vertex *projected_v);
 void hud_draw_offscreen_indicator(vertex* target_point, vector *tpos, float distance=0.0f);
 void hud_show_homing_missiles(void);
+void hud_update_homing_beep();	// Claude: logic phase part of hud_show_homing_missiles
 
 int hud_sensors_ok(ship *sp, int show_msg = 1);
 int hud_communications_state(ship *sp, int show_msg = 0);
