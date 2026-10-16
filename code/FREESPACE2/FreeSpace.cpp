@@ -3235,7 +3235,11 @@ void game_render_frame_setup(vector *eye_pos, matrix *eye_orient)
 		player_display_packlock_view();
 	}
 	
-	game_set_view_clip();
+	if ( !Cmdline_nodraw ) {
+		game_set_view_clip();
+	} else if ( !((Game_mode & GM_DEAD) || (supernova_active() >= 2)) && (View_percent < 5) ) {
+		View_percent = 5;	// Claude: -nodraw: the one game state game_set_view_clip sets, which the game view reads
+	}
 
 	if (Game_mode & GM_DEAD) {
 		vector	vec_to_deader, view_pos;
@@ -4094,9 +4098,11 @@ void game_frame()
 		if (! (Game_mode & GM_STANDALONE_SERVER)) {
 			clear_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			// clear the screen to black
-			gr_reset_clip();
-			if ( (Game_detail_flags & DETAIL_FLAG_CLEAR) ) {
-				gr_clear();
+			if ( !Cmdline_nodraw ) {	// Claude: -nodraw: screen state only, nothing to draw
+				gr_reset_clip();
+				if ( (Game_detail_flags & DETAIL_FLAG_CLEAR) ) {
+					gr_clear();
+				}
 			}
 
 			clear_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
@@ -4156,12 +4162,12 @@ void game_frame()
 			render3_time2 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 			render2_time1 = timer_get_fixed_seconds_unrecorded();	// Claude: timing display only, kept out of the recording
 
-			gr_reset_clip();
+			if ( !Cmdline_nodraw ) gr_reset_clip();	// Claude: -nodraw: screen state only, nothing to draw
 			game_get_framerate();
 			Framecount++;	// Claude: game logic reads the frame count; it was advanced inside the frame rate display
-			game_show_framerate();		
+			if ( !Cmdline_nodraw ) game_show_framerate();	// Claude: -nodraw: screen state only, nothing to draw
 
-			game_show_time_left();
+			if ( !Cmdline_nodraw ) game_show_time_left();	// Claude: -nodraw: screen state only, nothing to draw
 
 			// Draw the 2D HUD gauges
 			if(supernova_active() <	3){
@@ -4169,7 +4175,7 @@ void game_frame()
 				if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_hud_2d(); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 			}
 
-			game_set_view_clip();
+			if ( !Cmdline_nodraw ) game_set_view_clip();	// Claude: -nodraw: screen state only, nothing to draw
 
 			// Claude: logic phase of the 3D HUD, same conditions as in game_render_hud_3d
 			if ( (Game_detail_flags & DETAIL_FLAG_HUD) && (supernova_active() < 3) ) {
