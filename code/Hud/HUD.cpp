@@ -1494,6 +1494,9 @@ void HUD_update_2d()
 		if ( hud_gauge_active(HUD_OBJECTIVES_NOTIFY_GAUGE) ) {
 			hud_update_objective_notify();
 		}
+
+		// the training message queue, voice and text, from message_training_display
+		message_training_update();
 	}
 }
 

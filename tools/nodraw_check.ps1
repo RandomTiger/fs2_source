@@ -32,6 +32,8 @@ if (-not $Out) { $Out = Join-Path $repo ("replays\nodraw_" + (Get-Date -Format '
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 if (-not (Test-Path $td)) { throw "No $td. Build it: MSBuild tools\TraceDiff\TraceDiff.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:SolutionDir=$repo\" }
 New-Item -ItemType Directory -Force $Out | Out-Null
+# the test missions it records, as replay_check.ps1 and record_autotest.ps1 do
+Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
 $summary = Join-Path $Out 'summary.txt'
 
 # powershell -File passes "a,b" as one string

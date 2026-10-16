@@ -269,6 +269,7 @@
 #include "AlphaColors.h"
 #include "Multi.h"
 #include "Autotest.h"
+#include "Font.h"	// Claude: message_training_update measures the text with the HUD font
 
 #define MAX_TRAINING_MSG_LINES		10
 //#define TRAINING_MSG_WINDOW_X			174
@@ -1050,15 +1051,16 @@ void message_training_que_check()
 	}
 }
 
-// displays (renders) the training message to the screen
-void message_training_display()
+// Claude: the gameplay part of message_training_display, split out so that it runs whether or not the HUD is drawn
+// (docs/LOGIC_DRAW_SPLIT.md): the queue, which starts the voice, the text, and the check that ends the message
+// when its voice is done.  Called from HUD_update_2d under the conditions the drawing call had, in the same order
+// relative to the other gauges.  The text is measured with FONT1, the font the HUD draws in.
+void message_training_update()
 {
-	char *str, buf[256];
-	int i, z, x, y, height, mode, count;
+	int i, z;
+	font *saved_font;
 
-	Training_msg_visible = 0;
 	message_training_que_check();
-	training_obj_display();
 
 	if (Training_failure){
 		return;
@@ -1068,13 +1070,51 @@ void message_training_display()
 		return;
 	}
 
+	saved_font = Current_font;
+	grx_set_font(FONT1);
 	message_translate_tokens(Training_buf, Training_text);
 	training_process_msg(Training_text);
 	Training_num_lines = split_str(Training_buf, TRAINING_LINE_WIDTH, Training_line_sizes, Training_lines, MAX_TRAINING_MSG_LINES);
+	Current_font = saved_font;
 	Assert(Training_num_lines > 0);
 	for (i=0; i<Training_num_lines; i++) {
 		Training_lines[i][Training_line_sizes[i]] = 0;
 		drop_leading_white_space(Training_lines[i]);
+	}
+
+	if (Training_num_lines <= 0){
+		return;
+	}
+
+	Training_msg_method = 0;
+
+	if ((Training_voice >= 0) && (Training_num_lines > 0) && !(Training_msg_timestamp)) {
+		if (Training_voice_type)
+			z = audiostream_is_playing(Training_voice_handle);
+		else
+			z = snd_is_playing(Training_voice_handle);
+
+		if (!z)
+			Training_msg_timestamp = timestamp(2000);  // 2 second delay
+ 	}
+}
+
+// displays (renders) the training message to the screen
+// Claude: drawing only; message_training_update has done the rest this frame
+void message_training_display()
+{
+	char *str, buf[256];
+	int i, z, x, y, height, mode, count;
+
+	Training_msg_visible = 0;
+	training_obj_display();
+
+	if (Training_failure){
+		return;
+	}
+
+	if (timestamp_elapsed(Training_msg_timestamp) || !strlen(Training_text)){
+		return;
 	}
 
 	if (Training_num_lines <= 0){
@@ -1123,23 +1163,12 @@ void message_training_display()
 		}
 	}
 
-	Training_msg_method = 0;
 //	if (Training_msg_method) {
 //		char *msg = "Press a key to continue";
 
 //		gr_get_string_size(&i, NULL, msg);
 //		gr_printf(TRAINING_MSG_WINDOW_X + TRAINING_MSG_WINDOW_WIDTH / 2 - i / 2, TRAINING_MSG_WINDOW_Y + (Training_num_lines + 2) * height, msg);
 //	}
-
-	if ((Training_voice >= 0) && (Training_num_lines > 0) && !(Training_msg_timestamp)) {
-		if (Training_voice_type)
-			z = audiostream_is_playing(Training_voice_handle);
-		else
-			z = snd_is_playing(Training_voice_handle);
-
-		if (!z)
-			Training_msg_timestamp = timestamp(2000);  // 2 second delay
- 	}
 }
 
 // processes a new training message to get hilighting information and store it in internal structures.

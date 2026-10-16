@@ -66,8 +66,8 @@ function Add-Goal($m, [string]$Type, [string]$Name, [string]$Text, [string]$Form
 }
 function Add-Waypoints($m, [string]$Name, $Points) { [void]$m.Waypoints.Add(@{ Name = $Name; Points = $Points }) }
 # Message: from Command (Head-CM1, Terran Command) unless Head is given.
-function Add-Message($m, [string]$Name, [string]$Text, [string]$Head = 'Head-CM1', [string]$Persona = 'Terran Command') {
-	[void]$m.Messages.Add(@{ Name = $Name; Text = $Text; Head = $Head; Persona = $Persona })
+function Add-Message($m, [string]$Name, [string]$Text, [string]$Head = 'Head-CM1', [string]$Persona = 'Terran Command', [string]$Wave = '') {
+	[void]$m.Messages.Add(@{ Name = $Name; Text = $Text; Head = $Head; Persona = $Persona; Wave = $Wave })
 }
 
 function Save-Mission($m) {
@@ -216,6 +216,7 @@ function Save-Mission($m) {
 		W '$end_multi_text'
 		if ($g.Persona) { W "+Persona: $($g.Persona)" }
 		if ($g.Head) { W "+AVI Name: $($g.Head)" }
+		if ($g.Wave) { W "+Wave Name: $($g.Wave)" }
 		W
 	}
 
