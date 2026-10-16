@@ -37,6 +37,19 @@ The comment says the `Int3` is a request to be told about a name that may be a m
 ## Proposed fix
 Before the `Int3`, ask the mission log whether the ship was destroyed (`LOG_SHIP_DESTROYED`), self-destructed (`LOG_SELF_DESTRUCT`) or departed (`LOG_SHIP_DEPART`), and skip the `Int3` if so. This is a new helper, `sexp_ship_has_left_mission`, under `#ifndef NDEBUG`, used in all five places. A name that never was a ship still stops a Debug build.
 
+The five sites, all in `Parse/SEXP.CPP`. Each is the same case: a loop over ship names that sets or clears one flag, with the same lookup (ships present, then ships still to arrive) and the same `Int3` and comment for a name found in neither:
+| Function | Sexps | Flag |
+|---|---|---|
+| `sexp_protect_ships` | `protect-ship`, `unprotect-ship` | `OF_PROTECTED` |
+| `sexp_beam_protect_ships` | `beam-protect-ship`, `beam-unprotect-ship` | `OF_BEAM_PROTECTED` |
+| `sexp_ships_visible` | `ship-visible`, `ship-invisible` | `SF_HIDDEN_FROM_SENSORS` |
+| `sexp_ships_invulnerable` | `ship-invulnerable`, `ship-vulnerable` | `OF_INVULNERABLE` |
+| `sexp_ships_guardian` | `ship-guardian`, `ship-no-guardian` | `OF_GUARDIAN` |
+
+Only `sexp_ships_guardian` was reached by a recording. The other four were changed too because the code, the comment and the guard are identical (decision D-032).
+
+Not covered, to watch: a ship that never arrives stays in the arrival list, so it does not reach the `Int3`. But a ship taken off that list without arriving, if a mission can do that, would be neither present, still to arrive, destroyed nor departed, and would still stop Debug. No recording reaches that.
+
 ## What was checked
 - The `Int3` and the helper are both inside `#ifndef NDEBUG`, so Release compiles to the same code.
 - `mission_log_get_time` only reads the log. It draws no random numbers and makes no recorded reads, so Debug and Release traces stay identical.
@@ -53,4 +66,10 @@ Original, not introduced by the logic and drawing split.
 The other "get allender" style `Int3`s in `SEXP.CPP` cover different cases (impossible states, unsupported arguments) and are not reached by any recording.
 
 ## Effect on mission flow
-None. Release is unchanged, and in Debug the only difference is that the mission is no longer stopped. Re-run result: (filled in after the run)
+None. Release is unchanged, and in Debug the only difference is that the mission is no longer stopped. **No recording changed.**
+
+Re-run on DESKTOP-CLAUDE, 2026-10-16:
+- `OriginalSourceBugFixes`: Release and Debug build.
+- `RecordPlayback` after the merge: all 47 recordings replay (REPLAY OK). 46 traces match frame for frame. For sm1-07, the autotest `sm1-07` and the hand-played `SM1-07` wrote the same trace file name on a case-insensitive disk, so `replay_check.ps1` overwrote one with the other. Replayed separately, both match (3544 and 13183 frames). The hand-played SM1-07 replay exits with code 1 after REPLAY OK, and did so before this change too (checked on e9adc97).
+- `Enhanced` after the merge: the same, 47 replay, all match. sm1-07 and SM1-07 were also replayed separately here.
+- `PrePort` after the merge: 46/46 MATCH. sm1-01 and sm3-06 give identical traces in Release and Debug, and a Debug replay of sm3-06 under autotest logs 0 Int3 (it logged 1 before).
