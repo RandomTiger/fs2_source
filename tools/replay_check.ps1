@@ -54,13 +54,15 @@ $pass = 0; $fail = 0
 foreach ($r in $recs) {
 	$rec = $r.File.FullName
 	$name = $r.File.BaseName
-	$line = $name
+	# the autotest sm1-07 and the hand-played SM1-07 differ only in case, so output names carry the folder (D-033)
+	$folder = if ($r.Autotest) { 'autotest' } else { 'played' }
+	$line = if ($r.Autotest) { $name } else { "$name (played)" }
 	$ok = $true
 	$cfgs = $Configs
 	if ($r.Autotest -and ($CrossCheck -contains $name)) { $cfgs = @('r', 'd') }
 	foreach ($e in $cfgs) {
-		$trace = Join-Path $Out "${name}_$e.trace"
-		$log = Join-Path $Out "${name}_$e.replay.log"
+		$trace = Join-Path $Out "${folder}_${name}_$e.trace"
+		$log = Join-Path $Out "${folder}_${name}_$e.replay.log"
 		Remove-Item $trace, "$rec.replay.log" -ErrorAction SilentlyContinue
 		$flags = "-window -replay `"$rec`" -trace `"$trace`""
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
@@ -78,7 +80,7 @@ foreach ($r in $recs) {
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
 	}
 	if ($cfgs.Count -gt 1) {
-		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
+		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${folder}_${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
 		if (($hashes | Select-Object -Unique).Count -eq 1) { $line += ' | builds identical' } else { $line += ' | builds DIFFER'; $ok = $false }
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
