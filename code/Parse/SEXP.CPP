@@ -5627,12 +5627,13 @@ int sexp_goal_incomplete( int n )
 // Claude: the "get allender" Int3s below flag a ship name that is neither in the mission nor still to arrive.
 // A ship the mission had and that has since been destroyed, self-destructed or departed is not that case:
 // missions legitimately name such ships (sm3-06 clears the guardian flag of a convoy ship its script has already
-// self-destructed). Debug only; Release never had the Int3. Review 42.
+// self-destructed). The ship system's own list of ships that left the mission says so: destroyed (a self-destructed
+// ship too, once it has blown up) or departed. Debug only; Release never had the Int3. Review 42.
 static int sexp_ship_has_left_mission(char *ship_name)
 {
-	return mission_log_get_time(LOG_SHIP_DESTROYED, ship_name, NULL, NULL)
-		|| mission_log_get_time(LOG_SELF_DESTRUCT, ship_name, NULL, NULL)
-		|| mission_log_get_time(LOG_SHIP_DEPART, ship_name, NULL, NULL);
+	int i = ship_find_exited_ship_by_name(ship_name);
+
+	return (i >= 0) && (Ships_exited[i].flags & (SEF_DESTROYED | SEF_DEPARTED));
 }
 #endif
 
