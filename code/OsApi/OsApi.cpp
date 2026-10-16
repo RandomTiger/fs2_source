@@ -234,6 +234,17 @@ void os_sleep(int ms)
 	Sleep(ms);
 }
 
+// Claude: a message box, so game code needs no windows.h. Returns 1 for OK, 0 for Cancel.
+int os_message_box(const char *text, const char *caption, int flags)
+{
+	UINT type = (flags & OS_MB_OKCANCEL) ? MB_OKCANCEL : MB_OK;
+	if (flags & OS_MB_FOREGROUND) {
+		type |= MB_TASKMODAL | MB_SETFOREGROUND;
+	}
+	HWND owner = (flags & OS_MB_OWNED) ? (HWND)os_get_window() : NULL;
+	return (MessageBox(owner, text, caption, type) == IDCANCEL) ? 0 : 1;
+}
+
 // Used to stop message processing
 void os_suspend()
 {

@@ -322,7 +322,7 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 			buf[i] = 0;						
 			cfile_chdir(buf);
 		} else {
-			MessageBox((HWND)NULL, "Error trying to determine executable root directory!", "Error", MB_OK);
+			os_message_box("Error trying to determine executable root directory!", "Error", 0);
 			return 1;
 		}
 

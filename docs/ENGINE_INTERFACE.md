@@ -42,11 +42,11 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 | Branches on `gr_screen.mode` outside Graphics | 12 lines, 5 files | `BmpMan.cpp` 7 and `PackUnpack.cpp` 1 (texture colour format, with the colour globals below), the debug-only D3D overlay in `MainHallMenu.cpp`, the demo title screen in `FreeSpace.cpp` 2, and the null-renderer log line in `Autotest.cpp`. The dead Glide and DirectDraw tests were removed, and the other tests now ask the renderer `gr_screen.hardware`, which Direct3D and the null renderer set (2026-10-16) |
 | Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics and BmpMan | 0 | Fixed 2026-10-16 (D-044): anim frames are unpacked at the renderer's `gr_screen.texture_bpp`, the debug VRAM display asks `gr_texture_memory`, and the Debug-only D3D settings overlay on the main hall was dropped. The 75 in `BmpMan.cpp` are inside the texture seam (below) |
-| Win32 calls in game code | ~55 | `FreeSpace.cpp` 35 (`MessageBox`, `Sleep`, registry, current directory, CD drive scan, `CreateProcess`); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp` |
+| Win32 calls in game code | ~40 | `FreeSpace.cpp` ~20 (registry, current directory, file search, CD drive scan, `CreateProcess`, memory status); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp`. Message boxes and sleeps in `FreeSpace.cpp` and `cfile.cpp` go through `os_message_box` and `os_sleep` (2026-10-16) |
 | `fopen` around cfile | ~6 game-side sites | `FreeSpace.cpp`, `SystemVars.cpp`, `Scoring.cpp`, `ModelRead.cpp` |
 | `windows.h` in game code | 4 files | `FreeSpace.cpp`, `WinDebug.cpp`, `Math/Fix.cpp`, `PadXInput.cpp` |
 
-Missing seams to add: a message box, and current directory and directory listing. The renderer capability queries exist: `gr_screen.hardware` and `gr_screen.texture_bpp`. `os_sleep` exists, but `FreeSpace.cpp` calls `Sleep` directly.
+Missing seams to add: current directory and directory listing. Added: `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
 
 Logic-side leaks (gameplay depending on drawing or window size) are tracked in `STATUS.md` under gate 2.
 

@@ -2081,7 +2081,7 @@ void game_init()
 	
 	ptr = os_config_read_string(NULL, NOX("Videocard"), NULL);	
 	if (ptr == NULL) {
-		MessageBox((HWND)os_get_window(), XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), MB_OK);
+		os_message_box(XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), OS_MB_OWNED);
 
 		// fire up the UpdateLauncher executable
 		STARTUPINFO si;
@@ -2104,7 +2104,7 @@ void game_init()
 
 		// If the Launcher could not be started up, let the user know
 		if (!ret) {
-			MessageBox((HWND)os_get_window(), XSTR("The Launcher could not be restarted.", 1450), XSTR("Error", 1451), MB_OK);
+			os_message_box(XSTR("The Launcher could not be restarted.", 1450), XSTR("Error", 1451), OS_MB_OWNED);
 		}
 		exit(1);
 	}
@@ -2112,7 +2112,7 @@ void game_init()
 	if(!Is_standalone){
 		
 		if(!stricmp(ptr, "Aucune accélération 3D") || !stricmp(ptr, "Keine 3D-Beschleunigerkarte") || !stricmp(ptr, "No 3D acceleration")){
-			MessageBox((HWND)os_get_window(), XSTR("Warning, Freespace 2 requires Glide or Direct3D hardware accleration. You will not be able to run Freespace 2 without it.", 1448), XSTR("Warning", 1449), MB_OK);		
+			os_message_box(XSTR("Warning, Freespace 2 requires Glide or Direct3D hardware accleration. You will not be able to run Freespace 2 without it.", 1448), XSTR("Warning", 1449), OS_MB_OWNED);		
 			exit(1);
 		}
 	}
@@ -2196,7 +2196,7 @@ void game_init()
 	extern int Gr_inited;
 	if(trying_d3d && !Gr_inited){
 		extern char Device_init_error[512];		
-		MessageBox( NULL, Device_init_error, "Error intializing Direct3D", MB_OK|MB_TASKMODAL|MB_SETFOREGROUND );
+		os_message_box(Device_init_error, "Error intializing Direct3D", OS_MB_FOREGROUND);
 		exit(1);
 		return;
 	}
@@ -4374,7 +4374,7 @@ void game_set_frametime(int state)
 			thistime = cap - Frametime;
 			//mprintf(("Sleeping for %6.3f seconds.\n", f2fl(thistime)));
 			if (!replay_should_read()) {	// Claude: while a replay feeds the clock from the recording, waiting only costs wall time
-				Sleep( DWORD(f2fl(thistime) * 1000.0f) );
+				os_sleep(int(f2fl(thistime) * 1000.0f));
 			}
 			Frametime = cap;
 			thistime = timer_get_fixed_seconds();
@@ -4385,7 +4385,7 @@ void game_set_frametime(int state)
 		(f2fl(Frametime) < ((float)1.0/(float)Multi_options_g.std_framecap))){
 
 		frame_cap_diff = ((float)1.0/(float)Multi_options_g.std_framecap) - f2fl(Frametime);		
-		Sleep((DWORD)(frame_cap_diff*1000)); 				
+		os_sleep((int)(frame_cap_diff*1000)); 				
 		
 		thistime += fl2f((frame_cap_diff));		
 
@@ -6403,14 +6403,14 @@ int game_do_ram_check(int ram_in_bytes)
 			sprintf( tmp, XSTR( "FreeSpace has detected that you only have %dMB of free memory.\n\nFreeSpace requires at least 32MB of memory to run.  If you think you have more than %dMB of physical memory, ensure that you aren't running SmartDrive (SMARTDRV.EXE).  Any memory allocated to SmartDrive is not usable by applications\n\nPress 'OK' to continue running with less than the minimum required memory\n", 193), Freespace_total_ram_MB, Freespace_total_ram_MB);
 
 			int msgbox_rval;
-			msgbox_rval = MessageBox( NULL, tmp, XSTR( "Not Enough RAM", 194), MB_OKCANCEL );
-			if ( msgbox_rval == IDCANCEL ) {
+			msgbox_rval = os_message_box(tmp, XSTR( "Not Enough RAM", 194), OS_MB_OKCANCEL);
+			if ( msgbox_rval == 0 ) {
 				return -1;
 			}
 
 		} else {
 			sprintf( tmp, XSTR( "FreeSpace has detected that you only have %dMB of free memory.\n\nFreeSpace requires at least 32MB of memory to run.  If you think you have more than %dMB of physical memory, ensure that you aren't running SmartDrive (SMARTDRV.EXE).  Any memory allocated to SmartDrive is not usable by applications\n", 195), Freespace_total_ram_MB, Freespace_total_ram_MB);
-			MessageBox( NULL, tmp, XSTR( "Not Enough RAM", 194), MB_OK );
+			os_message_box(tmp, XSTR( "Not Enough RAM", 194), 0);
 			return -1;
 		}
 	}
@@ -6443,7 +6443,7 @@ void game_maybe_update_launcher(char *exe_dir)
 
 	// copy updated freespace.exe to freespace exe dir
 	if ( CopyFile(src_filename, dest_filename, 0) == 0 ) {
-		MessageBox( NULL, XSTR("Unable to copy freespace.exe from update directory to installed directory.  You should copy freespace.exe from the update directory (located in your FreeSpace install directory) to your install directory", 988), NULL, MB_OK|MB_TASKMODAL|MB_SETFOREGROUND );
+		os_message_box(XSTR("Unable to copy freespace.exe from update directory to installed directory.  You should copy freespace.exe from the update directory (located in your FreeSpace install directory) to your install directory", 988), NULL, OS_MB_FOREGROUND);
 		return;
 	}
 
@@ -6598,18 +6598,18 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	Freespace_total_ram = ms.dwTotalPhys;
 
 	if ( ms.dwTotalVirtual < 1024 )	{
-		MessageBox( NULL, XSTR( "FreeSpace requires virtual memory to run.\r\n", 196), XSTR( "No Virtual Memory", 197), MB_OK );
+		os_message_box(XSTR( "FreeSpace requires virtual memory to run.\r\n", 196), XSTR( "No Virtual Memory", 197), 0);
 		return 0;
 	}
 
 	if (!vm_init(24*1024*1024)) {
-		MessageBox( NULL, XSTR( "Not enough memory to run Freespace.\r\nTry closing down some other applications.\r\n", 198), XSTR( "Not Enough Memory", 199), MB_OK );
+		os_message_box(XSTR( "Not enough memory to run Freespace.\r\nTry closing down some other applications.\r\n", 198), XSTR( "Not Enough Memory", 199), 0);
 		return 0;
 	}
 		
 	char *tmp_mem = (char *) malloc(16 * 1024 * 1024);
 	if (!tmp_mem) {
-		MessageBox(NULL, XSTR( "Not enough memory to run Freespace.\r\nTry closing down some other applications.\r\n", 198), XSTR( "Not Enough Memory", 199), MB_OK);
+		os_message_box(XSTR( "Not enough memory to run Freespace.\r\nTry closing down some other applications.\r\n", 198), XSTR( "Not Enough Memory", 199), 0);
 		return 0;
 	}
 
@@ -7723,7 +7723,7 @@ void oem_upsell_show_screens()
 		if ( done ) {
 			if (gameseq_get_state() != GS_STATE_END_DEMO) {
 				gr_fade_out(0);
-				Sleep(300);
+				os_sleep(300);
 			}
 		}
 
@@ -7878,7 +7878,7 @@ void demo_upsell_show_screens()
 		if ( done ) {
 			if (gameseq_get_state() != GS_STATE_END_DEMO) {
 				gr_fade_out(0);
-				Sleep(300);
+				os_sleep(300);
 			}
 		}
 

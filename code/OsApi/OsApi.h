@@ -65,6 +65,12 @@ void os_poll();
 // Sleeps for n milliseconds or until app becomes active.
 void os_sleep(int ms);
 
+// Claude: a message box, so game code needs no windows.h. Returns 1 for OK, 0 for Cancel.
+#define OS_MB_OKCANCEL		(1<<0)	// OK and Cancel buttons; OK alone otherwise
+#define OS_MB_FOREGROUND	(1<<1)	// task modal, brought to the foreground
+#define OS_MB_OWNED			(1<<2)	// owned by the game window
+int os_message_box(const char *text, const char *caption, int flags);
+
 // Used to stop message processing
 void os_suspend();
 
