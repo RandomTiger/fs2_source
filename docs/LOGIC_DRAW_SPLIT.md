@@ -79,7 +79,7 @@ With it, 41 of 46 match every frame to the end. The other 5 (loop1-2, sm1-08, sm
 
 ## Finishing
 1. Done 2026-10-15 (8ae9e14): `tools\nodraw_check.ps1` passes for every mission in Release, and again in Debug (`-Config d`).
-2. `git merge PrePort` one last time, rebuild, re-check.
-3. Re-record `recordings/autotest` with this branch (move the old folder aside first; the recorder never overwrites), commit.
-4. `tools\replay_check.ps1`: everything passes, sm1-01 builds identical.
+2. Done 2026-10-16: `git merge PrePort`, rebuilt.
+3. Done 2026-10-16 (D-027): all 46 re-recorded with the AI pilot in the reference configuration on DESKTOP-CLAUDE, and each replays identically in Release and Debug. Autotest needs `-Time 300` because its notes have no `-at_time`. Each fresh recording takes a new level seed, so it is a different playthrough of the same mission, not a copy of the old one. The sm3-06 Debug replay logs one Int3: `sexp_ships_guardian` names a ship that was already destroyed in this playthrough, which is an original Debug-only check. The state matches.
+4. Done 2026-10-16: `tools\replay_check.ps1` and `tools\nodraw_check.ps1` pass on the new recordings.
 5. Update the plan in `docs/PREPORT.md` (step 3 done), then `git merge --no-ff LogicDrawSplit` into `PrePort` and run the check again there.
