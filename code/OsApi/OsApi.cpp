@@ -245,6 +245,16 @@ int os_message_box(const char *text, const char *caption, int flags)
 	return (MessageBox(owner, text, caption, type) == IDCANCEL) ? 0 : 1;
 }
 
+// Claude: a 1 ms timer and scheduler resolution while the game runs (1), or back to the default (0)
+void os_timer_precise(int on)
+{
+	if (on) {
+		timeBeginPeriod(1);
+	} else {
+		timeEndPeriod(1);
+	}
+}
+
 // Used to stop message processing
 void os_suspend()
 {

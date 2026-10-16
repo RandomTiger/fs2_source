@@ -791,3 +791,34 @@ int game_do_cd_mission_check(char *filename)
 // CDROM detection code END
 //
 // ----------------------------------------------------------------
+
+// Claude: no video card configured yet: tell the player, start the launcher and exit. Was inline in game_init (D-045).
+void game_run_launcher()
+{
+	os_message_box(XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), OS_MB_OWNED);
+
+	// fire up the UpdateLauncher executable
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
+	memset( &si, 0, sizeof(STARTUPINFO) );
+	si.cb = sizeof(si);
+
+	BOOL ret = CreateProcess(	LAUNCHER_FNAME,	// pointer to name of executable module 
+								NULL,							// pointer to command line string
+								NULL,							// pointer to process security attributes 
+								NULL,							// pointer to thread security attributes 
+								FALSE,							// handle inheritance flag 
+								CREATE_DEFAULT_ERROR_MODE,		// creation flags 
+								NULL,							// pointer to new environment block 
+								NULL,	// pointer to current directory name 
+								&si,	// pointer to STARTUPINFO 
+								&pi 	// pointer to PROCESS_INFORMATION  
+							);			
+
+	// If the Launcher could not be started up, let the user know
+	if (!ret) {
+		os_message_box(XSTR("The Launcher could not be restarted.", 1450), XSTR("Error", 1451), OS_MB_OWNED);
+	}
+	exit(1);
+}

@@ -71,6 +71,9 @@ void os_sleep(int ms);
 #define OS_MB_OWNED			(1<<2)	// owned by the game window
 int os_message_box(const char *text, const char *caption, int flags);
 
+// Claude: a 1 ms timer and scheduler resolution while the game runs (1), or back to the default (0)
+void os_timer_precise(int on);
+
 // Used to stop message processing
 void os_suspend();
 

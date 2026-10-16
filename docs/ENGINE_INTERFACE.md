@@ -42,13 +42,21 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 | Branches on `gr_screen.mode` outside Graphics | 12 lines, 5 files | `BmpMan.cpp` 7 and `PackUnpack.cpp` 1 (texture colour format, with the colour globals below), the debug-only D3D overlay in `MainHallMenu.cpp`, the demo title screen in `FreeSpace.cpp` 2, and the null-renderer log line in `Autotest.cpp`. The dead Glide and DirectDraw tests were removed, and the other tests now ask the renderer `gr_screen.hardware`, which Direct3D and the null renderer set (2026-10-16) |
 | Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics and BmpMan | 0 | Fixed 2026-10-16 (D-044): anim frames are unpacked at the renderer's `gr_screen.texture_bpp`, the debug VRAM display asks `gr_texture_memory`, and the Debug-only D3D settings overlay on the main hall was dropped. The 75 in `BmpMan.cpp` are inside the texture seam (below) |
-| Win32 calls in game code | ~40 | `FreeSpace.cpp` ~20 (registry, current directory, file search, CD drive scan, `CreateProcess`, memory status); `WinDebug.cpp` (assert dialogs); `PadXInput.cpp`. Message boxes and sleeps in `FreeSpace.cpp` and `cfile.cpp` go through `os_message_box` and `os_sleep` (2026-10-16) |
+| Win32 calls in game code | ~15 | `WinDebug.cpp` (assert dialogs), `PadXInput.cpp`. `FreeSpace.cpp` has none (2026-10-16): message boxes and sleeps go through `os_message_box` and `os_sleep`, the timer resolution through `os_timer_precise`, and the Windows host functions moved to `FreeSpaceWin32.cpp` (D-045, below) |
 | `fopen` around cfile | ~6 game-side sites | `FreeSpace.cpp`, `SystemVars.cpp`, `Scoring.cpp`, `ModelRead.cpp` |
-| `windows.h` in game code | 4 files | `FreeSpace.cpp`, `WinDebug.cpp`, `Math/Fix.cpp`, `PadXInput.cpp` |
+| `windows.h` in game code | 3 files | `WinDebug.cpp`, `Math/Fix.cpp`, `PadXInput.cpp` (`FreeSpace.cpp` dropped it, 2026-10-16) |
 
 Missing seams to add: current directory and directory listing. Added: `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
 
 Logic-side leaks (gameplay depending on drawing or window size) are tracked in `STATUS.md` under gate 2.
+
+## The Windows host (decision D-045)
+`FREESPACE2/FreeSpaceWin32.cpp` is the Windows host: `WinMain` and `WinMainSub`, launcher update and launch, and CD detection. Another host leaves the file out and supplies in its place:
+- the entry point: what `WinMainSub` does between `parse_cmdline` and `game_shutdown` (the game's own start-up and its `gameseq_process_events` loop);
+- the exe directory as the current directory, and `Freespace_total_ram` (below 48 MB `game_init` loads every other bitmap frame, `bm_set_low_mem`);
+- `game_run_launcher` (no video card configured), `game_launch_launcher_on_exit` and `game_maybe_update_launcher`, or nothing;
+- the CD hooks (`init_cdrom`, `find_freespace_cd`, `game_do_cd_check`, `game_do_cd_check_specific`, `game_do_cd_mission_check`, `game_cd_changed`, `set_cdrom_path`), which can report no CD needed.
+The version string (`get_version_string`) stays in the game; it uses no Windows calls.
 
 ## BmpMan is on the renderer's side (decision D-044)
 A leak is logic reading presentation state, or reaching presentation by a path other than this interface. BmpMan's pixel conversion (`bm_lock`, the `BM_SELECT_*` pointers, the `Gr_current_*`, `Gr_t_*`, `Gr_ta_*` and `Bm_pixel_format` globals) is presentation: it turns image files into the renderer's texture format, and nothing on the logic side reads it. Its boundary is `BmpMan.h`. A host either reuses BmpMan and sets its format globals from its own texture format, or replaces it behind `BmpMan.h`. Either way nothing in BmpMan names a Godot type.

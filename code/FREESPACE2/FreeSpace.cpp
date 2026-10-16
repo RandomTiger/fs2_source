@@ -414,7 +414,7 @@
  * 
  */
 
-#include <windows.h>
+// Claude: no windows.h; the Windows host is FreeSpaceWin32.cpp (D-045)
 
 #include <stdlib.h>
 #include <process.h>
@@ -1990,7 +1990,7 @@ void game_init()
 	// int s2, e2;
 
 	char whee[1024];
-	GetCurrentDirectory(1024, whee);
+	_getcwd(whee, 1024);
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
 
@@ -2081,32 +2081,7 @@ void game_init()
 	
 	ptr = os_config_read_string(NULL, NOX("Videocard"), NULL);	
 	if (ptr == NULL) {
-		os_message_box(XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), OS_MB_OWNED);
-
-		// fire up the UpdateLauncher executable
-		STARTUPINFO si;
-		PROCESS_INFORMATION pi;
-
-		memset( &si, 0, sizeof(STARTUPINFO) );
-		si.cb = sizeof(si);
-
-		BOOL ret = CreateProcess(	LAUNCHER_FNAME,	// pointer to name of executable module 
-									NULL,							// pointer to command line string
-									NULL,							// pointer to process security attributes 
-									NULL,							// pointer to thread security attributes 
-									FALSE,							// handle inheritance flag 
-									CREATE_DEFAULT_ERROR_MODE,		// creation flags 
-									NULL,							// pointer to new environment block 
-									NULL,	// pointer to current directory name 
-									&si,	// pointer to STARTUPINFO 
-									&pi 	// pointer to PROCESS_INFORMATION  
-								);			
-
-		// If the Launcher could not be started up, let the user know
-		if (!ret) {
-			os_message_box(XSTR("The Launcher could not be restarted.", 1450), XSTR("Error", 1451), OS_MB_OWNED);
-		}
-		exit(1);
+		game_run_launcher();	// Claude: the host starts its launcher and exits (D-045)
 	}
 
 	if(!Is_standalone){
@@ -2326,7 +2301,7 @@ void game_init()
 //	Game_music_paused = 0;
 	Game_paused = 0;
 
-	timeBeginPeriod(1);	
+	os_timer_precise(1);	
 
 	nprintf(("General", "Ships.tbl is : %s\n", Game_ships_tbl_valid ? "VALID" : "INVALID!!!!"));
 	nprintf(("General", "Weapons.tbl is : %s\n", Game_weapons_tbl_valid ? "VALID" : "INVALID!!!!"));
@@ -6548,7 +6523,7 @@ void game_shutdown(void)
 {
 	replay_shutdown();
 
-	timeEndPeriod(1);
+	os_timer_precise(0);
 
 	// don't ever flip a page on the standalone!
 	if(!(Game_mode & GM_STANDALONE_SERVER)){
