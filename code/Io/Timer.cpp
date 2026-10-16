@@ -236,6 +236,7 @@ sub_again:
 
 int timer_get_milliseconds()
 {
+	if (replay_snd_model_active()) return replay_snd_model_clock(RT_TIMER_MS);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	REPLAY_WRAP_INT(RT_TIMER_MS, timer_get_milliseconds_live());
 }
 
@@ -277,6 +278,7 @@ sub_again:
 
 int timer_get_microseconds()
 {
+	if (replay_snd_model_active()) return replay_snd_model_clock(RT_TIMER_US);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	REPLAY_WRAP_INT(RT_TIMER_US, timer_get_microseconds_live());
 }
 

@@ -106,8 +106,20 @@ void  replay_write_ints(int tag, int *vals, int count);
 // replay_should_read() is 0.
 int   replay_input_device(int *vals, int count, int max);
 
-// sound handles: the live handle is kept unless the recorded call failed or succeeded differently
-int replay_snd_handle(int tag, int live_handle);
+// sound handles: the live handle is kept unless the recorded call failed or succeeded differently.
+// duration_ms and looping feed the FS2_REPLAY_SOUND_MODEL diagnostic only.
+int replay_snd_handle(int tag, int live_handle, int duration_ms, int looping);
+
+// FS2_REPLAY_SOUND_MODEL=1 (D-031), a replay diagnostic: every sound-state query is answered by a model instead of
+// the sound device.  A sound plays for its file's duration on the recorded clock, a looping one until it is stopped,
+// and a channel is always free.  Shows how much gameplay depends on what the sound device answers.
+int  replay_snd_model_active();
+int  replay_snd_model_query(int tag, int handle);
+void replay_snd_model_stop(int handle);			// REPLAY_SND_MODEL_STOP_ALL: all; any other negative handle: none, as snd_stop
+#define REPLAY_SND_MODEL_STOP_ALL	-2
+// In the model, the millisecond and microsecond clocks are read from the recorded frame clock (RT_TIMER_FIX): sound
+// timing decides when talking heads stop, and their clock reads would otherwise stop the replay.
+int  replay_snd_model_clock(int tag);
 
 // events.  Return 0 if the live event must be ignored (during replay).
 int  replay_event_key(unsigned int code, int state, unsigned int latency);

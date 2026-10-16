@@ -71,6 +71,24 @@ static int Replay_snd_mismatch = 0;
 #define REPLAY_SOUND_LIVE_ENV		"FS2_REPLAY_SOUND_LIVE"
 static int Replay_sound_live = 0;
 static int Replay_sound_skipped = 0;
+
+// Diagnostic FS2_REPLAY_SOUND_MODEL=1 (D-031): in replay, every sound-state query is answered by a model (see
+// Replay.h), and the recorded sound and music-stream entries are skipped.  Never used to make or check a reference
+// recording.
+#define REPLAY_SOUND_MODEL_ENV		"FS2_REPLAY_SOUND_MODEL"
+#define REPLAY_SND_MODEL_MAX			1024
+typedef struct replay_snd_model {
+	int	handle;
+	int	start_ms;
+	int	duration_ms;
+	int	looping;
+	int	stopped;
+} replay_snd_model;
+static int Replay_sound_model = 0;
+static replay_snd_model Replay_snd_models[REPLAY_SND_MODEL_MAX];
+static int Replay_snd_models_next = 0;
+static int Replay_snd_model_handle = 0x40000000;	// for a sound the live device refused
+static int Replay_snd_model_starts = 0;
 static int Replay_last_int[RT_NUM_TAGS];
 static int Replay_clock_offset[RT_NUM_TAGS];	// after the replay, added to the live clocks so they carry on from the recorded ones
 static int Replay_clock_set[RT_NUM_TAGS];
@@ -373,8 +391,16 @@ static int replay_tag_is_sound(int tag)
 	return (tag >= RT_SND_PLAY) && (tag <= RT_SND_NUM_PLAYING);
 }
 
+static int replay_tag_is_stream(int tag)
+{
+	return (tag == RT_STREAM_IS_PLAYING) || (tag == RT_STREAM_IS_PAUSED) || (tag == RT_STREAM_DONE_READING) || (tag == RT_STREAM_BYTES);
+}
+
 static int replay_tag_live(int tag)
 {
+	if (Replay_sound_model) {
+		return replay_tag_is_sound(tag) || replay_tag_is_stream(tag) || (tag == RT_TIMER_MS) || (tag == RT_TIMER_US);
+	}
 	return Replay_sound_live && replay_tag_is_sound(tag);
 }
 
@@ -537,9 +563,87 @@ int replay_input_device(int *vals, int count, int max)
 	return n;
 }
 
-int replay_snd_handle(int tag, int live_handle)
+// the recorded frame clock, in ms; reading it makes no recorded read
+static int replay_snd_model_now()
+{
+	return (int)(((__int64)Replay_last_int[RT_TIMER_FIX] * 1000) >> 16);
+}
+
+int replay_snd_model_active()
+{
+	return Replay_sound_model && (Replay_mode == REPLAY_PLAY) && replay_hook_live();
+}
+
+int replay_snd_model_clock(int tag)
+{
+	__int64 f = Replay_last_int[RT_TIMER_FIX];
+
+	return (int)((tag == RT_TIMER_US) ? ((f * 1000000) >> 16) : ((f * 1000) >> 16));
+}
+
+static int replay_snd_model_playing(replay_snd_model *m, int now)
+{
+	if (m->stopped) {
+		return 0;
+	}
+	return m->looping || (now - m->start_ms < m->duration_ms);
+}
+
+int replay_snd_model_query(int tag, int handle)
+{
+	int i, now = replay_snd_model_now(), count = 0;
+
+	for (i = 0; i < REPLAY_SND_MODEL_MAX; i++) {
+		replay_snd_model *m = &Replay_snd_models[i];
+
+		if (!m->duration_ms && !m->looping) {
+			continue;
+		}
+		if (tag == RT_SND_NUM_PLAYING) {
+			count += replay_snd_model_playing(m, now);
+		} else if (m->handle == handle) {
+			if (tag == RT_SND_IS_PLAYING) {
+				return replay_snd_model_playing(m, now);
+			}
+			if (!replay_snd_model_playing(m, now)) {
+				return 0;
+			}
+			return m->looping ? m->duration_ms : (m->duration_ms - (now - m->start_ms));	// RT_SND_TIME_REMAINING
+		}
+	}
+	return count;
+}
+
+void replay_snd_model_stop(int handle)
+{
+	int i;
+
+	if (!replay_snd_model_active() || ((handle < 0) && (handle != REPLAY_SND_MODEL_STOP_ALL))) {
+		return;		// snd_stop ignores a negative handle, and the game calls it with -1 every frame
+	}
+	for (i = 0; i < REPLAY_SND_MODEL_MAX; i++) {
+		if ((handle == REPLAY_SND_MODEL_STOP_ALL) || (Replay_snd_models[i].handle == handle)) {
+			Replay_snd_models[i].stopped = 1;
+		}
+	}
+}
+
+int replay_snd_handle(int tag, int live_handle, int duration_ms, int looping)
 {
 	int recorded;
+
+	if (replay_snd_model_active()) {
+		replay_snd_model *m = &Replay_snd_models[Replay_snd_models_next];
+
+		Replay_snd_models_next = (Replay_snd_models_next + 1) % REPLAY_SND_MODEL_MAX;
+		m->handle = (live_handle != -1) ? live_handle : Replay_snd_model_handle++;
+		m->start_ms = replay_snd_model_now();
+		m->duration_ms = duration_ms;
+		m->looping = looping;
+		m->stopped = 0;
+		Replay_snd_model_starts++;
+		return m->handle;
+	}
 
 	if (replay_should_read_tag(tag)) {
 		recorded = replay_read_int(tag);
@@ -996,6 +1100,10 @@ void replay_startup()
 			Replay_sound_live = 1;
 			replay_logf("DIAGNOSTIC: %s=1, sound device read live, recorded sound entries skipped\n", REPLAY_SOUND_LIVE_ENV);
 		}
+		if (GetEnvironmentVariable(REPLAY_SOUND_MODEL_ENV, live, sizeof(live)) && (live[0] == '1')) {
+			Replay_sound_model = 1;
+			replay_logf("DIAGNOSTIC: %s=1, sound-state queries answered by the model, recorded sound and music entries skipped\n", REPLAY_SOUND_MODEL_ENV);
+		}
 		replay_read_file();
 		replay_logf("Recorded by build '%s'\n", Hdr.build);
 		replay_logf("Mission '%s', pilot '%s', campaign '%s', seed %d\n", Hdr.mission, Hdr.callsign, Hdr.campaign, Hdr.level_seed);
@@ -1321,8 +1429,11 @@ void replay_mission_over()
 
 	trace_close();
 	replay_log_stats();
-	if (Replay_sound_live) {
+	if (Replay_sound_live || Replay_sound_model) {
 		replay_logf("DIAGNOSTIC: %d recorded sound entries skipped\n", Replay_sound_skipped);
+	}
+	if (Replay_sound_model) {
+		replay_logf("DIAGNOSTIC: %d sounds started in the model\n", Replay_snd_model_starts);
 	}
 	replay_logf((Replay_mode == REPLAY_RECORD) ? "RECORD OK\n" : "REPLAY OK\n");
 

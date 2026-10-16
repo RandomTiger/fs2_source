@@ -787,7 +787,7 @@ int snd_play( game_snd *gs, float pan, float vol_scale, int priority, bool is_vo
 	replay_push();
 	handle = snd_play_live(gs, pan, vol_scale, priority, is_voice_msg);
 	replay_pop();
-	return replay_snd_handle(RT_SND_PLAY, handle);
+	return replay_snd_handle(RT_SND_PLAY, handle, snd_get_duration(gs->id), 0);
 }
 
 MONITOR( Num3DSoundsStarted );
@@ -920,7 +920,7 @@ int snd_play_3d(game_snd *gs, vector *source_pos, vector *listen_pos, float radi
 	replay_push();
 	handle = snd_play_3d_live(gs, source_pos, listen_pos, radius, source_vel, looping, vol_scale, priority, sound_fvec, range_factor, force);
 	replay_pop();
-	return replay_snd_handle(RT_SND_PLAY_3D, handle);
+	return replay_snd_handle(RT_SND_PLAY_3D, handle, snd_get_duration(gs->id), looping);
 }
 
 // update the given 3d sound with a new position
@@ -1072,7 +1072,7 @@ int snd_play_looping( game_snd *gs, float pan, int start_loop, int stop_loop, fl
 	replay_push();
 	handle = snd_play_looping_live(gs, pan, start_loop, stop_loop, vol_scale, priority, force);
 	replay_pop();
-	return replay_snd_handle(RT_SND_PLAY_LOOPING, handle);
+	return replay_snd_handle(RT_SND_PLAY_LOOPING, handle, snd_get_duration(gs->id), 1);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1086,6 +1086,7 @@ void snd_stop( int sig )
 {
 	int channel;
 
+	replay_snd_model_stop(sig);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	if (!ds_initialized) return;
 	if ( sig < 0 ) return;
 
@@ -1245,6 +1246,7 @@ static int snd_is_playing_live( int sig )
 
 int snd_is_playing( int sig )
 {
+	if (replay_snd_model_active()) return replay_snd_model_query(RT_SND_IS_PLAYING, sig);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	REPLAY_WRAP_INT(RT_SND_IS_PLAYING, snd_is_playing_live(sig));
 }
 
@@ -1286,6 +1288,7 @@ void snd_chg_loop_status(int sig, int loop)
 //
 void snd_stop_all()
 {
+	replay_snd_model_stop(REPLAY_SND_MODEL_STOP_ALL);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	if (!ds_initialized)
 		return;
 
@@ -1418,6 +1421,7 @@ void snd_set_pos(int snd_handle, game_snd *gs, float val,int as_pct)
 // Return the number of sounds currently playing
 int snd_num_playing()
 {
+	if (replay_snd_model_active()) return replay_snd_model_query(RT_SND_NUM_PLAYING, -1);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	REPLAY_WRAP_INT(RT_SND_NUM_PLAYING, ds_get_number_channels());
 }
 
@@ -1507,6 +1511,7 @@ static int snd_time_remaining_live(int handle, int bits_per_sample, int frequenc
 
 int snd_time_remaining(int handle, int bits_per_sample, int frequency)
 {
+	if (replay_snd_model_active()) return replay_snd_model_query(RT_SND_TIME_REMAINING, handle);	// Claude: FS2_REPLAY_SOUND_MODEL diagnostic (Replay.cpp)
 	REPLAY_WRAP_INT(RT_SND_TIME_REMAINING, snd_time_remaining_live(handle, bits_per_sample, frequency));
 }
 
