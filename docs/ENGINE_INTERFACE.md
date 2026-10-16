@@ -24,6 +24,9 @@ Optional or not carried: CD audio (`RBAudio.h`), force feedback (`Joy_ff.h`), mu
 ## The recorder's hooks are the platform boundary
 The recorder already hooks about 28 seam functions. Each is a value the game takes from outside: 3 clock reads, `os_poll` and `os_foreground`, key, mouse and focus events, the mouse position, 6 joystick reads, pad state, 3 sound starts (whether a channel was free), 4 sound queries and 4 music-stream queries (`Replay/Replay.h`, `RT_*`). If the host implements exactly these, the recordings can keep refereeing after the engine moves (`docs/PREPORT.md`, "Recordings after the port"). Everything else in the seams is output only, so the host may implement it however it likes.
 
+## The camera stays in the game (decision D-036)
+The view setup is part of the game's logic step, not the host's. `game_render_frame_setup` decides the camera every frame, with or without drawing. Its shakes, `apply_hud_shake` (afterburner, engine wash, shudder) and `supernova_apply_shake`, draw from the gameplay random stream, so moving the camera anywhere else shifts every later gameplay random number. The host receives the finished eye from `game_view_set` and draws from it. It never computes shake or moves the camera itself. A host camera feature (VR, free camera, replay camera) has to go through the C++ view setup. The trace records the eye every frame (trace version 2), so a host that broke this rule would show as a TraceDiff `eye` field at the first frame.
+
 ## Leaks: where game code goes around the seams
 | Kind | Count | Main places |
 |---|---|---|

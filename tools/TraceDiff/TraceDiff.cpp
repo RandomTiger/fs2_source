@@ -240,7 +240,11 @@ static void diff_states(const State &a, const State &b, std::vector<Diff> &out)
 			int kind;
 			object_field(oa.type, (int)k, name, kind);
 			Diff d;
-			sprintf(buf, "object %d (type %d) %s", it->first, oa.type, name.c_str());
+			if (oa.type == TRACE_EYE_TYPE) {
+				sprintf(buf, "eye %s", name.c_str());
+			} else {
+				sprintf(buf, "object %d (type %d) %s", it->first, oa.type, name.c_str());
+			}
 			d.what = buf; d.kind = kind;
 			d.a = (kind == TRK_INT) ? oa.vals[k] : as_float(oa.vals[k]);
 			d.b = (kind == TRK_INT) ? ob.vals[k] : as_float(ob.vals[k]);

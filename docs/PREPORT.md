@@ -27,6 +27,8 @@ The simulation is only correct when the D3D render code runs each frame. Before 
 
 The aim is to move the view setup, lock, cargo scan and view-cone test into the simulation step without changing gameplay, and prove it with the recordings.
 
+**Rule (decision D-036):** presentation may draw from the gameplay random stream only where it runs inside the C++ logic step, in a fixed order, in every mode, headless included. The camera shakes in `game_render_frame_setup` (`apply_hud_shake`, `supernova_apply_shake`) do. They stay on the gameplay stream, because moving them would change every later random number and so every recording. The host gets the finished eye and never moves the camera itself (`docs/ENGINE_INTERFACE.md`).
+
 ## Graphics
 - Renderer choice: `gr_init` (`Graphics\2d.cpp:821`), switch at `2d.cpp:919-956`, modes in `Graphics\2d.h:568-572`. The game picks the mode only from the launcher's `Videocard` registry string (`FreeSpace.cpp:2111-2219`). `HARDWARE_ONLY` is always defined (`GlobalIncs\PsTypes.h:237`), so the game itself runs only D3D or Glide.
 - `gr_screen` holds about 50 `gf_*` function pointers (`2d.h:397-552`), filled by GrD3D, GrGlide, GrSoft, GrDirectDraw and GrOpenGL. **OpenGL is an empty stub** (no `gl*` calls). DirectDraw and OpenGL start with `Int3()`.

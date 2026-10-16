@@ -18,12 +18,19 @@
  *     values: TRO_COMMON_COUNT common values, then by type:
  *       ship:   TRO_SHIP_COUNT values, then one float per subsystem (current hits)
  *       weapon: TRO_WEAPON_COUNT values
+ *   Version 2 (PrePort, decision D-036): the last object is the eye the frame was simulated with, signature
+ *   TRACE_EYE_SIGNATURE and type TRACE_EYE_TYPE, with the TRO_COMMON_COUNT values only: flags 0, pos =
+ *   Eye_position, orient = Eye_matrix, the rest 0.  The eye is set in the logic step (game_view_set) and the
+ *   trace is written at the end of the next simulation step, so it is the camera that step read.  A host that
+ *   moved the camera itself would show here, at the first frame it did.
  */
 
 #ifndef _FS2_TRACE_FORMAT_H
 #define _FS2_TRACE_FORMAT_H
 
-#define TRACE_VERSION		1
+#define TRACE_VERSION		2
+#define TRACE_EYE_SIGNATURE	-1
+#define TRACE_EYE_TYPE		99
 
 // value kinds, used by TraceDiff to pick a tolerance
 #define TRK_INT			0		// always exact

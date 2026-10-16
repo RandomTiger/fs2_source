@@ -18,6 +18,8 @@
 #include "Player.h"
 #include "MissionGoals.h"
 #include "linklist.h"
+extern matrix Eye_matrix;	// Claude: the eye (Render/3dSetup.cpp), set by game_view_set
+extern vector Eye_position;
 
 static FILE *Trace_fp = NULL;
 static int Trace_full = 0;
@@ -121,6 +123,27 @@ static void trace_object(object *objp)
 	memcpy(Tbuf + count_pos, &count, 4);
 }
 
+// the eye the frame was simulated with (trace version 2, TraceFormat.h)
+static void trace_eye()
+{
+	vector zero = { 0.0f, 0.0f, 0.0f };
+	int i;
+
+	t_int(TRACE_EYE_SIGNATURE);
+	t_int(TRACE_EYE_TYPE);
+	t_int(TRO_COMMON_COUNT);
+	t_int(0);
+	t_vec(&Eye_position);
+	t_vec(&Eye_matrix.rvec);
+	t_vec(&Eye_matrix.uvec);
+	t_vec(&Eye_matrix.fvec);
+	t_vec(&zero);
+	t_vec(&zero);
+	for (i = 0; i < 1 + MAX_SHIELD_SECTIONS; i++) {
+		t_float(0.0f);
+	}
+}
+
 void trace_open(char *filename, int full_every_frame)
 {
 	int version = TRACE_VERSION;
@@ -191,6 +214,8 @@ void trace_frame(int frame)
 		trace_object(objp);
 		count++;
 	}
+	trace_eye();
+	count++;
 	memcpy(Tbuf + count_pos, &count, 4);
 
 	// FNV-1a 64
