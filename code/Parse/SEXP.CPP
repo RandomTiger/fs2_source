@@ -5623,6 +5623,19 @@ int sexp_goal_incomplete( int n )
 
 // protects/unprotects a ship.  The flag tells us whether or not the protect bit should be set (flag==1)
 // or cleared (flag==0)
+#ifndef NDEBUG
+// Claude: the "get allender" Int3s below flag a ship name that is neither in the mission nor still to arrive.
+// A ship the mission had and that has since been destroyed, self-destructed or departed is not that case:
+// missions legitimately name such ships (sm3-06 clears the guardian flag of a convoy ship its script has already
+// self-destructed). Debug only; Release never had the Int3. Review 42.
+static int sexp_ship_has_left_mission(char *ship_name)
+{
+	return mission_log_get_time(LOG_SHIP_DESTROYED, ship_name, NULL, NULL)
+		|| mission_log_get_time(LOG_SELF_DESTRUCT, ship_name, NULL, NULL)
+		|| mission_log_get_time(LOG_SHIP_DEPART, ship_name, NULL, NULL);
+}
+#endif
+
 void sexp_protect_ships( int n, int flag )
 {
 	char *ship_name;
@@ -5655,6 +5668,7 @@ void sexp_protect_ships( int n, int flag )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5698,6 +5712,7 @@ void sexp_beam_protect_ships( int n, int flag )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5747,6 +5762,7 @@ void sexp_ships_visible( int n, int visible )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5789,6 +5805,7 @@ void sexp_ships_invulnerable( int n, int invulnerable )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5831,6 +5848,7 @@ void sexp_ships_guardian( int n, int guardian )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
