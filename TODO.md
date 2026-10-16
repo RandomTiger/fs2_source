@@ -65,8 +65,5 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT
       numbers from event 15 on (debug output only).
 ## PrePort
-- [ ] Mission files must check out with CRLF: recordings checksum the bytes, and a checkout
-      with `core.autocrlf=false` gives LF, so every Autotest replay stops with "Mission file
-      differs". Worked around on DESKTOP-CLAUDE with a local `.git/info/attributes`
-      (`data/missions/*.fs2 text eol=crlf`). A committed `.gitattributes` belongs on
-      `RecordPlayback` (decision steward first: it is below PrePort).
+- [x] Mission files check out with CRLF (recordings checksum the bytes): `.gitattributes` on
+      `RecordPlayback`, merged up (D-028, e9adc97).

@@ -5,24 +5,27 @@ Plan and survey: `docs/PREPORT.md`. Branch layers: `docs/BRANCHES.md`. Decisions
 decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers below are its entries.
 
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 46 recordings in
-`recordings/autotest` are in it (header checked 2026-10-15: skill 2, 1024x768, AI pilot, 4x).
+`recordings/autotest` are in it: AI pilot, 4x, re-made 2026-10-16 with the logic and drawing split (D-027).
 
 ## Stage gates (D-026)
 | Gate | State |
 |---|---|
-| 1. Logic runs headless, every suite mission plays to its end under the AI pilot | Not met. `-nodraw` skips drawing but still clears and flips; window, sound and input are live. Campaign recordings stop at 120 s of mission time, so most do not reach their end. |
-| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress on `LogicDrawSplit` (pieces 1-3 and 5 done there). Left: piece 4 (squad orders), lock start position from `gr_screen.clip_*`, mouse read in `gr_d3d_flip`, `next_hit_spark` using `Viewer_obj`. |
-| 3. Engine interface (render, audio, input, platform) documented and the only path | Not started. |
-| 4. PrePort recording suite green in the reference configuration | Baseline being re-established on DESKTOP-CLAUDE. |
+| 1. Logic runs headless, every suite mission plays to its end under the AI pilot | Not met. `-nodraw` skips drawing but still clears and flips, and the window, sound and input are live. Campaign recordings stop at 120 s of mission time, so most do not reach their end. |
+| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress. The split is merged (D-027) and `-nodraw` matches on all 46. Left, from the 2026-10-16 survey: the squad message menu, including orders and reinforcements, still runs in `HUD_render_2d` (piece 4, deferred by Tom 2026-10-15); training messages are dequeued and voiced in `HUD_render_2d`; `Viewer_obj` is set in `game_render_frame_setup`; the lock start position uses `gr_screen.clip_*`; `gr_d3d_flip` reads the mouse; the HUD message queue advances while drawing; `nebl_update_all` reads `gr_screen.max_w/h`. |
+| 3. Engine interface (render, audio, input, platform) documented and the only path | Inventory drafted in `docs/ENGINE_INTERFACE.md`. The leaks around the seams are not fixed yet. |
+| 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 46/46 replay, sm1-01 builds identical, `-nodraw` 46/46. |
 
 ## Current batch
-1. Baseline: build PrePort and replay all 46 recordings on DESKTOP-CLAUDE.
-2. Measure `LogicDrawSplit` against PrePort's recordings: how many fail, where, and why.
-3. Decision request to the steward on merging `LogicDrawSplit` (it invalidates recordings).
-4. Docs: this file, PrePort and GodotPrep in `docs/BRANCHES.md`.
+Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028, on `RecordPlayback`, merged up); `LogicDrawSplit` merged with its recordings re-made (D-027).
+
+## Next batches (proposed order)
+1. The lock start position from the game view canvas, not `gr_screen.clip_*` (D-006, D-022). Should not change any recording at 1024.
+2. Move the mouse read out of `gr_d3d_flip` to the end of the frame (D-015). Changes the recorded stream, so it goes to the steward.
+3. `Viewer_obj` set in the logic phase.
+4. Training messages and the HUD message queue in the logic phase.
+5. Squad message menu (piece 4): ask Tom through the steward whether the deferral still stands.
 
 ## Open items
-- Merge `LogicDrawSplit` into `PrePort` once green (steward's log, D-008).
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
 
 ## What the port needs from the C++ side
