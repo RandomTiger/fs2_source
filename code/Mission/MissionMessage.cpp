@@ -474,6 +474,7 @@ typedef struct pmessage {
 	int priority;				// priority of message currently playing
 	int shipnum;				// shipnum of ship sending this message,  -1 if from Terran command
 	int builtin_type;			// if a builtin message, type of the message
+	float voice_left_ms;		// Claude: D-034: how long the voice has left on its own clock (real time), -1 with no voice file
 } pmessage;
 
 LOCAL pmessage Playing_messages[MAX_PLAYING_MESSAGES];
@@ -875,6 +876,8 @@ void message_kill_all( int kill_all )
 			if ( (Playing_messages[i].wave != -1 ) && snd_is_playing(Playing_messages[i].wave) ){
 				snd_stop( Playing_messages[i].wave );
 			}
+			if ( Playing_messages[i].voice_left_ms > 0.0f )
+				Playing_messages[i].voice_left_ms = 0.0f;	// Claude: D-034: the voice is stopped, so its clock ends too
 
 			Playing_messages[i].shipnum = -1;
 		}
@@ -896,6 +899,8 @@ void message_kill_playing( int message_num )
 	}
 	if ( (Playing_messages[message_num].wave != -1 ) && snd_is_playing(Playing_messages[message_num].wave) )
 		snd_stop( Playing_messages[message_num].wave );
+	if ( Playing_messages[message_num].voice_left_ms > 0.0f )
+		Playing_messages[message_num].voice_left_ms = 0.0f;	// Claude: D-034: the voice is stopped, so its clock ends too
 
 	Playing_messages[message_num].shipnum = -1;
 }
@@ -1086,6 +1091,7 @@ void message_play_wave( message_q *q )
 			// this call relies on the fact that snd_play returns -1 if the sound cannot be played
 			Message_wave_duration = snd_get_duration(Message_waves[index].num);
 			Playing_messages[Num_messages_playing].wave = snd_play_raw( Message_waves[index].num, 0.0f );
+			Playing_messages[Num_messages_playing].voice_left_ms = (float)Message_wave_duration;	// Claude: D-034: the voice plays its length, whether or not the device found a channel
 		}
 	}
 }
@@ -1259,6 +1265,21 @@ void message_queue_process()
 	// entries collapsing the Playing_messages array if necessary
 	if ( Num_messages_playing > 0 ) {
 
+		// Claude: D-034: each voice runs on its own clock, the real (uncompressed) frame time, so that what the
+		// sound device answers no longer decides when a message ends (sound feeds no gameplay).
+		{
+			extern fix Game_time_compression;
+			float real_ms = flFrametime * 1000.0f / f2fl(Game_time_compression);
+
+			for ( i = 0; i < Num_messages_playing; i++ ) {
+				if ( Playing_messages[i].voice_left_ms > 0.0f ) {
+					Playing_messages[i].voice_left_ms -= real_ms;
+					if ( Playing_messages[i].voice_left_ms < 0.0f )
+						Playing_messages[i].voice_left_ms = 0.0f;
+				}
+			}
+		}
+
 		// for each message playing, determine if it is done.
 		i = 0;
 		while ( i < Num_messages_playing ) {
@@ -1271,11 +1292,15 @@ void message_queue_process()
 			wave_done = 1;
 
 //			if ( (Playing_messages[i].wave != -1) && snd_is_playing(Playing_messages[i].wave) )
-			if ( (Playing_messages[i].wave != -1) && (snd_time_remaining(Playing_messages[i].wave) > 250) )
+			// Claude: D-034: the voice's own clock decides (was snd_time_remaining(wave) > 250).  The device is still
+			// asked, so the recorded stream does not change, but its answer is not used.
+			if ( Playing_messages[i].wave != -1 )
+				snd_time_remaining(Playing_messages[i].wave);
+			if ( Playing_messages[i].voice_left_ms > 250.0f )
 				wave_done = 0;
 
 			// AL 1-20-98: If voice message is done, kill the animation early
-			if ( (Playing_messages[i].wave != -1) && wave_done ) {
+			if ( (Playing_messages[i].voice_left_ms >= 0.0f) && wave_done ) {	// Claude: D-034, was wave != -1
 				if ( !ani_done ) {
 					anim_stop_playing( Playing_messages[i].anim );
 				}
@@ -1464,6 +1489,7 @@ void message_queue_process()
 	m = &Messages[q->message_num];
 	Playing_messages[Num_messages_playing].anim = NULL;
 	Playing_messages[Num_messages_playing].wave  = -1;
+	Playing_messages[Num_messages_playing].voice_left_ms = -1.0f;	// Claude: D-034
 	Playing_messages[Num_messages_playing].id  = q->message_num;
 	Playing_messages[Num_messages_playing].priority = q->priority;
 	Playing_messages[Num_messages_playing].shipnum = Message_shipnum;
