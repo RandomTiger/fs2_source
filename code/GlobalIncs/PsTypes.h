@@ -212,6 +212,13 @@
 #include <malloc.h>
 #include <string.h>
 
+// Claude: the gameplay random stream is the game's own copy of the MSVC CRT generator (SystemVars.cpp), so a host
+// engine's threads or its own rand()/srand() calls cannot shift it. Declared after <stdlib.h>, which keeps the CRT's.
+int fs2_rand();
+void fs2_srand(unsigned int seed);
+#define rand fs2_rand
+#define srand fs2_srand
+
 // value to represent an uninitialized state in any int or uint
 #define UNINITIALIZED 0x7f8e6d9c
 

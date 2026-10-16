@@ -252,6 +252,20 @@ float Noise[NOISE_NUM_FRAMES] = {
 };
 
 
+// Claude: the gameplay random stream, the same generator and starting seed as the MSVC CRT rand() (PsTypes.h)
+static unsigned int Fs2_rand_seed = 1;
+
+int fs2_rand()
+{
+	Fs2_rand_seed = Fs2_rand_seed * 214013 + 2531011;
+	return (Fs2_rand_seed >> 16) & 0x7fff;
+}
+
+void fs2_srand(unsigned int seed)
+{
+	Fs2_rand_seed = seed;
+}
+
 int myrand()
 {
 	int rval;

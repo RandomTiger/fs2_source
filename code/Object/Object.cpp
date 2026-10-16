@@ -1190,7 +1190,7 @@ void obj_move_call_physics(object *objp, float frametime)
 				goto obj_maybe_fire;
 			}
 
-			if ( (objp->type == OBJ_ASTEROID) && (Model_caching && (!D3D_enabled) ) )	{
+			if ( 0 && (objp->type == OBJ_ASTEROID) && (Model_caching && (!D3D_enabled) ) )	{	// Claude: asteroids spin whatever the renderer, as under Direct3D (D-039)
 				// If we're doing model caching, don't rotate asteroids
 				vector tmp = objp->phys_info.rotvel;
 

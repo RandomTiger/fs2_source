@@ -950,7 +950,7 @@ static void neb2_player_sub(int update)	// Claude: was neb2_render_player
 	}
 
 	// don't render in lame mode
-	if((Neb2_render_mode == NEB2_RENDER_LAME) || (Neb2_render_mode == NEB2_RENDER_NONE)){
+	if(!update && ((Neb2_render_mode == NEB2_RENDER_LAME) || (Neb2_render_mode == NEB2_RENDER_NONE))){	// Claude: the logic phase updates the poofs whatever the render mode (D-039)
 		return;
 	}
 
