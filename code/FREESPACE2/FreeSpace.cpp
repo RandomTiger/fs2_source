@@ -2226,7 +2226,8 @@ void game_init()
 	}
 
 	// If less than 48MB of RAM, use low memory model.
-	if ( (Freespace_total_ram < 48*1024*1024) || Use_low_mem )	{
+	// Claude: the machine's RAM no longer picks it; the reference is high memory (D-046). Only the LowMem setting does.
+	if ( Use_low_mem )	{
 		mprintf(( "Using normal memory settings...\n" ));
 		bm_set_low_mem(1);		// Use every other frame of bitmaps
 	} else {

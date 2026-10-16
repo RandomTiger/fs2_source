@@ -43,7 +43,7 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 | Direct calls into the D3D backend | 0 | Fixed 2026-10-16: z bias, flush, frame start and stop, and the level-load texture preload (with the ship glow build) are renderer table entries (`gr_zbias`, `gr_flush`, `gr_start_frame`, `gr_stop_frame`, `gr_preload_init`, `gr_preload`, `gr_preload_done`) |
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics and BmpMan | 0 | Fixed 2026-10-16 (D-044): anim frames are unpacked at the renderer's `gr_screen.texture_bpp`, the debug VRAM display asks `gr_texture_memory`, and the Debug-only D3D settings overlay on the main hall was dropped. The 75 in `BmpMan.cpp` are inside the texture seam (below) |
 | Win32 calls in game code | ~15 | `WinDebug.cpp` (assert dialogs), `PadXInput.cpp`. `FreeSpace.cpp` has none (2026-10-16): message boxes and sleeps go through `os_message_box` and `os_sleep`, the timer resolution through `os_timer_precise`, and the Windows host functions moved to `FreeSpaceWin32.cpp` (D-045, below) |
-| `fopen` around cfile | ~6 game-side sites | `FreeSpace.cpp`, `SystemVars.cpp`, `Scoring.cpp`, `ModelRead.cpp` |
+| `fopen` around cfile | 0 in the interface (D-046) | Debug dumps, not interface; a port compiles them out: `ShipTextures.txt`/`ShipTimings.txt` (`FreeSpace.cpp`), the monitor file (`SystemVars.cpp`), `dump` (`WinDebug.cpp`), `ui.out` (`WINDOW.cpp`), the PCX writer (`pcxutils.cpp`), the Scoring debug file. Start-up reads before cfile is up use standard C on paths relative to the exe directory, which the host provides with the files: `data\cmdline.cfg` (`cmdline.cpp`), `pad.cfg` (`PadGame.cpp`), `version_compare` (`version.cpp`). The recorder, the log and the launcher updater (`FreeSpaceWin32.cpp`) are host side |
 | `windows.h` in game code | 2 files | `WinDebug.cpp`, `PadXInput.cpp`. `FreeSpace.cpp` dropped it, and `Math/Fix.cpp` computes `fixdiv` and `fixmuldiv` with its own copy of `MulDiv`, checked equal on 50 million cases (2026-10-16) |
 
 Missing seams to add: current directory and directory listing. Added: `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
@@ -53,7 +53,7 @@ Logic-side leaks (gameplay depending on drawing or window size) are tracked in `
 ## The Windows host (decision D-045)
 `FREESPACE2/FreeSpaceWin32.cpp` is the Windows host: `WinMain` and `WinMainSub`, launcher update and launch, and CD detection. Another host leaves the file out and supplies in its place:
 - the entry point: what `WinMainSub` does between `parse_cmdline` and `game_shutdown` (the game's own start-up and its `gameseq_process_events` loop);
-- the exe directory as the current directory, and `Freespace_total_ram` (below 48 MB `game_init` loads every other bitmap frame, `bm_set_low_mem`);
+- the exe directory as the current directory. `Freespace_total_ram` no longer reaches game logic: the bitmap mode is pinned to high memory, the reference (D-046); only the LowMem setting selects the retail low-memory mode;
 - `game_run_launcher` (no video card configured), `game_launch_launcher_on_exit` and `game_maybe_update_launcher`, or nothing;
 - the CD hooks (`init_cdrom`, `find_freespace_cd`, `game_do_cd_check`, `game_do_cd_check_specific`, `game_do_cd_mission_check`, `game_cd_changed`, `set_cdrom_path`), which can report no CD needed.
 The version string (`get_version_string`) stays in the game; it uses no Windows calls.
