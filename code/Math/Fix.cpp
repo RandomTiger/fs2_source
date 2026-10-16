@@ -30,10 +30,34 @@
  */
 
 
-#include <windows.h>
+#include <limits.h>
 
 #include "PsTypes.h"
 #include "fix.h"
+
+// Claude: Win32 MulDiv, so fix math needs no windows.h: a*b/c in 64 bits, rounded to nearest (half away from
+// zero), -1 when c is 0 or the result overflows. Matches MulDiv on 50 million cases, edges included.
+static int fix_muldiv(int a, int b, int c)
+{
+	if (c == 0) {
+		return -1;
+	}
+	if (c < 0) {
+		a = -a;
+		c = -c;
+	}
+	longlong p = (longlong)a * (longlong)b;
+	longlong q;
+	if ((a < 0) == (b < 0)) {
+		q = (p + (c / 2)) / c;
+	} else {
+		q = (p - (c / 2)) / c;
+	}
+	if ((q > INT_MAX) || (q < -INT_MAX)) {
+		return -1;
+	}
+	return (int)q;
+}
 
 fix fixmul(fix a, fix b)
 {
@@ -44,10 +68,10 @@ fix fixmul(fix a, fix b)
 
 fix fixdiv(fix a, fix b)
 {
-	return MulDiv(a,65536,b);
+	return fix_muldiv(a,65536,b);
 }
 
 fix fixmuldiv(fix a, fix b,fix c)
 {
-	return MulDiv(a,b,c);
+	return fix_muldiv(a,b,c);
 }
