@@ -121,6 +121,12 @@ void replay_snd_model_stop(int handle);			// REPLAY_SND_MODEL_STOP_ALL: all; any
 // timing decides when talking heads stop, and their clock reads would otherwise stop the replay.
 int  replay_snd_model_clock(int tag);
 
+// 1 if the flip's cursor position read comes from the recording (recordings before version 4, D-035)
+int  replay_flip_cursor_recorded();
+
+// 1 if a clock read that only times sound comes from the recording (recordings before version 4, D-035)
+int  replay_sound_clock_recorded();
+
 // events.  Return 0 if the live event must be ignored (during replay).
 int  replay_event_key(unsigned int code, int state, unsigned int latency);
 int  replay_event_mouse(unsigned int flags, int set);

@@ -56,9 +56,11 @@ Every value the game takes from the OS during the mission, as one ordered stream
 | Focus events | `key_lost_focus`, `key_got_focus`, `os_foreground` |
 | Mouse | `mouse_mark_button`, cursor position (`Io/Mouse.cpp`) |
 | Joystick | `joy_down`, `joy_down_count`, `joy_up_count`, `joy_down_time`, `joystick_read_raw_axis`, `joy_get_pos` (`Io/Joy.cpp`), `control_get_axes_readings` (`ControlConfig/ControlsConfig.cpp`) |
-| Sound device state | `snd_play*` (whether a channel was free), `snd_is_playing`, `snd_time_remaining`, `snd_get_pitch`, `snd_num_playing` (`Sound/Sound.cpp`) |
-| Music stream state | `audiostream_is_playing`, `audiostream_is_paused`, `audiostream_done_reading`, `audiostream_get_bytes_committed` (`Sound/AudioStr.cpp`) |
+| Sound device state | Before version 4 only: `snd_play*` (whether a channel was free), `snd_is_playing`, `snd_time_remaining`, `snd_get_pitch`, `snd_num_playing` (`Sound/Sound.cpp`) |
+| Music stream state | Before version 4 only: `audiostream_is_playing`, `audiostream_is_paused`, `audiostream_done_reading`, `audiostream_get_bytes_committed` (`Sound/AudioStr.cpp`) |
 | Window message boundary | end of `os_poll` (`OsApi/OsApi.cpp`), so recorded events are injected at the same point |
+
+On `PrePort`, recording version 4 (decision D-035) leaves out the sound-device and music-stream answers and the screen flip's cursor position. No gameplay reads them any more: message voices run on their own clock (D-034), and the cursor position only draws the cursor. A replay asks the device live. A `PrePort` build refuses an earlier recording ("made before the sound-device answers left the stream"); only the diagnostics `FS2_REPLAY_SOUND_LIVE=1` and `FS2_REPLAY_SOUND_MODEL=1` replay one, skipping those entries. The mouse deltas for mouse flying are still recorded.
 
 The stream starts at `GS_EVENT_ENTER_GAME`. The mission load, briefing and loadout screens run live and are not replayed: the load's loading-screen flips depend on what the menus already cached, so they differ between runs. So these are put back at `GS_EVENT_ENTER_GAME`:
 

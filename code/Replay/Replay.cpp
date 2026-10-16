@@ -32,7 +32,7 @@
 #include "Autotest.h"
 #include "Popup.h"
 
-#define REPLAY_FILE_VERSION		3	// Claude: 2 adds the autotest settings, 3 the view position
+#define REPLAY_FILE_VERSION		4	// Claude: 2 adds the autotest settings, 3 the view position, 4 (PrePort, D-035) leaves the sound-device answers and the flip's cursor read out of the stream
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
 #define REPLAY_MAX_BLOB				(1024*1024)
 #define REPLAY_PATH_LEN			MAX_PATH	// Claude: MAX_PATH_LEN (128) is too short for full paths
@@ -396,8 +396,30 @@ static int replay_tag_is_stream(int tag)
 	return (tag == RT_STREAM_IS_PLAYING) || (tag == RT_STREAM_IS_PAUSED) || (tag == RT_STREAM_DONE_READING) || (tag == RT_STREAM_BYTES);
 }
 
+// Claude: D-035.  From version 4 the sound-device and music-stream answers are not recorded: no logic reads them
+// (D-034), so a replay asks the device live.  Earlier recordings have them, and only the diagnostics can replay those.
+static int replay_sound_unrecorded()
+{
+	return (Replay_mode == REPLAY_RECORD) || ((Replay_mode == REPLAY_PLAY) && (Hdr.version >= 4));
+}
+
+// the flip's cursor position read: recorded only in recordings made before version 4
+int replay_flip_cursor_recorded()
+{
+	return (Replay_mode == REPLAY_PLAY) && (Hdr.version < 4);
+}
+
+// clock reads that only time sound (a stream starting): recorded only in recordings made before version 4
+int replay_sound_clock_recorded()
+{
+	return (Replay_mode == REPLAY_PLAY) && (Hdr.version < 4);
+}
+
 static int replay_tag_live(int tag)
 {
+	if (replay_sound_unrecorded() && (replay_tag_is_sound(tag) || replay_tag_is_stream(tag))) {
+		return 1;
+	}
 	if (Replay_sound_model) {
 		return replay_tag_is_sound(tag) || replay_tag_is_stream(tag) || (tag == RT_TIMER_MS) || (tag == RT_TIMER_US);
 	}
@@ -480,7 +502,7 @@ float replay_read_float(int tag)
 
 int replay_write_int(int tag, int val)
 {
-	if (replay_should_write()) {
+	if (replay_should_write() && !replay_tag_live(tag)) {	// Claude: D-035: not the sound-device answers
 		w_tag(tag);
 		w_varint(val - Replay_last_int[tag]);
 		Replay_last_int[tag] = val;
@@ -822,6 +844,11 @@ static void replay_read_file()
 	memcpy(&Hdr, Rdata, REPLAY_HEADER_V1_SIZE);
 	if (memcmp(Hdr.magic, "FS2REC", 6) || (Hdr.version < 1) || (Hdr.version > REPLAY_FILE_VERSION)) {
 		replay_fatal("'%s' is not a version 1 to %d recording", Replay_file, REPLAY_FILE_VERSION);
+	}
+	// Claude: D-035: before version 4 the stream holds the sound-device answers, which this build no longer asks for in
+	// that order.  Only the sound diagnostics, which skip them, can replay such a recording.
+	if ((Hdr.version < 4) && !Replay_sound_live && !Replay_sound_model) {
+		replay_fatal("'%s' is a version %d recording, made before the sound-device answers left the stream (D-035): record it again", Replay_file, Hdr.version);
 	}
 	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : (Hdr.version == 2) ? REPLAY_HEADER_V2_SIZE : sizeof(Hdr));
 	if (Rsize < hdr_size) {
