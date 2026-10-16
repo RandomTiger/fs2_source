@@ -85,6 +85,7 @@
 #include "Weapon.h"
 #include "LinkList.h"
 #include "3d.h" 
+#include "2d.h"		// Claude: gr_screen.hardware
 #include "3dInternal.h" 
 #include "BmpMan.h"
 #include "Trails.h"
@@ -311,7 +312,7 @@ void trail_render( trail * trailp )
 				vlist[2]->u = 1.0f;  vlist[2]->v = 0.5f;
 
 				gr_set_bitmap(ti->bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, l/255.0f );
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					g3_draw_poly( 3, vlist, TMAP_FLAG_TEXTURED|TMAP_FLAG_ALPHA|TMAP_FLAG_GOURAUD );
 				} else {
 					g3_draw_poly( 3, vlist, TMAP_FLAG_TEXTURED );
@@ -331,7 +332,7 @@ void trail_render( trail * trailp )
 				vlist[3]->u = 0.0f;  vlist[3]->v = 1.0f;
 
 				gr_set_bitmap(ti->bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, l/255.0f );
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					g3_draw_poly( 4, vlist, TMAP_FLAG_TEXTURED|TMAP_FLAG_ALPHA|TMAP_FLAG_GOURAUD );
 				} else {
 					g3_draw_poly( 4, vlist, TMAP_FLAG_TEXTURED );

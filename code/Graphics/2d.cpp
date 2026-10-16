@@ -856,7 +856,6 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 	}
 #endif
 
-	D3D_enabled = 0;
 	Gr_inited = 1;
 
 	max_w = -1;

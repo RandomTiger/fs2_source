@@ -2666,7 +2666,7 @@ void d3d_detect_line_offset_16()
 
 void gr_d3d_init()
 {
-	D3D_enabled = 1;		// Tell Freespace code that we're using Direct3D.
+	gr_screen.hardware = 1;		// Tell Freespace code that we're using Direct3D.
 	D3D_running = 0;	
 
 	Assert( !D3D_inited );

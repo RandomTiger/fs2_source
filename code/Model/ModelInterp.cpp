@@ -662,7 +662,7 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 		Interp_list[i] = &Interp_points[verts[i*2]];
 
 		if ( Interp_flags & MR_NO_LIGHTING )	{
-			if ( D3D_enabled )	{
+			if ( gr_screen.hardware )	{
 				Interp_list[i]->r = 191;
 				Interp_list[i]->g = 191;
 				Interp_list[i]->b = 191;
@@ -674,7 +674,7 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 			int norm = verts[i*2+1];
 	
 			if ( Interp_flags & MR_NO_SMOOTHING )	{
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					light_apply_rgb( &Interp_list[i]->r, &Interp_list[i]->g, &Interp_list[i]->b, Interp_verts[vertnum], vp(p+8), Interp_light );
 				} else {
 					Interp_list[i]->b = light_apply( Interp_verts[vertnum], vp(p+8), Interp_light );
@@ -682,7 +682,7 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 			} else {
 				// if we're not using saved lighting
 				if ( !Interp_use_saved_lighting && !Interp_light_applied[norm] )	{
-					if ( D3D_enabled )	{
+					if ( gr_screen.hardware )	{
 						light_apply_rgb( &Interp_lighting->r[norm], &Interp_lighting->g[norm], &Interp_lighting->b[norm], Interp_verts[vertnum], vp(p+8), Interp_light );
 					} else {
 						Interp_lighting->b[norm] = light_apply( Interp_verts[vertnum], Interp_norms[norm], Interp_light );
@@ -690,7 +690,7 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 					Interp_light_applied[norm] = 1;
 				}
 
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					Interp_list[i]->r = Interp_lighting->r[norm];
 					Interp_list[i]->g = Interp_lighting->g[norm];
 					Interp_list[i]->b = Interp_lighting->b[norm];
@@ -707,7 +707,7 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 	}
 
 	if ( !(Interp_flags & MR_NO_POLYS))	{
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			g3_draw_poly( nv, Interp_list, TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB );	
 		} else {
 			g3_draw_poly( nv, Interp_list, TMAP_FLAG_GOURAUD | TMAP_FLAG_RAMP );	
@@ -800,7 +800,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 	//		Assert( verts[i].normnum == verts[i].vertnum );
 
 			if ( Interp_flags & MR_NO_LIGHTING )	{
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					Interp_list[i]->r = 191;
 					Interp_list[i]->g = 191;
 					Interp_list[i]->b = 191;
@@ -812,7 +812,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 				int norm = verts[i].normnum;
 		
 				if ( Interp_flags & MR_NO_SMOOTHING )	{
-					if ( D3D_enabled )	{
+					if ( gr_screen.hardware )	{
 						light_apply_rgb( &Interp_list[i]->r, &Interp_list[i]->g, &Interp_list[i]->b, Interp_verts[vertnum], vp(p+8), Interp_light );
 					} else {
 						Interp_list[i]->b = light_apply( Interp_verts[vertnum], vp(p+8), Interp_light );
@@ -821,7 +821,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 					// if we're applying lighting as normal, and not using saved lighting
 					if ( !Interp_use_saved_lighting && !Interp_light_applied[norm] )	{
 
-						if ( D3D_enabled )	{
+						if ( gr_screen.hardware )	{
 							light_apply_rgb( &Interp_lighting->r[norm], &Interp_lighting->g[norm], &Interp_lighting->b[norm], Interp_verts[vertnum], Interp_norms[norm], Interp_light );
 
 						} else {
@@ -856,7 +856,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 						Interp_light_applied[norm] = 1;
 					}
 
-					if ( D3D_enabled )	{
+					if ( gr_screen.hardware )	{
 						Interp_list[i]->r = Interp_lighting->r[norm];
 						Interp_list[i]->g = Interp_lighting->g[norm];
 						Interp_list[i]->b = Interp_lighting->b[norm];
@@ -895,7 +895,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 			// all textured polys go through here
 			if ( Interp_tmap_flags & TMAP_FLAG_TEXTURED )	{
 				// subspace special case
-				if ( Interp_subspace && D3D_enabled )	{										
+				if ( Interp_subspace && gr_screen.hardware )	{										
 					gr_set_bitmap( pm->textures[w(p+40)], GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 1.2f );					
 				}
 				// all other textures
@@ -1949,7 +1949,7 @@ void model_render(int model_num, matrix *orient, vector * pos, uint flags, int o
 	int num_lights = 0;
 
 	if ( !(flags & MR_NO_LIGHTING ) )	{
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			num_lights = light_filter_push( objnum, pos, pm->rad );
 		} else {
 			num_lights = light_filter_push( objnum, pos, pm->rad );
@@ -2048,7 +2048,7 @@ void model_try_cache_render(int model_num, matrix *orient, vector * pos, uint fl
 		mc = &Model_cache[objnum];
 	}
 	
-	if ( (!mc) || (!Model_caching) || (D3D_enabled) || (!Model_cache_inited) || (flags & MR_ALWAYS_REDRAW) || (Detail.object_caching > 3) )	{
+	if ( (!mc) || (!Model_caching) || (gr_screen.hardware) || (!Model_cache_inited) || (flags & MR_ALWAYS_REDRAW) || (Detail.object_caching > 3) )	{
 		if ( mc )	{
 			mc->cached_valid = 0;
 		}
@@ -2544,7 +2544,7 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 	pm = model_get(model_num);	
 
 	// Set the flags we will pass to the tmapper
-	if ( D3D_enabled )	{
+	if ( gr_screen.hardware )	{
 		Interp_tmap_flags = TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB;
 	} else {
 		Interp_tmap_flags = TMAP_FLAG_GOURAUD | TMAP_FLAG_RAMP;
@@ -2853,7 +2853,7 @@ void submodel_render(int model_num, int submodel_num, matrix *orient, vector * p
 	pm = model_get(model_num);
 
 	// Set the flags we will pass to the tmapper
-	if ( D3D_enabled )	{
+	if ( gr_screen.hardware )	{
 		Interp_tmap_flags = TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB;
 	} else {
 		Interp_tmap_flags = TMAP_FLAG_GOURAUD | TMAP_FLAG_RAMP;
@@ -2876,7 +2876,7 @@ void submodel_render(int model_num, int submodel_num, matrix *orient, vector * p
 	}
 
 	if ( !(Interp_flags & MR_NO_LIGHTING ) )	{
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			light_filter_push( -1, pos, pm->submodel[submodel_num].rad );
 		} else {
 			light_filter_push( light_ignore_id, pos, pm->submodel[submodel_num].rad );

@@ -986,7 +986,7 @@ void subspace_render()
 
 	gr_zbuffer_set(GR_ZBUFF_NONE);
 
-	if ( !D3D_enabled )	{
+	if ( !gr_screen.hardware )	{
 
 		int render_flags = MR_NO_LIGHTING | MR_ALWAYS_REDRAW;
 
@@ -1164,7 +1164,7 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 				color = i & 7;
 			}
 
-			if ( (Star_flags & STAR_FLAG_ANTIALIAS) || (D3D_enabled) )	{
+			if ( (Star_flags & STAR_FLAG_ANTIALIAS) || (gr_screen.hardware) )	{
 				gr_set_color_fast( &star_aacolors[color] );
 
 				// if the two points are the same, fudge it, since some D3D cards (G200 and G400) are lame.				

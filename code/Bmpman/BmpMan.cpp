@@ -2089,7 +2089,7 @@ void bm_page_in_texture( int bitmapnum, int nframes )
 
 		bm_bitmaps[n+i].preloaded = 1;
 
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			bm_bitmaps[n+i].used_flags = BMP_TEX_OTHER;
 		} else {			
 			bm_bitmaps[n+i].used_flags = 0;
@@ -2107,7 +2107,7 @@ void bm_page_in_nondarkening_texture( int bitmapnum, int nframes )
 
 		bm_bitmaps[n+i].preloaded = 4;
 
-		if ( D3D_enabled )	{			
+		if ( gr_screen.hardware )	{			
 			bm_bitmaps[n+i].used_flags = BMP_TEX_NONDARK;
 		} else {
 			bm_bitmaps[n+i].used_flags = 0;
@@ -2126,7 +2126,7 @@ void bm_page_in_xparent_texture( int bitmapnum, int nframes)
 
 		bm_bitmaps[n+i].preloaded = 3;
 
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			// bm_bitmaps[n+i].used_flags = BMP_NO_PALETTE_MAP;
 			bm_bitmaps[n+i].used_flags = BMP_TEX_XPARENT;
 		} else {
@@ -2145,7 +2145,7 @@ void bm_page_in_aabitmap( int bitmapnum, int nframes )
 
 		bm_bitmaps[n+i].preloaded = 2;
 	
-		if ( D3D_enabled )	{
+		if ( gr_screen.hardware )	{
 			bm_bitmaps[n+i].used_flags = BMP_AABITMAP;
 		} else {
 			bm_bitmaps[n+i].used_flags = 0;

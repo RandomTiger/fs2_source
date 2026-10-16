@@ -365,6 +365,7 @@ typedef struct screen {
 	int	max_w, max_h;		// Width and height
 	int	res;					// GR_640 or GR_1024
 	int	mode;					// What mode gr_init was called with.
+	int	hardware;			// Claude: a hardware 3D renderer (Direct3D, and the null renderer answering as it); was D3D_enabled
 	float	aspect;				// Aspect ratio
 	int	rowsize;				// What you need to add to go to next row (includes bytes_per_pixel)
 	int	bits_per_pixel;	// How many bits per pixel it is. (7,8,15,16,24,32)

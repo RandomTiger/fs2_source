@@ -416,6 +416,7 @@
 #include "timer.h"
 #include "SystemVars.h"
 #include "3d.h"
+#include "2d.h"		// Claude: gr_screen.hardware
 #include "Shockwave.h"
 #include "Afterburner.h"
 #include "Timer.h"
@@ -1190,7 +1191,7 @@ void obj_move_call_physics(object *objp, float frametime)
 				goto obj_maybe_fire;
 			}
 
-			if ( 0 && (objp->type == OBJ_ASTEROID) && (Model_caching && (!D3D_enabled) ) )	{	// Claude: asteroids spin whatever the renderer, as under Direct3D (D-039)
+			if ( 0 && (objp->type == OBJ_ASTEROID) && (Model_caching && (!gr_screen.hardware) ) )	{	// Claude: asteroids spin whatever the renderer, as under Direct3D (D-039)
 				// If we're doing model caching, don't rotate asteroids
 				vector tmp = objp->phys_info.rotvel;
 
@@ -1469,7 +1470,7 @@ void obj_move_all_post(object *objp, float frametime)
 			}
 
 			if ( cast_light )	{
-				if ( D3D_enabled )	{
+				if ( gr_screen.hardware )	{
 					weapon_info * wi = &Weapon_info[Weapons[objp->instance].weapon_info_index];
 
 					if ( wi->render_type == WRT_LASER )	{

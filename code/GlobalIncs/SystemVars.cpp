@@ -228,9 +228,7 @@ int Interface_last_tick = -1;			// last timer tick on flip
 // for notifying players of unknown ship types
 int Fred_found_unknown_ship_during_parsing = 0;
 
-// If true, then we are using Direct3D hardware.  This is used for game type stuff
-// that changes when you're using hardware.
-int D3D_enabled = 0;			
+// Claude: D3D_enabled is gr_screen.hardware, set by the renderer
 
 // Values used for noise for thruster animations
 float Noise[NOISE_NUM_FRAMES] = { 

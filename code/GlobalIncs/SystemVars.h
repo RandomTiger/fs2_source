@@ -284,9 +284,7 @@ extern int Fred_found_unknown_ship_during_parsing;
 extern float Noise[NOISE_NUM_FRAMES];
 
 
-// If true, then we are using Direct3D hardware.  This is used for game type stuff
-// that changes when you're using hardware.
-extern int D3D_enabled;
+// Claude: D3D_enabled is gr_screen.hardware (2d.h), set by the renderer
 
 // game skill levels 
 #define	NUM_SKILL_LEVELS	5

@@ -114,6 +114,7 @@ void gr_dummy_init()
 	// the screen format Direct3D sets up in 32 bit, which the reference configuration uses
 	gr_screen.bits_per_pixel = 32;
 	gr_screen.bytes_per_pixel = 4;
+	gr_screen.hardware = 1;		// the hardware paths, as under Direct3D (the reference)
 
 	gr_screen.gf_flip              = gr_dummy_flip;
 	gr_screen.gf_flip_window       = gr_dummy_flip_window;

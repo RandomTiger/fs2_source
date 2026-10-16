@@ -206,6 +206,7 @@
 #include "GameSnd.h"
 #include "Timer.h"
 #include "3d.h"			// needed for View_position, which is used when playing a 3D sound
+#include "2d.h"		// Claude: gr_screen.hardware
 #include "Multi.h"
 #include "MultiUtil.h"
 #include "Hud.h"
@@ -1694,7 +1695,7 @@ void shipfx_emit_spark( int n, int sn )
 				}
 			}
 
-			if ( D3D_enabled ) {
+			if ( gr_screen.hardware ) {
 				pe.num_low  = 25;				// Lowest number of particles to create (hardware)
 				pe.num_high = 30;				// Highest number of particles to create (hardware)
 			} else {
@@ -1712,7 +1713,7 @@ void shipfx_emit_spark( int n, int sn )
 
 			pe.min_rad = 0.7f;				// Min radius
 			pe.max_rad = 1.3f;				// Max radius
-			if ( D3D_enabled ) {
+			if ( gr_screen.hardware ) {
 				pe.num_low  = int (20 * spark_num_scale);		// Lowest number of particles to create (hardware)
 				pe.num_high = int (50 * spark_num_scale);		// Highest number of particles to create (hardware)
 			} else {
