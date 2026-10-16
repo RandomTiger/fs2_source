@@ -14,9 +14,10 @@ that recording twice, normally and with -nodraw, and compares each replay's trac
 Usage (PowerShell, from anywhere):
   tools\nodraw_check.ps1 [-Out <dir>] [-Missions sm1-01,sm2-04,...] [-Config r|d] [-GameDir <dir>] [-Fresh] [-Headless]
 
--Headless replays with -nographics -nosounddevice instead of -nodraw: no graphics device (the null renderer,
-code\Graphics\GrDummy.cpp, which also skips drawing) and no sound device (sounds load their length, nothing plays),
-so the game logic runs headless (PrePort gate 1). Each replay's autotest.log must say there was no graphics device.
+-Headless replays with -headless instead of -nodraw: a message-only window that is never shown, no graphics device
+(-nographics, the null renderer code\Graphics\GrDummy.cpp, which also skips drawing) and no sound device
+(-nosounddevice: sounds load their length, nothing plays), so the game logic runs headless (PrePort gate 1). Keys,
+mouse and joystick come from the recording. Each replay's autotest.log must say there was no graphics device.
 
 -Missions defaults to every mission in recordings\autotest. Results go to <Out>\summary.txt, one line per mission;
 <Out> defaults to replays\nodraw_<date-time>. Build the config first (it runs FS2vs2022r.exe or FS2vs2022d.exe from
@@ -93,7 +94,7 @@ foreach ($m in $Missions) {
 		Remove-Item $rtrace, "$rec.replay.log" -ErrorAction SilentlyContinue
 		$flags = "-window -autotest -replay `"$rec`" -trace `"$rtrace`""
 		if ($mode -eq 'nodraw') { $flags += ' -nodraw' }
-		if ($mode -eq 'headless') { $flags += ' -nographics -nosounddevice' }
+		if ($mode -eq 'headless') { $flags += ' -headless' }
 		$code = Run-Game $flags
 		$res = 'NO LOG'
 		if (Test-Path "$rec.replay.log") {

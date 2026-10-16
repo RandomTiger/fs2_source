@@ -93,6 +93,7 @@
 #include "sound.h"
 #include "FreespaceResource.h"
 #include "ManagePilot.h"
+#include "cmdline.h"
 #include "joy.h"
 #include "Joy_ff.h"
 #include "gamesequence.h"
@@ -637,7 +638,10 @@ BOOL win32_create_window()
 
 	// Make a 32x32 window.  It never should get shown, because the graphics code
 	// will then size it.
-	if(windowed){
+	if(Cmdline_headless){
+		// Claude: -headless: a message-only window, never shown.  Keys and the mouse come from the recording.
+		hwndApp = CreateWindow( szWinClass, szWinTitle, 0, 0, 0, 0, 0, HWND_MESSAGE, (HMENU)NULL, hInst, (LPSTR)NULL);
+	} else if(windowed){
 		hwndApp = CreateWindow( szWinClass, szWinTitle,
 									style,   
 									CW_USEDEFAULT,
@@ -665,7 +669,7 @@ BOOL win32_create_window()
 		outwnd_init(1);
 	#endif	
 
-	if(windowed){
+	if(windowed && !Cmdline_headless){	// Claude: -headless shows no window
 		ShowWindow( hwndApp, SW_SHOWNORMAL );
 		UpdateWindow( hwndApp );
 	}

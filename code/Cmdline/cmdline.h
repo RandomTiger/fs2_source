@@ -178,6 +178,7 @@ extern int Cmdline_client_dodamage;
 extern int Cmdline_spew_pof_info;
 extern int Cmdline_force_32bit;
 extern int Cmdline_force_16bit;	// Claude: 32 bit textures
+extern int Cmdline_headless;	// Claude: no window, graphics or sound device
 extern int Cmdline_nographics;	// Claude: no graphics device: the null renderer, and -nodraw
 extern int Cmdline_nosounddevice;	// Claude: the sound system with no device
 extern int Cmdline_nodraw;	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
