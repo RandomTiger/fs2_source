@@ -3411,8 +3411,7 @@ void game_render_frame_setup(vector *eye_pos, matrix *eye_orient)
 
 	apply_hud_shake(eye_orient);
 
-	// setup neb2 rendering
-	neb2_render_setup(eye_pos, eye_orient);
+	// Claude: the nebula background pre-render (neb2_render_setup) moved to game_render_frame: it only draws, and its pixels are read only by the renderer
 }
 
 #ifndef NDEBUG
@@ -3426,6 +3425,9 @@ DCF_BOOL( subspace, Game_subspace_effect );
 void game_render_frame( vector * eye_pos, matrix * eye_orient )
 {
 	int dont_offset;
+
+	// setup neb2 rendering
+	neb2_render_setup(eye_pos, eye_orient);	// Claude: was the last step of game_render_frame_setup, in the logic phase
 
 	g3_start_frame(game_zbuffer);
 	g3_set_view_matrix( eye_pos, eye_orient, Viewer_zoom );
