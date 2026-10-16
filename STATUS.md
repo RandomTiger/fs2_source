@@ -4,27 +4,26 @@ Branch `PrePort`: everything that can be done before the engine moves, nothing G
 Plan and survey: `docs/PREPORT.md`. Branch layers: `docs/BRANCHES.md`. Decisions are made by the
 decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers below are its entries.
 
-Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 46 recordings in
-`recordings/autotest` are in it: AI pilot, 4x, re-made 2026-10-16 with the logic and drawing split (D-027).
+Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
+`recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
 ## Stage gates (D-026)
 | Gate | State |
 |---|---|
 | 1. Logic runs headless, every suite mission plays to its end under the AI pilot | Not met. `-nodraw` skips drawing but still clears and flips, and the window, sound and input are live. Campaign recordings stop at 120 s of mission time, so most do not reach their end. |
-| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress. The split is merged (D-027) and `-nodraw` matches on all 46. Left, from the 2026-10-16 survey: the squad message menu, including orders and reinforcements, still runs in `HUD_render_2d` (piece 4, deferred by Tom 2026-10-15); `nebl_update_all` reads `gr_screen.max_w/h`; `neb2_render_setup` pre-renders the nebula background in the logic phase, outside the drawing wrapper (random numbers not yet checked). Done: the lock start position comes from the game view (2026-10-16). Done: the flip's mouse reads (flying deltas, cursor position) are made by the renderer-independent `gr_flip_frame` (`2d.cpp`), in the same order, so a backend's flip reads nothing (2026-10-16). `Viewer_obj` needs no move: `game_render_frame_setup` already runs in the logic phase, also under `-nodraw`. The HUD message queue advances while drawing, but no gameplay reads it. Done: training messages are queued, voiced and timed in the logic phase (2026-10-16). Sound (D-031): logic reads the sound device in 2 places, both message timing (`MissionMessage.cpp` `message_queue_process`, `message_play_wave`); steward ruling pending on giving logic its own voice timer. |
+| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress. The split is merged (D-027) and `-nodraw` matches on all 46. Left, from the 2026-10-16 survey: the squad message menu, including orders and reinforcements, still runs in `HUD_render_2d` (piece 4, deferred by Tom 2026-10-15); `nebl_update_all` reads `gr_screen.max_w/h`; `neb2_render_setup` pre-renders the nebula background in the logic phase, outside the drawing wrapper (random numbers not yet checked). Done: the lock start position comes from the game view (2026-10-16). Done: the flip's mouse reads (flying deltas, cursor position) are made by the renderer-independent `gr_flip_frame` (`2d.cpp`), in the same order, so a backend's flip reads nothing (2026-10-16). `Viewer_obj` needs no move: `game_render_frame_setup` already runs in the logic phase, also under `-nodraw`. The HUD message queue advances while drawing, but no gameplay reads it. Done: training messages are queued, voiced and timed in the logic phase (2026-10-16). Done: sound no longer feeds gameplay. Message voices run on their own timer (D-034), and sound-device answers, the music-start clock read and the flip's cursor read are no longer recorded (D-035). Left: the camera and supernova shake draw gameplay random numbers while setting up the view. |
 | 3. Engine interface (render, audio, input, platform) documented and the only path | Inventory drafted in `docs/ENGINE_INTERFACE.md`. The leaks around the seams are not fixed yet. |
-| 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 48/48 (AutotestLeaks and AutotestTraining added), sm1-01 and sm3-06 builds identical, `-nodraw` and the no-sound check (`tools/sound_model_check.ps1`) 47/48, the one being sm2-07's scream flag (D-031). sm3-06's Debug Int3 fixed on `OriginalSourceBugFixes` (review 42, D-029, D-032). |
+| 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 48/48, Release and Debug identical; `-nodraw` 48/48; no-sound check (`tools/sound_model_check.ps1`) 48/48 against the real device; no Assert, Int3 or Warning in any recording. |
 
 ## Current batch
-Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028); `LogicDrawSplit` merged with its recordings re-made (D-027); lock start position and flip mouse reads; training messages in the logic phase; review 42 (D-032); `replay_check` output names (D-033); the no-sound check and the leak and training test missions (D-031).
-
-Waiting: steward ruling on the two sound sites (D-031).
+Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028); `LogicDrawSplit` merged (D-027); lock start position and flip mouse reads; training messages in the logic phase; review 42 (D-032); `replay_check` output names (D-033); the no-sound check and the leak and training test missions (D-031); sound out of gameplay and recording format version 4 (D-034, D-035).
 
 ## Next batches (proposed order)
-1. The two sound sites, per the steward's ruling (D-031).
-2. Check whether `neb2_pre_render` and `stars_draw_background` in `game_render_frame_setup` draw gameplay random numbers.
+1. `nodraw_check.ps1` replays the existing recordings with `-nodraw` instead of recording fresh runs (saves about 40 minutes per full check).
+2. Camera and supernova shake: their random numbers come from the gameplay stream while the view is set up. Moving them to the cosmetic stream changes every recording; steward brief first.
 3. `nebl_update_all`: the flash distance from the game view instead of `gr_screen.max_w/h`.
-4. Squad message menu (piece 4): Tom deferred it, so lifting the deferral is his call (steward, D-027 follow-up). Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
+4. Headless: the nebula background pre-render (`neb2_pre_render`) needs a real renderer even under `-nodraw`.
+5. Squad message menu (piece 4): Tom deferred it; lifting the deferral is his call. Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
