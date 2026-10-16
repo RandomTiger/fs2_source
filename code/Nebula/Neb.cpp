@@ -404,10 +404,6 @@ void neb2_level_init()
 
 	// setup proper fogging values
 	switch(gr_screen.mode){
-	case GR_GLIDE:
-		Neb_backg_fog_near = NEB_BACKG_FOG_NEAR_GLIDE;
-		Neb_backg_fog_far = NEB_BACKG_FOG_FAR_GLIDE;				
-		break;
 	case GR_DIRECT3D:
 	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
 		Neb_backg_fog_near = NEB_BACKG_FOG_NEAR_D3D;
@@ -1135,11 +1131,6 @@ void neb2_get_fog_values(float *fnear, float *ffar, object *objp)
 
 	// get the values
 	switch(gr_screen.mode){
-	case GR_GLIDE:
-		*fnear = Neb_ship_fog_vals_glide[fog_index][0];
-		*ffar = Neb_ship_fog_vals_glide[fog_index][1];
-		break;
-
 	case GR_DIRECT3D:
 	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
 		*fnear = Neb_ship_fog_vals_d3d[fog_index][0];
@@ -1499,14 +1490,9 @@ DCF(neb2_fog, "")
 			Neb_backg_fog_near = fnear;
 			Neb_backg_fog_far = ffar;
 		} else {
-			if(gr_screen.mode == GR_GLIDE){
-				Neb_ship_fog_vals_glide[index][0] = fnear;
-				Neb_ship_fog_vals_glide[index][1] = ffar;
-			} else {
-				Assert(gr_screen.mode == GR_DIRECT3D);
-				Neb_ship_fog_vals_d3d[index][0] = fnear;
-				Neb_ship_fog_vals_d3d[index][1] = ffar;
-			}
+			// Claude: the Glide table went with Glide
+			Neb_ship_fog_vals_d3d[index][0] = fnear;
+			Neb_ship_fog_vals_d3d[index][1] = ffar;
 		}
 	}
 }
@@ -1617,33 +1603,18 @@ DCF(neb2_background, "")
 DCF(neb2_fog_vals, "")
 {
 	dc_printf("neb2_fog : \n");
-	if(gr_screen.mode == GR_GLIDE){		
-		dc_printf("(1)cargo containers : %f, %f\n", Neb_ship_fog_vals_glide[1][0], Neb_ship_fog_vals_glide[1][1]);
-		dc_printf("(2)fighters/bombers : %f, %f\n", Neb_ship_fog_vals_glide[2][0], Neb_ship_fog_vals_glide[2][1]);
-		dc_printf("(3)cruisers : %f, %f\n", Neb_ship_fog_vals_glide[3][0], Neb_ship_fog_vals_glide[3][1]);
-		dc_printf("(4)freighters : %f, %f\n", Neb_ship_fog_vals_glide[4][0], Neb_ship_fog_vals_glide[4][1]);
-		dc_printf("(5)cap ships : %f, %f\n", Neb_ship_fog_vals_glide[5][0], Neb_ship_fog_vals_glide[5][1]);
-		dc_printf("(6)transports : %f, %f\n", Neb_ship_fog_vals_glide[6][0], Neb_ship_fog_vals_glide[6][1]);
-		dc_printf("(7)support ships : %f, %f\n", Neb_ship_fog_vals_glide[7][0], Neb_ship_fog_vals_glide[7][1]);
-		dc_printf("(8)navbuoys : %f, %f\n", Neb_ship_fog_vals_glide[8][0], Neb_ship_fog_vals_glide[8][1]);
-		dc_printf("(9)sentry guns : %f, %f\n", Neb_ship_fog_vals_glide[9][0], Neb_ship_fog_vals_glide[9][1]);
-		dc_printf("(10)escape pods : %f, %f\n", Neb_ship_fog_vals_glide[10][0], Neb_ship_fog_vals_glide[10][1]);
-		dc_printf("(11)background polys : %f, %f\n\n", Neb_backg_fog_near, Neb_backg_fog_far);
-
-	} else {
-		Assert(gr_screen.mode == GR_DIRECT3D);
-		dc_printf("(1)cargo containers : %f, %f\n", Neb_ship_fog_vals_d3d[1][0], Neb_ship_fog_vals_d3d[1][1]);
-		dc_printf("(2)fighters/bombers : %f, %f\n", Neb_ship_fog_vals_d3d[2][0], Neb_ship_fog_vals_d3d[2][1]);
-		dc_printf("(3)cruisers : %f, %f\n", Neb_ship_fog_vals_d3d[3][0], Neb_ship_fog_vals_d3d[3][1]);
-		dc_printf("(4)freighters : %f, %f\n", Neb_ship_fog_vals_d3d[4][0], Neb_ship_fog_vals_d3d[4][1]);
-		dc_printf("(5)cap ships : %f, %f\n", Neb_ship_fog_vals_d3d[5][0], Neb_ship_fog_vals_d3d[5][1]);
-		dc_printf("(6)transports : %f, %f\n", Neb_ship_fog_vals_d3d[6][0], Neb_ship_fog_vals_d3d[6][1]);
-		dc_printf("(7)support ships : %f, %f\n", Neb_ship_fog_vals_d3d[7][0], Neb_ship_fog_vals_d3d[7][1]);
-		dc_printf("(8)navbuoys : %f, %f\n", Neb_ship_fog_vals_d3d[8][0], Neb_ship_fog_vals_d3d[8][1]);
-		dc_printf("(9)sentry guns : %f, %f\n", Neb_ship_fog_vals_d3d[9][0], Neb_ship_fog_vals_d3d[9][1]);
-		dc_printf("(10)escape pods : %f, %f\n", Neb_ship_fog_vals_d3d[10][0], Neb_ship_fog_vals_d3d[10][1]);
-		dc_printf("(11)background polys : %f, %f\n\n", Neb_backg_fog_near, Neb_backg_fog_far);		
-	}
+	// Claude: the Glide table went with Glide
+	dc_printf("(1)cargo containers : %f, %f\n", Neb_ship_fog_vals_d3d[1][0], Neb_ship_fog_vals_d3d[1][1]);
+	dc_printf("(2)fighters/bombers : %f, %f\n", Neb_ship_fog_vals_d3d[2][0], Neb_ship_fog_vals_d3d[2][1]);
+	dc_printf("(3)cruisers : %f, %f\n", Neb_ship_fog_vals_d3d[3][0], Neb_ship_fog_vals_d3d[3][1]);
+	dc_printf("(4)freighters : %f, %f\n", Neb_ship_fog_vals_d3d[4][0], Neb_ship_fog_vals_d3d[4][1]);
+	dc_printf("(5)cap ships : %f, %f\n", Neb_ship_fog_vals_d3d[5][0], Neb_ship_fog_vals_d3d[5][1]);
+	dc_printf("(6)transports : %f, %f\n", Neb_ship_fog_vals_d3d[6][0], Neb_ship_fog_vals_d3d[6][1]);
+	dc_printf("(7)support ships : %f, %f\n", Neb_ship_fog_vals_d3d[7][0], Neb_ship_fog_vals_d3d[7][1]);
+	dc_printf("(8)navbuoys : %f, %f\n", Neb_ship_fog_vals_d3d[8][0], Neb_ship_fog_vals_d3d[8][1]);
+	dc_printf("(9)sentry guns : %f, %f\n", Neb_ship_fog_vals_d3d[9][0], Neb_ship_fog_vals_d3d[9][1]);
+	dc_printf("(10)escape pods : %f, %f\n", Neb_ship_fog_vals_d3d[10][0], Neb_ship_fog_vals_d3d[10][1]);
+	dc_printf("(11)background polys : %f, %f\n\n", Neb_backg_fog_near, Neb_backg_fog_far);		
 	dc_printf("neb2_max_alpha   : %f\n", Nd->max_alpha_glide);
 	dc_printf("neb2_break_alpha : %f\n", Nd->break_alpha);
 	dc_printf("neb2_break_off   : %d\n", (int)Nd->break_y);

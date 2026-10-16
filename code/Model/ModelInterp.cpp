@@ -3306,14 +3306,9 @@ void model_page_in_textures(int modelnum, int ship_info_index)
 		int bitmap_num = pm->original_textures[idx];
 
 		if ( bitmap_num > -1 )	{
-			// if we're in Glide (and maybe later with D3D), use nondarkening textures
-			if(gr_screen.mode == GR_GLIDE){
-				bm_lock(bitmap_num, 16, BMP_TEX_NONDARK);
-				bm_unlock(bitmap_num);
-			} else {
-				bm_lock(bitmap_num, 16, BMP_TEX_OTHER);
-				bm_unlock(bitmap_num);
-			}
+			// Claude: the Glide nondarkening case went with Glide
+			bm_lock(bitmap_num, 16, BMP_TEX_OTHER);
+			bm_unlock(bitmap_num);
 		}
 	}
 }

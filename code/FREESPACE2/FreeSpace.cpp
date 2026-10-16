@@ -4990,26 +4990,12 @@ void game_process_event( int current_state, int event )
 			break;
 
 		case GS_EVENT_TOGGLE_FULLSCREEN:
-			#ifndef HARDWARE_ONLY
-				#ifndef NDEBUG
-				if ( gr_screen.mode == GR_SOFTWARE )	{
-					gr_init( GR_640, GR_DIRECTDRAW );
-				} else if ( gr_screen.mode == GR_DIRECTDRAW )	{
-					gr_init( GR_640, GR_SOFTWARE );
-				}
-				#endif
-			#endif
+			// Claude: the DirectDraw renderer this switched to is gone
 			break;
 
 		case GS_EVENT_TOGGLE_GLIDE:
-			#ifndef NDEBUG
-			if ( gr_screen.mode != GR_GLIDE )	{
-				gr_init( GR_640, GR_GLIDE );
-			} else {
-				gr_init( GR_640, GR_SOFTWARE );
-			}
-			#endif
-			break;						
+			// Claude: the Glide renderer this switched to is gone
+			break;
  
 		case GS_EVENT_LOAD_MISSION_MENU:
 			gameseq_set_state(GS_STATE_LOAD_MISSION_MENU);

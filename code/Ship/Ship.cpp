@@ -8902,12 +8902,7 @@ void ship_page_in()
 					int bitmap_num = pm->original_textures[j];
 
 					if ( bitmap_num > -1 )	{
-						// if we're in Glide (and maybe later with D3D), use nondarkening textures
-						if(gr_screen.mode == GR_GLIDE){
-							bm_page_in_nondarkening_texture( bitmap_num );
-						} else {
-							bm_page_in_texture( bitmap_num );
-						}
+						bm_page_in_texture( bitmap_num );	// Claude: the Glide nondarkening case went with Glide
 					}
 				}
 

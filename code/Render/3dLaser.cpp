@@ -285,11 +285,7 @@ float g3_draw_laser(vector *headp, float head_width, vector *tailp, float tail_w
 	v[3].v = 1.0f;
 	v[3].b = 191;
 
-	if(gr_screen.mode == GR_GLIDE){
-		gr_tmapper(4, vertlist, tmap_flags);	
-	} else {
-		gr_tmapper(4, vertlist, tmap_flags | TMAP_FLAG_CORRECT);	
-	}
+	gr_tmapper(4, vertlist, tmap_flags | TMAP_FLAG_CORRECT);	// Claude: the Glide case went with Glide
 
 	return depth;
 }
@@ -457,11 +453,7 @@ float g3_draw_laser_rgb(vector *headp, float head_width, vector *tailp, float ta
 	v[3].b = (ubyte)b;
 	v[3].a = 255;
 	
-	if(gr_screen.mode == GR_GLIDE){
-		gr_tmapper(4, vertlist, tmap_flags | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
-	} else {
-		gr_tmapper(4, vertlist, tmap_flags | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_CORRECT);
-	}	
+	gr_tmapper(4, vertlist, tmap_flags | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_CORRECT);	// Claude: the Glide case went with Glide
 
 	return depth;
 }

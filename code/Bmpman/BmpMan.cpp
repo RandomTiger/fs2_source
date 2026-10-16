@@ -2371,9 +2371,7 @@ void BM_SELECT_SCREEN_FORMAT()
 	Gr_current_alpha = &Gr_alpha;
 
 	// setup pointers
-	if(gr_screen.mode == GR_GLIDE){
-		bm_set_components = bm_set_components_argb;
-	} else if(gr_screen.mode == GR_DIRECT3D){
+	if(gr_screen.mode == GR_DIRECT3D){	// Claude: the Glide case went with Glide
 		if(Bm_pixel_format == BM_PIXEL_FORMAT_D3D){
 			bm_set_components = bm_set_components_d3d;
 		} else {
@@ -2396,9 +2394,7 @@ void BM_SELECT_TEX_FORMAT()
 	Gr_current_alpha = &Gr_t_alpha;
 
 	// setup pointers
-	if(gr_screen.mode == GR_GLIDE){
-		bm_set_components = bm_set_components_argb;
-	} else if(gr_screen.mode == GR_DIRECT3D){
+	if(gr_screen.mode == GR_DIRECT3D){	// Claude: the Glide case went with Glide
 		if(Bm_pixel_format == BM_PIXEL_FORMAT_D3D){
 			bm_set_components = bm_set_components_d3d;
 		} else {
@@ -2421,9 +2417,7 @@ void BM_SELECT_ALPHA_TEX_FORMAT()
 	Gr_current_alpha = &Gr_ta_alpha;
 
 	// setup pointers
-	if(gr_screen.mode == GR_GLIDE){
-		bm_set_components = bm_set_components_argb;
-	} else if(gr_screen.mode == GR_DIRECT3D){
+	if(gr_screen.mode == GR_DIRECT3D){	// Claude: the Glide case went with Glide
 		if(Bm_pixel_format == BM_PIXEL_FORMAT_D3D){
 			bm_set_components = bm_set_components_d3d;
 		} else {

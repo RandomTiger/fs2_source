@@ -2229,14 +2229,9 @@ void asteroid_page_in()
 					int bitmap_num = asip->modelp[k]->original_textures[j];
 
 
-					// if we're in Glide (and maybe later with D3D), use nondarkening textures
 					if ( bitmap_num > -1 )	{
-						if(gr_screen.mode == GR_GLIDE){
-							bm_page_in_nondarkening_texture( bitmap_num );
-						} else {
-							bm_page_in_texture( bitmap_num );
-						}				
-					}					
+						bm_page_in_texture( bitmap_num );	// Claude: the Glide nondarkening case went with Glide
+					}
 				}
 
 			}

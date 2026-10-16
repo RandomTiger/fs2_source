@@ -274,11 +274,7 @@ int g3_project_vertex(vertex *p)
 		p->sx = (Canvas_width + (p->x*Canvas_width*w))*0.5f;
 		p->sy = (Canvas_height - (p->y*Canvas_height*w))*0.5f;
 
-		if(gr_screen.mode == GR_GLIDE){
-			if ( w > 61439.0f ) w = 61439.0f;
-		} else {
-			if ( w > 1.0f ) w = 1.0f;		
-		}
+		if ( w > 1.0f ) w = 1.0f;		// Claude: the Glide limit went with Glide
 		p->sw = w;
 		p->flags |= PF_PROJECTED;
 	}
