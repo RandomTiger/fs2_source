@@ -2361,6 +2361,11 @@ void bm_set_components_argb_d3d_32_tex(ubyte *pixel, ubyte *rv, ubyte *gv, ubyte
 }
 
 // for selecting pixel formats
+// Claude: the null renderer (-nographics) has no pixel formats
+void bm_set_components_dummy(ubyte *pixel, ubyte *r, ubyte *g, ubyte *b, ubyte *a)
+{
+}
+
 void BM_SELECT_SCREEN_FORMAT()
 {
 	Gr_current_red = &Gr_red;
@@ -2381,6 +2386,8 @@ void BM_SELECT_SCREEN_FORMAT()
 				bm_set_components = bm_set_components_argb_d3d_16_screen;
 			}
 		}
+	} else if(gr_screen.mode == GR_DUMMY){
+		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
 	}
 }
 
@@ -2404,6 +2411,8 @@ void BM_SELECT_TEX_FORMAT()
 				bm_set_components = bm_set_components_argb_d3d_16_tex;
 			}
 		}
+	} else if(gr_screen.mode == GR_DUMMY){
+		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
 	}
 }
 
@@ -2427,6 +2436,8 @@ void BM_SELECT_ALPHA_TEX_FORMAT()
 				bm_set_components = bm_set_components_argb_d3d_16_tex;
 			}
 		}
+	} else if(gr_screen.mode == GR_DUMMY){
+		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
 	}
 }
 

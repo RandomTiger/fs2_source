@@ -422,6 +422,7 @@
  * $NoKeywords: $
  */
 
+#include "GrDummy.h"	// Claude: null renderer
 #include <windows.h>
 #include <windowsx.h>
 
@@ -483,6 +484,9 @@ void gr_close()
 	switch( gr_screen.mode )	{
 	case GR_SOFTWARE:		
 		gr_soft_cleanup();
+		break;
+	case GR_DUMMY:		// Claude: null renderer
+		gr_dummy_cleanup();
 		break;
 	// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 	case GR_DIRECT3D:		
@@ -828,6 +832,9 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 		case GR_SOFTWARE:			
 			gr_soft_cleanup();
 			break;
+		case GR_DUMMY:		// Claude: null renderer
+			gr_dummy_cleanup();
+			break;
 		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:			
 			gr_d3d_cleanup();
@@ -842,7 +849,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 
 #if defined(HARDWARE_ONLY)
 	if(!Fred_running && !Pofview_running && !Nebedit_running && !Is_standalone){
-		if(mode != GR_DIRECT3D){	// Claude: Direct3D is the only hardware renderer left; was Glide
+		if((mode != GR_DIRECT3D) && (mode != GR_DUMMY)){	// Claude: Direct3D is the only hardware renderer left; was Glide.  The null renderer stays.
 			mprintf(("Forcing Direct3D startup!\n"));
 			mode = GR_DIRECT3D;
 		}	
@@ -901,6 +908,9 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 		case GR_SOFTWARE:
 			Assert(Fred_running || Pofview_running || Is_standalone || Nebedit_running);
 			gr_soft_init();
+			break;
+		case GR_DUMMY:		// Claude: null renderer
+			gr_dummy_init();
 			break;
 		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:
@@ -962,6 +972,7 @@ void gr_force_windowed()
 			break;
 		// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 		case GR_DIRECT3D:
+		case GR_DUMMY:		// Claude: null renderer
 			break;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 
@@ -994,6 +1005,8 @@ void gr_activate(int active)
 				return;
 			}
 			break;
+		case GR_DUMMY:		// Claude: null renderer
+			return;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode

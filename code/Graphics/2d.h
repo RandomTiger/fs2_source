@@ -569,6 +569,7 @@ extern int Gr_mmx;
 #define GR_DIRECTDRAW				(101)		// Software renderer using DirectDraw fullscreen.
 #define GR_DIRECT3D					(102)		// Use Direct3d hardware renderer
 #define GR_GLIDE						(103)		// Use Glide hardware renderer
+#define GR_DUMMY						(105)		// Claude: null renderer, -nographics (GrDummy.cpp)
 #define GR_OPENGL						(104)		// Use OpenGl hardware renderer
 
 // resolution constants   - always keep resolutions in ascending order and starting from 0  

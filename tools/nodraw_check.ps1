@@ -12,7 +12,10 @@ that recording twice, normally and with -nodraw, and compares each replay's trac
   nodraw   matches only when nothing the game logic needs happens while drawing.
 
 Usage (PowerShell, from anywhere):
-  tools\nodraw_check.ps1 [-Out <dir>] [-Missions sm1-01,sm2-04,...] [-Config r|d] [-GameDir <dir>] [-Fresh]
+  tools\nodraw_check.ps1 [-Out <dir>] [-Missions sm1-01,sm2-04,...] [-Config r|d] [-GameDir <dir>] [-Fresh] [-NoGraphics]
+
+-NoGraphics replays with -nographics instead of -nodraw: no graphics device at all, the null renderer
+(code\Graphics\GrDummy.cpp), so the game logic runs headless (PrePort gate 1). Each replay's autotest.log must say so.
 
 -Missions defaults to every mission in recordings\autotest. Results go to <Out>\summary.txt, one line per mission;
 <Out> defaults to replays\nodraw_<date-time>. Build the config first (it runs FS2vs2022r.exe or FS2vs2022d.exe from
@@ -24,7 +27,8 @@ param(
 	[string[]]$Missions,
 	[string]$Config = 'r',
 	[string]$GameDir = $env:PATH_FS2,
-	[switch]$Fresh
+	[switch]$Fresh,
+	[switch]$NoGraphics
 )
 
 $repo = Split-Path $PSScriptRoot
@@ -54,6 +58,9 @@ function Run-Game([string]$flags) {
 	return $p.ExitCode
 }
 
+# the replay that must not depend on drawing: -nodraw, or with -NoGraphics no graphics device at all
+$quiet = if ($NoGraphics) { 'nographics' } else { 'nodraw' }
+
 Set-Location $GameDir
 $pass = 0; $fail = 0
 foreach ($m in $Missions) {
@@ -71,12 +78,12 @@ foreach ($m in $Missions) {
 		}
 		$code = Run-Game "-window -autotest -at_mission $m -at_time $t -playernpc -record `"$rec`" -trace `"$trace`""
 		$line = "$m | record exit=$code"
-		$modes = @('draw', 'nodraw')
+		$modes = @('draw', $quiet)
 	} else {
 		$rec = Join-Path $repo "recordings\autotest\$m.fs2rec"
 		$trace = Join-Path $repo "recordings\autotest\$m.trace"
 		$line = $m
-		$modes = @('nodraw')
+		$modes = @($quiet)
 	}
 	$ok = Test-Path $trace
 	foreach ($mode in $modes) {
@@ -84,7 +91,7 @@ foreach ($m in $Missions) {
 		$log = Join-Path $Out "${m}_$mode.replay.log"
 		Remove-Item $rtrace, "$rec.replay.log" -ErrorAction SilentlyContinue
 		$flags = "-window -autotest -replay `"$rec`" -trace `"$rtrace`""
-		if ($mode -eq 'nodraw') { $flags += ' -nodraw' }
+		if ($mode -ne 'draw') { $flags += " -$mode" }
 		$code = Run-Game $flags
 		$res = 'NO LOG'
 		if (Test-Path "$rec.replay.log") {
@@ -98,7 +105,8 @@ foreach ($m in $Missions) {
 			$diff = ($tdout | Select-String '^(MATCH|DIVERGED)' | Select-Object -First 1).Line
 			if (-not $diff) { $diff = "NO VERDICT: $($tdout | Select-Object -Last 1)" }
 		}
-		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
+		if (($mode -eq 'nographics') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'No graphics device' -Quiet)) { $res = "NOT HEADLESS ($res)" }
+		if (($res -notmatch '^REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $mode exit=$code $res / $diff"
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }

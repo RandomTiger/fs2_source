@@ -29,6 +29,7 @@
 #include "MissionScreenCommon.h"
 #include "MissionParse.h"
 #include "MissionGoals.h"
+#include "2d.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -469,6 +470,9 @@ void autotest_frame()
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
 		Autotest_mission_start = Missiontime;
+		if (gr_screen.mode == GR_DUMMY) {
+			autotest_logf("No graphics device: the null renderer (-nographics)\n");	// Claude: so the log shows the run was headless
+		}
 		autotest_logf("Mission '%s': in gameplay%s%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "",
 			Autotest_player_npc ? ", the AI flies the player" : (Autotest_player_npc_asked ? ", the player stays still (mission notes)" : ""));
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {

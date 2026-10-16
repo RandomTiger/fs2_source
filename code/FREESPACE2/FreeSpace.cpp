@@ -2136,7 +2136,9 @@ void game_init()
 
 	int trying_d3d = 0;
 	
-	if (!Is_standalone && ptr && (strstr(ptr, NOX("3DFX Glide")))) {
+	if (Cmdline_nographics) {
+		gr_init(GR_1024, GR_DUMMY);	// Claude: no graphics device, at the reference resolution
+	} else if (!Is_standalone && ptr && (strstr(ptr, NOX("3DFX Glide")))) {
 #ifdef E3_BUILD
 		// always 640 for E3
 		gr_init(GR_640, GR_GLIDE);

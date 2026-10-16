@@ -168,6 +168,7 @@
     <ClCompile Include="Graphics\GrD3DRender.cpp" />
     <ClCompile Include="Graphics\GrD3DGlow.cpp" />
     <ClCompile Include="Graphics\GrD3DTexture.cpp" />
+    <ClCompile Include="Graphics\GrDummy.cpp" />
     <ClCompile Include="Graphics\GrSoft.cpp" />
     <ClCompile Include="Graphics\GrZbuffer.cpp" />
     <ClCompile Include="Graphics\Line.cpp" />
@@ -427,6 +428,7 @@
     <ClInclude Include="Graphics\GrD3DGlow.h" />
     <ClInclude Include="Graphics\GrD3DInternal.h" />
     <ClInclude Include="Graphics\GrInternal.h" />
+    <ClInclude Include="Graphics\GrDummy.h" />
     <ClInclude Include="Graphics\GrSoft.h" />
     <ClInclude Include="Graphics\GrZbuffer.h" />
     <ClInclude Include="Graphics\Line.h" />

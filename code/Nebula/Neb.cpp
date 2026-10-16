@@ -409,6 +409,7 @@ void neb2_level_init()
 		Neb_backg_fog_far = NEB_BACKG_FOG_FAR_GLIDE;				
 		break;
 	case GR_DIRECT3D:
+	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
 		Neb_backg_fog_near = NEB_BACKG_FOG_NEAR_D3D;
 		Neb_backg_fog_far = NEB_BACKG_FOG_FAR_D3D;					
 		break;
@@ -1140,6 +1141,7 @@ void neb2_get_fog_values(float *fnear, float *ffar, object *objp)
 		break;
 
 	case GR_DIRECT3D:
+	case GR_DUMMY:		// Claude: null renderer, as Direct3D (the reference)
 		*fnear = Neb_ship_fog_vals_d3d[fog_index][0];
 		*ffar = Neb_ship_fog_vals_d3d[fog_index][1];
 		break;
