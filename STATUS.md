@@ -11,15 +11,17 @@ Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 46 recordi
 | Gate | State |
 |---|---|
 | 1. Logic runs headless, every suite mission plays to its end under the AI pilot | Not met. `-nodraw` skips drawing but still clears and flips, and the window, sound and input are live. Campaign recordings stop at 120 s of mission time, so most do not reach their end. |
-| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress. The split is merged (D-027) and `-nodraw` matches on all 46. Left, from the 2026-10-16 survey: the squad message menu, including orders and reinforcements, still runs in `HUD_render_2d` (piece 4, deferred by Tom 2026-10-15); training messages are dequeued and voiced in `HUD_render_2d`; `nebl_update_all` reads `gr_screen.max_w/h`; `neb2_render_setup` pre-renders the nebula background in the logic phase, outside the drawing wrapper (random numbers not yet checked). Done: the lock start position comes from the game view (2026-10-16). Done: the flip's mouse reads (flying deltas, cursor position) are made by the renderer-independent `gr_flip_frame` (`2d.cpp`), in the same order, so a backend's flip reads nothing (2026-10-16). `Viewer_obj` needs no move: `game_render_frame_setup` already runs in the logic phase, also under `-nodraw`. The HUD message queue advances while drawing, but no gameplay reads it. |
+| 2. No OS reads, drawing dependencies or window-size reads in logic | In progress. The split is merged (D-027) and `-nodraw` matches on all 46. Left, from the 2026-10-16 survey: the squad message menu, including orders and reinforcements, still runs in `HUD_render_2d` (piece 4, deferred by Tom 2026-10-15); `nebl_update_all` reads `gr_screen.max_w/h`; `neb2_render_setup` pre-renders the nebula background in the logic phase, outside the drawing wrapper (random numbers not yet checked). Done: the lock start position comes from the game view (2026-10-16). Done: the flip's mouse reads (flying deltas, cursor position) are made by the renderer-independent `gr_flip_frame` (`2d.cpp`), in the same order, so a backend's flip reads nothing (2026-10-16). `Viewer_obj` needs no move: `game_render_frame_setup` already runs in the logic phase, also under `-nodraw`. The HUD message queue advances while drawing, but no gameplay reads it. Done: training messages are queued, voiced and timed in the logic phase (2026-10-16). Sound (D-031): logic reads the sound device in 2 places, both message timing (`MissionMessage.cpp` `message_queue_process`, `message_play_wave`); steward ruling pending on giving logic its own voice timer. |
 | 3. Engine interface (render, audio, input, platform) documented and the only path | Inventory drafted in `docs/ENGINE_INTERFACE.md`. The leaks around the seams are not fixed yet. |
-| 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 46/46 replay, sm1-01 builds identical, `-nodraw` 46/46. |
+| 4. PrePort recording suite green in the reference configuration | Green 2026-10-16: 48/48 (AutotestLeaks and AutotestTraining added), sm1-01 and sm3-06 builds identical, `-nodraw` and the no-sound check (`tools/sound_model_check.ps1`) 47/48, the one being sm2-07's scream flag (D-031). sm3-06's Debug Int3 fixed on `OriginalSourceBugFixes` (review 42, D-029, D-032). |
 
 ## Current batch
-Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028, on `RecordPlayback`, merged up); `LogicDrawSplit` merged with its recordings re-made (D-027).
+Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028); `LogicDrawSplit` merged with its recordings re-made (D-027); lock start position and flip mouse reads; training messages in the logic phase; review 42 (D-032); `replay_check` output names (D-033); the no-sound check and the leak and training test missions (D-031).
+
+Waiting: steward ruling on the two sound sites (D-031).
 
 ## Next batches (proposed order)
-1. Training messages: they are dequeued and voiced in `HUD_render_2d`, so a training mission desyncs under `-nodraw`. None of the 46 recordings has one, so first write an Autotest mission with training messages and record it, then split `message_training_display` into an update in `HUD_update_2d` and the drawing.
+1. The two sound sites, per the steward's ruling (D-031).
 2. Check whether `neb2_pre_render` and `stars_draw_background` in `game_render_frame_setup` draw gameplay random numbers.
 3. `nebl_update_all`: the flash distance from the game view instead of `gr_screen.max_w/h`.
 4. Squad message menu (piece 4): Tom deferred it, so lifting the deferral is his call (steward, D-027 follow-up). Last, and listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
@@ -31,6 +33,7 @@ Done 2026-10-16: baseline on DESKTOP-CLAUDE; CRLF mission files (D-028, on `Reco
 Both the PrePort backlog and the GodotPrep plan. Background for each is in `docs/PREPORT.md`.
 
 Logic and presentation
+- Sound data (at least each sound's length) loaded without a sound device: with `-nosound` no sound loads, so message voices never start and messages last only their animation.
 - Logic and drawing separated, drawing only reads state (`LogicDrawSplit`).
 - Logic uses the GR_1024 game view for any screen-space maths, never the window (D-006, D-022).
 - A read-only snapshot of objects after each simulation step (number, signature, model, transform) for the host to draw from.
