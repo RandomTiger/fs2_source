@@ -678,11 +678,14 @@ void nebl_update_all()	// Claude: was nebl_render_all
 					Nebl_flash_y /= (float)Nebl_flash_count;
 
 					// quick distance from the center of the screen			
-					float x = Nebl_flash_x - (gr_screen.max_w / 2.0f);
-					float y = Nebl_flash_y - (gr_screen.max_h / 2.0f);
+					// Claude: the game view's screen, where the flash points were counted, not the display (D-022)
+					int view_w, view_h;
+					game_view_screen_size(&view_w, &view_h);
+					float x = Nebl_flash_x - (view_w / 2.0f);
+					float y = Nebl_flash_y - (view_h / 2.0f);
 					float dist = fl_sqrt((x * x) + (y * y));		
-					if(dist / (gr_screen.max_w / 2.0f) < 1.0f){
-						flash = 1.0f - (dist / (gr_screen.max_w / 2.0f));										
+					if(dist / (view_w / 2.0f) < 1.0f){
+						flash = 1.0f - (dist / (view_w / 2.0f));										
 
 						// scale the flash by bolt type
 						flash *= bi->b_bright;

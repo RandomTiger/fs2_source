@@ -57,6 +57,17 @@ void game_view_size(int *w, int *h)
 	game_view_canvas(w, h);
 }
 
+void game_view_screen_size(int *w, int *h)
+{
+	if ( gr_screen.res == GR_1024 ) {
+		*w = 1024;
+		*h = 768;
+	} else {
+		*w = 640;
+		*h = 480;
+	}
+}
+
 void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom)
 {
 	// what g3_set_view_matrix leaves behind for gameplay

@@ -23,6 +23,10 @@ void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom);
 // game_set_view_clip, at the art resolution. Its clip region runs from 0,0 to w-1,h-1.
 void game_view_size(int *w, int *h);
 
+// The game view's full screen: the art resolution, 1024x768 (or 640x480), which is what gr_screen.max_w and max_h
+// have always been.  game_view_project reports the same.
+void game_view_screen_size(int *w, int *h);
+
 // Rotate a world point into the game view and return its clip codes (CC_*), as
 // g3_rotate_vector does for the renderer's view.
 ubyte game_view_rotate_vector(vector *dest, vector *src);
