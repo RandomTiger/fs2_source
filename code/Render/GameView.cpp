@@ -52,6 +52,11 @@ static void game_view_canvas(int *w, int *h)
 	}
 }
 
+void game_view_size(int *w, int *h)
+{
+	game_view_canvas(w, h);
+}
+
 void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom)
 {
 	// what g3_set_view_matrix leaves behind for gameplay

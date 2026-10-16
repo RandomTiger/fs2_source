@@ -1076,21 +1076,29 @@ void hud_calculate_lock_start_pos()
 	double delta_y;
 	double delta_x;
 	double target_mag, target_x, target_y;
+	int view_w, view_h;
+	float center_x, center_y;
 
-	delta_x = Player->current_target_sx - SCREEN_CENTER_X;
-	delta_y = Player->current_target_sy - SCREEN_CENTER_Y;
+	// Claude: centre and clamps below come from the game view's 3D view, not the screen's clip region, so the window size
+	// cannot reach the lock (D-006, D-022). Same numbers as SCREEN_CENTER_X/Y and gr_screen.clip_* after game_set_view_clip.
+	game_view_size(&view_w, &view_h);
+	center_x = (0 + (view_w - 1)) / 2.0f;
+	center_y = (0 + (view_h - 1)) / 2.0f;
+
+	delta_x = Player->current_target_sx - center_x;
+	delta_y = Player->current_target_sy - center_y;
 
 	if (!delta_x && !delta_y) {
-		Players[Player_num].lock_indicator_start_x = fl2i(SCREEN_CENTER_X + Lock_start_dist);
-		Players[Player_num].lock_indicator_start_y = fl2i(SCREEN_CENTER_Y);
+		Players[Player_num].lock_indicator_start_x = fl2i(center_x + Lock_start_dist);
+		Players[Player_num].lock_indicator_start_y = fl2i(center_y);
 		return;
 	}
 
 	hypotenuse = _hypot(delta_y, delta_x);
 
 	if (hypotenuse >= Lock_start_dist) {
-		Players[Player_num].lock_indicator_start_x = fl2i(SCREEN_CENTER_X);
-		Players[Player_num].lock_indicator_start_y = fl2i(SCREEN_CENTER_Y);
+		Players[Player_num].lock_indicator_start_x = fl2i(center_x);
+		Players[Player_num].lock_indicator_start_y = fl2i(center_y);
 		return;
 	}
 
@@ -1098,20 +1106,20 @@ void hud_calculate_lock_start_pos()
 	target_x = target_mag * (delta_x / hypotenuse);
 	target_y = target_mag * (delta_y / hypotenuse);
 
-	Players[Player_num].lock_indicator_start_x = fl2i(SCREEN_CENTER_X - target_x);
-	Players[Player_num].lock_indicator_start_y = fl2i(SCREEN_CENTER_Y - target_y);
+	Players[Player_num].lock_indicator_start_x = fl2i(center_x - target_x);
+	Players[Player_num].lock_indicator_start_y = fl2i(center_y - target_y);
 
-	if (Players[Player_num].lock_indicator_start_x > gr_screen.clip_right)
-		Players[Player_num].lock_indicator_start_x = gr_screen.clip_right;
+	if (Players[Player_num].lock_indicator_start_x > view_w - 1)
+		Players[Player_num].lock_indicator_start_x = view_w - 1;
 
-	if (Players[Player_num].lock_indicator_start_y > gr_screen.clip_bottom)
-		Players[Player_num].lock_indicator_start_y = gr_screen.clip_bottom;
+	if (Players[Player_num].lock_indicator_start_y > view_h - 1)
+		Players[Player_num].lock_indicator_start_y = view_h - 1;
 
-	if (Players[Player_num].lock_indicator_start_x < gr_screen.clip_left)
-		Players[Player_num].lock_indicator_start_x = gr_screen.clip_left;
+	if (Players[Player_num].lock_indicator_start_x < 0)
+		Players[Player_num].lock_indicator_start_x = 0;
 
-	if (Players[Player_num].lock_indicator_start_y < gr_screen.clip_top)
-		Players[Player_num].lock_indicator_start_y = gr_screen.clip_top;
+	if (Players[Player_num].lock_indicator_start_y < 0)
+		Players[Player_num].lock_indicator_start_y = 0;
 }
 
 // hud_stop_looped_locking_sounds() will terminate any hud related looping sounds that are playing

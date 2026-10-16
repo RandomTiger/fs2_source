@@ -19,6 +19,10 @@ struct object;
 // reads, and the game view's own projection.
 void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom);
 
+// The size of the game view's 3D view: what gr_screen.clip_width and clip_height are after
+// game_set_view_clip, at the art resolution. Its clip region runs from 0,0 to w-1,h-1.
+void game_view_size(int *w, int *h);
+
 // Rotate a world point into the game view and return its clip codes (CC_*), as
 // g3_rotate_vector does for the renderer's view.
 ubyte game_view_rotate_vector(vector *dest, vector *src);
