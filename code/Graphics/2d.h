@@ -630,7 +630,12 @@ extern void gr_activate(int active);
 
 #define gr_print_screen		GR_CALL(gr_screen.gf_print_screen)
 
-#define gr_flip				GR_CALL(gr_screen.gf_flip)
+// Claude: gr_flip makes the flip's input reads (mouse deltas, and the cursor position when it is shown) itself, in the
+// order the backends made them, then calls the backend's flip, which draws the cursor at Gr_flip_mouse_x/y and reads nothing.
+// So a new backend has no input reads to reproduce for the recordings.
+void gr_flip_frame();
+extern int Gr_flip_mouse_x, Gr_flip_mouse_y;
+#define gr_flip				gr_flip_frame
 #define gr_flip_window		GR_CALL(gr_screen.gf_flip_window)
 
 #define gr_set_clip			GR_CALL(gr_screen.gf_set_clip)

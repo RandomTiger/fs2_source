@@ -1056,10 +1056,10 @@ void grx_flip()
 
 	Grx_mouse_saved = 0;		// assume not saved
 
-	mouse_eval_deltas();
+	// Claude: mouse_eval_deltas is called by gr_flip_frame (2d.cpp)
 	if ( mouse_is_visible() )	{
 		gr_reset_clip();
-		mouse_get_pos( &mx, &my );
+		mx = Gr_flip_mouse_x;	my = Gr_flip_mouse_y;	// Claude: read by gr_flip_frame (2d.cpp)
 		grx_save_mouse_area(mx,my,32,32);
 		if ( Gr_cursor == -1 )	{
 			gr_set_color(255,255,255);

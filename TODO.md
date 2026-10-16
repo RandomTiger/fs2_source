@@ -67,3 +67,6 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 ## PrePort
 - [x] Mission files check out with CRLF (recordings checksum the bytes): `.gitattributes` on
       `RecordPlayback`, merged up (D-028, e9adc97).
+- [ ] FRED cannot be built on DESKTOP-CLAUDE: the Visual Studio MFC component is missing (MSB8041).
+      `gr_flip_frame` (b31f0c8's successor) touches `GrSoft.cpp`, which FRED uses; build FRED on
+      DESKTOP-MAIN, or install MFC here (Tom's call: it changes the VS install).

@@ -440,6 +440,7 @@
 
 // Includes for different rendering systems
 #include "GrSoft.h"
+#include "mouse.h"	// Claude: gr_flip_frame
 #include "GrD3D.h"
 
 screen gr_screen;
@@ -1277,4 +1278,17 @@ void gr_pline_special(vector **pts, int num_pts, int thickness)
 
 	// restore culling
 	gr_set_cull(1);		
+}
+
+// Claude: see gr_flip in 2d.h. The backends used to make these two reads inside their flip; nothing between them there
+// was a recorded read, so the recorded stream is the same.
+int Gr_flip_mouse_x = 0, Gr_flip_mouse_y = 0;
+
+void gr_flip_frame()
+{
+	mouse_eval_deltas();
+	if ( mouse_is_visible() )	{
+		mouse_get_pos( &Gr_flip_mouse_x, &Gr_flip_mouse_y );
+	}
+	(*gr_screen.gf_flip)();
 }

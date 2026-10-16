@@ -1754,7 +1754,7 @@ void gr_d3d_flip()
 	
 	gr_reset_clip();	
 
-	mouse_eval_deltas();
+	// Claude: mouse_eval_deltas is called by gr_flip_frame (2d.cpp)
 
 	Gr_d3d_mouse_saved = 0;		// assume not saved		
 
@@ -1764,7 +1764,7 @@ void gr_d3d_flip()
 
 	if ( mouse_is_visible() )	{				
 		gr_reset_clip();
-		mouse_get_pos( &mx, &my );
+		mx = Gr_flip_mouse_x;	my = Gr_flip_mouse_y;	// Claude: read by gr_flip_frame (2d.cpp)
 		
 		gr_d3d_save_mouse_area(mx,my,32,32);	
 		if ( Gr_cursor == -1 )	{
