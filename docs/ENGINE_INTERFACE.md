@@ -27,6 +27,9 @@ The recorder already hooks about 28 seam functions. Each is a value the game tak
 ## The gameplay random stream belongs to the game
 `rand()` and `srand()` in game code are the game's own copy of the MSVC CRT generator (`fs2_rand`, `GlobalIncs/SystemVars.cpp`), so the host's threads and libraries cannot shift it. The host never calls the game's `rand`; the gameplay stream is owned by logic (D-039).
 
+## Animation timing belongs to the game
+Animations (talking heads, HUD and menu anims) keep their timing in the logic step. Bitmap creation failing (`bm_create` returning -1) leaves an animation's timing unchanged; that frame just has nothing to draw (D-040). The host only supplies pixels.
+
 ## The camera stays in the game (decision D-036)
 The view setup is part of the game's logic step, not the host's. `game_render_frame_setup` decides the camera every frame, with or without drawing. Its shakes, `apply_hud_shake` (afterburner, engine wash, shudder) and `supernova_apply_shake`, draw from the gameplay random stream, so moving the camera anywhere else shifts every later gameplay random number. The host receives the finished eye from `game_view_set` and draws from it. It never computes shake or moves the camera itself. A host camera feature (VR, free camera, replay camera) has to go through the C++ view setup. The trace records the eye every frame (trace version 2), so a host that broke this rule would show as a TraceDiff `eye` field at the first frame.
 

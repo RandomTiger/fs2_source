@@ -233,6 +233,10 @@ static void anim_blit_frame(anim_instance *instance)
 {
 	vertex	image_vertex;
 
+	if ( instance->last_bitmap < 0 ) {
+		return;		// Claude: no bitmap for this frame (D-040)
+	}
+
 	gr_set_bitmap(instance->last_bitmap);
 	
 	// determine x,y to display the bitmap at
@@ -725,9 +729,10 @@ int anim_show_next_frame(anim_instance *instance, float frametime, int blit)	// 
 	}
 	
 	if ( bitmap_id == -1 ) {
-		// anim has finsished playing, free the instance frame data
-		anim_release_render_instance(instance);	
-		return -1;
+		// Claude: no free bitmap slot.  This used to end the anim at once, and with it an unvoiced message (D-040).  The anim
+		// keeps its timing and ends at its last frame as usual; this frame has nothing to draw.
+		instance->last_bitmap = -1;
+		return 0;
 
 		// NOTE: there is no need to free the instance, since it was pre-allocated as 
 		//       part of the anim_free_list
