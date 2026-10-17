@@ -677,5 +677,25 @@ template <class T> void CAP( T& v, T mn, T mx )
 	#define free(ptr) vm_free(ptr)
 	#define strdup(ptr) vm_strdup(ptr)
 
+//=========================================================
+// Claude: Debug-only bounds guards on the large global arrays (D-061, D-076)
+//=========================================================
+// GUARDED_ARRAY(type, name, n) declares `type name[n]` in Release, unchanged. In Debug it declares a
+// guarded_array, the same size and layout, whose [] Asserts the index is in range; it converts to
+// a plain pointer, so `objp - Objects`, `Objects + i` and passing the array on work as before.
+// A guard firing is a finding for Tom, never a silent fix (D-061 item 3).
+#ifndef NDEBUG
+	template <typename T, int N> struct guarded_array {
+		T data[N];
+		T &operator[](int i)				{ Assert( (i >= 0) && (i < N) ); return data[i]; }
+		const T &operator[](int i) const	{ Assert( (i >= 0) && (i < N) ); return data[i]; }
+		operator T *()						{ return data; }
+		operator const T *() const		{ return data; }
+	};
+	#define GUARDED_ARRAY(type, name, n)	guarded_array<type, n> name
+#else
+	#define GUARDED_ARRAY(type, name, n)	type name[n]
+#endif
+
 
 #endif		// PS_TYPES_H
