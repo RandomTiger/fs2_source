@@ -8600,6 +8600,20 @@ void ship_maybe_tell_about_rearm(ship *sp)
 // input:	sp			=>	pointer to ship that modified primaries
 void ship_primary_changed(ship *sp)
 {
+#if 0
+	ship_weapon	*swp;
+
+	// we only need to deal with multiplayer issues for now, so bail it not multiplayer
+	if ( !(Game_mode & GM_MULTIPLAYER) )
+		return;
+
+	Assert(sp);
+	swp = &sp->weapons;
+
+	
+	if ( MULTIPLAYER_MASTER )
+		send_ship_weapon_change( sp, MULTI_PRIMARY_CHANGED, swp->current_primary_bank, (sp->flags & SF_PRIMARY_LINKED)?1:0 );
+#endif
 }
 
 // The current secondary weapon or dual-fire status for a ship has changed.. notify clients if multiplayer
@@ -8607,6 +8621,20 @@ void ship_primary_changed(ship *sp)
 // input:	sp					=>	pointer to ship that modified secondaries
 void ship_secondary_changed(ship *sp)
 {
+#if 0
+	ship_weapon	*swp;
+
+	// we only need to deal with multiplayer issues for now, so bail it not multiplayer
+	if ( !(Game_mode & GM_MULTIPLAYER) ){
+		return;
+	}
+
+	Assert(sp);
+	swp = &sp->weapons;
+
+	if ( MULTIPLAYER_MASTER )
+		send_ship_weapon_change( sp, MULTI_SECONDARY_CHANGED, swp->current_secondary_bank, (sp->flags & SF_SECONDARY_DUAL_FIRE)?1:0 );
+#endif
 }
 
 int ship_get_SIF(ship *shipp)

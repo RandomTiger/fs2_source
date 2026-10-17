@@ -1854,6 +1854,68 @@ void obj_client_post_interpolate()
 	beam_move_all_post();
 }
 
+#if 0
+// following function is used in multiplayer only.  It deals with simulating objects on the client
+// side.  Lasers will always get moved by the client (i.e. no object position info is ever sent for them).
+// same for dumb missiles and possibly others.  We might move ships based on the last time their posision
+// was updated
+void obj_client_simulate(float frametime)
+{
+	object *objp;
+
+	obj_delete_all_that_should_be_dead();
+
+	multi_do_client_warp(frametime);     // client side processing of warping in effect stages
+	
+	if(Net_player->flags & NETINFO_FLAG_OBSERVER){
+		obj_observer_move(frametime);   // client side movement of an observer
+	}
+
+	/*
+	obj_merge_created_list();						// must merge any objects created by the host!
+	objp = GET_FIRST(&obj_used_list);
+	for ( objp = GET_FIRST(&obj_used_list); objp !=END_OF_LIST(&obj_used_list); objp = GET_NEXT(objp) )	{
+
+		if ( !(objp->flags&OF_SHOULD_BE_DEAD) )	{
+			vector	cur_pos = objp->pos;			// Save the current position
+
+			obj_move_all_pre(objp, frametime);
+
+			int predict_from_server_pos = 1;
+
+			// If not visible (or not a ship), bash position
+			if ( (!obj_visible_from_eye(&cur_pos)) || (objp->type != OBJ_SHIP) ) {
+				predict_from_server_pos = 0;
+			}
+
+			// If this is a player ship, don't predict from server position
+			if ( objp->flags & OF_PLAYER_SHIP ) {
+				predict_from_server_pos = 0;
+			}
+
+			if ( predict_from_server_pos ) {
+				obj_client_predict_pos(objp, frametime);
+			} else {
+				obj_client_bash_pos(objp, frametime);
+			}
+
+			obj_move_all_post(objp, frametime);
+		}
+	}	
+	*/
+
+	//	After all objects have been moved, move all docked objects.
+	objp = GET_FIRST(&obj_used_list);
+	while( objp !=END_OF_LIST(&obj_used_list) )	{
+		if ( (objp->type == OBJ_SHIP) || (objp != Player_obj) ) {
+			move_docked_objects(objp);
+		}
+		objp = GET_NEXT(objp);
+	}
+
+	obj_check_all_collisions();	
+}
+#endif
 
 void obj_observer_move(float flFrametime)
 {
