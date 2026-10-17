@@ -31,11 +31,6 @@
 
 //@@BEGIN_MSINTERNAL
 #include "vddrawp.h"
-#if 0
-//@@END_MSINTERNAL
-#include "vddraw.h"
-//@@BEGIN_MSINTERNAL
-#endif
 //@@END_MSINTERNAL
 #include "vd3d.h"
 

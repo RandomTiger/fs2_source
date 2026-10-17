@@ -579,51 +579,7 @@ double Log2[256]; // lookup table for log-base-2 (i.e. log(x) / log(2))
 
 
 // HF encoding table
-#if 0
-unsigned int EncTable[8][256] =
-{
-	{
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,
-		1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,  2,
-		2,  2,  2,  2,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  
-
-		4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  5,  5,  
-        5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  6,  6,  6,  
-		6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  
-		6,  6,  6,  6,  6,  6,  6,  6,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7
-	},
-	{
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-		0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,
-		1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,
-		1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,
-		2,  2,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  
-
-		4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  
-        5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  
-		6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  
-		6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  
-		7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7
-	},
-};
-#else
 unsigned int EncTable[8][256];
-#endif
 
 // HF decoding table
 int DecTable[8][8] =
@@ -939,22 +895,6 @@ static void InitEncoder1(int QoS)
 			EncTable[table][in--] = vn,  EncTable[table][ip++] = vp;
 	}
 	table = 0;
-#if 0
-	for (table = 0; table < 8; table++)
-        for (i = 0; i < 256; i++)
-		{
-			s = abs(i - ZERO);
-			if (s < 128*(table+1)/8.0)
-				EncTable[table][i] = (unsigned int)log(s*8.0/(table+1)) 
-					                 / log(2.0);
-			else
-				EncTable[table][i] = (unsigned int)log(128*8.0/(table+1));
-    }
-    
-	for (table = 0; table < 8; table++)
-		for (i = 0; i < 8; i++)
-			DecTable[table][i] = pow(2.0, i);
-#endif
 
 }
 
@@ -1656,20 +1596,10 @@ static void LowPassFilter(t_Sample* bufIn, t_Sample* bufOut, int size,
         bufOut[j-(LPF_NUM_POINTS-1)] = t_Sample(sum + ZERO);
     }
 
-  #if 0
-    //for (j = 0; j < LPF_NUM_POINTS-1; j++)
-    //  bufOut[j] = 0;	// clear unused buffer entries
-
-	// fade in the samples to avoid pops & clicks
-    int level = bufOut[LPF_NUM_POINTS-1];
-    for (j = LPF_NUM_POINTS-2; j >= 0; j--)
-        bufOut[j] = level = ((level-ZERO) >> 1) + ZERO;
-  #else
 	// fade out the samples to avoid pops & clicks
     int level = bufOut[size - LPF_NUM_POINTS];
     for (j = size-(LPF_NUM_POINTS+1); j < size; j++)
 		bufOut[j] = t_Sample(level = ((level-ZERO) >> 1) + ZERO);
-  #endif
   #if defined(REMOVE_DC_BIAS)
 	int sum, bias;
 	// remove DC bias
@@ -1707,20 +1637,9 @@ extern "C"
 // can operate in place
 static void ConvertToLPC10(t_Sample* bufIn, t_Sample* bufOut, int size)
 {
-#if 0
-    unsigned short s;
-    for (int i = 0; i < size; i++)
-    {
-        s = bufIn[i]-ZERO;
-        s <<= 8;
-        s >>= 3;
-        bufOut[i] = s2u[s];
-    }
-#else
 
     for (int i = 0; i < size; i++)
         bufOut[i] = audio_c2u(bufIn[i]);
-#endif
 }
 
 // can operate in place
@@ -1735,58 +1654,4 @@ static void ConvertFromLPC10(t_Sample* bufIn, t_Sample* bufOut, int size)
 //////////////////////////////////////////////////////////////////////////////
 // Only unused junk below.  Being kept around for reference only.
 
-#if 0
-    for (i = 0; i < 256; i++)
-    {
-        s = abs(i - ZERO);
-        if (s > 22)
-            s = (log((double)s) / log(2.0)) * 5 + .5;
-        s = i < ZERO ? ZERO - s : s + ZERO;
-        unsigned char junk = s;
-        if (junk > ZERO+35 || junk < ZERO-36)
-            junk = 127;
-    }
-
-static void Log1(t_Sample* bufIn, t_Sample* bufOut, int size)
-{
-    register int i, s;
-    for (i = 0; i < size; i++)
-    {
-        s = abs(bufIn[i] - ZERO);
-        if (s > 22)
-            s = Log2[s] * 5.0 + .5;
-        bufOut[i] = bufIn[i] < ZERO ? ZERO - s : s + ZERO;
-        if (bufOut[i] > ZERO+35 || bufOut[i] < ZERO-36)
-            bufOut[i] = 127;
-    }
-}
-
-static void UnLog1(t_Sample* bufIn, t_Sample* bufOut, int size)
-{
-    int i;
-    for (i = 0; i < size; i++)
-    {
-        int s = abs(bufIn[i] - ZERO);
-        
-        if (s > 22)
-            s = pow(2.0, s / 5.0); //!!! could use some optimization
-        bufOut[i] = bufIn[i] < ZERO ? ZERO - s : s + ZERO;
-    }
-}
-
-// from InitLowPassFilter():
-    //int K = LPF_NUM_POINTS;
-    //double cutoffFrequency = 1100.0*QoS,
-    //       bandwidthPerBucket = cutoffFrequency / (K/2);
-    //int N = (int)(11000.0 / bandwidthPerBucket), k,
-    //    kshift = K/2;
-
-    // cutoff fraction = cutoff freq / sample freq
-    // ==> cutoff fraction = LPF_NUM_POINTS / N
-    // ==> N = LPF_NUM_POINTS / cutoff fraction
-    //int i, k, N = (int)(LPF_NUM_POINTS / ((1100.0*QoS) / 11000.0)), 
-    //    kshift = LPF_NUM_POINTS/2;
-
-
-#endif
 

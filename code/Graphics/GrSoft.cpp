@@ -1095,11 +1095,7 @@ void grx_flip()
 				//if (nColors)	mprintf(( "Actually set %d palette colors.\n", nColors ));
 			}
 
-#if 0 
-			BitBlt(hdc,0,h/2,w,h/2,hDibDC,x,y+h/2,SRCCOPY);
-#else
 			BitBlt(hdc,0,0,w,h,hDibDC,x,y,SRCCOPY);
-#endif
 
 			if ( hOldPalette )	
 				SelectPalette(hdc,hOldPalette, FALSE );

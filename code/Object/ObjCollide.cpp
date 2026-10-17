@@ -609,11 +609,6 @@ void obj_check_all_collisions()
 
 			if ((*tmp->check_collision)(tmp))	{
 				// We never need to check this pair again.
-				#if 0	//def DONT_REMOVE_PAIRS
-					// Never check it again, but keep the pair around
-					// (useful for debugging)
-					tmp->next_check_time = timestamp(-1);		
-				#else
 					// Never check it again, so remove the pair
 					removed = 1;
 					tmp->a->num_pairs--;	
@@ -627,7 +622,6 @@ void obj_check_all_collisions()
 					tmp->next = pair_free_list.next;
 					pair_free_list.next = tmp;
 					tmp = parent->next;
-				#endif
 			}
 		} 
 

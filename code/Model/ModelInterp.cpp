@@ -2208,53 +2208,10 @@ void model_try_cache_render(int model_num, matrix *orient, vector * pos, uint fl
 	}
 
 		// This method is correct, but rotating ship makes things redraw which is too slow.
-	#if 0
-		if ( cr > 4.0f )	{
-			// Check orientation
-			float angle_error = max( fl_abs( mc->angs.p-new_angles.p ),fl_abs( mc->angs.h-new_angles.h ));
-
-			// Exact
-			//if ( angle_error > 0.075f  )	{	
-
-			// Rough
-			if ( angle_error > 0.40f  )	{	
-				// Ship/view turned too much
-				//mprintf(( "Ship/view turned too much %.4f\n", angle_error ));
-
-				goto RedrawIt;
-			}
-		}
-	#endif
 
 
 //		mprintf(( "Dot = %.5f\n", dot ));
 
-#if 0
-	if (0) {
-		float dx, dy, dz;
-
-		dx = vm_vec_dot( &orient->rvec, &mc->orient.rvec )+1.0f;
-		dy = vm_vec_dot( &orient->uvec, &mc->orient.uvec )+1.0f;
-		dz = vm_vec_dot( &orient->fvec, &mc->orient.fvec )+1.0f;
-			
-		float angle_error = (dx+dy+dz)*1000.0f/6.0f;		
-
-		//mprintf(( "Angle_error = %.4f\n", angle_error ));
-
-		// Compare it to 999.75f at R = 64.0f
-		//               0.0000f at R = 0.0f
-		
-		float cmp_val = 999.75f;		// old
-//			if ( is_asteroid )	{
-//				cmp_val = scale_it( 0.0f, 999.75f, cr, 0.0f, 64.0f );
-//			}
-											
-		if ( angle_error < cmp_val ) {
-			// Ship turned too much
-			goto RedrawIt;
-		}
-	}	
-#endif
 
 
 	// Have a valid cache entry, mc
