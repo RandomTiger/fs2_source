@@ -7,7 +7,7 @@ decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers b
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
 `recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
-**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and is closed again now that `PrePort64` is proven (D-067). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
+**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and closed when `PrePort64` was proven (D-067). Every layer but `master` is open again for the work that belongs on it (D-20261017-223742). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
 
 ## Stage gates (D-026)
 | Gate | State |
@@ -37,7 +37,7 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 - G2 done: branches of five never-defined macros (754 lines).
 - G3 done: 39 `#if 0` blocks cut; 3 multiplayer blocks restored (D-069), since multiplayer stays out of the cut (D-060, D-014).
 - G4 decided by Tom (D-068): FRED, the tools and the software renderer (`GrSoft` and its scanline and blit files) are kept. They are not game code and are excluded from D-060 and from D-062 item 1, which means one renderer in the game build.
-- Known gap: the tools (FRED2, Pofview, Nebedit) are not built on this machine. FRED2 and Pofview need MFC, not installed yet; Nebedit fails to link (`View_percent`). A tools build check joins the quick suite once MFC is in (D-068).
+- Tools build and run (D-068): with MFC installed, FRED2, Pofview and Nebedit build after a `View_percent` stub each, and FRED opens. The VS2022 standard (every project builds and runs, steward with Tom) is being audited from `VS2022` up; the tools build-and-run check joins the quick suite from there.
 - G5 (Glide remnants, D-070): the renderer selection and the launcher-name mapping wait for the demo and build-variant work (`docs/DEMO_CODE.md`).
 - G5 done (D-070): two Glide sites; G6 done (D-071): the Aureal A3D remnants. EAX and DirectSound3D are a live setting and go to the sound backend collapse (D-062 item 2).
 - G2b done (D-072): `#ifndef HARDWARE_ONLY` branches, 1068 lines. They compile in neither the game nor the tools; the proof for FRED is that macro argument until the tools build check runs.
@@ -46,9 +46,13 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 - Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer, and the GR_640 interface art mode. GR_640 is a kept UI art mode: FS1 has no 1024 art, so UI art mode and in-game render resolution become separate settings. No cut or collapse may assume 1024-only art, and the renderer collapse brief must say how GR_640 UI art survives (steward with Tom, 2026-10-17). FS1 itself stays unscheduled; its table converters and mission file-name handling go in data loading, not game logic. Checked: no cleanup cut so far removed GR_640 code.
 
 Tom's decisions, not scheduled:
-- Drop 16-bit colour (the ColourDepth=16 option and the 16-bit texture paths), with the renderer collapse (D-062 item 1, D-074); the tools build check comes first.
-- Whether the one remaining sound backend keeps 3D positional sound (D-071), with the sound collapse (D-062 item 2).
+- Decided: 16-bit colour stays (D-20261017-231123); the renderer collapse keeps it and the GR_640 UI art.
+- Decided: both sound backends stay until an audio assessment method exists, scripted listening situations per API (D-20261017-231124).
 - Remove the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites in ship, damage and simulation code) as superseded by RecordPlayback (D-073 (b)).
+
+## Upcoming feature branches (D-20261017-223742), demo mode authorised after the current queue, starting with a brief (D-20261017-231126); FS1 unscheduled
+- Demo mode by data detection (D-063): a branch off `RecordPlayback`, merged into `Enhanced` when green.
+- FS1 compatibility (D-064): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
