@@ -1814,7 +1814,7 @@ void turn_towards_point(object *objp, vector *point, vector *slide_vec, float ba
 	
 	// check if in formation and if not leader, don't change rotvel.z (bank to match leader elsewhere)
 	if (aip->ai_flags & AIF_FORMATION) {
-		if (&Objects[aip->goal_objnum] != objp) {
+		if ((Objects + aip->goal_objnum) != objp) {	// Claude: address only; goal_objnum can be -1 here (D-077)
 			float rotvel_z = objp->phys_info.rotvel.z;
 			ai_turn_towards_vector(point, objp, flFrametime, Ship_info[Ships[objp->instance].ship_info_index].srotation_time, slide_vec, NULL, bank_override, 0);
 			objp->phys_info.rotvel.z = rotvel_z;
@@ -14023,7 +14023,7 @@ void ai_process( object * obj, int ai_index, float frametime )
 		physics_read_flying_controls( &obj->orient, &obj->phys_info, &AI_ci, frametime);
 		// if obj is in formation and not flight leader, don't update rotvel
 		if (aip->ai_flags & AIF_FORMATION) {
-			if (&Objects[aip->goal_objnum] != obj) {
+			if ((Objects + aip->goal_objnum) != obj) {	// Claude: address only; goal_objnum can be -1 here (D-077)
 				obj->phys_info.desired_rotvel = copy_desired_rotvel;
 				obj->phys_info.rotvel = copy_desired_rotvel;
 			}
