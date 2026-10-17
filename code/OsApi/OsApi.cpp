@@ -768,6 +768,7 @@ void os_poll()
 	Host_hooks.poll_events();	// Claude: through the host (D-051)
 
 	replay_os_poll();
+	autotest_poll_done();	// Claude: for the autotest stuck dump (D-053)
 }
 
 void debug_int3()
