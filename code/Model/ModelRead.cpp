@@ -845,8 +845,23 @@ void model_init()
 	// Init the model caching system
 	model_cache_init();
 
-	atexit( model_free_all );
+	// Claude: registered once, and model_close, so a restarted game can init again (D-055)
+	static int model_close_registered = 0;
+	if ( !model_close_registered ) {
+		atexit( model_close );
+		model_close_registered = 1;
+	}
 	model_initted = 1;
+}
+
+// Claude: free the models and let model_init run again; game_shutdown and process exit (D-055)
+void model_close()
+{
+	if ( !model_initted ) {
+		return;
+	}
+	model_free_all();
+	model_initted = 0;
 }
 
 // routine to parse out values from a user property field of an object

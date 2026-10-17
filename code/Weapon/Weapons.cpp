@@ -1453,6 +1453,25 @@ void weapon_init()
 }
 
 
+// Claude: game_shutdown. Free what weapon_init allocated and let it read the tables again, so the game can
+// restart in one process (D-055)
+void weapon_close()
+{
+	int i;
+
+	for (i = 0; i < Num_weapon_types; i++) {
+		if (Weapon_info[i].desc) {
+			free(Weapon_info[i].desc);
+			Weapon_info[i].desc = NULL;
+		}
+		if (Weapon_info[i].tech_desc) {
+			free(Weapon_info[i].tech_desc);
+			Weapon_info[i].tech_desc = NULL;
+		}
+	}
+	Weapons_inited = 0;
+}
+
 // This will get called at the start of each level.
 void weapon_level_init()
 {

@@ -6550,12 +6550,15 @@ void game_shutdown(void)
 	shockwave_close();			// release any memory used by shockwave system	
 	fireball_close();				// free fireball system
 	ship_close();					// free any memory that was allocated for the ships
+	weapon_close();					// Claude: and the weapons (D-055)
 	hud_free_scrollback_list();// free space allocated to store hud messages in hud scrollback
 	unload_animating_pointer();// frees the frames used for the animating mouse pointer
+	model_close();					// Claude: free the models before their textures (D-055)
 	bm_unload_all();				// free bitmaps
 	mission_campaign_close();	// close out the campaign stuff
 	multi_voice_close();			// close down multiplayer voice (including freeing buffers, etc)
 	multi_log_close();
+	Net_player = NULL;	// Claude: multi_init sets it, once per start (D-055)
 #ifdef MULTI_USE_LAG
 	multi_lag_close();
 #endif

@@ -6990,8 +6990,21 @@ void ship_close()
 	for ( i = 0; i < Num_ship_types; i++ ) {
 		if ( Ship_info[i].subsystems != NULL ) {
 			free(Ship_info[i].subsystems);
+			Ship_info[i].subsystems = NULL;	// Claude: D-055
+		}
+
+		// Claude: the strings parse_shiptbl duplicated, so a restart can read ships.tbl again (D-055)
+		char **strs[] = { &Ship_info[i].type_str, &Ship_info[i].maneuverability_str, &Ship_info[i].armor_str, &Ship_info[i].manufacturer_str,
+			&Ship_info[i].desc, &Ship_info[i].tech_desc, &Ship_info[i].ship_length, &Ship_info[i].gun_mounts, &Ship_info[i].missile_banks };
+		for (int j = 0; j < (int)(sizeof(strs) / sizeof(strs[0])); j++) {
+			if (*strs[j] != NULL) {
+				free(*strs[j]);
+				*strs[j] = NULL;
+			}
 		}
 	}
+
+	ships_inited = 0;	// Claude: ships.tbl is read again if the game restarts (D-055)
 }	
 
 // -------------------------------------------------------------------------------------------------

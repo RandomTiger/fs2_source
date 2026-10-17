@@ -733,7 +733,19 @@ void _cdecl gr_printf( int x, int y, char * format, ... )
 
 void gr_font_close()
 {
-
+	// Claude: free the fonts, so gr_font_init loads them again after a restart instead of finding them by name
+	// with stale bitmaps (D-055)
+	for (int i = 0; i < Num_fonts; i++) {
+		font *fnt = &Fonts[i];
+		if (fnt->kern_data) free(fnt->kern_data);
+		if (fnt->char_data) free(fnt->char_data);
+		if (fnt->pixel_data) free(fnt->pixel_data);
+		if (fnt->bm_data) free(fnt->bm_data);
+		if (fnt->bm_u) free(fnt->bm_u);
+		if (fnt->bm_v) free(fnt->bm_v);
+	}
+	memset(Fonts, 0, sizeof(Fonts));
+	Num_fonts = 0;
 }
 
 // Returns -1 if couldn't init font, otherwise returns the

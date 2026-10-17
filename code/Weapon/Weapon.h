@@ -547,6 +547,7 @@ extern char	*Weapon_names[MAX_WEAPON_TYPES];
 
 int weapon_info_lookup(char *name);
 void weapon_init();					// called at game startup
+void weapon_close();	// Claude: game_shutdown; weapon_init may run again (D-055)
 void weapon_level_init();			// called before the start of each level
 void weapon_render(object * obj);
 void weapon_update_flyby_consider();	// Claude: logic phase part of weapon_render

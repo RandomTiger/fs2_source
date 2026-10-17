@@ -706,6 +706,7 @@ typedef struct polymodel {
 
 // Call once to initialize the model system
 void model_init();
+void model_close();	// Claude: free the models; model_init may run again (D-055)
 
 // call at the beginning of a level. after the level has been loaded
 void model_level_post_init();

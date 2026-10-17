@@ -1440,6 +1440,8 @@ void ds_close()
 	// free the Channels[] array, since it was dynamically allocated
 	free(Channels);
 	Channels = NULL;
+
+	ds_initialized = FALSE;	// Claude: so snd_init can start it again (D-055)
 }
 
 // ---------------------------------------------------------------------------------------
