@@ -211,6 +211,7 @@
 #include "Joy_ff.h"
 #include "vdinput.h"
 #include "OsApi.h"
+#include "HostHooks.h"
 #include "Replay.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
 
@@ -250,6 +251,38 @@ typedef struct joy_button_info {
 Joy_info joystick;
 
 joy_button_info joy_buttons[JOY_TOTAL_BUTTONS];
+
+// Claude: the joystick reads go through the host (D-051, D-052). These stand in for joyGetPosEx and
+// joyGetDevCaps, so the code that uses the results is unchanged. Every read here used JOY_RETURNALL
+// (PRECALIBRATED); the host's read returns the same fields.
+static MMRESULT joy_host_read(UINT stick, JOYINFOEX *ji)
+{
+	host_joy_state st;
+	if (Host_hooks.joy_read(stick, &st)) {
+		return JOYERR_UNPLUGGED;
+	}
+	ji->dwXpos = st.axes[0];
+	ji->dwYpos = st.axes[1];
+	ji->dwZpos = st.axes[2];
+	ji->dwRpos = st.axes[3];
+	ji->dwUpos = st.axes[4];
+	ji->dwVpos = st.axes[5];
+	ji->dwButtons = st.buttons;
+	ji->dwPOV = st.pov;
+	return JOYERR_NOERROR;
+}
+
+static MMRESULT joy_host_caps(UINT stick, JOYCAPS *jc, UINT size)
+{
+	host_joy_caps caps;
+	if (Host_hooks.joy_caps(stick, &caps)) {
+		return JOYERR_PARMS;
+	}
+	memset(jc, 0, size);
+	strncpy(jc->szPname, caps.name, MAXPNAMELEN - 1);
+	jc->wCaps = (caps.has_z ? JOYCAPS_HASZ : 0) | (caps.has_r ? JOYCAPS_HASR : 0) | (caps.has_u ? JOYCAPS_HASU : 0) | (caps.has_v ? JOYCAPS_HASV : 0);
+	return JOYERR_NOERROR;
+}
 
 int joy_di_init();
 int joy_di_shutdown();
@@ -317,7 +350,7 @@ DWORD joy_process(DWORD lparam)
 
 		uint joy_state = 0;
 		if (Cur_joystick >= 0) {
-			rs = joyGetPosEx(Cur_joystick, &ji);
+			rs = joy_host_read(Cur_joystick, &ji);
 			// If there's an error, assume all buttons down.
 			if (rs == JOYERR_NOERROR) {
 				joy_state = ji.dwButtons;
@@ -462,7 +495,7 @@ void joy_get_caps(int max)
 		joystick.axis_valid[j] = 0;
 
 	for (j=JOYSTICKID1; j<JOYSTICKID1+max; j++) {
-		if (JOYERR_NOERROR == joyGetDevCaps (j, &JoyCaps, sizeof(JoyCaps))) {
+		if (JOYERR_NOERROR == joy_host_caps (j, &JoyCaps, sizeof(JoyCaps))) {
 			nprintf(("JOYSTICK", "Joystick #%d: %s\n", j - JOYSTICKID1 + 1, JoyCaps.szPname));
 
 			if (j == Cur_joystick) {
@@ -541,7 +574,7 @@ int joy_init()
 		return 0;
 
 	Joy_inited = 1;
-	n = joyGetNumDevs();
+	n = Host_hooks.joy_count();
 	Cur_joystick = os_config_read_uint(NULL, "CurrentJoystick", JOYSTICKID1);
 
 	joy_get_caps(n);
@@ -571,7 +604,7 @@ int joy_init()
 		// AL: test code to try and find out why this call fails the first time
 		rs = 0;
 		for (count=0; count<20; count++) {
-			rs = joyGetPosEx(Cur_joystick, &ji);
+			rs = joy_host_read(Cur_joystick, &ji);
 			if (rs == JOYERR_NOERROR)
 				break;
 		}
@@ -579,7 +612,7 @@ int joy_init()
 		// the configured joystick isn't there (or none was configured): use the first one that answers
 		if (rs != JOYERR_NOERROR) {
 			for (i=0; i<n; i++) {
-				rs = joyGetPosEx(i, &ji);
+				rs = joy_host_read(i, &ji);
 				if (rs == JOYERR_NOERROR) {
 					mprintf(("Joystick %d not found, using joystick %d\n", Cur_joystick, i));
 					Cur_joystick = i;
@@ -639,7 +672,7 @@ int joy_init()
 // Returns 0 if the recording had one and this machine has no joystick driver (joy_init set nothing up).
 int joy_replay_set_sticks(int count)
 {
-	if ((count > 0) && (joy_num_sticks < 1) && (joyGetNumDevs() < 1)) {
+	if ((count > 0) && (joy_num_sticks < 1) && (Host_hooks.joy_count() < 1)) {
 		return 0;
 	}
 	joy_num_sticks = count;
@@ -710,7 +743,7 @@ int joy_get_pos_old(int * x, int * y )
 
 	if (Cur_joystick >= 0) {
 		EnterCriticalSection(&joy_lock);
-		rs = joyGetPosEx(Cur_joystick, &ji);
+		rs = joy_host_read(Cur_joystick, &ji);
 		LeaveCriticalSection(&joy_lock);
 
 		if (rs == JOYERR_NOERROR) {
@@ -995,7 +1028,7 @@ static int joystick_read_raw_axis_live(int num_axes, int *axis)
 
 	if (Cur_joystick >= 0) {
 		EnterCriticalSection(&joy_lock);
-		rs = joyGetPosEx(Cur_joystick, &ji);
+		rs = joy_host_read(Cur_joystick, &ji);
 		LeaveCriticalSection(&joy_lock);
 
 	} else

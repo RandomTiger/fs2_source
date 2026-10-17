@@ -8,6 +8,19 @@
 
 #include "pstypes.h"
 
+// a joystick read: calibrated positions of all six axes (x, y, z, r, u, v), the buttons as bits, the POV hat
+typedef struct host_joy_state {
+	unsigned int	axes[6];
+	unsigned int	buttons;
+	unsigned int	pov;
+} host_joy_state;
+
+// a joystick's name and which axes past x and y it has
+typedef struct host_joy_caps {
+	char	name[32];
+	int	has_z, has_r, has_u, has_v;
+} host_joy_caps;
+
 typedef struct host_hooks {
 	// time: a counter that only goes up, and its ticks per second (less than 2^32)
 	longlong	(*time_counter)();
@@ -21,6 +34,12 @@ typedef struct host_hooks {
 	// mouse: the cursor position in the game window's client coordinates, and moving the cursor there
 	void		(*mouse_get_pos)(int *x, int *y);
 	void		(*mouse_set_pos)(int x, int y);
+
+	// joystick: how many sticks the driver has slots for, a stick's caps, and one read. joy_caps and joy_read
+	// return 0 when the stick answered. The game keeps its own button timing (Joy.cpp).
+	int		(*joy_count)();
+	int		(*joy_caps)(int stick, host_joy_caps *caps);
+	int		(*joy_read)(int stick, host_joy_state *state);
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -30,7 +49,7 @@ extern host_hooks Host_hooks;
 void host_hooks_set(const host_hooks *h);
 
 // The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
-// events, always in the foreground, the mouse at rest at (0, 0)
+// events, always in the foreground, the mouse at rest at (0, 0), a joystick driver with no stick attached
 extern const host_hooks host_hooks_windows;
 extern const host_hooks host_hooks_headless;
 
