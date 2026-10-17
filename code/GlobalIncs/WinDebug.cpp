@@ -904,6 +904,11 @@ void *vm_malloc( int size )
 				"virtual memory size, or installing more physical RAM.\n");
 
 	}
+	#ifndef NDEBUG
+		// Claude: Debug fill (D-061, D-075). A read of memory nobody wrote sees 0xCD, the same
+		// every run, so it shows up as a Debug-only divergence instead of hiding in stale bytes.
+		memset( ptr, 0xCD, size );
+	#endif
 	return ptr;
 }
 
@@ -923,6 +928,10 @@ void vm_free( void *ptr )
 		return;
 	}
 
+	#ifndef NDEBUG
+		// Claude: Debug fill (D-061, D-075): a read after free sees 0xDD.
+		memset( ptr, 0xDD, HeapSize(Heap, HEAP_FLAG, ptr) );
+	#endif
 	HeapFree( Heap, HEAP_FLAG, ptr );
 	HeapCompact(Heap, HEAP_FLAG);
 }
