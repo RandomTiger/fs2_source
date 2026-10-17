@@ -237,6 +237,12 @@ hud_frames Ets_gauge;
 
 static int Hud_ets_inited = 0;
 
+// Claude: game_shutdown. bm_unload_all frees the animations, so a restarted game loads them again (D-055)
+void hud_ets_close()
+{
+	Hud_ets_inited = 0;
+}
+
 void hud_init_ets()
 {
 	if ( Hud_ets_inited )

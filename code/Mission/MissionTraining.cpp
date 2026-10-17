@@ -353,6 +353,13 @@ void message_translate_tokens(char *buf, char *text);
 static hud_frames Directive_gauge[NUM_DIRECTIVE_GAUGES];
 static int Directive_frames_loaded = 0;
 
+// Claude: game_shutdown. bm_unload_all frees the bitmaps, so a restarted game loads them again (D-055)
+void training_close()
+{
+	Directive_frames_loaded = 0;
+}
+
+
 static char *Directive_fnames[3] = 
 {
 //XSTR:OFF

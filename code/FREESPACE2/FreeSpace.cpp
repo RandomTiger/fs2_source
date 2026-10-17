@@ -6551,6 +6551,17 @@ void game_shutdown(void)
 	fireball_close();				// free fireball system
 	ship_close();					// free any memory that was allocated for the ships
 	weapon_close();					// Claude: and the weapons (D-055)
+	extern void particle_close();
+	particle_close();				// Claude: animations loaded once, which bm_unload_all frees below (D-055)
+	extern void hud_close();
+	hud_close();
+	extern void training_close();
+	training_close();
+	extern void brief_icons_close();
+	brief_icons_close();
+	extern int Shield_bitmaps_loaded, stars_debris_loaded;
+	Shield_bitmaps_loaded = 0;
+	stars_debris_loaded = 0;
 	hud_free_scrollback_list();// free space allocated to store hud messages in hud scrollback
 	unload_animating_pointer();// frees the frames used for the animating mouse pointer
 	model_close();					// Claude: free the models before their textures (D-055)

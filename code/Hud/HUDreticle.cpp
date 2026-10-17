@@ -368,6 +368,12 @@ static int Zero_speed_coords[GR_NUM_RESOLUTIONS][2] = {
 };
 
 // Called at the start of each level.. use Reticle_inited so we only load frames once
+// Claude: game_shutdown. bm_unload_all frees the animations, so a restarted game loads them again (D-055)
+void hud_reticle_close()
+{
+	Reticle_inited = 0;
+}
+
 void hud_init_reticle()
 {
 	int			i;

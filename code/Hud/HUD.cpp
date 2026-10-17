@@ -2788,6 +2788,45 @@ int hud_gauge_maybe_flash(int gauge_index)
 }
 
 // Init the objective message display data
+// Claude: game_shutdown. bm_unload_all frees the animations, so a restarted game loads them again (D-055)
+void hud_close()
+{
+	extern void hud_ets_close();
+	extern void hud_reticle_close();
+	extern void hud_shield_close();
+
+	extern void hud_squadmsg_close();
+	extern void hud_wingman_status_close();
+	extern int Escort_gauges_loaded, Lock_gauge_loaded, Shield_mini_loaded, Lead_indicator_gauge_loaded;
+	extern int Energy_bar_gauges_loaded, Cmeasure_gauge_loaded, Toggle_gauge_loaded, Weapon_gauges_loaded;
+	extern int Target_view_gauge_loaded, Target_view_extra_loaded, Target_view_integrity_gauge_loaded;
+
+	Objective_display_gauge_inited = 0;
+	Netlag_icon_loaded = 0;
+	Kills_gauge_loaded = 0;
+	Head_frame_gauge_loaded = 0;
+	Mission_time_gauge_loaded = 0;
+	Support_view_gauge_loaded = 0;
+	Damage_gauges_loaded = 0;
+	Escort_gauges_loaded = 0;
+	Lock_gauge_loaded = 0;
+	Shield_mini_loaded = 0;
+	Lead_indicator_gauge_loaded = 0;
+	Energy_bar_gauges_loaded = 0;
+	Cmeasure_gauge_loaded = 0;
+	Toggle_gauge_loaded = 0;
+	Weapon_gauges_loaded = 0;
+	Target_view_gauge_loaded = 0;
+	Target_view_extra_loaded = 0;
+	Target_view_integrity_gauge_loaded = 0;
+	{ extern int Ships_attacking_bitmap; Ships_attacking_bitmap = -1; }	// HUDbrackets.cpp, loaded on first use
+	hud_ets_close();
+	hud_reticle_close();
+	hud_shield_close();
+	hud_squadmsg_close();
+	hud_wingman_status_close();
+}
+
 void hud_objective_message_init()
 {
 	// ensure the talking head border is loaded

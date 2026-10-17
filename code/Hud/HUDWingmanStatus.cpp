@@ -138,6 +138,13 @@ static char *Wingman_status_filenames[GR_NUM_RESOLUTIONS][HUD_WINGMAN_STATUS_NUM
 static hud_frames Wingman_status_frames[HUD_WINGMAN_STATUS_NUM_FRAMES];
 static int Wingman_status_gauge_loaded=0;
 
+// Claude: game_shutdown. bm_unload_all frees the bitmaps, so a restarted game loads them again (D-055)
+void hud_wingman_status_close()
+{
+	Wingman_status_gauge_loaded = 0;
+}
+
+
 #define HUD_WINGMAN_STATUS_NONE			0		// wingman doesn't exist
 #define HUD_WINGMAN_STATUS_DEAD			1		// wingman has died
 #define HUD_WINGMAN_STATUS_ALIVE			2		// wingman is in the mission

@@ -300,6 +300,12 @@ void hud_shield_game_init()
 }
 
 // called at the start of each level from HUD_init.  Use Hud_shield_init so we only init Shield_gauges[] once.
+// Claude: game_shutdown. bm_unload_all frees the animations, so a restarted game loads them again (D-055)
+void hud_shield_close()
+{
+	Hud_shield_inited = 0;
+}
+
 void hud_shield_level_init()
 {
 	int i;	

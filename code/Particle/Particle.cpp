@@ -213,6 +213,14 @@ int Anim_num_frames_smoke2 = -1;
 static int Particles_enabled = 1;
 
 // Reset everything between levels
+// Claude: game_shutdown. bm_unload_all frees the animations, so a restarted game loads them again (D-055)
+void particle_close()
+{
+	Anim_bitmap_id_fire = -1;
+	Anim_bitmap_id_smoke = -1;
+	Anim_bitmap_id_smoke2 = -1;
+}
+
 void particle_init()
 {
 	int i;

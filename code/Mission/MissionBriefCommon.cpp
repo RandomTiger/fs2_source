@@ -780,6 +780,13 @@ void brief_close_map()
 	brief_unload_icons();
 }
 
+// Claude: game_shutdown. bm_unload_all has freed the icons; forget their handles, as a new process has none, so
+// a restarted game's brief_close_map does not unload them again (D-055)
+void brief_icons_close()
+{
+	memset(Icon_bitmaps, 0, sizeof(Icon_bitmaps));
+}
+
 void brief_preload_highlight_anim(brief_icon *bi)
 {
 	hud_anim *ha;

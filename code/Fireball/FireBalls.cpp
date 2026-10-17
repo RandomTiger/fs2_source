@@ -1122,6 +1122,8 @@ void fireball_close()
 		return;
 
 	fireball_delete_all();
+	fireballs_inited = 0;	// Claude: fireball.tbl and its animations are loaded again if the game restarts (D-055)
+	Warp_glow_bitmap = -1;
 }
 
 // -----------------------------------------------------------------

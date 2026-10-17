@@ -7005,6 +7005,7 @@ void ship_close()
 	}
 
 	ships_inited = 0;	// Claude: ships.tbl is read again if the game restarts (D-055)
+	Thrust_anim_inited = 0;	// Claude: and the thruster animations, which bm_unload_all frees (D-055)
 }	
 
 // -------------------------------------------------------------------------------------------------
