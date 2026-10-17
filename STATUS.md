@@ -43,7 +43,7 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 - G2b done (D-072): `#ifndef HARDWARE_ONLY` branches, 1068 lines. They compile in neither the game nor the tools; the proof for FRED is that macro argument until the tools build check runs.
 - G8 closed with no cut (D-074): 8-bit and palette paths carry the fonts and HUD gauges; 16-bit is a user setting. Pass two (G4 to G8) is complete; next is D-061 (memory wrapper trim, Debug fill, then array guards).
 - G7 kept (D-073): `Demo/Demo.cpp` is Volition's own `.fsd` demo recorder, reachable in Debug, superseded by RecordPlayback and unrelated to the data-set demo mode (D-063).
-- Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer.
+- Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer, and the GR_640 interface art mode. GR_640 is a kept UI art mode: FS1 has no 1024 art, so UI art mode and in-game render resolution become separate settings. No cut or collapse may assume 1024-only art, and the renderer collapse brief must say how GR_640 UI art survives (steward with Tom, 2026-10-17). FS1 itself stays unscheduled; its table converters and mission file-name handling go in data loading, not game logic. Checked: no cleanup cut so far removed GR_640 code.
 
 Tom's decisions, not scheduled:
 - Drop 16-bit colour (the ColourDepth=16 option and the 16-bit texture paths), with the renderer collapse (D-062 item 1, D-074); the tools build check comes first.
