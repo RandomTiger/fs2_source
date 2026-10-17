@@ -72,6 +72,14 @@ The version string (`get_version_string`) stays in the game; it uses no Windows 
 - `pstypes.h`: `Assert`, `Error` and `Warning`, and the `vm_malloc`, `vm_strdup` and `vm_free` allocator. `Error` terminates. Under autotest none of them shows a dialog: each is logged through `autotest_report`, `Assert` and `Warning` carry on, and `Error` exits with code 1. Otherwise the Windows backend shows a dialog, copies the text to the clipboard and can dump the call stack; another host may only log.
 - `PadXInput.h`: the pad backend, or a null one that reports no pad. `PadGame.cpp` and the pad core hold the logic.
 
+## Settings (decisions D-016, D-056)
+The game reads its settings from `fs2.ini` at the host root (`os_config_set_dir`, from `game_host_init`; `-ini <file>` names another), never the registry. `OsApi/OsRegistry.cpp` is the Windows implementation of `os_config_read_*` and `os_config_write_*`; another host may keep the same file or serve the same keys. By class:
+- Captured or overridden by a recording: `[Detail]` (the detail levels are in the header), `LastPlayer` (replay loads the recording's own pilot), `CurrentJoystick` (joystick reads are in the stream), and, since header version 5, `Language` and `LowMem` (replay uses the recording's, D-056). Skill, sound and music switches, volumes and the screen size come from the pilot or game state and are header fields too.
+- Presentation or device only: `Videocard` (or `Renderer`, `Device`, `ColourDepth`, `Resolution`), the `D3D*` keys, `ForceWFOG`, `DisableZbias`, `Gamma`, `ForceFullscreen`, `Soundcard`, `EnableJoystickFF`, `EnableHitEffect`.
+- Not gameplay: `[Version]` (the updater), `[PXO]` (multiplayer), `ComputerSpeed` (a new pilot's default detail, which the recorded detail overrides).
+
+The reference configuration is 1024x768 (GR_1024), medium skill, English, LowMem off (D-023, D-056). A replay of a recording made otherwise logs "Not the reference configuration".
+
 ## The object snapshot (decision D-050)
 After each simulation step `game_frame` copies every object in use, in used-list order, with `object_snapshot_take` (`Object/ObjectSnapshot.h`): object number, signature, type, instance, flags, model number (-1 if none) and transform. A host draws from `object_snapshot_count` and `object_snapshot_get`. Taking it reads game state and changes none of it; nothing in the game reads the copy.
 

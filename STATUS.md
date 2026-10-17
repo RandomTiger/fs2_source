@@ -51,7 +51,7 @@ Host and platform
 - Done 2026-10-17 (D-050, item 2): `cfile` takes an explicit root from the host (`game_host_init`) instead of reading the current directory.
 - Sound behind an interface that does not need a window handle.
 - No `windows.h` in any header the host binding includes.
-- Settings from an ini, not the registry (D-016).
+- Done 2026-10-17 (D-056, item 6): settings come from `fs2.ini` at the host root (D-016 was already in place); the two that change gameplay and were not recorded, the language and the low-memory mode, are in the recording header (version 5); the keys are documented by class in `docs/ENGINE_INTERFACE.md`.
 - The host runs the C++ menu flow (D-038). Only if the port replaces the menus or runs a headless campaign: extract apply loadout (`MissionShipChoice.cpp:1952`), restore loadout (`common_select_init`), finish mission (`MissionDebrief.cpp:2203-2222`) and advance campaign (`:1635`).
 
 Build and determinism

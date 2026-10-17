@@ -74,6 +74,8 @@ void replay_restart();					// after game_shutdown: start a new instance if one i
 // lifecycle, called from FreeSpace.cpp
 void replay_startup();					// after parse_cmdline, before game_init
 void replay_game_init_done();			// end of game_init
+int  replay_language(int lang);			// lcl_init: the recording's language (D-056)
+int  replay_low_mem(int low_mem);		// game_init: the recording's low-memory mode (D-056)
 int  replay_level_seed(int seed);	// game_level_init: returns the seed to use
 void replay_load_begin();				// start of game_start_mission
 void replay_load_end();					// end of game_start_mission

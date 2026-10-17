@@ -113,6 +113,14 @@ void os_config_set_ini( char *file )
 	GetFullPathName( file, MAX_PATH, Os_ini_file, NULL );
 }
 
+// Claude: game_host_init. fs2.ini in the root the host gives, instead of the current directory (D-056).
+// -ini, read after this by parse_cmdline, still names another file.
+void os_config_set_dir( char *dir )
+{
+	_snprintf( Os_ini_file, MAX_PATH - 1, "%s\\%s", dir, OS_INI_DEFAULT_FILE );
+	Os_ini_file[MAX_PATH - 1] = 0;
+}
+
 char *os_config_ini_file()
 {
 	return Os_ini_file;

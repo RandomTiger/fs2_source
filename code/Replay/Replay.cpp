@@ -31,8 +31,9 @@
 #include "RedAlert.h"
 #include "Autotest.h"
 #include "Popup.h"
+#include "localize.h"
 
-#define REPLAY_FILE_VERSION		4	// Claude: 2 adds the autotest settings, 3 the view position, 4 (PrePort, D-035) leaves the sound-device answers and the flip's cursor read out of the stream
+#define REPLAY_FILE_VERSION		5	// Claude: 2 adds the autotest settings, 3 the view position, 4 (PrePort, D-035) leaves the sound-device answers and the flip's cursor read out of the stream, 5 (GodotPrep, D-056) the language and low-memory mode
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
 #define REPLAY_MAX_BLOB				(1024*1024)
 #define REPLAY_PATH_LEN			MAX_PATH	// Claude: MAX_PATH_LEN (128) is too short for full paths
@@ -137,9 +138,12 @@ typedef struct replay_header {
 	int	autotest_time;
 	int	autotest_speed;
 	float	view_position[3];			// Claude: version 3.  Left by whatever the menus last drew in 3D; engine sounds use it until the player enters
+	int	language;					// Claude: version 5 (D-056).  lcl_get_language(): picks the voice files, whose length times messages
+	int	low_mem;					// Claude: version 5.  The low-memory bitmap mode, which halves animation rates (D-046)
 } replay_header;
 
-#define REPLAY_HEADER_V2_SIZE		(sizeof(replay_header) - 3 * sizeof(float))	// Claude: a version 2 header ends before the view position
+#define REPLAY_HEADER_V4_SIZE		(sizeof(replay_header) - 2 * sizeof(int))	// Claude: a version 3 or 4 header ends before the language
+#define REPLAY_HEADER_V2_SIZE		(REPLAY_HEADER_V4_SIZE - 3 * sizeof(float))	// Claude: a version 2 header ends before the view position
 #define REPLAY_HEADER_V1_SIZE		(REPLAY_HEADER_V2_SIZE - 3 * sizeof(int))	// Claude: a version 1 header ends before the autotest settings
 
 static replay_header Hdr;
@@ -856,11 +860,16 @@ static void replay_read_file()
 	if ((Hdr.version < 4) && !Replay_sound_live && !Replay_sound_model) {
 		replay_fatal("'%s' is a version %d recording, made before the sound-device answers left the stream (D-035): record it again", Replay_file, Hdr.version);
 	}
-	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : (Hdr.version == 2) ? REPLAY_HEADER_V2_SIZE : sizeof(Hdr));
+	hdr_size = (int)((Hdr.version == 1) ? REPLAY_HEADER_V1_SIZE : (Hdr.version == 2) ? REPLAY_HEADER_V2_SIZE : (Hdr.version <= 4) ? REPLAY_HEADER_V4_SIZE : sizeof(Hdr));
 	if (Rsize < hdr_size) {
 		replay_fatal("'%s' is not a recording", Replay_file);
 	}
 	memcpy(&Hdr, Rdata, hdr_size);
+	if (Hdr.version < 5) {
+		// Claude: every older recording was made in English, high memory (D-056)
+		Hdr.language = LCL_ENGLISH;
+		Hdr.low_mem = 0;
+	}
 	if (Hdr.loadout_size != (int)sizeof(loadout_data)) {
 		replay_fatal("Recording loadout size %d does not match this build (%d)", Hdr.loadout_size, sizeof(loadout_data));
 	}
@@ -1141,6 +1150,9 @@ void replay_startup()
 		replay_read_file();
 		replay_logf("Recorded by build '%s'\n", Hdr.build);
 		replay_logf("Mission '%s', pilot '%s', campaign '%s', seed %d\n", Hdr.mission, Hdr.callsign, Hdr.campaign, Hdr.level_seed);
+		if ((Hdr.language != LCL_ENGLISH) || Hdr.low_mem) {
+			replay_logf("Not the reference configuration (D-056): language %d, low memory %d\n", Hdr.language, Hdr.low_mem);
+		}
 
 		// Claude: the mission plays under the rules it was recorded with, whatever the command line says
 		autotest_set_from_recording(Hdr.autotest, Hdr.autotest_time, Hdr.autotest_speed);
@@ -1187,6 +1199,18 @@ int replay_level_seed(int seed)
 		seed = Hdr.level_seed;
 	}
 	return seed;
+}
+
+// Claude: the language and low-memory mode the recording was made with, in place of this machine's settings
+// (D-056). lcl_init and game_init ask before they use them; replay_startup has read the header by then.
+int replay_language(int lang)
+{
+	return (Replay_mode == REPLAY_PLAY) ? Hdr.language : lang;
+}
+
+int replay_low_mem(int low_mem)
+{
+	return (Replay_mode == REPLAY_PLAY) ? Hdr.low_mem : low_mem;
 }
 
 static uint replay_mission_checksum()
@@ -1364,6 +1388,8 @@ void replay_enter_game()
 		Hdr.view_position[0] = View_position.x;
 		Hdr.view_position[1] = View_position.y;
 		Hdr.view_position[2] = View_position.z;
+		Hdr.language = lcl_get_language();
+		Hdr.low_mem = game_using_low_mem() ? 1 : 0;
 
 		// the file is only created once there is a mission to put in it
 		if (Replay_auto) {

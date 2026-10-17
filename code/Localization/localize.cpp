@@ -279,6 +279,7 @@
 #include <ctype.h>
 #include "cfile.h"
 #include "localize.h"
+#include "Replay.h"
 #include "parselo.h"
 #include "OsRegistry.h"
 #include "Encrypt.h"
@@ -458,6 +459,8 @@ void lcl_init(int lang_init)
 		Assert((lang_init >= 0) && (lang_init < LCL_NUM_LANGUAGES));
 		lang = lang_init;
 	}
+
+	lang = replay_language(lang);	// Claude: a replay uses the recording's language (D-056)
 
 	// language markers
 	Lcl_pointer_count = 0;

@@ -2052,7 +2052,7 @@ void game_init()
 
 	Use_joy_mouse = 0;		//os_config_read_uint( NULL, NOX("JoystickMovesCursor"), 1 );
 	//Use_palette_flash = os_config_read_uint( NULL, NOX("PaletteFlash"), 0 );
-	Use_low_mem = os_config_read_uint( NULL, NOX("LowMem"), 0 );
+	Use_low_mem = replay_low_mem( os_config_read_uint( NULL, NOX("LowMem"), 0 ) );	// Claude: a replay uses the recording's (D-056)
 
 #ifndef NDEBUG
 	Use_fullscreen_at_startup = os_config_read_uint( NULL, NOX("ForceFullscreen"), 1 );
@@ -7825,6 +7825,7 @@ bool game_using_low_mem()
 int game_host_init(char *szCmdLine, char *root_dir)
 {
 	strncpy(Game_root_dir, root_dir, sizeof(Game_root_dir)-1);
+	os_config_set_dir(Game_root_dir);	// Claude: fs2.ini at the host root (D-056)
 
 	parse_cmdline(szCmdLine);	
 	replay_startup();
