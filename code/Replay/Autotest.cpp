@@ -178,8 +178,20 @@ static DWORD WINAPI autotest_watchdog(LPVOID)
 
 static LONG WINAPI autotest_crash(EXCEPTION_POINTERS *info)
 {
-	autotest_logf("FATAL: crash, exception 0x%08x at 0x%08x in mission '%s'\n", info->ExceptionRecord->ExceptionCode,
+	autotest_logf("FATAL: crash, exception 0x%08x at %p in mission '%s'\n", info->ExceptionRecord->ExceptionCode,
 		info->ExceptionRecord->ExceptionAddress, Autotest_current);
+	// Claude: the offset into the exe, for tools that read the PDB (D-057; on x64 the address alone does not say)
+	autotest_logf("  exe offset: %x\n", (unsigned int)((char *)info->ExceptionRecord->ExceptionAddress - (char *)GetModuleHandle(NULL)));
+	{	// and the return addresses on this stack, which runs on from the crash
+		void *frames[24];
+		char buf[400];
+		int n = RtlCaptureStackBackTrace(0, 24, frames, NULL), len = 0;
+		char *base = (char *)GetModuleHandle(NULL);
+		for (int i = 0; (i < n) && (len < (int)sizeof(buf) - 12); i++) {
+			len += sprintf(buf + len, " %x", (unsigned int)((char *)frames[i] - base));
+		}
+		autotest_logf("  stack:%s\n", buf);
+	}
 	autotest_logf("FAIL (exit code 0x%08x)\n", info->ExceptionRecord->ExceptionCode);
 	return EXCEPTION_CONTINUE_SEARCH;
 }

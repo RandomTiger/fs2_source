@@ -373,7 +373,7 @@ void mission_campaign_maybe_add( char *filename, int multiplayer )
 // global variables
 void mission_campaign_build_list( int multiplayer )
 {
-	int find_handle;
+	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 	os_find_data find;
 	char wild_card[256];
 

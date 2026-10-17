@@ -60,6 +60,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 
 ## Other
 - [ ] Tom: play SM1-07 again on `PrePort` and commit it as `recordings/played/SM1-07`.
+- [ ] Tom (back burner, 2026-10-17): demo mode. The demo is the only freely distributable data, so keep the demo logic (`FS2_DEMO`, `DEMO` blocks) and make the game detect demo data and switch to demo mode at run time instead of at build time. Tom to be involved. The build-variant dead-code group (D-063 G1: OEM, beta, press tour and the rest) waits for this, since much of it shares conditions with the demo blocks.
       The old one was removed there because the debris change (docs/DEBRIS_OFFSCREEN_FIX.md)
       makes it desync; it still passes on `Enhanced` and below.
 - [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT

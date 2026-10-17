@@ -7,7 +7,7 @@ decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers b
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
 `recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
-**PrePort done 2026-10-17 (D-049).** Open again for generic fixes (D-058, Tom 2026-10-17), including ones the 64-bit build shows up that are not 64-bit-specific; each merges up into `PrePort64` and `GodotPrep`. The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
+**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and is closed again now that `PrePort64` is proven (D-064). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
 
 ## Stage gates (D-026)
 | Gate | State |
@@ -27,6 +27,10 @@ Tom 2026-10-16: work that needs no re-recording first.
 Carried, by Tom's call:
 - Popups and other modal loops block a host frame. Tom 2026-10-16: decide later, at GodotPrep (D-041; the steward recommends running the game on a coroutine).
 - Squad message menu (piece 4): deferred by Tom; listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
+
+## Project goals (D-063)
+- **Demo recording suite.** Recordings over the demo missions, shipped in the repo with their own reference entry, so the suite runs without a retail install (public CI). The demo data is the only data set the project can redistribute. Demo behaviour is its own logic, not a subset of the retail suite; where the two differ, retail is the oracle and the demo keeps what the shipped demo did. First step: a compile-time `FS2_DEMO` build playing the demo data. Tom to be involved.
+- **One exe for demo and retail.** The game detects which data set it has and switches to demo mode at run time, so both share a binary and a recording format. Sized in `docs/DEMO_CODE.md` on `PrePortCleanup`: about 85 `FS2_DEMO` blocks in about 45 files, mostly menus and mission UI, plus a dozen pool limits that become run-time caps; about eight batches. Scheduled after the `PrePortCleanup` order (D-062), and proved by the demo suite and the retail suite both replaying unchanged. Until then no cleanup change touches demo-conditional code.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
@@ -54,7 +58,7 @@ Host and platform
 - The host runs the C++ menu flow (D-038). Only if the port replaces the menus or runs a headless campaign: extract apply loadout (`MissionShipChoice.cpp:1952`), restore loadout (`common_select_init`), finish mission (`MissionDebrief.cpp:2203-2222`) and advance campaign (`:1635`).
 
 Build and determinism
-- x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
+- Done 2026-10-17 on `PrePort64` (D-057, D-064): 48/48 x64 headless identical to x86, Release and Debug, and the headless restart check. Direct3D on x64 is closed as impossible, not deferred: 64-bit Windows has no Direct3D 7 or earlier, so x64 runs headless until Godot draws. Was: x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
 - Out-of-bounds reads that affect gameplay fixed before x64 (`AiBig.cpp:870`).
 - `#pragma optimize("", off)` blocks reviewed for another compiler.
 

@@ -586,6 +586,7 @@ void DumpCallsStack( DumpBuffer& dumpBuffer )
 	//        return address for this call ( = caller )
 	// The chain can be navigated iteratively, after the
 	// initial value of EBP is loaded from the register
+#ifndef _WIN64	// Claude: walks x86 EBP frames (D-057)
 	DWORD parentEBP, retval;
 	MEMORY_BASIC_INFORMATION mbi ;
 	HINSTANCE hInstance;
@@ -636,6 +637,9 @@ void DumpCallsStack( DumpBuffer& dumpBuffer )
 
 	dumpBuffer.Printf( separator ) ;
 	PE_debug.ClearReport() ;  // Prepare for future calls
+#else
+	dumpBuffer.Printf( "(not walked on x64)\r\n" ) ;
+#endif
 }
 
 

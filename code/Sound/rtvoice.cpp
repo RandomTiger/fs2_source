@@ -171,7 +171,7 @@ static int Decode_buffer_size;
 // RECORD/ENCODE
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-void CALLBACK TimeProc(unsigned int id, unsigned int msg, unsigned long userdata, unsigned long dw1, unsigned long dw2)
+void CALLBACK TimeProc(unsigned int id, unsigned int msg, DWORD_PTR userdata, DWORD_PTR dw1, DWORD_PTR dw2)	// Claude: the LPTIMECALLBACK types, the same on x86 (D-057)
 {
 	if ( !Rtv_callback ) {
 		return;

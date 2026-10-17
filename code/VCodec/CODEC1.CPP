@@ -1390,6 +1390,8 @@ static int ComputeNomData(t_Sample*& in, const int deltas[], int& level)
 
 static int ComputeNomDataF(t_Sample*& inp, const int deltas[], int& level)
 {
+#ifndef _WIN64	// Claude: x86 assembly; x64 uses the C version (D-057)
+
     int data;
     __asm
     {
@@ -1430,6 +1432,28 @@ static int ComputeNomDataF(t_Sample*& inp, const int deltas[], int& level)
         mov [data], ebx
     }
     return data;
+#else
+    // the C version this file kept, commented out, beside the assembly
+    int data = 0;
+
+    for (int i = 0; i < 9; i++, inp++)
+    {
+        if (level+deltas[0] < *inp)
+        {
+            data = (data << 1) | 1;
+            level += deltas[1];
+        }
+        else
+        {
+            data <<= 1;
+            level += deltas[0];
+        }
+        #if defined(CODEC_DEMO)
+            *levels++ = t_Sample(level);
+        #endif
+    }
+    return data;
+#endif
 }
 
 #define VERIFY_ASM
