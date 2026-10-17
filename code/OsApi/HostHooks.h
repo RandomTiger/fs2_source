@@ -17,6 +17,10 @@ typedef struct host_hooks {
 	// whether the game is the foreground application
 	void		(*poll_events)();
 	int		(*is_foreground)();
+
+	// mouse: the cursor position in the game window's client coordinates, and moving the cursor there
+	void		(*mouse_get_pos)(int *x, int *y);
+	void		(*mouse_set_pos)(int x, int y);
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -26,7 +30,7 @@ extern host_hooks Host_hooks;
 void host_hooks_set(const host_hooks *h);
 
 // The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
-// events, always in the foreground
+// events, always in the foreground, the mouse at rest at (0, 0)
 extern const host_hooks host_hooks_windows;
 extern const host_hooks host_hooks_headless;
 

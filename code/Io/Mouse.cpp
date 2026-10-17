@@ -126,6 +126,7 @@
 #include "Mouse.h"
 #include "2d.h"
 #include "OsApi.h"
+#include "HostHooks.h"
 #include "Replay.h"
 
 #define MOUSE_MODE_DI	0
@@ -179,11 +180,9 @@ static void mouse_get_cursor_pos(POINT *pnt)
 		return;
 	}
 
-	GetCursorPos(pnt);
-	ScreenToClient((HWND)os_get_window(), pnt);
-
-	xy[0] = pnt->x;
-	xy[1] = pnt->y;
+	Host_hooks.mouse_get_pos(&xy[0], &xy[1]);	// Claude: through the host (D-051)
+	pnt->x = xy[0];
+	pnt->y = xy[1];
 	replay_write_ints(RT_MOUSE_POS, xy, 2);
 }
 
@@ -460,12 +459,7 @@ void mouse_get_delta(int *dx, int *dy, int *dz)
 void mouse_force_pos(int x, int y)
 {
 	if (os_foreground()) {  // only mess with windows's mouse if we are in control of it
-		POINT pnt;
-
-		pnt.x = x;
-		pnt.y = y;
-		ClientToScreen((HWND) os_get_window(), &pnt);
-		SetCursorPos(pnt.x, pnt.y);
+		Host_hooks.mouse_set_pos(x, y);	// Claude: through the host (D-051)
 	}
 }
 
