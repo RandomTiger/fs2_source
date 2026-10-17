@@ -1994,9 +1994,6 @@ int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 
 //	int Model_ram = 0;
 
-#ifndef NDEBUG
-	int ram_before = TotalRam;
-#endif
 
 	//Assert(strlen(filename) <= 12);
 
@@ -2190,13 +2187,6 @@ int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 		}
 	}
 
-#ifndef NDEBUG
-	int ram_after = TotalRam;
-
-	pm->ram_used = ram_after - ram_before;
-	Model_ram += pm->ram_used;
-	//mprintf(( "Model RAM = %d KB\n", Model_ram ));
-#endif
 
 	return pm->id;
 }

@@ -2453,12 +2453,6 @@ void game_show_framerate()
 		gr_set_color_fast(&HUD_color_debug);
 
 		{
-			extern int TotalRam;
-			gr_printf( sx, sy, NOX("DYN: %d KB\n"), TotalRam/1024 );
-			sy += dy;
-		}	
-
-		{
 			extern int Model_ram;
 			gr_printf( sx, sy, NOX("POF: %d KB\n"), Model_ram/1024 );
 			sy += dy;

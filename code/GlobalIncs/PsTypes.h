@@ -652,34 +652,7 @@ template <class T> void CAP( T& v, T mn, T mx )
 // Memory management functions
 //=========================================================
 
-#ifndef NDEBUG
-	// Debug versions
-
-	// Returns 0 if not enough RAM.
-	int vm_init(int min_heap_size);
-
-	// Allocates some RAM.
-	void *vm_malloc( int size, char *filename=NULL, int line=-1 );
-
-	// 
-	char *vm_strdup( const char *ptr, char *filename, int line );
-
-	// Frees some RAM. 
-	void vm_free( void *ptr, char *filename=NULL, int line=-1 );
-
-	// Frees all RAM.
-	void vm_free_all();
-
-	// Easy to use macros
-	#define VM_MALLOC(size) vm_malloc((size),__FILE__,__LINE__)
-	#define VM_FREE(ptr) vm_free((ptr),__FILE__,__LINE__)
-
-	#define malloc(size) vm_malloc((size),__FILE__,__LINE__)
-	#define free(ptr) vm_free((ptr),__FILE__,__LINE__)
-	#define strdup(ptr) vm_strdup((ptr),__FILE__,__LINE__)
-	
-#else
-	// Release versions
+// Claude: one set of declarations for Debug and Release (D-075)
 
 	// Returns 0 if not enough RAM.
 	int vm_init(int min_heap_size);
@@ -703,7 +676,6 @@ template <class T> void CAP( T& v, T mn, T mx )
 	#define malloc(size) vm_malloc(size)
 	#define free(ptr) vm_free(ptr)
 	#define strdup(ptr) vm_strdup(ptr)
-#endif
 
 
 #endif		// PS_TYPES_H

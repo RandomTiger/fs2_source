@@ -871,96 +871,19 @@ void getmem()
 }
 */
 
-#ifndef NDEBUG
-
-#include <crtdbg.h>
-
-int TotalRam = 0;
-
-#define nNoMansLandSize 4
-
-typedef struct _CrtMemBlockHeader
-{
-        struct _CrtMemBlockHeader * pBlockHeaderNext;
-        struct _CrtMemBlockHeader * pBlockHeaderPrev;
-        char *                      szFileName;
-        int                         nLine;
-        size_t                      nDataSize;
-        int                         nBlockUse;
-        long                        lRequest;
-        unsigned char               gap[nNoMansLandSize];
-        /* followed by:
-         *  unsigned char           data[nDataSize];
-         *  unsigned char           anotherGap[nNoMansLandSize];
-         */
-} _CrtMemBlockHeader;
-
-#define pHdr(pbData) (((_CrtMemBlockHeader *)pbData)-1)
-
-int __cdecl MyAllocHook(
-   int      nAllocType,
-   void   * pvData,
-   size_t   nSize,
-   int      nBlockUse,
-   long     lRequest,
-   const char * szFileName,
-   int      nLine
-   )
-{
-   // char *operation[] = { "", "allocating", "re-allocating", "freeing" };
-   // char *blockType[] = { "Free", "Normal", "CRT", "Ignore", "Client" };
-
-   if ( nBlockUse == _CRT_BLOCK )   // Ignore internal C runtime library allocations
-      return( TRUE );
-
-   _ASSERT( ( nAllocType > 0 ) && ( nAllocType < 4 ) );
-   _ASSERT( ( nBlockUse >= 0 ) && ( nBlockUse < 5 ) );
-
-	if ( nAllocType == 3 )	{
-		_CrtMemBlockHeader *phd = pHdr(pvData);
-		nSize = phd->nDataSize;
-	} 
-
-//	mprintf(( "Total RAM = %d\n", TotalRam ));
-
-/*   mprintf(( "Memory operation in %s, line %d: %s a %d-byte '%s' block (# %ld)\n",
-            szFileName, nLine, operation[nAllocType], nSize, 
-            blockType[nBlockUse], lRequest ));
-   if ( pvData != NULL )
-      mprintf(( " at %X", pvData ));
-
-	mprintf(("\n" ));
-*/
-
-   return( TRUE );         // Allow the memory operation to proceed
-}
- 
-void windebug_memwatch_init()
-{
-	//_CrtSetAllocHook(MyAllocHook);
-	TotalRam = 0;
-}
-
-#endif
-
 #define NEW_MALLOC
-
-
-int Watch_malloc = 0;
-DCF_BOOL(watch_malloc, Watch_malloc );
 
 HANDLE Heap = 0;
 
 #define HEAP_FLAG HEAP_NO_SERIALIZE
 // #define HEAP_FLAG	HEAP_GENERATE_EXCEPTIONS
 
+// Claude: the allocation seam (D-061, D-075). Debug and Release are the same code; the
+// Debug-only tracking (TotalRam, watch_malloc logging, the _malloc_dbg pre-init path) is gone.
+
 // Returns 0 if not enough RAM.
 int vm_init(int min_heap_size)
 {
-	#ifndef NDEBUG
-	TotalRam = 0;
-	#endif
-
 	#ifdef NEW_MALLOC
 		Heap = HeapCreate( HEAP_FLAG, min_heap_size, 0 );
 		if ( Heap == NULL )	{
@@ -970,31 +893,8 @@ int vm_init(int min_heap_size)
 	return 1;
 }
 
-char *clean_filename(char *name)
-{
-	char *p = name+strlen(name)-1;
-	// Move p to point to first letter of EXE filename
-	while( (*p!='\\') && (*p!='/') && (*p!=':') )
-		p--;
-	p++;	
-
-	return p;	
-}
-
-#ifndef NDEBUG
-void *vm_malloc( int size, char *filename, int line )
-#else
 void *vm_malloc( int size )
-#endif
 {
-	#ifndef NDEBUG
-	if ( !Heap )	{
-		TotalRam += size;
-
-		return _malloc_dbg(size, _NORMAL_BLOCK, __FILE__, __LINE__ );
-	}
-	#endif
- 
 	void *ptr = HeapAlloc(Heap, HEAP_FLAG, size );
 
 	if ( ptr == NULL )	{
@@ -1004,69 +904,25 @@ void *vm_malloc( int size )
 				"virtual memory size, or installing more physical RAM.\n");
 
 	}
-	#ifndef NDEBUG
-		int actual_size = HeapSize(Heap, HEAP_FLAG, ptr);
-		if ( Watch_malloc )	{
-			mprintf(( "Malloc %d bytes [%s(%d)]\n", actual_size, clean_filename(filename), line ));
-		}
-		TotalRam += actual_size;
-	#endif
 	return ptr;
 }
 
-#ifndef NDEBUG
-char *vm_strdup( const char *ptr, char *filename, int line )
-#else
 char *vm_strdup( const char *ptr )
-#endif
 {
 	char *dst;
 	int len = strlen(ptr);
-	#ifndef NDEBUG
-		dst = (char *)vm_malloc( len+1, filename, line );
-	#else
-		dst = (char *)vm_malloc( len+1 );
-	#endif
+	dst = (char *)vm_malloc( len+1 );
 	strcpy( dst, ptr );
 	return dst;
 }
 
-#ifndef NDEBUG
-void vm_free( void *ptr, char *filename, int line )
-#else
 void vm_free( void *ptr )
-#endif
 {
 	if ( !ptr ) {
-		#ifndef NDEBUG
-			mprintf(("Why are you trying to free a NULL pointer?  [%s(%d)]\n", clean_filename(filename), line));
-		#else
-			mprintf(("Why are you trying to free a NULL pointer?\n"));
-		#endif
+		mprintf(("Why are you trying to free a NULL pointer?\n"));
 		return;
 	}
 
-	#ifndef NDEBUG
-	if ( !Heap )	{
-		#ifndef NDEBUG
-		_CrtMemBlockHeader *phd = pHdr(ptr);
-		int nSize = phd->nDataSize;
-
-		TotalRam -= nSize;
-		#endif
-
-		_free_dbg(ptr,_NORMAL_BLOCK);
-		return;
-	}
-	#endif
-
-	#ifndef NDEBUG
-		int actual_size = HeapSize(Heap, HEAP_FLAG, ptr);
-		if ( Watch_malloc )	{
-			mprintf(( "Free %d bytes [%s(%d)]\n", actual_size, clean_filename(filename), line ));
-		}
-		TotalRam -= actual_size;
-	#endif
 	HeapFree( Heap, HEAP_FLAG, ptr );
 	HeapCompact(Heap, HEAP_FLAG);
 }
