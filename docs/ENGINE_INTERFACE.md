@@ -24,6 +24,15 @@ Optional or not carried: CD audio (`RBAudio.h`), force feedback (`Joy_ff.h`), mu
 ## The recorder's hooks are the platform boundary
 The recorder already hooks about 28 seam functions. Each is a value the game takes from outside: 3 clock reads, `os_poll` and `os_foreground`, key, mouse and focus events, the mouse position, 6 joystick reads, pad state, 3 sound starts (whether a channel was free), 4 sound queries and 4 music-stream queries (`Replay/Replay.h`, `RT_*`). If the host implements exactly these, the recordings can keep refereeing after the engine moves (`docs/PREPORT.md`, "Recordings after the port"). Everything else in the seams is output only, so the host may implement it however it likes.
 
+## The platform hook table (decisions D-051, D-052)
+`OsApi/HostHooks.h` is the platform seam: one table the host fills with `host_hooks_set` before `game_host_init`. A null entry is an `Error`. The header carries no Windows or engine types.
+- time: `time_counter`, `time_frequency` (the timer's clock);
+- window and events: `poll_events` (pumps the host's events into `key_mark`, `mouse_mark` and the focus), `is_foreground`;
+- mouse: `mouse_get_pos`, `mouse_set_pos`, in the game window's client coordinates;
+- joystick: `joy_count`, `joy_caps`, `joy_read` (all six axes, buttons and POV, calibrated). Button timing stays in `Joy.cpp`.
+
+The recorder's wraps stay on the game side of the table (`timer_get_*`, `os_foreground`, `mouse_get_cursor_pos`, `joy_get_pos`, `joystick_read_raw_axis`, the `joy_*` button reads), so the recorded values, tags and order are the same whichever host fills it. The `*_live` functions behind those wraps are the game's own, not the host's. The Windows host fills `host_hooks_windows` (`HostHooksWin32.cpp`); `-headless` fills `host_hooks_headless`: the same clock, no events, always in the foreground, the mouse at rest, a joystick driver with no stick attached. Sound stays behind its own interface and files behind cfile, with the root from the host.
+
 ## The gameplay random stream belongs to the game
 `rand()` and `srand()` in game code are the game's own copy of the MSVC CRT generator (`fs2_rand`, `GlobalIncs/SystemVars.cpp`), so the host's threads and libraries cannot shift it. The host never calls the game's `rand`; the gameplay stream is owned by logic (D-039).
 
@@ -44,7 +53,7 @@ The menus are game flow, not presentation. The host drives the C++ menu state ma
 | Colour-format globals (`Gr_*`, `D3D_32bit_textures`) outside Graphics and BmpMan | 0 | Fixed 2026-10-16 (D-044): anim frames are unpacked at the renderer's `gr_screen.texture_bpp`, the debug VRAM display asks `gr_texture_memory`, and the Debug-only D3D settings overlay on the main hall was dropped. The 75 in `BmpMan.cpp` are inside the texture seam (below) |
 | Win32 calls in game code | 0 | `WinDebug.cpp` and `PadXInput.cpp` are platform backends, not leaks (D-047, below). `FreeSpace.cpp` has none (2026-10-16): message boxes and sleeps go through `os_message_box` and `os_sleep`, the timer resolution through `os_timer_precise`, and the Windows host functions moved to `FreeSpaceWin32.cpp` (D-045, below) |
 | `fopen` around cfile | 0 in the interface (D-046) | Debug dumps, not interface; a port compiles them out: `ShipTextures.txt`/`ShipTimings.txt` (`FreeSpace.cpp`), the monitor file (`SystemVars.cpp`), `dump` (`WinDebug.cpp`), `ui.out` (`WINDOW.cpp`), the PCX writer (`pcxutils.cpp`), the Scoring debug file. Start-up reads before cfile is up use standard C on paths relative to the exe directory, which the host provides with the files: `data\cmdline.cfg` (`cmdline.cpp`), `pad.cfg` (`PadGame.cpp`), `version_compare` (`version.cpp`). The recorder, the log and the launcher updater (`FreeSpaceWin32.cpp`) are host side |
-| `windows.h` in game code | 0 | Only the platform backends include it (D-047). `FreeSpace.cpp` dropped it, and `Math/Fix.cpp` computes `fixdiv` and `fixmuldiv` with its own copy of `MulDiv`, checked equal on 50 million cases (2026-10-16) |
+| `windows.h` in game code | 0 except the input backends | Only the platform backends include it (D-047). In `Io`, `Joy.cpp` keeps it for its polling thread (D-052, waiting on the thread port-need), and `Timer.cpp`, `Key.cpp` and `Mouse.cpp` for their locks and Windows message types; their reads of the machine go through the host table (D-051). `FreeSpace.cpp` dropped it, and `Math/Fix.cpp` computes `fixdiv` and `fixmuldiv` with its own copy of `MulDiv`, checked equal on 50 million cases (2026-10-16) |
 
 No missing seams. The current directory is read with the C runtime's `_getcwd`. Added: `os_find_first`, `os_find_next` and `os_find_close` (`OsApi.h`, directory listing; the campaign list uses them, and CFile, the file seam itself, keeps its own), `os_message_box` (`OsApi.h`), and the renderer capability queries `gr_screen.hardware` and `gr_screen.texture_bpp`.
 
