@@ -110,10 +110,20 @@ void srand_alt(int seed)
 	Rnd_seed = seed;
 }
 
+// Claude: the generator's state, which was a static in rand_alt set from Rnd_seed on its first call. Out here so
+// rand_alt_init can return it to that value when the game starts again in the same process (D-055)
+static int Rand_alt_x = 1;
+
+// Claude: game_init. The state a new process has: rand_alt not yet called, Rnd_seed as srand_alt left it
+void rand_alt_init()
+{
+	Rand_alt_x = Rnd_seed;
+}
+
 // Get a random integer between 1 and RND_MAX
 int rand_alt()
 {
-	static int x=Rnd_seed;
+	int &x = Rand_alt_x;
 	int old_x;
 	old_x = x;
 	x >>= 1;

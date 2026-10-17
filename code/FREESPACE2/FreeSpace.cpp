@@ -1964,10 +1964,15 @@ DCF(gamma,"Sets Gamma factor")
 	}
 }
 
+void game_time_init();
+
 void game_init()
 {
 	char *ptr;
 	int depth = 16;
+
+	game_time_init();	// Claude: D-055
+	rand_alt_init();	// Claude: the alternate random stream starts where a new process starts it (D-055)
 
 	Game_current_mission_filename[0] = 0;
 
@@ -4241,6 +4246,13 @@ void game_reset_time()
 	game_start_time();
 	timestamp_reset();
 	game_stop_time();
+}
+
+// Claude: game_init. The pause count a new process starts with, so a restarted game pauses and starts its
+// clock as the first one did (D-055, stage ii: the second mission skipped game_start_time's clock read)
+void game_time_init()
+{
+	timer_paused = 0;
 }
 
 void game_stop_time()

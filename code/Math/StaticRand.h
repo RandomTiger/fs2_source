@@ -53,5 +53,6 @@ extern float static_randf_range(int num, float min, float max);
 void	srand_alt(int seed);	// Seed the random number generator
 int	rand_alt();				// Get a random integer between 1 and RND_MAX
 float	frand_alt();				// Get a random float between 0 and 1.0
+void	rand_alt_init();		// Claude: game_init, the state a new process starts with (D-055)
 
 #endif
