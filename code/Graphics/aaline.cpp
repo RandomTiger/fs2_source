@@ -236,6 +236,8 @@ void aaline_init_tables()
 // written to simulate exact hardware behavior.
 long int fix_xy_mult(long int oa, fix_xy ob)
 {
+#ifndef _WIN64	// Claude: x86 assembly; x64 below does the same in C (D-057)
+
 	int retval;
 
 	_asm {
@@ -246,6 +248,9 @@ long int fix_xy_mult(long int oa, fix_xy ob)
 		mov	retval, eax
 	}
 	return retval;
+#else
+	return (long int)(((__int64)oa * (__int64)ob) >> 20);	// the assembly's imul and shrd 20
+#endif
 }
 
 

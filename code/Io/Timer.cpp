@@ -140,6 +140,8 @@ static void timer_get(LARGE_INTEGER * out)
 
 static fix timer_get_fixed_seconds_live()
 {
+#ifndef _WIN64	// Claude: x86 assembly; x64 below does the same in C (D-057)
+
 	int tmp;
 	LARGE_INTEGER temp_large;
 
@@ -171,6 +173,22 @@ sub_again:
 	_asm mov tmp, eax
 
 	return tmp;
+#else
+	LARGE_INTEGER temp_large;
+
+	if (!Timer_inited) {
+		Int3();
+		return 0;
+	}
+
+	timer_get(&temp_large);
+
+	// what the x86 assembly computes: edx:eax / Timer_freq, the high half first reduced mod Timer_freq so
+	// the divide cannot overflow (the time wraps at about 9 hours)
+	unsigned __int64 n = (unsigned __int64)temp_large.QuadPart << 16;
+	unsigned __int64 hi = (n >> 32) % Timer_freq;
+	return (int)(unsigned int)(((hi << 32) | (n & 0xFFFFFFFF)) / Timer_freq);
+#endif
 }
 
 fix timer_get_fixed_seconds()
@@ -200,6 +218,8 @@ fix timer_get_approx_seconds()
 
 static int timer_get_milliseconds_live()
 {
+#ifndef _WIN64	// Claude: x86 assembly; x64 below does the same in C (D-057)
+
 	int tmp;
 	LARGE_INTEGER temp_large;
 
@@ -232,6 +252,22 @@ sub_again:
 	_asm mov tmp, eax
 
 	return tmp;
+#else
+	LARGE_INTEGER temp_large;
+
+	if (!Timer_inited) {
+		Int3();
+		return 0;
+	}
+
+	timer_get(&temp_large);
+
+	// what the x86 assembly computes: edx:eax / Timer_freq, the high half first reduced mod Timer_freq so
+	// the divide cannot overflow (the time wraps at about 9 hours)
+	unsigned __int64 n = (unsigned __int64)temp_large.QuadPart * (unsigned __int64)1000;
+	unsigned __int64 hi = (n >> 32) % Timer_freq;
+	return (int)(unsigned int)(((hi << 32) | (n & 0xFFFFFFFF)) / Timer_freq);
+#endif
 }
 
 int timer_get_milliseconds()
@@ -242,6 +278,8 @@ int timer_get_milliseconds()
 
 static int timer_get_microseconds_live()
 {
+#ifndef _WIN64	// Claude: x86 assembly; x64 below does the same in C (D-057)
+
 	int tmp;
 	LARGE_INTEGER temp_large;
 
@@ -274,6 +312,22 @@ sub_again:
 	_asm mov tmp, eax
 
 	return tmp;
+#else
+	LARGE_INTEGER temp_large;
+
+	if (!Timer_inited) {
+		Int3();
+		return 0;
+	}
+
+	timer_get(&temp_large);
+
+	// what the x86 assembly computes: edx:eax / Timer_freq, the high half first reduced mod Timer_freq so
+	// the divide cannot overflow (the time wraps at about 9 hours)
+	unsigned __int64 n = (unsigned __int64)temp_large.QuadPart * (unsigned __int64)1000000;
+	unsigned __int64 hi = (n >> 32) % Timer_freq;
+	return (int)(unsigned int)(((hi << 32) | (n & 0xFFFFFFFF)) / Timer_freq);
+#endif
 }
 
 int timer_get_microseconds()

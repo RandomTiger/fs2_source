@@ -414,12 +414,21 @@ void tmap_scan_generic()
 // unlike C's ftol, which must always round down.  
 // But, in the tmapper, we don't care, since this is
 // just for Z and L.
+#ifdef _WIN64
+#include <xmmintrin.h>
+#endif
+
 inline int tmap_ftol(float f)
 {
+#ifndef _WIN64	// Claude: x87 assembly; x64 below rounds the same way with SSE (D-057)
+
 	int x;
 	_asm fld f
 	_asm fistp x
 	return x; 
+#else
+	return _mm_cvt_ss2si(_mm_set_ss(f));	// rounds to nearest, as fistp does in the default mode
+#endif
 }
 
 /*

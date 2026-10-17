@@ -669,6 +669,7 @@ void gr_detect_cpu(int *cpu, int *mmx, int *amd3d, int *katmai )
 	*amd3d = 0;
 	*katmai = 0;
 
+#ifndef _WIN64	// Claude: x86 assembly. The flags only choose software renderer paths, which x64 does not build (D-057)
 	char cpu_vender[16];
 	memset( cpu_vender, 0, sizeof(cpu_vender) );
 		
@@ -808,6 +809,7 @@ done_checking_cpuid:
 		}		
 	}
 	*/
+#endif
 }
 
 // --------------------------------------------------------------------------

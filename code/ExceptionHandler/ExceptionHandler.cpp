@@ -374,6 +374,7 @@ int __cdecl RecordExceptionInfo(PEXCEPTION_POINTERS data, const char *Message)
 	PEXCEPTION_RECORD	Exception = data->ExceptionRecord;
 	PCONTEXT			Context = data->ContextRecord;
 
+#ifndef _WIN64	// Claude: x86 registers and assembly; x64 writes the exception and its address (D-057)
 	char	CrashModulePathName[MAX_PATH];
 	char	*CrashModuleFileName = "Unknown";
 	MEMORY_BASIC_INFORMATION	MemInfo;
@@ -497,6 +498,12 @@ int __cdecl RecordExceptionInfo(PEXCEPTION_POINTERS data, const char *Message)
 	__except(EXCEPTION_EXECUTE_HANDLER) {
 		hprintf(LogFile, "Exception encountered during stack dump.\r\n");
 	}
+
+#else
+	hprintf(LogFile, "%s caused %s at %p.\r\n", FileName, GetExceptionDescription(Exception->ExceptionCode), (void *)Context->Rip);
+	hprintf(LogFile, "Exception handler called in %s.\r\n", Message);
+	RecordSystemInformation(LogFile);
+#endif
 
 	RecordModuleList(LogFile);
 
