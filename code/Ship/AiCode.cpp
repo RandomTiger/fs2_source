@@ -5859,7 +5859,7 @@ float compute_incoming_payload(object *target_objp)
 int check_ok_to_fire(int objnum, int target_objnum, weapon_info *wip)
 {
 	int	num_homers = 0;
-	object	*tobjp = &Objects[target_objnum];
+	object	*tobjp = Objects + target_objnum;	// Claude: address only; target_objnum can be -1 here (#5, D-077)
 
 	if (target_objnum > -1) {
 		// AL 3-4-98: Ensure objp target is a ship first 

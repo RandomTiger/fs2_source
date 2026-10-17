@@ -689,7 +689,7 @@ int ai_big_maybe_follow_subsys_path(int do_dot_check)
 	object	*target_objp;
 
 	aip = &Ai_info[Ships[Pl_objp->instance].ai_index];
-	target_objp = &Objects[aip->target_objnum];
+	target_objp = Objects + aip->target_objnum;	// Claude: address only; target_objnum can be -1 here (#5, D-077)
 
 	if ( (aip->targeted_subsys != NULL) && (aip->target_objnum >= 0) && (aip->targeted_subsys->system_info->path_num >= 0) ) {
 		polymodel	*pm;
