@@ -152,7 +152,9 @@ static DWORD WINAPI autotest_watchdog(LPVOID)
 	for (;;) {
 		Sleep(1000);
 		now = GetTickCount();
-		if (now - Autotest_frame_ms > AUTOTEST_STUCK_MS) {
+		// Claude: signed, since the main thread can write a newer time after now was read; unsigned, that wrapped
+		// to about 50 days and stopped healthy runs with exit 5 (D-054)
+		if ((int)(now - Autotest_frame_ms) > AUTOTEST_STUCK_MS) {
 			autotest_fatal(AUTOTEST_EXIT_STUCK, "no frame for %d seconds in state %d", (now - Autotest_frame_ms) / 1000, Autotest_state);
 		}
 
@@ -167,7 +169,7 @@ static DWORD WINAPI autotest_watchdog(LPVOID)
 		} else {
 			limit = AUTOTEST_STUCK_MS;
 		}
-		if (now - Autotest_state_ms > limit) {
+		if ((int)(now - Autotest_state_ms) > (int)limit) {	// Claude: signed, as above (D-054)
 			autotest_fatal(AUTOTEST_EXIT_STUCK, "stuck in state %d for %d seconds", Autotest_state, (now - Autotest_state_ms) / 1000);
 		}
 	}
