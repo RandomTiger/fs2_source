@@ -190,7 +190,7 @@
 #define FAILURE FALSE
 #endif // SUCCESS
 
-typedef BOOL (*TIMERCALLBACK)(DWORD);
+typedef BOOL (*TIMERCALLBACK)(DWORD_PTR);	// Claude: DWORD_PTR, it carries a pointer (D-057)
 
 #define BIGBUF_SIZE					180000			// This can be reduced to 88200 once we don't use any stereo
 //#define BIGBUF_SIZE					88300			// This can be reduced to 88200 once we don't use any stereo
@@ -219,11 +219,11 @@ class Timer
 public:
     void constructor(void);
     void destructor(void);
-    BOOL Create (UINT nPeriod, UINT nRes, DWORD dwUser,  TIMERCALLBACK pfnCallback);
+    BOOL Create (UINT nPeriod, UINT nRes, DWORD_PTR dwUser,  TIMERCALLBACK pfnCallback);
 protected:
-    static void CALLBACK TimeProc(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2);
+    static void CALLBACK TimeProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
     TIMERCALLBACK m_pfnCallback;
-    DWORD m_dwUser;
+    DWORD_PTR m_dwUser;
     UINT m_nPeriod;
     UINT m_nRes;
     UINT m_nIDTimer;
@@ -349,7 +349,7 @@ protected:
 	BOOL WriteSilence (UINT cbSize);
 	DWORD GetMaxWriteSize (void);
 	BOOL ServiceBuffer (void);
-	static BOOL TimerCallback (DWORD dwUser);
+	static BOOL TimerCallback (DWORD_PTR dwUser);
 
 	AudioStreamServices * m_pass;  // ptr to AudioStreamServices object
 	LPDIRECTSOUNDBUFFER m_pdsb;    // ptr to Direct Sound buffer
@@ -954,7 +954,7 @@ void AudioStream::Play (long volume, int looping)
 			// Kick off timer to service buffer
 			m_timer.constructor();
 
-			m_timer.Create (m_nBufService, m_nBufService, DWORD (this), TimerCallback);
+			m_timer.Create (m_nBufService, m_nBufService, DWORD_PTR (this), TimerCallback);
 
 			// Playback begun, no longer cued
 			m_fPlaying = TRUE;
@@ -981,7 +981,7 @@ void AudioStream::Play (long volume, int looping)
 }
 
 // Timer callback for Timer object created by ::Play method.
-BOOL AudioStream::TimerCallback (DWORD dwUser)
+BOOL AudioStream::TimerCallback (DWORD_PTR dwUser)
 {
     // dwUser contains ptr to AudioStream object
     AudioStream * pas = (AudioStream *) dwUser;
@@ -1093,7 +1093,7 @@ void Timer::destructor(void)
 
 
 // Create
-BOOL Timer::Create (UINT nPeriod, UINT nRes, DWORD dwUser, TIMERCALLBACK pfnCallback)
+BOOL Timer::Create (UINT nPeriod, UINT nRes, DWORD_PTR dwUser, TIMERCALLBACK pfnCallback)
 {
 	BOOL bRtn = SUCCESS;    // assume success
 
@@ -1106,7 +1106,7 @@ BOOL Timer::Create (UINT nPeriod, UINT nRes, DWORD dwUser, TIMERCALLBACK pfnCall
 	m_dwUser = dwUser;
 	m_pfnCallback = pfnCallback;
 
-	if ((m_nIDTimer = timeSetEvent (m_nPeriod, m_nRes, TimeProc, (DWORD) this, TIME_PERIODIC)) == NULL) {
+	if ((m_nIDTimer = timeSetEvent (m_nPeriod, m_nRes, TimeProc, (DWORD_PTR) this, TIME_PERIODIC)) == NULL) {
 	  bRtn = FAILURE;
 	}
 
@@ -1119,7 +1119,7 @@ BOOL Timer::Create (UINT nPeriod, UINT nRes, DWORD dwUser, TIMERCALLBACK pfnCall
 // Calls procedure specified when Timer object was created. The 
 // dwUser parameter contains "this" pointer for associated Timer object.
 // 
-void CALLBACK Timer::TimeProc(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
+void CALLBACK Timer::TimeProc(UINT uID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
 {
     // dwUser contains ptr to Timer object
     Timer * ptimer = (Timer *) dwUser;

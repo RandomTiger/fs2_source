@@ -130,7 +130,7 @@ extern ushort Psnet_default_port;
 #define RNF_CONNECTING		4		// We received the connecting message, but haven't told the game yet.
 #define RNF_LIMBO				5		// between connecting and connected
 
-extern uint Unreliable_socket;	// all PXO API modules should use this to send and receive on
+extern size_t Unreliable_socket;	// Claude: a SOCKET; size_t is the same type (uint on x86) (D-057)	// all PXO API modules should use this to send and receive on
 
 // -------------------------------------------------------------------------------------------------------
 // PSNET 2 TOP LAYER FUNCTIONS - these functions simply buffer and store packets based upon type (see PSNET_TYPE_* defines)

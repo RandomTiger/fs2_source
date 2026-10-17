@@ -76,7 +76,7 @@ static int				ACM_inited = 0;
 //  
 //--------------------------------------------------------------------------;
 
-int CALLBACK ACM_enum_callback(HACMDRIVERID hadid, DWORD dwInstance, DWORD fdwSupport)
+BOOL CALLBACK ACM_enum_callback(HACMDRIVERID hadid, DWORD_PTR dwInstance, DWORD fdwSupport)	// Claude: the ACMDRIVERENUMCB types, the same on x86 (D-057)
 {
     static TCHAR    szBogus[]       = TEXT("????");
 

@@ -420,7 +420,7 @@ int find_freespace_cd(char *volume_name)
 	int cdrom_drive=-1;
 	int volume_match = 0;
 	_finddata_t find;
-	int find_handle;
+	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 
 	GetCurrentDirectory(MAX_PATH, oldpath);
 

@@ -135,6 +135,8 @@ void grx_set_shader( shader * shade )
 
 void gr8_shade(int x,int y,int w,int h)
 {
+#ifndef _WIN64	// Claude: x86 assembly, the software renderer (D-057)
+
 	int x1, y1, x2, y2;
 	ubyte *xlat_table;
 
@@ -252,5 +254,8 @@ void gr8_shade(int x,int y,int w,int h)
 
 	gr_unlock();
 	
+#else
+	// software renderer only, which x64 does not build
+#endif
 }
 

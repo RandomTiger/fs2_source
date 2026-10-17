@@ -469,7 +469,7 @@ int cfile_pop_dir()
 // NOTE : WILL NOT DELETE READ-ONLY FILES
 int cfile_flush_dir(int dir_type)
 {
-	int find_handle;
+	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 	int del_count;
 	_finddata_t find;
 

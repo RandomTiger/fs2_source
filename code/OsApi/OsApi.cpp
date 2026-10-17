@@ -273,17 +273,17 @@ static void os_find_copy(const _finddata_t *f, os_find_data *fd)
 	fd->write_time = f->time_write;
 }
 
-int os_find_first(const char *filespec, os_find_data *fd)
+intptr_t os_find_first(const char *filespec, os_find_data *fd)
 {
 	_finddata_t f;
-	int handle = (int)_findfirst(filespec, &f);
+	intptr_t handle = _findfirst(filespec, &f);
 	if (handle != -1) {
 		os_find_copy(&f, fd);
 	}
 	return handle;
 }
 
-int os_find_next(int handle, os_find_data *fd)
+int os_find_next(intptr_t handle, os_find_data *fd)
 {
 	_finddata_t f;
 	if (_findnext(handle, &f)) {
@@ -293,7 +293,7 @@ int os_find_next(int handle, os_find_data *fd)
 	return 0;
 }
 
-void os_find_close(int handle)
+void os_find_close(intptr_t handle)
 {
 	_findclose(handle);
 }
@@ -406,7 +406,7 @@ void os_check_debugger()
 	sprintf( search_string, "[run] - %s -", p );
 
 	// ... and then search for it.
-	EnumWindows( (int (__stdcall *)(struct HWND__ *,long))os_enum_windows, (long)&search_string );
+	EnumWindows( (WNDENUMPROC)os_enum_windows, (LPARAM)&search_string );	// Claude: the Windows types, the same on x86 (D-057)
 }
 
 // called at shutdown. Makes sure all thread processing terminates.
@@ -778,6 +778,10 @@ void debug_int3()
 		return;
 	}
 	gr_activate(0);
+#ifndef _WIN64
 	_asm { int 3 };
+#else
+	__debugbreak();	// Claude: no inline assembly on x64 (D-057)
+#endif
 	gr_activate(1);
 }
