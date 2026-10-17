@@ -29,6 +29,8 @@ Carried, by Tom's call:
 - Squad message menu (piece 4): deferred by Tom; listed as a carried exception at "PrePort done?" unless gate 2 cannot be met without it.
 
 ## Project goals (D-063)
+- **Engine: Godot, confirmed 2026-10-17 (D-065).** Tom weighed thinner hosts (SDL3, sokol, bgfx, raylib) and lighter engines. Godot stays because the aim after the port is to expand the game graphically and in features and to bring FRED and the other tools in, which wants an editor and a renderer with headroom. The C++ logic stays engine-agnostic: nothing on `GodotPrep` or `PrePortCleanup` may assume Godot, and the headless C++ build stays the proof runner.
+- **FRED in the Godot editor** (D-065): a goal after the port, not scheduled.
 - **Demo recording suite.** Recordings over the demo missions, shipped in the repo with their own reference entry, so the suite runs without a retail install (public CI). The demo data is the only data set the project can redistribute. Demo behaviour is its own logic, not a subset of the retail suite; where the two differ, retail is the oracle and the demo keeps what the shipped demo did. First step: a compile-time `FS2_DEMO` build playing the demo data. Tom to be involved.
 - **One exe for demo and retail.** The game detects which data set it has and switches to demo mode at run time, so both share a binary and a recording format. Sized in `docs/DEMO_CODE.md` on `PrePortCleanup`: about 85 `FS2_DEMO` blocks in about 45 files, mostly menus and mission UI, plus a dozen pool limits that become run-time caps; about eight batches. Scheduled after the `PrePortCleanup` order (D-062), and proved by the demo suite and the retail suite both replaying unchanged. Until then no cleanup change touches demo-conditional code.
 
