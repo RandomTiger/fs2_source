@@ -561,6 +561,7 @@
 #include "ExceptionHandler.h"
 #include "supernova.h"
 #include "GameView.h"	// Claude: logic phase camera
+#include "ObjectSnapshot.h"	// Claude: what a host draws from (D-050)
 #include "HUDshield.h"
 #include <io.h>
 // #include "names.h"
@@ -4068,6 +4069,7 @@ void game_frame()
 	}
 	
 	game_simulation_frame();	
+	object_snapshot_take();	// Claude: a read-only copy of the objects for a host to draw from (D-050)
 
 	// if not actually in a game play state, then return.  This condition could only be true in 
 	// a multiplayer game.

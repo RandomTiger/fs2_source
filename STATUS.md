@@ -38,7 +38,7 @@ Logic and presentation
 - Sound data (at least each sound's length) loaded without a sound device: with `-nosound` no sound loads, so message voices never start and messages last only their animation.
 - Logic and drawing separated, drawing only reads state (`LogicDrawSplit`).
 - Logic uses the GR_1024 game view for any screen-space maths, never the window (D-006, D-022).
-- A read-only snapshot of objects after each simulation step (number, signature, model, transform) for the host to draw from.
+- Done 2026-10-17 (D-050, item 3): a read-only snapshot of objects after each simulation step (number, signature, model, transform) for the host to draw from (`Object/ObjectSnapshot.h`). Nothing reads it yet.
 - Fonts: real metrics without a renderer (`split_str` and HUD message wrapping measure in pixels).
 - Every `gr_screen.mode` switch outside the `gf_*` table (`gr_bitmap`, `gr_activate`, `neb2_*`, `BM_SELECT_*`) handles a new backend.
 

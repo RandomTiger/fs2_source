@@ -293,6 +293,7 @@
     <ClCompile Include="Object\CollideWeaponWeapon.cpp" />
     <ClCompile Include="Object\ObjCollide.cpp" />
     <ClCompile Include="Object\Object.cpp" />
+    <ClCompile Include="Object\ObjectSnapshot.cpp" />
     <ClCompile Include="Object\ObjectSnd.cpp" />
     <ClCompile Include="Object\ObjectSort.cpp" />
     <ClCompile Include="Observer\Observer.cpp" />
@@ -548,6 +549,7 @@
     <ClInclude Include="Network\stand_gui.h" />
     <ClInclude Include="Object\ObjCollide.h" />
     <ClInclude Include="Object\Object.h" />
+    <ClInclude Include="Object\ObjectSnapshot.h" />
     <ClInclude Include="Object\ObjectSnd.h" />
     <ClInclude Include="Observer\Observer.h" />
     <ClInclude Include="OsApi\MONOPUB.H" />
