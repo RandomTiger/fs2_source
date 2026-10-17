@@ -787,6 +787,7 @@ int PASCAL WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdSh
 
 	timer_init();
 	// cfile_init(tok);
+	vm_init(16*1024*1024);	// Claude: code.lib's malloc needs the heap; the game, FRED and Ac set it up, Nebedit never did (#11)
 	cfile_init(__argv[0]);
 	os_init( "NebEdit", "NebEdit" );	//SCREEN_W, SCREEN_H );
 	palette_load_table( "gamepalette1-01.pcx" );	
