@@ -11,6 +11,7 @@
 #include "pstypes.h"
 #include "SystemVars.h"
 #include "OsApi.h"
+#include "HostHooks.h"
 #include "FreeSpace.h"
 #include "GameSequence.h"
 #include "cmdline.h"
@@ -66,6 +67,8 @@ void game_maybe_update_launcher(char *exe_dir)
 
 int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
 {
+	host_hooks_set(&host_hooks_windows);	// Claude: the platform seam, filled before anything reads the machine (D-051)
+
 	replay_wait_for_restart();	// Claude: -autorecord restarts the game; let the old instance close first
 
 	// Don't let more than one instance of Freespace run.

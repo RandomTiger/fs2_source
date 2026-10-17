@@ -297,6 +297,8 @@
     <ClCompile Include="Object\ObjectSnd.cpp" />
     <ClCompile Include="Object\ObjectSort.cpp" />
     <ClCompile Include="Observer\Observer.cpp" />
+    <ClCompile Include="OsApi\HostHooks.cpp" />
+    <ClCompile Include="OsApi\HostHooksWin32.cpp" />
     <ClCompile Include="OsApi\OsApi.cpp" />
     <ClCompile Include="OsApi\OsRegistry.cpp" />
     <ClCompile Include="OsApi\OutWnd.cpp" />
@@ -552,6 +554,7 @@
     <ClInclude Include="Object\ObjectSnapshot.h" />
     <ClInclude Include="Object\ObjectSnd.h" />
     <ClInclude Include="Observer\Observer.h" />
+    <ClInclude Include="OsApi\HostHooks.h" />
     <ClInclude Include="OsApi\MONOPUB.H" />
     <ClInclude Include="OsApi\OsApi.h" />
     <ClInclude Include="OsApi\OsRegistry.h" />

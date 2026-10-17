@@ -71,6 +71,7 @@
 #include	"limits.h"
 #include "PsTypes.h"
 #include "Timer.h"
+#include "HostHooks.h"
 #include "2d.h"
 #include "Alphacolors.h"
 #include "Replay.h"
@@ -98,12 +99,12 @@ void timer_init()
 {
 	if ( !Timer_inited )	{
 		LARGE_INTEGER tmp;
-		QueryPerformanceFrequency(&tmp);
+		tmp.QuadPart = Host_hooks.time_frequency();	// Claude: through the host (D-051)
 		Assert( tmp.HighPart == 0 );
 		Timer_freq = tmp.LowPart;
 
-		QueryPerformanceCounter((LARGE_INTEGER *)&Timer_base);
-		QueryPerformanceCounter((LARGE_INTEGER *)&Timer_last_value);
+		Timer_base = Host_hooks.time_counter();	// Claude: through the host (D-051)
+		Timer_last_value = Host_hooks.time_counter();
 
 		InitializeCriticalSection(&Timer_lock);
 		
@@ -121,7 +122,7 @@ static void timer_get(LARGE_INTEGER * out)
 	longlong time_tmp;
 	longlong Time_now;
 
-	QueryPerformanceCounter((LARGE_INTEGER *)&time_tmp);
+	time_tmp = Host_hooks.time_counter();	// Claude: through the host (D-051)
 	if ( time_tmp < Timer_last_value )	{
 		// The clock has rolled!
 		Timer_base = time_tmp;
