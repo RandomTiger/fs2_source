@@ -1074,7 +1074,7 @@ void gr_bitmap(int x, int y)
 	int w, h;
 
 	// d3d and glide support texture poly shiz
-	if(((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) && Gr_bitmap_poly){		
+	if((gr_screen.mode == GR_DIRECT3D) && Gr_bitmap_poly){	// Claude: Glide test removed; that renderer is gone (D-070)
 		int idx, s_idx;
 		// float u_scale, v_scale;
 		bitmap_section_info *sections;			

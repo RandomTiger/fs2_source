@@ -4636,9 +4636,6 @@ int game_poll()
 			gameseq_post_event( GS_EVENT_TOGGLE_FULLSCREEN );
 			break;
 
-		case KEY_DEBUGGED + KEY_F4:
-			gameseq_post_event( GS_EVENT_TOGGLE_GLIDE );
-			break;
 		
 		case KEY_F4:
 			if(Game_mode & GM_MULTIPLAYER){
@@ -4950,10 +4947,6 @@ void game_process_event( int current_state, int event )
 			// Claude: the DirectDraw renderer this switched to is gone
 			break;
 
-		case GS_EVENT_TOGGLE_GLIDE:
-			// Claude: the Glide renderer this switched to is gone
-			break;
- 
 		case GS_EVENT_LOAD_MISSION_MENU:
 			gameseq_set_state(GS_STATE_LOAD_MISSION_MENU);
 			break;
