@@ -75,6 +75,8 @@ static int Replay_sound_skipped = 0;
 // Diagnostic FS2_REPLAY_SOUND_MODEL=1 (D-031): in replay, every sound-state query is answered by a model (see
 // Replay.h), and the recorded sound and music-stream entries are skipped.  Never used to make or check a reference
 // recording.
+#define REPLAY_LOG_READS_ENV		"FS2_REPLAY_LOG_READS"	// Claude: diagnostic, log the entries read up to N, the last three, with their call stacks (D-055)
+static int Replay_log_reads = 0;
 #define REPLAY_SOUND_MODEL_ENV		"FS2_REPLAY_SOUND_MODEL"
 #define REPLAY_SND_MODEL_MAX			1024
 typedef struct replay_snd_model {
@@ -451,6 +453,10 @@ static void r_tag(int tag)
 	}
 	Replay_entries++;
 	Replay_entries_by_tag[tag]++;
+	if ((Replay_entries > Replay_log_reads - 3) && (Replay_entries <= Replay_log_reads)) {	// the three entries up to N
+		replay_logf("entry %d, frame %d: '%s'\n", Replay_entries, Replay_frame, Replay_tag_names[tag]);
+		replay_log_stack();
+	}
 }
 
 // -----------------------------------------------------------------------------------------
@@ -1127,6 +1133,7 @@ void replay_startup()
 			Replay_sound_live = 1;
 			replay_logf("DIAGNOSTIC: %s=1, sound device read live, recorded sound entries skipped\n", REPLAY_SOUND_LIVE_ENV);
 		}
+		Replay_log_reads = GetEnvironmentVariable(REPLAY_LOG_READS_ENV, live, sizeof(live)) ? atoi(live) : 0;
 		if (GetEnvironmentVariable(REPLAY_SOUND_MODEL_ENV, live, sizeof(live)) && (live[0] == '1')) {
 			Replay_sound_model = 1;
 			replay_logf("DIAGNOSTIC: %s=1, sound-state queries answered by the model, recorded sound and music entries skipped\n", REPLAY_SOUND_MODEL_ENV);

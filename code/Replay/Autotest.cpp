@@ -222,11 +222,43 @@ static int autotest_int_arg(char *flag, char *value, int def, int lo, int hi)
 
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc)
 {
+	// Claude: a restarted game (game_host_init again in this process, D-055) starts the harness as a new process
+	// does: the run's state cleared, a new log; the lock, crash filter and watchdog thread are set up once
+	static int once = 0;
+	if (Autotest_log) {
+		fclose(Autotest_log);
+		Autotest_log = NULL;
+	}
+	Autotest_mission[0] = 0;
+	Autotest_pilot[0] = 0;
+	Autotest_list_index = -1;
+	Autotest_started = 0;
+	Autotest_in_mission = 0;
+	Autotest_ending = 0;
+	Autotest_gave_up = 0;
+	Autotest_mission_start = 0;
+	Autotest_current[0] = 0;
+	Autotest_mission_vulnerability = 0;
+	memset(Autotest_event_state, 0, sizeof(Autotest_event_state));
+	memset(Autotest_goal_state, 0, sizeof(Autotest_goal_state));
+	Autotest_missions_run = 0;
+	Autotest_missions_failed = 0;
+	Autotest_asserts = 0;
+	Autotest_int3s = 0;
+	Autotest_warnings = 0;
+	memset(Autotest_sites, 0, sizeof(Autotest_sites));
+	Autotest_num_sites = 0;
+	Autotest_state = -1;
+	Autotest_frames = 0;
+	Autotest_poll_ms = 0;
+
 	Autotest_harness = 1;
 	Autotest_rules = 1;
 	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
-	InitializeCriticalSection(&Autotest_log_lock);
+	if (!once) {
+		InitializeCriticalSection(&Autotest_log_lock);
+	}
 	Autotest_log = fopen(AUTOTEST_LOG, "wt");
 
 #ifdef NDEBUG
@@ -256,10 +288,13 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 
 	// a crash ends the process with its exception code instead of waiting on the Windows crash
 	// dialog, and the watchdog also covers start-up, before the first frame
-	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
-	SetUnhandledExceptionFilter(autotest_crash);
 	Autotest_frame_ms = Autotest_state_ms = GetTickCount();
-	CreateThread(NULL, 0, autotest_watchdog, NULL, 0, NULL);
+	if (!once) {
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+		SetUnhandledExceptionFilter(autotest_crash);
+		CreateThread(NULL, 0, autotest_watchdog, NULL, 0, NULL);
+		once = 1;
+	}
 }
 
 void autotest_get_settings(int *on, int *time, int *speed)

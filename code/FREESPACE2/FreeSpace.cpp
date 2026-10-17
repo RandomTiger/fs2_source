@@ -1973,6 +1973,7 @@ void game_init()
 
 	game_time_init();	// Claude: D-055
 	rand_alt_init();	// Claude: the alternate random stream starts where a new process starts it (D-055)
+	Rand_count = 0;		// Claude: the trace counts rand calls from process start; a restarted game counts from 0 again (D-055)
 
 	Game_current_mission_filename[0] = 0;
 
