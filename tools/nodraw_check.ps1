@@ -80,14 +80,16 @@ foreach ($m in $Missions) {
 		}
 		$code = Run-Game "-window -autotest -at_mission $m -at_time $t -playernpc -record `"$rec`" -trace `"$trace`""
 		$line = "$m | record exit=$code"
+		$recok = ($code -eq 0)
 		$modes = @('draw', $quiet)
 	} else {
 		$rec = Join-Path $repo "recordings\autotest\$m.fs2rec"
 		$trace = Join-Path $repo "recordings\autotest\$m.trace"
 		$line = $m
 		$modes = @($quiet)
+		$recok = $true
 	}
-	$ok = Test-Path $trace
+	$ok = (Test-Path $trace) -and $recok
 	foreach ($mode in $modes) {
 		$rtrace = Join-Path $Out "${m}_$mode.trace"
 		$log = Join-Path $Out "${m}_$mode.replay.log"
@@ -111,6 +113,10 @@ foreach ($m in $Missions) {
 		if (($mode -eq 'headless') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'No graphics device' -Quiet)) { $res = "NOT HEADLESS ($res)" }
 		if (($res -notmatch '^REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $mode exit=$code $res / $diff"
+		# an autotest run exits 0 only with no Assert, Int3 or Warning (D-029, D-077)
+		$counts = Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
+		if ($counts) { $line += " ($($counts.Matches[0].Value))" }
+		if ($code -ne 0) { $ok = $false }
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
 	$line | Add-Content $summary
