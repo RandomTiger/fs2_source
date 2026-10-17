@@ -685,9 +685,14 @@ template <class T> void CAP( T& v, T mn, T mx )
 // a plain pointer, so `objp - Objects`, `Objects + i` and passing the array on work as before.
 // A guard firing is a finding for Tom, never a silent fix (D-061 item 3).
 #ifndef NDEBUG
+	#include <intrin.h>
+	#include <stdio.h>
+	extern "C" char __ImageBase;
+	extern "C" __declspec(dllimport) unsigned short __stdcall RtlCaptureStackBackTrace(unsigned long, unsigned long, void **, unsigned long *);
+	static __declspec(noinline) void guard_diag(int i, char *ret) { static int n = 0; if (n++ < 400) { void *st[6]; int k = RtlCaptureStackBackTrace(1, 6, st, 0); FILE *f = fopen("C:\\Games\\Freespace 2\\guard_diag.txt", "a"); if (f) { fprintf(f, "%d", i); for (int j = 0; j < k; j++) fprintf(f, " %x", (unsigned)((char *)st[j] - &__ImageBase)); fprintf(f, "\n"); fclose(f); } } }
 	template <typename T, int N> struct guarded_array {
 		T data[N];
-		T &operator[](int i)				{ Assert( (i >= 0) && (i < N) ); return data[i]; }
+		T &operator[](int i)				{ if (!((i >= 0) && (i < N))) guard_diag(i, (char *)_ReturnAddress()); return data[i]; }
 		const T &operator[](int i) const	{ Assert( (i >= 0) && (i < N) ); return data[i]; }
 		operator T *()						{ return data; }
 		operator const T *() const		{ return data; }
