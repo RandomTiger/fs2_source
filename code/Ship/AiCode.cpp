@@ -1611,7 +1611,7 @@ int set_target_objnum(ai_info *aip, int objnum)
 
 		aip->target_objnum = objnum;
 		aip->target_time = 0.0f;
-		aip->target_signature = Objects[objnum].signature;
+		aip->target_signature = (objnum >= 0) ? Objects[objnum].signature : -1;	// Claude: no target reads no object; was Objects[-1] (#2, D-080)
 		// clear targeted subsystem
 		set_targeted_subsys(aip, NULL, -1);
 	}
@@ -5497,7 +5497,7 @@ void set_primary_weapon_linkage(object *objp)
 	shipp->flags &= ~SF_PRIMARY_LINKED;
 
 	// AL: ensure target is a ship!
-	if ( Objects[aip->target_objnum].type == OBJ_SHIP ) {
+	if ( (aip->target_objnum >= 0) && (Objects[aip->target_objnum].type == OBJ_SHIP) ) {	// Claude: no target is not a ship; read Objects[-1] (#3, D-080)
 		// If trying to destroy a big ship (i.e., not disable/disarm), always unleash all weapons
 		if ( ship_get_SIF(&Ships[Objects[aip->target_objnum].instance]) & SIF_BIG_SHIP) {
 			if ( aip->targeted_subsys == NULL ) {
@@ -12747,7 +12747,7 @@ void ai_bay_depart()
 	}
 
 	// check if parent ship still exists, if not abort depart 
-	if ( aip->goal_signature != Objects[aip->goal_objnum].signature ) {
+	if ( (aip->goal_objnum < 0) || (aip->goal_signature != Objects[aip->goal_objnum].signature) ) {	// Claude: no parent means it is gone; read Objects[-1] (#4, D-080)
 		aip->mode = AIM_NONE;
 		return;
 	}
