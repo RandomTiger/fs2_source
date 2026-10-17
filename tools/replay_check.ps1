@@ -13,7 +13,7 @@ Results go to <Out>\summary.txt, one line per recording; <Out> defaults to repla
 Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
 both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
-A line passes when every run says "REPLAY OK" and "MATCH". Build both configs first, and don't
+A line passes when every run says "REPLAY OK" and "MATCH", and every autotest run exits 0 (no Assert, Int3 or Warning). Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
 param(
@@ -78,6 +78,12 @@ foreach ($r in $recs) {
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
+		# an autotest replay exits 0 only with no Assert, Int3 or Warning (D-029, D-077); a hand-played one exits 1 on success (D-033)
+		if ($r.Autotest) {
+			$counts = Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
+			if ($counts) { $line += " ($($counts.Matches[0].Value))" }
+			if ($p.ExitCode -ne 0) { $ok = $false }
+		}
 	}
 	if ($cfgs.Count -gt 1) {
 		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${folder}_${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
