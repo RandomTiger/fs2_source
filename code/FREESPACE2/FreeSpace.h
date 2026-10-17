@@ -343,7 +343,7 @@ void game_maybe_update_launcher(char *exe_dir);
 void game_run_launcher();
 
 // Claude: the host's three calls (D-050)
-int game_host_init(char *cmdline);
+int game_host_init(char *cmdline, char *root_dir);	// root_dir: the exe directory, no trailing slash
 int game_host_frame();
 int game_host_shutdown();
 

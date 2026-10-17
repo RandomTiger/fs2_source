@@ -947,6 +947,9 @@ static char *Game_demo_title_screen_fname[GR_NUM_RESOLUTIONS] = {
 char Game_CDROM_dir[MAX_PATH_LEN];
 int init_cdrom();
 
+// Claude: the game's root directory, the exe directory, from the host (game_host_init, D-050)
+static char Game_root_dir[1024] = "";
+
 // How much RAM is on this machine. Set in WinMain
 uint Freespace_total_ram = 0;
 
@@ -1990,7 +1993,7 @@ void game_init()
 	// int s2, e2;
 
 	char whee[1024];
-	_getcwd(whee, 1024);
+	strcpy(whee, Game_root_dir);	// Claude: from the host (game_host_init), was the current directory (D-050)
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
 
@@ -7790,8 +7793,10 @@ bool game_using_low_mem()
 // if it returns 1, game_host_frame until that returns 0, then game_host_shutdown for the exit code. One
 // game_host_frame is one pass of the game sequence, the same boundary the recorder's frames have. Popups and other
 // modal loops still run inside it (D-041).
-int game_host_init(char *szCmdLine)
+int game_host_init(char *szCmdLine, char *root_dir)
 {
+	strncpy(Game_root_dir, root_dir, sizeof(Game_root_dir)-1);
+
 	parse_cmdline(szCmdLine);	
 	replay_startup();
 

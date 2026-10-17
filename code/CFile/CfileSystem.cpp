@@ -360,9 +360,10 @@ void cf_build_root_list(char *cdrom_dir)
 
 	root = cf_create_root();
 
-	if ( !_getcwd(root->path, CF_MAX_PATHNAME_LENGTH ) ) {
-		Error(LOCATION, "Can't get current working directory -- %d", errno );
-	}
+	// Claude: the root cfile_init was given, which used to be read back here as the current directory (D-050)
+	extern char Cfile_root_path[];
+	strncpy(root->path, Cfile_root_path, CF_MAX_PATHNAME_LENGTH-1);
+	root->path[CF_MAX_PATHNAME_LENGTH-1] = 0;
 
 	// do we already have a slash? as in the case of a root directory install
 	if(strlen(root->path) && (root->path[strlen(root->path)-1] != '\\')){

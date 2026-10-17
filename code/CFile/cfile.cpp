@@ -178,6 +178,7 @@
 #include "osapi.h"
 
 char Cfile_root_dir[CFILE_ROOT_DIRECTORY_LEN] = "";
+char Cfile_root_path[CFILE_ROOT_DIRECTORY_LEN] = "";	// Claude: the root as the host gave it, not lower-cased; the first search root (D-050)
 
 // During cfile_init, verify that Pathtypes[n].index == n for each item
 // Each path must have a valid parent that can be tracable all the way back to the root 
@@ -320,6 +321,7 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 
 		if (i >= 2) {					
 			buf[i] = 0;						
+			strncpy(Cfile_root_path, buf, CFILE_ROOT_DIRECTORY_LEN-1);
 			cfile_chdir(buf);
 		} else {
 			os_message_box("Error trying to determine executable root directory!", "Error", 0);

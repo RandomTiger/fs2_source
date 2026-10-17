@@ -47,7 +47,7 @@ Host and platform
 - No blocking loops: popups and other modal loops run per frame.
 - Restartable in one process: all game state reset in one place, no `atexit` teardown.
 - Platform hooks as function tables the host fills in: time, input, sound, files, window; the same hooks the recorder uses, so recordings can referee the port.
-- `cfile` takes an explicit root instead of the current directory.
+- Done 2026-10-17 (D-050, item 2): `cfile` takes an explicit root from the host (`game_host_init`) instead of reading the current directory.
 - Sound behind an interface that does not need a window handle.
 - No `windows.h` in any header the host binding includes.
 - Settings from an ini, not the registry (D-016).

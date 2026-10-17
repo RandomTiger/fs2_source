@@ -195,7 +195,9 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	#endif
 	
 	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
-	if ( !game_host_init(szCmdLine) ) {
+	char root_dir[1024];
+	_getcwd(root_dir, 1024);	// the exe directory, set above
+	if ( !game_host_init(szCmdLine, root_dir) ) {
 		return 1;
 	}
 
