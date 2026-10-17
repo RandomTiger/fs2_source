@@ -11,6 +11,7 @@ Each set goes through:
   nodraw     tools\nodraw_check.ps1, Release
   model      tools\sound_model_check.ps1 (no answer from the sound device)
   headless   tools\nodraw_check.ps1 -Headless in Release and Debug (no window, graphics or sound device)
+  restart    tools\restart_check.ps1: sm1-01 then sm3-06 in one process, Release and Debug (D-055)
 
 Usage (PowerShell, from anywhere):
   tools\suite_check.ps1 [-Full] [-Out <dir>] [-GameDir <dir>]
@@ -44,7 +45,8 @@ $checks = @(
 	@{ Name = 'nodraw';     Script = 'nodraw_check.ps1';      Args = @() },
 	@{ Name = 'model';      Script = 'sound_model_check.ps1'; Args = @() },
 	@{ Name = 'headless_r'; Script = 'nodraw_check.ps1';      Args = @('-Headless') },
-	@{ Name = 'headless_d'; Script = 'nodraw_check.ps1';      Args = @('-Headless', '-Config', 'd') }
+	@{ Name = 'headless_d'; Script = 'nodraw_check.ps1';      Args = @('-Headless', '-Config', 'd') },
+	@{ Name = 'restart';    Script = 'restart_check.ps1';     Args = @() }
 )
 
 "Suite ($set), $(Get-Date -Format 'yyyy-MM-dd HH:mm'), $(if ($missions) { $missions.Count } else { 'all' }) recordings" | Set-Content $summary
