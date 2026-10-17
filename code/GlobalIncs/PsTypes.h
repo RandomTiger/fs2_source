@@ -329,7 +329,7 @@ typedef struct bitmap {
 	short	rowsize;	// What you need to add to go to next row
 	ubyte	bpp;		// How many bits per pixel it is. (7,8,15,16,24,32)
 	ubyte	flags;	// See the BMP_???? defines for values
-	uint	data;		// Pointer to data, or maybe offset into VRAM.
+	uintptr_t	data;		// Pointer to data, or maybe offset into VRAM.	// Claude: uintptr_t, a pointer on x64; uint on x86 (D-057)
 	ubyte *palette;	// If bpp==8, this is pointer to palette.   If the BMP_NO_PALETTE_MAP flag
 							// is not set, this palette just points to the screen palette. (gr_palette)
 
