@@ -7,7 +7,7 @@ decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers b
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
 `recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
-**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and is closed again now that `PrePort64` is proven (D-067). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
+**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and closed when `PrePort64` was proven (D-067). Every layer but `master` is open again for the work that belongs on it (D-20261017-223742). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
 
 ## Stage gates (D-026)
 | Gate | State |
@@ -31,6 +31,10 @@ Carried, by Tom's call:
 ## Project goals (D-063)
 - **Demo recording suite.** Recordings over the demo missions, shipped in the repo with their own reference entry, so the suite runs without a retail install (public CI). The demo data is the only data set the project can redistribute. Demo behaviour is its own logic, not a subset of the retail suite; where the two differ, retail is the oracle and the demo keeps what the shipped demo did. First step: a compile-time `FS2_DEMO` build playing the demo data. Tom to be involved.
 - **One exe for demo and retail.** The game detects which data set it has and switches to demo mode at run time, so both share a binary and a recording format. Sized in `docs/DEMO_CODE.md` on `PrePortCleanup`: about 85 `FS2_DEMO` blocks in about 45 files, mostly menus and mission UI, plus a dozen pool limits that become run-time caps; about eight batches. Scheduled after the `PrePortCleanup` order (D-062), and proved by the demo suite and the retail suite both replaying unchanged. Until then no cleanup change touches demo-conditional code.
+
+## Upcoming feature branches (D-20261017-223742), unscheduled until Tom briefs them
+- Demo mode by data detection (D-063): a branch off `RecordPlayback`, merged into `Enhanced` when green.
+- FS1 compatibility (D-064): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
