@@ -84,6 +84,7 @@
 
 #include "pstypes.h"
 #include "OsApi.h"
+#include "HostHooks.h"
 #include "key.h"
 #include "palman.h"
 #include "Mouse.h"
@@ -216,7 +217,13 @@ void os_cleanup()
 // Returns 1 if app is not the foreground app.
 int os_foreground()
 {
-	REPLAY_WRAP_INT(RT_FOREGROUND, fAppActive);
+	REPLAY_WRAP_INT(RT_FOREGROUND, Host_hooks.is_foreground());	// Claude: through the host (D-051)
+}
+
+// Claude: the Windows host's foreground flag (HostHooksWin32.cpp, D-051)
+int os_win32_is_foreground()
+{
+	return fAppActive;
 }
 
 // Returns the handle to the main window
@@ -734,7 +741,8 @@ BOOL win32_create_window()
 	return TRUE;
 }
 
-void os_poll()
+// Claude: the Windows host's event pump (HostHooksWin32.cpp, D-051); was the body of os_poll
+void os_win32_poll_events()
 {
 #ifndef THREADED
 	win32_process2(0);
@@ -753,6 +761,11 @@ void os_poll()
 	}
 	LeaveCriticalSection(&Os_lock);
 #endif
+}
+
+void os_poll()
+{
+	Host_hooks.poll_events();	// Claude: through the host (D-051)
 
 	replay_os_poll();
 }

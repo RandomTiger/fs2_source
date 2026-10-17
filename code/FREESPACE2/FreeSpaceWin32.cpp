@@ -65,9 +65,24 @@ void game_maybe_update_launcher(char *exe_dir)
 	RemoveDirectory(update_dir);
 }
 
+// Claude: whether the command line has this option, before parse_cmdline runs (it runs in game_host_init)
+static int host_cmdline_has(const char *cmdline, const char *option)
+{
+	int len = strlen(option);
+	const char *p = cmdline;
+	while ( (p = strstr(p, option)) != NULL ) {
+		if ( ((p == cmdline) || (p[-1] == ' ') || (p[-1] == '\t')) && ((p[len] == 0) || (p[len] == ' ') || (p[len] == '\t')) ) {
+			return 1;
+		}
+		p += len;
+	}
+	return 0;
+}
+
 int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
 {
-	host_hooks_set(&host_hooks_windows);	// Claude: the platform seam, filled before anything reads the machine (D-051)
+	// Claude: the platform seam, filled before anything reads the machine (D-051). -headless has its own.
+	host_hooks_set(host_cmdline_has(szCmdLine, "-headless") ? &host_hooks_headless : &host_hooks_windows);
 
 	replay_wait_for_restart();	// Claude: -autorecord restarts the game; let the old instance close first
 

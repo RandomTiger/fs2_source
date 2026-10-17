@@ -12,6 +12,11 @@ typedef struct host_hooks {
 	// time: a counter that only goes up, and its ticks per second (less than 2^32)
 	longlong	(*time_counter)();
 	longlong	(*time_frequency)();
+
+	// window and events: pump the host's events into the game's sinks (key_mark, mouse_mark, the focus), and
+	// whether the game is the foreground application
+	void		(*poll_events)();
+	int		(*is_foreground)();
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -20,7 +25,9 @@ extern host_hooks Host_hooks;
 // Fill the table before game_host_init. A null entry is an Error.
 void host_hooks_set(const host_hooks *h);
 
-// The Windows implementations (HostHooksWin32.cpp)
+// The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
+// events, always in the foreground
 extern const host_hooks host_hooks_windows;
+extern const host_hooks host_hooks_headless;
 
 #endif
