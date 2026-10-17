@@ -7785,3 +7785,113 @@ bool game_using_low_mem()
 		return true;
 	}
 }
+
+// Claude: the host's three calls (D-050), moved verbatim from WinMainSub. A host calls game_host_init once and,
+// if it returns 1, game_host_frame until that returns 0, then game_host_shutdown for the exit code. One
+// game_host_frame is one pass of the game sequence, the same boundary the recorder's frames have. Popups and other
+// modal loops still run inside it (D-041).
+int game_host_init(char *szCmdLine)
+{
+	parse_cmdline(szCmdLine);	
+	replay_startup();
+
+#ifdef STANDALONE_ONLY_BUILD
+	Is_standalone = 1;
+	nprintf(("Network", "Standalone running"));
+#else
+	if (Is_standalone){
+		nprintf(("Network", "Standalone running"));
+	}
+#endif
+
+	init_cdrom();
+	game_init();
+	game_stop_time();
+
+
+	// maybe spew pof stuff
+	if(Cmdline_spew_pof_info){
+		game_spew_pof_info();
+		game_shutdown();
+		return 0;
+	}
+
+	// non-demo, non-standalone, play the intro movie
+	if(!Is_standalone){
+#ifndef DEMO
+#ifdef RELEASE_REAL
+		char *plist[5];
+		if( (cf_get_file_list(2, plist, CF_TYPE_MULTI_PLAYERS, NOX("*.plr"))	<= 0) && (cf_get_file_list(2, plist, CF_TYPE_SINGLE_PLAYERS, NOX("*.plr"))	<= 0) ){
+			// prompt for cd 2
+#if defined(OEM_BUILD)
+			game_do_cd_check_specific(FS_CDROM_VOLUME_1, 1);
+#else
+			game_do_cd_check_specific(FS_CDROM_VOLUME_2, 2);
+#endif // defined(OEM_BUILD)
+		}
+#endif
+	}
+
+	if ( !Is_standalone ) {
+
+		// release -- movies always play
+		#if defined(NDEBUG)
+
+		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
+		// no soup for you!
+		// movie_play( NOX("intro.mve"), 0 );
+
+		// debug version, movie will only play with -showmovies
+		#else if !defined(NDEBUG)
+		
+		// no soup for you!
+		// movie_play( NOX("intro.mve"), 0);
+/*
+#ifndef NDEBUG
+		if ( Cmdline_show_movies )
+			movie_play( NOX("intro.mve"), 0 );
+#endif
+*/
+		#endif
+	}
+
+#endif	
+
+	if (Is_standalone){
+		gameseq_post_event(GS_EVENT_STANDALONE_MAIN);
+	} else {
+		gameseq_post_event(GS_EVENT_GAME_INIT);		// start the game rolling -- check for default pilot, or go to the pilot select screen
+	}
+
+	return 1;
+}
+
+int game_host_frame()
+{
+	int state;
+
+	// only important for non THREADED mode
+	os_poll();
+
+	state = gameseq_process_events();
+	if ( state == GS_STATE_QUIT_GAME ){
+		return 0;
+	}
+	return 1;
+}
+
+int game_host_shutdown()
+{
+#ifdef FS2_DEMO
+	if(!Is_standalone){
+		demo_upsell_show_screens();
+	}
+#elif defined(OEM_BUILD)
+	// show upsell screens on exit
+	oem_upsell_show_screens();
+#endif
+
+	game_shutdown();
+	replay_restart();	// Claude: -autorecord restarts the game after each mission
+	return autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
+}

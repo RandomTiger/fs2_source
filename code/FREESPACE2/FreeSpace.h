@@ -342,6 +342,11 @@ void game_launch_launcher_on_exit();
 void game_maybe_update_launcher(char *exe_dir);
 void game_run_launcher();
 
+// Claude: the host's three calls (D-050)
+int game_host_init(char *cmdline);
+int game_host_frame();
+int game_host_shutdown();
+
 // Used to tell the player that a feature isn't available in the demo version of FreeSpace
 void game_feature_not_in_demo_popup();
 

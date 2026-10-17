@@ -52,7 +52,7 @@ Logic-side leaks (gameplay depending on drawing or window size) are tracked in `
 
 ## The Windows host (decision D-045)
 `FREESPACE2/FreeSpaceWin32.cpp` is the Windows host: `WinMain` and `WinMainSub`, launcher update and launch, and CD detection. Another host leaves the file out and supplies in its place:
-- the entry point: what `WinMainSub` does between `parse_cmdline` and `game_shutdown` (the game's own start-up and its `gameseq_process_events` loop);
+- the entry point: it calls `game_host_init(cmdline)` once and, if that returns 1, `game_host_frame()` until it returns 0, then `game_host_shutdown()` for the exit code (`FreeSpace.h`, D-050). One `game_host_frame` is one pass of the game sequence, the recorder's frame boundary; popups and other modal loops still run inside it (D-041);
 - the exe directory as the current directory. `Freespace_total_ram` no longer reaches game logic: the bitmap mode is pinned to high memory, the reference (D-046); only the LowMem setting selects the retail low-memory mode;
 - `game_run_launcher` (no video card configured), `game_launch_launcher_on_exit` and `game_maybe_update_launcher`, or nothing;
 - the CD hooks (`init_cdrom`, `find_freespace_cd`, `game_do_cd_check`, `game_do_cd_check_specific`, `game_do_cd_mission_check`, `game_cd_changed`, `set_cdrom_path`), which can report no CD needed.

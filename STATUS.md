@@ -43,7 +43,7 @@ Logic and presentation
 - Every `gr_screen.mode` switch outside the `gf_*` table (`gr_bitmap`, `gr_activate`, `neb2_*`, `BM_SELECT_*`) handles a new backend.
 
 Host and platform
-- `WinMain` split into init, one frame, shutdown; the game keeps its own clock.
+- Done 2026-10-17 (D-050, item 1): `WinMain` split into `game_host_init`, `game_host_frame` and `game_host_shutdown`; the game keeps its own clock.
 - No blocking loops: popups and other modal loops run per frame.
 - Restartable in one process: all game state reset in one place, no `atexit` teardown.
 - Platform hooks as function tables the host fills in: time, input, sound, files, window; the same hooks the recorder uses, so recordings can referee the port.

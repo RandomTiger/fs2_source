@@ -66,8 +66,6 @@ void game_maybe_update_launcher(char *exe_dir)
 
 int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
 {
-	int state;		
-
 	replay_wait_for_restart();	// Claude: -autorecord restarts the game; let the old instance close first
 
 	// Don't let more than one instance of Freespace run.
@@ -196,98 +194,15 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	}
 	#endif
 	
-	parse_cmdline(szCmdLine);	
-	replay_startup();
-
-#ifdef STANDALONE_ONLY_BUILD
-	Is_standalone = 1;
-	nprintf(("Network", "Standalone running"));
-#else
-	if (Is_standalone){
-		nprintf(("Network", "Standalone running"));
-	}
-#endif
-
-	init_cdrom();
-	game_init();
-	game_stop_time();
-
-	// maybe spew pof stuff
-	if(Cmdline_spew_pof_info){
-		game_spew_pof_info();
-		game_shutdown();
+	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
+	if ( !game_host_init(szCmdLine) ) {
 		return 1;
 	}
 
-	// non-demo, non-standalone, play the intro movie
-	if(!Is_standalone){
-#ifndef DEMO
-#ifdef RELEASE_REAL
-		char *plist[5];
-		if( (cf_get_file_list(2, plist, CF_TYPE_MULTI_PLAYERS, NOX("*.plr"))	<= 0) && (cf_get_file_list(2, plist, CF_TYPE_SINGLE_PLAYERS, NOX("*.plr"))	<= 0) ){
-			// prompt for cd 2
-#if defined(OEM_BUILD)
-			game_do_cd_check_specific(FS_CDROM_VOLUME_1, 1);
-#else
-			game_do_cd_check_specific(FS_CDROM_VOLUME_2, 2);
-#endif // defined(OEM_BUILD)
-		}
-#endif
+	while ( game_host_frame() ) {
 	}
 
-	if ( !Is_standalone ) {
-
-		// release -- movies always play
-		#if defined(NDEBUG)
-
-		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
-		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0 );
-
-		// debug version, movie will only play with -showmovies
-		#else if !defined(NDEBUG)
-		
-		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0);
-/*
-#ifndef NDEBUG
-		if ( Cmdline_show_movies )
-			movie_play( NOX("intro.mve"), 0 );
-#endif
-*/
-		#endif
-	}
-
-#endif	
-
-	if (Is_standalone){
-		gameseq_post_event(GS_EVENT_STANDALONE_MAIN);
-	} else {
-		gameseq_post_event(GS_EVENT_GAME_INIT);		// start the game rolling -- check for default pilot, or go to the pilot select screen
-	}
-
-	while (1) {
-		// only important for non THREADED mode
-		os_poll();
-
-		state = gameseq_process_events();
-		if ( state == GS_STATE_QUIT_GAME ){
-			break;
-		}
-	} 
-
-#ifdef FS2_DEMO
-	if(!Is_standalone){
-		demo_upsell_show_screens();
-	}
-#elif defined(OEM_BUILD)
-	// show upsell screens on exit
-	oem_upsell_show_screens();
-#endif
-
-	game_shutdown();
-	replay_restart();	// Claude: -autorecord restarts the game after each mission
-	return autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
+	return game_host_shutdown();
 }
 
 int PASCAL WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
