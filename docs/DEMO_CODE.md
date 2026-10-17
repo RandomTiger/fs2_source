@@ -39,6 +39,10 @@ Order: the demo suite is recorded first with a compile-time `FS2_DEMO` build, so
 that suite replaying unchanged and the retail suite replaying unchanged. Estimate: one batch per subsystem,
 about eight batches, after the D-062 order (backend collapses first).
 
+## Held with the demo work
+
+- The Glide renderer selection in `game_init` (`FreeSpace.cpp`, the "3DFX Glide" launcher branch, which contains an `E3_BUILD` block) and the "Glide" to "3DFX Glide" name mapping in `OsRegistry.cpp` stay until the build-variant work, with the `GR_GLIDE` define (D-070).
+
 ## Blocks
 
 | File | Lines | Condition | Has else | Body lines | #defines |

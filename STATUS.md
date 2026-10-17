@@ -32,6 +32,15 @@ Carried, by Tom's call:
 - **Demo recording suite.** Recordings over the demo missions, shipped in the repo with their own reference entry, so the suite runs without a retail install (public CI). The demo data is the only data set the project can redistribute. Demo behaviour is its own logic, not a subset of the retail suite; where the two differ, retail is the oracle and the demo keeps what the shipped demo did. First step: a compile-time `FS2_DEMO` build playing the demo data. Tom to be involved.
 - **One exe for demo and retail.** The game detects which data set it has and switches to demo mode at run time, so both share a binary and a recording format. Sized in `docs/DEMO_CODE.md` on `PrePortCleanup`: about 85 `FS2_DEMO` blocks in about 45 files, mostly menus and mission UI, plus a dozen pool limits that become run-time caps; about eight batches. Scheduled after the `PrePortCleanup` order (D-062), and proved by the demo suite and the retail suite both replaying unchanged. Until then no cleanup change touches demo-conditional code.
 
+## PrePortCleanup (D-059 to D-062, D-066 to D-070)
+No change may alter a recording; each cut passes the x86 quick suite and x64 headless 48/48, Release and Debug.
+- G2 done: branches of five never-defined macros (754 lines).
+- G3 done: 39 `#if 0` blocks cut; 3 multiplayer blocks restored (D-069), since multiplayer stays out of the cut (D-060, D-014).
+- G4 decided by Tom (D-068): FRED, the tools and the software renderer (`GrSoft` and its scanline and blit files) are kept. They are not game code and are excluded from D-060 and from D-062 item 1, which means one renderer in the game build.
+- Known gap: the tools (FRED2, Pofview, Nebedit) are not built on this machine. FRED2 and Pofview need MFC, not installed yet; Nebedit fails to link (`View_percent`). A tools build check joins the quick suite once MFC is in (D-068).
+- G5 (Glide remnants, D-070): the renderer selection and the launcher-name mapping wait for the demo and build-variant work (`docs/DEMO_CODE.md`).
+- Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer.
+
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
 
