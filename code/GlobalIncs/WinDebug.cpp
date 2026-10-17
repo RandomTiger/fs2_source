@@ -871,34 +871,23 @@ void getmem()
 }
 */
 
-#define NEW_MALLOC
-
-HANDLE Heap = 0;
-
-#define HEAP_FLAG HEAP_NO_SERIALIZE
-// #define HEAP_FLAG	HEAP_GENERATE_EXCEPTIONS
-
-// Claude: the allocation seam (D-061, D-075). Debug and Release are the same code; the
-// Debug-only tracking (TotalRam, watch_malloc logging, the _malloc_dbg pre-init path) is gone.
+// Claude: the allocation seam (D-061, D-075). Debug and Release are the same code apart from the
+// Debug fill. The CRT allocator replaces the private Win32 heap (HeapCreate, HeapAlloc, HeapFree,
+// HeapCompact); a host engine swaps its own allocator in here. (malloc) and (free) in parentheses
+// call the CRT functions, not the macros PsTypes.h points at this file.
 
 // Returns 0 if not enough RAM.
 int vm_init(int min_heap_size)
 {
-	#ifdef NEW_MALLOC
-		Heap = HeapCreate( HEAP_FLAG, min_heap_size, 0 );
-		if ( Heap == NULL )	{
-			return 0;
-		}
-	#endif
 	return 1;
 }
 
 void *vm_malloc( int size )
 {
-	void *ptr = HeapAlloc(Heap, HEAP_FLAG, size );
+	void *ptr = (malloc)( size );
 
 	if ( ptr == NULL )	{
-		mprintf(( "HeapAlloc failed!!!!!!!!!!!!!!!!!!!\n" ));
+		mprintf(( "malloc failed!!!!!!!!!!!!!!!!!!!\n" ));
 
 			Error(LOCATION, "Out of memory.  Try closing down other applications, increasing your\n"
 				"virtual memory size, or installing more physical RAM.\n");
@@ -930,10 +919,9 @@ void vm_free( void *ptr )
 
 	#ifndef NDEBUG
 		// Claude: Debug fill (D-061, D-075): a read after free sees 0xDD.
-		memset( ptr, 0xDD, HeapSize(Heap, HEAP_FLAG, ptr) );
+		memset( ptr, 0xDD, _msize(ptr) );
 	#endif
-	HeapFree( Heap, HEAP_FLAG, ptr );
-	HeapCompact(Heap, HEAP_FLAG);
+	(free)( ptr );
 }
 
 void vm_free_all()
