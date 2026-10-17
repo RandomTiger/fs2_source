@@ -11,6 +11,7 @@ master                    original 1999 source, as provided by Volition. Never c
           <features>      one branch per feature, side by side (PadControl, ShivanShipGlow, 32BitRendering, ...)
             Enhanced      the original game with all its features combined (Latest points here)
               PrePort     everything that can be done before the engine moves, nothing Godot-specific; its own recordings
+                PrePort64 the 64-bit build (D-057, D-058); merges into GodotPrep once proven
                 GodotPrep Godot-specific preparation, still the C++ game on Windows
                   Godot   the game running in Godot, with its own feature branches off it
                     GodotEnhanced   the Godot game with its features combined
@@ -24,6 +25,7 @@ Each branch in use has its own folder (a git worktree, like a second Perforce wo
 ## Rules
 - **Fix a bug on the lowest layer that has it, then merge it upward one layer at a time.** An original-game bug goes on `OriginalSourceBugFixes`, a recorder bug on `RecordPlayback`, a feature bug on that feature's branch. Then: `OriginalSourceBugFixes` → `RecordPlayback` → `Enhanced` → `PrePort` → `GodotPrep` → `Godot` → `GodotEnhanced`.
 - **Merges only flow up.** Never merge a higher branch into a lower one. One agreed exception: `CosmeticRandom` (a separate random stream for effects) was merged into `RecordPlayback`, because it makes the recordings independent of rendering and fixes nothing a player sees.
+- **`PrePort64` and `GodotPrep` are siblings off `PrePort`** (D-058) until the 64-bit build is proven: every recording replays identically in the 64-bit headless build, Release and Debug, and the restart check passes (D-057). Then `PrePort64` merges into `GodotPrep` once, and the stack is `PrePort` → `PrePort64` → `GodotPrep`. Until then a `PrePort` fix merges into both. A fix goes on `PrePort` if the defect exists in the x86 build too (reproducible there, or plain in the code whatever the pointer width), and on `PrePort64` only if it exists solely in 64-bit.
 - **Feature branches branch off `RecordPlayback`** and only take merges from it, never from `Enhanced` or from each other. That keeps each feature separable. Features that need the port preparation (for example `Headless`) branch off `PrePort` instead and only take merges from it.
 - **A feature goes into `Enhanced` with a merge commit** (`git merge --no-ff`), once Tom allows it in (finished, or a work in progress good enough to include). Later fixes to it are made on the feature branch and merged into `Enhanced` again.
 - **Never rebase, squash or amend anything already pushed.** Merge instead. Before a push, local commits can still be tidied.
