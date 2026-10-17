@@ -51,6 +51,7 @@ function Wait-NoGame {
 
 Set-Location $GameDir
 $pass = 0; $fail = 0
+$nonref = @()	# recordings not made in the reference configuration (D-056)
 foreach ($r in $recs) {
 	$rec = $r.File.FullName
 	$name = $r.File.BaseName
@@ -73,6 +74,7 @@ foreach ($r in $recs) {
 		if (Test-Path "$rec.replay.log") {
 			Copy-Item "$rec.replay.log" $log
 			$res = (Select-String $log -Pattern 'REPLAY OK|DESYNC|ERROR' | Select-Object -First 1).Line
+			if ((Select-String $log -Pattern 'Not the reference configuration' -Quiet)) { $nonref += $name }
 		}
 		# the game's autotest.log, which says where a stuck run hung (D-053)
 		if (Test-Path '.\autotest.log') { Copy-Item '.\autotest.log' (Join-Path $Out "${folder}_${name}_$e.autotest.log") }
@@ -89,6 +91,8 @@ foreach ($r in $recs) {
 	$line | Add-Content $summary
 	$line
 }
-"DONE pass=$pass fail=$fail" | Add-Content $summary
-"DONE pass=$pass fail=$fail"
+$done = "DONE pass=$pass fail=$fail"
+if ($nonref) { $done += " (not the reference configuration: $(($nonref | Select-Object -Unique) -join ', '))" }
+$done | Add-Content $summary
+$done
 if ($fail) { exit 1 }

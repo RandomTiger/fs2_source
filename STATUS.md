@@ -56,7 +56,7 @@ Host and platform
 
 Build and determinism
 - x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
-- Out-of-bounds reads that affect gameplay fixed before x64 (`AiBig.cpp:870`).
+- Done 2026-10-13 (OriginalSourceBugFixes): the out-of-bounds reads that affect gameplay, `AiBig.cpp:870` (19ea4a6) and `ShipHit.cpp:917` (bf00ba1).
 - `#pragma optimize("", off)` blocks reviewed for another compiler.
 
 Later (GodotPrep or after)
