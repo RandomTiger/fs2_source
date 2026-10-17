@@ -169,7 +169,11 @@
 #ifndef _PSTYPES_H
 #define _PSTYPES_H
 
+// Claude: 64-bit Windows has only a 64-bit time_t. The file formats keep their 32-bit times in int fields
+// (VP index, campaign stats), so x86 is unchanged (D-057)
+#ifndef _WIN64
 #define _USE_32BIT_TIME_T
+#endif
 
 // Build defines.  Comment in/out for whatever build is necessary:
 // #define OEM_BUILD						// enable for OEM builds
