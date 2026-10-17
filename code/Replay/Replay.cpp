@@ -1496,6 +1496,64 @@ void replay_shutdown()
 		fclose(Replay_log);
 		Replay_log = NULL;
 	}
+
+	// Claude: back to the state a new process starts in, so game_host_init can replay again (D-055)
+	if (Wfile) {
+		fclose(Wfile);
+		Wfile = NULL;
+	}
+	if (Wbuf) {
+		free(Wbuf);
+		Wbuf = NULL;
+	}
+	Wbuf_size = Wbuf_len = 0;
+	Whead_written = 0;
+	// recording, the pilot and campaign blobs were read into their own memory; replaying, they point into Rdata
+	if (Hdr_pilot && !(Rdata && (Hdr_pilot >= Rdata) && (Hdr_pilot < Rdata + Rsize))) {
+		free(Hdr_pilot);
+	}
+	Hdr_pilot = NULL;
+	if (Hdr_campaign && !(Rdata && (Hdr_campaign >= Rdata) && (Hdr_campaign < Rdata + Rsize))) {
+		free(Hdr_campaign);
+	}
+	Hdr_campaign = NULL;
+	if (Rdata) {
+		free(Rdata);
+		Rdata = NULL;
+	}
+	Rsize = Rpos = 0;
+	memset(&Hdr, 0, sizeof(Hdr));
+	memset(&Hdr_loadout, 0, sizeof(Hdr_loadout));
+	Replay_mode = REPLAY_OFF;
+	memset(Replay_file, 0, sizeof(Replay_file));
+	memset(Replay_trace_file, 0, sizeof(Replay_trace_file));
+	Replay_trace_full = 0;
+	Replay_auto_saved = 0;
+	Replay_auto_told = 0;
+	Replay_auto_menu_frames = 0;
+	Replay_active = 0;
+	Replay_done = 0;
+	Replay_depth = 0;
+	Replay_injecting = 0;
+	Replay_load_count = 0;
+	Replay_in_game = 0;
+	Replay_frame = 0;
+	Replay_entries = 0;
+	memset(Replay_entries_by_tag, 0, sizeof(Replay_entries_by_tag));
+	Replay_snd_mismatch = 0;
+	Replay_sound_live = 0;
+	Replay_sound_skipped = 0;
+	Replay_sound_model = 0;
+	memset(Replay_snd_models, 0, sizeof(Replay_snd_models));
+	Replay_snd_models_next = 0;
+	Replay_snd_model_handle = 0x40000000;
+	Replay_snd_model_starts = 0;
+	memset(Replay_last_int, 0, sizeof(Replay_last_int));
+	memset(Replay_clock_offset, 0, sizeof(Replay_clock_offset));
+	memset(Replay_clock_set, 0, sizeof(Replay_clock_set));
+	Replay_started_mission = 0;
+	Replay_briefing_started = 0;
+	Replay_committed = 0;
 }
 
 void replay_enter_state(int state)

@@ -79,6 +79,67 @@ static int host_cmdline_has(const char *cmdline, const char *option)
 	return 0;
 }
 
+// Claude: find option as a whole word in cmdline; returns where its value starts and how long it is (quotes
+// included), or NULL
+static char *host_cmdline_find(char *cmdline, const char *option, int *value_len, char **option_start)
+{
+	int len = strlen(option);
+	char *p = cmdline;
+	while ( (p = strstr(p, option)) != NULL ) {
+		if ( ((p == cmdline) || (p[-1] == ' ') || (p[-1] == '\t')) && ((p[len] == ' ') || (p[len] == '\t')) ) {
+			*option_start = p;
+			char *v = p + len;
+			while ( (*v == ' ') || (*v == '\t') ) {
+				v++;
+			}
+			char *e = v;
+			if ( *e == '"' ) {
+				e = strchr(e + 1, '"');
+				e = e ? (e + 1) : (v + strlen(v));
+			} else {
+				while ( *e && (*e != ' ') && (*e != '\t') ) {
+					e++;
+				}
+			}
+			*value_len = e - v;
+			return v;
+		}
+		p += len;
+	}
+	return NULL;
+}
+
+// Claude: take "option value" out of cmdline, copying the value (with any quotes) to value; 1 if it was there
+static int host_cmdline_take(char *cmdline, const char *option, char *value, int value_size)
+{
+	int n;
+	char *start;
+	char *v = host_cmdline_find(cmdline, option, &n, &start);
+	if ( v == NULL ) {
+		return 0;
+	}
+	if ( n > value_size - 1 ) {
+		n = value_size - 1;
+	}
+	memcpy(value, v, n);
+	value[n] = 0;
+	memmove(start, v + n, strlen(v + n) + 1);
+	return 1;
+}
+
+// Claude: give an option already in cmdline a new value (cmdline has room for cmdline_size bytes)
+static void host_cmdline_set(char *cmdline, int cmdline_size, const char *option, const char *value)
+{
+	int n;
+	char *start;
+	char *v = host_cmdline_find(cmdline, option, &n, &start);
+	if ( (v == NULL) || ((int)(strlen(cmdline) - n + strlen(value)) >= cmdline_size) ) {
+		return;
+	}
+	memmove(v + strlen(value), v + n, strlen(v + n) + 1);
+	memcpy(v, value, strlen(value));
+}
+
 int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
 {
 	// Claude: the platform seam, filled before anything reads the machine (D-051). -headless has its own.
@@ -215,14 +276,38 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
 	char root_dir[1024];
 	_getcwd(root_dir, 1024);	// the exe directory, set above
-	if ( !game_host_init(szCmdLine, root_dir) ) {
-		return 1;
+
+	// Claude: -replay_next <recording> -trace_next <trace>: after the first run, init, replay and shut down again in
+	// this process with that recording and trace, to test that the game restarts cleanly (D-055)
+	char cmdline[4096], first_cmdline[4096], next_rec[MAX_PATH], next_trace[MAX_PATH];
+	strncpy(first_cmdline, szCmdLine, sizeof(first_cmdline) - 1);
+	first_cmdline[sizeof(first_cmdline) - 1] = 0;
+	int run_next = host_cmdline_take(first_cmdline, "-replay_next", next_rec, sizeof(next_rec));
+	int trace_next = host_cmdline_take(first_cmdline, "-trace_next", next_trace, sizeof(next_trace));
+	strcpy(cmdline, first_cmdline);
+
+	int code;
+	for (;;) {
+		if ( !game_host_init(cmdline, root_dir) ) {
+			return 1;
+		}
+
+		while ( game_host_frame() ) {
+		}
+
+		code = game_host_shutdown();
+		if ( !run_next || code ) {
+			break;
+		}
+		run_next = 0;
+		strcpy(cmdline, first_cmdline);
+		host_cmdline_set(cmdline, sizeof(cmdline), "-replay", next_rec);
+		if ( trace_next ) {
+			host_cmdline_set(cmdline, sizeof(cmdline), "-trace", next_trace);
+		}
 	}
 
-	while ( game_host_frame() ) {
-	}
-
-	return game_host_shutdown();
+	return code;
 }
 
 int PASCAL WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)

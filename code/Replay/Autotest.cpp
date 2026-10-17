@@ -562,6 +562,18 @@ int autotest_report(char *kind, char *text, char *file, int line)
 	} else {
 		autotest_logf("%s in mission '%s'%s\n", kind, Autotest_current, (count == AUTOTEST_LOG_PER_SITE) ? ", not logged again" : "");
 	}
+	// Claude: diagnostic, with FS2_AUTOTEST_STACKS set: the return addresses, as offsets into the exe, for
+	// tools that read the PDB (D-055)
+	if (getenv("FS2_AUTOTEST_STACKS")) {
+		void *frames[16];
+		char buf[256];
+		int n = RtlCaptureStackBackTrace(1, 16, frames, NULL), len = 0;
+		uint base = (uint)GetModuleHandle(NULL);
+		for (int i = 0; (i < n) && (len < (int)sizeof(buf) - 12); i++) {
+			len += sprintf(buf + len, " %x", (uint)frames[i] - base);
+		}
+		autotest_logf("  stack:%s\n", buf);
+	}
 	if (!stricmp(kind, "Error")) {
 		autotest_logf("FAIL (exit code %d)\n", AUTOTEST_EXIT_ERROR);
 	}
