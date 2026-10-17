@@ -1833,9 +1833,7 @@ void gr_d3d_flip()
 			os_sleep(1000);	// Wait a second
 
 			// os poll?
-	#ifndef THREADED
 			os_poll();
-	#endif
 
 			goto TryFlipAgain;
 		} else if (ddrval != DD_OK )	{

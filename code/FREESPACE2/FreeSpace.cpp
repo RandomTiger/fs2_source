@@ -4249,14 +4249,8 @@ void game_stop_time()
 
 		//mprintf(("Last_time in game_stop_time = %7.3f\n", f2fl(Last_delta_time)));
 		if (Last_delta_time < 0) {
-			#if defined(TIMER_TEST) && !defined(NDEBUG)
-			Int3();		//get Matt!!!!
-			#endif
 			Last_delta_time = 0;
 		}
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		time_stopped = time;
-		#endif
 
 		// Stop the timer_tick stuff...
 		// Normally, you should never access 'timestamp_ticker', consider this a low-level routine
@@ -4264,9 +4258,6 @@ void game_stop_time()
 	}
 	timer_paused++;
 
-	#if defined(TIMER_TEST) && !defined(NDEBUG)
-	stop_count++;
-	#endif
 }
 
 void game_start_time()
@@ -4276,19 +4267,11 @@ void game_start_time()
 	if (timer_paused==0) {
 		fix time;
 		time = timer_get_fixed_seconds();
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		if (Last_time < 0)
-			Int3();		//get Matt!!!!
-		}
-		#endif
 		// Take current time, and set it backwards to account for time	
 		// that the frame already executed, so that timer_get_fixed_seconds() - Last_time
 		// will be correct when it goes to calculate the frametime next
 		// frame.
 		Last_time = time - Last_delta_time;		
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		time_started = time;
-		#endif
 
 		// Restore the timer_tick stuff...
 		// Normally, you should never access 'timestamp_ticker', consider this a low-level routine
@@ -4297,9 +4280,6 @@ void game_start_time()
 		saved_timestamp_ticker = -1;
 	}
 
-	#if defined(TIMER_TEST) && !defined(NDEBUG)
-	start_count++;
-	#endif
 }
 
 
