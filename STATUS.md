@@ -39,7 +39,13 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 - G4 decided by Tom (D-068): FRED, the tools and the software renderer (`GrSoft` and its scanline and blit files) are kept. They are not game code and are excluded from D-060 and from D-062 item 1, which means one renderer in the game build.
 - Known gap: the tools (FRED2, Pofview, Nebedit) are not built on this machine. FRED2 and Pofview need MFC, not installed yet; Nebedit fails to link (`View_percent`). A tools build check joins the quick suite once MFC is in (D-068).
 - G5 (Glide remnants, D-070): the renderer selection and the launcher-name mapping wait for the demo and build-variant work (`docs/DEMO_CODE.md`).
+- G5 done (D-070): two Glide sites; G6 done (D-071): the Aureal A3D remnants. EAX and DirectSound3D are a live setting and go to the sound backend collapse (D-062 item 2).
+- G2b done (D-072): `#ifndef HARDWARE_ONLY` branches, 1068 lines. They compile in neither the game nor the tools; the proof for FRED is that macro argument until the tools build check runs.
+- G7 kept (D-073): `Demo/Demo.cpp` is Volition's own `.fsd` demo recorder, reachable in Debug, superseded by RecordPlayback and unrelated to the data-set demo mode (D-063).
 - Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer.
+
+Tom's decisions, not scheduled:
+- Remove the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites in ship, damage and simulation code) as superseded by RecordPlayback (D-073 (b)).
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
