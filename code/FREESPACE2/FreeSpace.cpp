@@ -2056,7 +2056,6 @@ void game_init()
 // SOUND INIT START
 /////////////////////////////
 
-	int use_a3d = 0;
 	int use_eax = 0;
 
 	ptr = os_config_read_string(NULL, NOX("Soundcard"), NULL);
@@ -2065,15 +2064,13 @@ void game_init()
 		if (!stricmp(ptr, NOX("no sound"))) {
 			Cmdline_freespace_no_sound = 1;
 
-		} else if (!stricmp(ptr, NOX("Aureal A3D"))) {
-			use_a3d = 1;
 		} else if (!stricmp(ptr, NOX("EAX"))) {
 			use_eax = 1;
 		}
 	}
 
 	if (!Is_standalone) {
-		snd_init(use_a3d, use_eax);
+		snd_init(use_eax);
 	}
 /////////////////////////////
 // SOUND INIT END
