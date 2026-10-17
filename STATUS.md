@@ -7,7 +7,7 @@ decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers b
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
 `recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
-**PrePort done 2026-10-17 (D-049).** Open again for generic fixes (D-058, Tom 2026-10-17), including ones the 64-bit build shows up that are not 64-bit-specific; each merges up into `PrePort64` and `GodotPrep`. The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
+**PrePort done 2026-10-17 (D-049).** It was open again for generic fixes while the 64-bit build was proved (D-058) and is closed again now that `PrePort64` is proven (D-064). The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
 
 ## Stage gates (D-026)
 | Gate | State |
@@ -59,7 +59,7 @@ Host and platform
 - The host runs the C++ menu flow (D-038). Only if the port replaces the menus or runs a headless campaign: extract apply loadout (`MissionShipChoice.cpp:1952`), restore loadout (`common_select_init`), finish mission (`MissionDebrief.cpp:2203-2222`) and advance campaign (`:1635`).
 
 Build and determinism
-- x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
+- Done 2026-10-17 on `PrePort64` (D-057, D-064): 48/48 x64 headless identical to x86, Release and Debug, and the headless restart check. Direct3D on x64 is closed as impossible, not deferred: 64-bit Windows has no Direct3D 7 or earlier, so x64 runs headless until Godot draws. Was: x64: the timer's inline assembly, pointer-to-int casts, `bitmap.data`, `time_t` in the VP index, x86-only DirectX import libraries, `AnimPlay.cpp` frame pointer allocation.
 - Done 2026-10-13 (OriginalSourceBugFixes): the out-of-bounds reads that affect gameplay, `AiBig.cpp:870` (19ea4a6) and `ShipHit.cpp:917` (bf00ba1).
 - `#pragma optimize("", off)` blocks reviewed for another compiler.
 
