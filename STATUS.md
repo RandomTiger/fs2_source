@@ -7,7 +7,7 @@ decision steward (`fs2-decision-steward` skill, `decisions.md`); the D-numbers b
 Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordings in
 `recordings/autotest` are in it: AI pilot, 4x, recording format version 4, re-made 2026-10-16 when sound stopped feeding gameplay (D-034, D-035).
 
-**PrePort done 2026-10-17 (D-049).** Frozen except for fixes merged up from lower layers and documentation; new work goes on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
+**PrePort done 2026-10-17 (D-049).** Open again for generic fixes (D-058, Tom 2026-10-17), including ones the 64-bit build shows up that are not 64-bit-specific; each merges up into `PrePort64` and `GodotPrep`. The 64-bit build is on `PrePort64` (D-057, D-058); other port work on `GodotPrep`, branched at `1b9092d`. Carried: the squad message menu and the modal loops (D-041). Nothing Godot-specific until Tom confirms the engine (D-026).
 
 ## Stage gates (D-026)
 | Gate | State |
