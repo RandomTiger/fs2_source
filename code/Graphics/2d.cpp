@@ -919,6 +919,10 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			// Claude: 32 bit unless -force_16bit, whatever depth the launcher picked
 			Cmdline_force_32bit = Cmdline_force_16bit ? 0 : 1;
 
+#ifdef _WIN64
+			// Claude: 64-bit Windows has no Direct3D 7 or earlier, so this renderer cannot start there (D-064)
+			Error(LOCATION, "No Direct3D renderer on 64-bit Windows; run with -headless or -nographics.");
+#endif
 			gr_d3d_init();
 
 			// bad startup - stupid D3D
