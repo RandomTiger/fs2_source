@@ -585,7 +585,6 @@ int game_do_cd_check(char *) {return 0;}
 void game_stop_looped_sounds() {}
 
 int Game_skill_level;
-int View_percent = 100;	// Claude: the game view (Render/GameView.cpp, from LogicDrawSplit) reads it; FreeSpace.cpp defines it in the game (D-068)
 int game_cd_changed(void) {return 0;}
 
 int Interface_framerate;

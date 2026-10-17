@@ -47,7 +47,6 @@ int set_cdrom_path(int){return 0;}
 int find_freespace_cd(char*){return 0;}
 void game_flush(){}
 int Game_skill_level;
-int View_percent = 100;	// Claude: the game view (Render/GameView.cpp, from LogicDrawSplit) reads it; FreeSpace.cpp defines it in the game (D-068)
 void game_stop_time(){}
 void game_start_time(){}
 void game_do_state_common(int, int){}
