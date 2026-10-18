@@ -200,7 +200,7 @@ demo suite.
 | # | Batch | Blocks |
 |---|---|---|
 | 1 | **Old table and pilot loading (D).** Done (D-20261018-154908): 35b2c0c, f980292, 6b7a34e, cdb9b9f, efca275. | ManagePilot.cpp, Weapons.cpp, MainHallMenu.cpp, Medals.cpp, HUDconfig.cpp (outside `FS2_DEMO` blocks) |
-| 2 | **Detection flag.** The rule in section 3, a log line, the recording-header field and the replay check. | FreeSpace.cpp, Replay |
+| 2 | **Detection flag.** Done (D-20261018-175706): the rule in section 3, logged with its inputs, and the replay check. No header field below GodotPrep: the replay takes the recording's data set from its campaign, else its mission name (demo names in Replay.cpp, retail from the build's built-in list); our own test missions are "unknown" and play on either set. | FreeSpace.cpp/.h, Replay, Autotest |
 | 3 | **Record the demo suite** (compile-time `FS2_DEMO` build, with batch 1). | recordings/demo |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
 | 5 | **Pools and limits (Q/Q!).** Arrays keep retail sizes. Under D-20261017-224829 and Tom's decision (section 6, item 3) the demo runs at retail limits, so these `#ifdef` arms go. Q!: objects 300, weapons 100, sexp nodes 1600, wings 15, arrivals 45/10, collision pairs 3000, ship subobjects 360, subsystem status 125, debris 48. Q: particles 500, heads 1/1. `NUM_MEDALS` becomes 18 storage with a run-time count (pilot files). | Object.h, Weapon.h, SEXP.H, Ship.h, MissionParse.h, ObjCollide.cpp, Ship.cpp, Debris.h, Particle.cpp, MissionMessage.cpp, Scoring.h, BmpMan.h (identical arms) |
@@ -208,6 +208,7 @@ demo suite.
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
+| 10 | **Header data-set field (GodotPrep, recording version 6).** When the demo work reaches GodotPrep, the header states the data set (D-056: a recording states what it was made with); the batch 2 check stays as the fallback for headers below 6. | Replay.cpp (GodotPrep) |
 
 ### Batch 1: old table and pilot loading (done)
 
@@ -277,6 +278,28 @@ Checks:
 
 The rest of D-062's order still comes first (D-063 item 3). This branch merges into `Enhanced` when green
 (D-20261017-223742).
+
+### Batch 2: detection flag (done)
+
+D-20261018-175706. `game_detect_data_set` runs straight after `cfile_init` and logs
+`data set: demo|retail (demo.fc2: y/n, freespace2.fc2: y/n)` to the debug log and `autotest.log`. A folder
+with both files runs as retail with one Warning. `Game_data_set` holds the result; no `FS2_DEMO` block reads it
+yet (batches 4 to 8).
+
+- **Probe (condition 1):** all 46 checked-in recordings made under `-at_mission` have an empty campaign
+  field, so the replay falls back to the mission name. The demo's VPs hold six mission and campaign files
+  (`SPDemo-01`, `SPDemo-02`, `DemoTrain`, `Demo`, `MPDemo-01`, `Demo-DOG-01`); none of the 92 in the retail
+  VPs shares a name with them.
+- **Replay check:** a recording is demo if its campaign is `demo` or its mission is one of those six, retail
+  if its campaign is `freespace2` or its mission is a Volition mission in this build's built-in list,
+  otherwise unknown (our own test missions), which is logged and plays on. A mismatch fails the replay with
+  a log line naming both sets, exit 4, no dialog under autotest. Until batch 4 makes the built-in list
+  run-time, the `FS2_DEMO` build cannot name a retail recording, so it logs "unknown" for one.
+- **Found:** the retail build crashes reading a pilot made by the `FS2_DEMO` build (Debug: `Assert: len < n`
+  in `cfread_string_len`, then an access violation). The two builds' pilot files differ (medal count among
+  others). It goes away with one exe; until then a demo-build pilot must stay out of a retail build's
+  players folder. Checks therefore ran in a scratch copy of the demo VPs (`C:\Games\FS2D_scratch`) with a
+  retail-format pilot.
 
 ## 6. Tom's decisions (2026-10-18)
 

@@ -56,6 +56,7 @@ void autotest_drive_state(int state);	// each frame from game_do_state, after re
 void autotest_frame();						// start of game_do_frame
 int  autotest_popup(char *text);			// 1 if the popup must be answered with its first choice and not shown
 int  autotest_report(char *kind, char *text, char *file, int line);	// Assert / Error / Warning / Int3: 1 if logged, no dialog
+void autotest_note(char *text);			// a line for autotest.log, when autotest is on
 int  autotest_exit_code(int code);		// the process exit code
 void autotest_main_hall_click(int *code, int *action);	// main_hall_do: the menu tour clicks a region
 void autotest_not_in_demo();				// game_feature_not_in_demo_popup: the menu tour skips the screen
