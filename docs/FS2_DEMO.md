@@ -199,7 +199,7 @@ demo suite.
 
 | # | Batch | Blocks |
 |---|---|---|
-| 1 | **Old table and pilot loading (D).** Proposed in detail below; awaiting the steward. | ManagePilot.cpp, Weapons.cpp, MainHallMenu.cpp, Medals.cpp, HUDconfig.cpp (outside `FS2_DEMO` blocks) |
+| 1 | **Old table and pilot loading (D).** Done (D-20261018-154908): 35b2c0c, f980292, 6b7a34e, cdb9b9f, efca275. | ManagePilot.cpp, Weapons.cpp, MainHallMenu.cpp, Medals.cpp, HUDconfig.cpp (outside `FS2_DEMO` blocks) |
 | 2 | **Detection flag.** The rule in section 3, a log line, the recording-header field and the replay check. | FreeSpace.cpp, Replay |
 | 3 | **Record the demo suite** (compile-time `FS2_DEMO` build, with batch 1). | recordings/demo |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
@@ -209,7 +209,32 @@ demo suite.
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
 
-### Batch 1 proposal: old table and pilot loading
+### Batch 1: old table and pilot loading (done)
+
+Approved as fixes by D-20261018-154908 and committed one item per commit, each with its review in
+the message. The proposal as approved is below. What the runs found besides it:
+- **Weapon impact explosions.** Demo weapons name impact explosions (`ExpMissileHit1`, `Exp20`,
+  `exp06`; 25 of 47 weapons). With no `weapon_expl.tbl` they take the existing "none" path and play no
+  impact animation. The shipped demo exe probably loaded them by name. This is a presentation gap for
+  a later data-handling item. Batch 1 adds no new fallback (condition 2).
+- **Install path length.** An install in a deep folder (a scratch copy under the session scratchpad,
+  about 110 characters) crashed at start-up in both the fixed and the unfixed build, before any table
+  was read. That is the source's 128-character `MAX_PATH_LEN`. Keep the demo install, and any CI copy
+  of it, in a short path.
+- **Building both variants in one checkout.** `code.lib` is written to a fixed `.\<Config>\code.lib`
+  whatever `IntDir` says. A demo build and a retail build share it, and an incremental build can link
+  the other variant's library. Defining `FS2_DEMO` through the `CL` environment variable is not tracked
+  by MSBuild either. Reliable recipe:
+  - a props file adding `FS2_DEMO` to `ClCompile` `PreprocessorDefinitions`, passed with
+    `/p:ForceImportBeforeCppTargets=`;
+  - separate `IntDir`/`OutDir` per variant, `/t:Rebuild` and `/nodeReuse:false`;
+  - `code.lib` deleted before each build.
+
+  Check the result: only the demo exe contains the string "Freespace 2 Demo".
+- **Pre-existing, not batch 1.** In the Debug build of `cc1a303` without the batch, the `AutotestAI`
+  replay reports two "Null vector in vector normalize" Warnings (exit 2). Its trace still matches.
+
+Proposal as approved:
 
 Goal: with the unmodified demo install, both builds load every demo table and the demo pilot screen
 without an `Error`, `Assert`, `Int3` or deleted file. On retail data nothing changes: every retail
