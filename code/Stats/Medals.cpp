@@ -160,6 +160,7 @@
 
 // define for the medal information
 medal_stuff Medals[NUM_MEDALS];
+int Num_medals = 0;	// Claude: medals in medals.tbl; NUM_MEDALS (18) on retail data, 16 on the FreeSpace 2 demo's.  Slots past it stay empty.
 badge_stuff Badge_info[MAX_BADGES];
 
 // holds indices into Medals array of the badges for # kills
@@ -337,8 +338,21 @@ void parse_medal_tbl()
 			stuff_int( &Medals[num_medals].kills_needed );
 			Badge_index[bi] = num_medals;
 
+			// Claude: older data (the FreeSpace 2 demo) names the two persona files instead of the base,
+			// "$Wavefile 1: 1_badge_a.wav" and "$Wavefile 2: 3_badge_a.wav"; the base is the first without its "1_"
+			if (optional_string("$Wavefile 1:")) {	// Claude
+				char wave2[MAX_FILENAME_LEN];	// Claude
+				stuff_string(Badge_info[bi].voice_base, F_NAME, NULL, MAX_FILENAME_LEN);	// Claude
+				char *us = strchr(Badge_info[bi].voice_base, '_');	// Claude
+				if (us != NULL) {	// Claude
+					memmove(Badge_info[bi].voice_base, us + 1, strlen(us + 1) + 1);	// Claude
+				}	// Claude
+				required_string("$Wavefile 2:");	// Claude
+				stuff_string(wave2, F_NAME, NULL, MAX_FILENAME_LEN);	// Claude: not used, as the base gives both
+			} else {	// Claude
 			required_string("$Wavefile Base:");
 			stuff_string(Badge_info[bi].voice_base, F_NAME, NULL, MAX_FILENAME_LEN);
+			}	// Claude
 
 			//required_string("$Wavefile 2:");
 			//stuff_string(Badge_info[bi].wave2, F_NAME, NULL, MAX_FILENAME_LEN);
@@ -354,7 +368,8 @@ void parse_medal_tbl()
 	}
 
 	required_string("#End");
-	Assert( num_medals == NUM_MEDALS );
+	Assert( num_medals <= NUM_MEDALS );	// Claude: was ==; the demo's table has 16
+	Num_medals = num_medals;	// Claude
 
 	// be sure that the badges kill numbers show up in order
 	for (i = 0; i < MAX_BADGES-1; i++ ) {
@@ -379,7 +394,7 @@ void medal_main_init(player *pl, int mode)
 	#ifndef NDEBUG
 	if(Cmdline_gimme_all_medals){
 		//int idx;
-		for(idx=0; idx < NUM_MEDALS; idx++){
+		for(idx=0; idx < Num_medals; idx++){	// Claude: was NUM_MEDALS; an empty slot has no bitmap to load
 			Medals_player->stats.medals[idx] = 1;		
 		}
 	}
