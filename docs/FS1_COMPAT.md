@@ -197,6 +197,7 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 - All 25 replay with identical traces in Release and Debug, with no Assert, Int3 or warning. The whole suite, 47 FS2 and 25 FS1 recordings, passed 72 of 72 in 9 minutes.
 - Once, the Release replay of `sm3-06a` desynced at frame 3320 of 3544 (the run asked for `mouse_pos` where the recording has `timer_ms`). Two reruns matched. Not explained yet.
 - The exes must be in the FS1 install. On `FS1Compat` the build puts them there; elsewhere they have to be copied in.
+- Re-recorded for `FS1BriefingArt`: with the briefing's transition anim, 6 of the old recordings desynced on sound calls mid-mission, the same way every time, while all 47 FS2 recordings matched. The cause is in the original code: `message_queue_process` (`MissionMessage.cpp:1268`) keeps a message's head anim instance pointer after the anim ends and its instance goes back to the free list, so `anim_playing()` is true again once another anim reuses that instance. Message timing therefore depends on which anim instances earlier screens used. Not fixed (a candidate for `OriginalSourceBugFixes`).
 
 **Known, not yet handled:**
 - Music: FS1's chained normal patterns are cut for now (batch 5 brings them back).
