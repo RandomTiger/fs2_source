@@ -21,7 +21,7 @@ Call `vm_init(16*1024*1024)` (Ac's size) just before `cfile_init` in both tools.
 - On `PrePortCleanup`, `vm_malloc` uses the CRT allocator (D-075), so the crash cannot happen there. The call stays harmless as the seam's init.
 
 ## Not changed
-The game, FRED and Ac. Any further tool problems the start-up crash hid (#12, #13) are separate.
+The game, FRED and Ac. Fonttool has the same omission and was missed here; it is fixed in review 49 (#22). Any further tool problems the start-up crash hid (#12, #13) are separate.
 
 ## Effect on mission flow
 None: no game code changes. **No recording changed.**
