@@ -2,7 +2,10 @@
 Records missions under autotest into recordings\autotest, then replays each in Release and Debug and
 compares the traces.
 
-  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>]
+  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>] [-Fs1]
+
+-Fs1 records FreeSpace 1 missions into recordings\fs1, in the FS1 install ($env:PATH_FS1 unless -GameDir),
+with the exes found there; the test missions in data\missions are not copied in.
 
 Automatic recordings run with -playernpc: the AI flies the player ship. A mission whose notes say
 "autotest: player stays still" is still played with nobody flying the player (the game checks).
@@ -15,16 +18,18 @@ param(
 	[Parameter(Mandatory = $true)][string[]]$Missions,
 	[int]$Time = 120,
 	[switch]$NoPlayerNpc,
-	[string]$GameDir = $env:PATH_FS2
+	[string]$GameDir,
+	[switch]$Fs1
 )
 
 $repo = Split-Path $PSScriptRoot
-if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
-$rec = Join-Path $repo 'recordings\autotest'
+if (-not $GameDir) { $GameDir = if ($Fs1) { $env:PATH_FS1 } else { $env:PATH_FS2 } }
+if (-not $GameDir) { throw 'Set PATH_FS2 (PATH_FS1 with -Fs1) or pass -GameDir' }
+$rec = Join-Path $repo $(if ($Fs1) { 'recordings\fs1' } else { 'recordings\autotest' })
 $out = Join-Path $repo ("replays\record_" + (Get-Date -Format 'yyyyMMdd_HHmm'))
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $rec, $out | Out-Null
-Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
+if (-not $Fs1) { Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions') }
 $Missions = $Missions | ForEach-Object { $_ -split ',' }
 $summary = Join-Path $out 'summary.txt'
 
