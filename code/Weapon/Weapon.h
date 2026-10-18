@@ -436,7 +436,7 @@ typedef struct beam_weapon_info {
 	beam_weapon_section_info sections[MAX_BEAM_SECTIONS];			// info on the visible sections of the beam 	
 } beam_weapon_info;
 
-extern weapon Weapons[MAX_WEAPONS];
+extern GUARDED_ARRAY(weapon, Weapons, MAX_WEAPONS);	// Claude: Debug bounds guard (D-076)
 
 #define WEAPON_TITLE_LEN			48
 
