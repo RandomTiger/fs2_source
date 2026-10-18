@@ -116,6 +116,7 @@
 #include "Parselo.h"
 #include "localize.h"
 #include "alphacolors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 
 ////////////////////////////////////////////////////////////////////
@@ -451,6 +452,7 @@ void help_overlay_init()
 	help_right_bracket_bitmap = bm_load("right_bracket");
 	if(help_right_bracket_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
+		if ( !Cfile_fs1_data )	// Claude: FS1's help overlays were whole bitmaps; it has no brackets (docs/FS1_COMPAT.md)
 		Int3();
 	}
 
@@ -458,6 +460,7 @@ void help_overlay_init()
 	help_left_bracket_bitmap = bm_load("left_bracket");
 	if(help_left_bracket_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
+		if ( !Cfile_fs1_data )	// Claude: as above
 		Int3();
 	}
 
