@@ -167,6 +167,31 @@ Batches 1, 2, 3 and 6 are small and independent. Batch 4 depends on 3, because t
 
 Static reading suggests the engine core (missions, SEXPs, ship classes, physics fields, models after batch 5) is close. The work is in the loading layer and the interface.
 
+### Progress (2026-10-18)
+Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2 replay suite passed with it: 47 of 47 recordings, with Debug and Release traces identical.
+
+| Branch | Batch | What it does |
+|---|---|---|
+| `FS1Detect` | 1 | `Cfile_fs1_data` is 1 when a pack file `Data\freespace.vp` exists (FS1's main archive; FS2 has none). Everything below checks it |
+| `OldDecrypt` | 3 | `unencrypt()` picks the decoder by signature, so FS1's `0xDEADBEEF` tables and missions decode. Checked on all 145 FS1 files against `tools\fs1_decrypt.ps1` |
+| `FS1Models` | 6 | FS1's `OHDR`/`SOBJ` chunks read in FS1 field order. Checked on all 103 FS1 models |
+| `FS1FileSystem` | 1 | `.fsm`/`.fsc` indexed; `x.fs2` finds `x.fsm`; plural voice folders mapped; stand-ins for files FS1 lacks (`font03.vf`, `debris02.pof`) |
+| `FS1MissingTables` | 2 | `Parse/Fs1Tables.cpp` supplies text for the 11 tables FS1 lacks that the game reads. The tips popup returns when there are no tips |
+| `FS1TableConvert` | 4 | FS1 tables rewritten while loading: medals, sounds (flyby section), music (14 patterns cut to 12), weapons (trails, swarm), ships (default ship, engine wash), asteroid, and `/* */` comments |
+
+**FS1 trial now** (`-autotest -at_mission btm-01`, Debug and Release, FS1 install's `fs2.ini` set to 640x480): every table, model, the pilot and the mission file load, and the mission starts. It stops on the briefing screen, which draws `Briefwin` and `InfoBox` art that FS1 does not have (its briefing screen is one combined background). That is interface work (batch 9).
+
+**Known, not yet handled:**
+- Two Int3s during start-up, with no location logged.
+- FS1's own `weapons.tbl` lists a "Disruptor Missile" it does not define (a warning; FS1 data, left alone).
+- Music: FS1's chained normal patterns are cut for now (batch 5 brings them back).
+- Medals: 16 to FS2's 18; slots 16 and 17 stay empty. Badge voices are `<persona>_badge_x`, and FS2's default persona 9 has no FS1 file.
+- Asteroids: 3 types to FS2's 12; FS1 has no debris fields.
+- Icons: FS1's `icons.tbl` (27 types, one set) parses, but its sets land in FS2's per-species slots in the wrong order. Not converted yet.
+- Species: FS1's `Species.tbl` is a different file; only the tech room reads it. Not converted yet.
+- Resolution: FS1 needs 640 mode. The trial sets it in the ini; the interface art-mode setting (D-20261017-225737) is the real fix.
+- Trials use your FS2 pilot `Tom.plr`, copied into the FS1 install's `Data\Players\Single`.
+
 ---
 
 ## 5. Branch scope
