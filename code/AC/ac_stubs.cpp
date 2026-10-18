@@ -92,6 +92,7 @@ void game_flush(){}
 void game_process_event(int, int);
 int Game_skill_level;
 int View_percent = 100;	// Claude: the game view (Render/GameView.cpp, from LogicDrawSplit) reads it; FreeSpace.cpp defines it in the game (D-068)
+bool game_using_low_mem() { return false; }	// Claude: the recorder (Replay.cpp) writes the low-memory mode into its header (D-056); FreeSpace.cpp defines it in the game
 float flFrametime;
 int game_check_key(){return 0;}
 void game_stop_time(){}

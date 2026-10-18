@@ -586,6 +586,7 @@ void game_stop_looped_sounds() {}
 
 int Game_skill_level;
 int View_percent = 100;	// Claude: the game view (Render/GameView.cpp, from LogicDrawSplit) reads it; FreeSpace.cpp defines it in the game (D-068)
+bool game_using_low_mem() { return false; }	// Claude: the recorder (Replay.cpp) writes the low-memory mode into its header (D-056); FreeSpace.cpp defines it in the game
 int game_cd_changed(void) {return 0;}
 
 int Interface_framerate;
