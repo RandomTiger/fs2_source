@@ -876,6 +876,12 @@ void getmem()
 // HeapCompact); a host engine swaps its own allocator in here. (malloc) and (free) in parentheses
 // call the CRT functions, not the macros PsTypes.h points at this file.
 
+#ifndef NDEBUG
+// Claude: the Debug array guard's counters (PsTypes.h, D-20261018-030012)
+int Guard_fire_count = 0;
+int Guard_self_test_running = 0;
+#endif
+
 // Returns 0 if not enough RAM.
 int vm_init(int min_heap_size)
 {

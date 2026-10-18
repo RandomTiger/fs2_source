@@ -685,10 +685,17 @@ template <class T> void CAP( T& v, T mn, T mx )
 // a plain pointer, so `objp - Objects`, `Objects + i` and passing the array on work as before.
 // A guard firing is a finding for Tom, never a silent fix (D-061 item 3).
 #ifndef NDEBUG
+	// Every out-of-range index goes through guard_fired, which counts it and Asserts. Autotest's start-up
+	// self-test (guard_self_test) indexes a probe array out of range with the Assert held back and logs
+	// "guards: assert" only if the count moved, so a guard that has been disabled cannot pass silently
+	// (D-20261018-030012).
+	extern int Guard_fire_count;
+	extern int Guard_self_test_running;
+	inline void guard_fired( int i, int n )	{ Guard_fire_count++; if ( !Guard_self_test_running ) { Assert( (i >= 0) && (i < n) ); } }
 	template <typename T, int N> struct guarded_array {
 		T data[N];
-		T &operator[](int i)				{ Assert( (i >= 0) && (i < N) ); return data[i]; }
-		const T &operator[](int i) const	{ Assert( (i >= 0) && (i < N) ); return data[i]; }
+		T &operator[](int i)				{ if ( !((i >= 0) && (i < N)) ) guard_fired( i, N ); return data[i]; }
+		const T &operator[](int i) const	{ if ( !((i >= 0) && (i < N)) ) guard_fired( i, N ); return data[i]; }
 		operator T *()						{ return data; }
 		operator const T *() const		{ return data; }
 	};
