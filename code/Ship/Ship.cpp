@@ -740,7 +740,7 @@ extern void render_path_points(object *objp);
 // mwa -- removed 11/24/97 int	num_ships = 0;
 int	num_wings = 0;
 int	Num_reinforcements = 0;
-ship	Ships[MAX_SHIPS];
+GUARDED_ARRAY(ship, Ships, MAX_SHIPS);	// Claude: Debug bounds guard (D-076)
 ship	*Player_ship;
 wing	Wings[MAX_WINGS];
 int	Starting_wings[MAX_PLAYER_WINGS];  // wings player starts a mission with (-1 = none)

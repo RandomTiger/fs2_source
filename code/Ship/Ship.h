@@ -851,7 +851,7 @@ typedef struct ship_info {
 } ship_info;
 
 extern int num_wings;
-extern ship Ships[MAX_SHIPS];
+extern GUARDED_ARRAY(ship, Ships, MAX_SHIPS);	// Claude: Debug bounds guard (D-076)
 extern ship	*Player_ship;
 
 // Data structure to track the active missiles
