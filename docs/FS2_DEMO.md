@@ -331,7 +331,7 @@ yet (batches 4 to 8).
 - **Data set enumeration** (Tom, 2026-10-18): FS2 retail, FS2 demo, FS1 retail, FS1 demo
   (`CFile/DataSetInstall.h`); logs say "data set: FS2 demo". Only the FS2 pair is detected.
 - **Installer extraction** (D-20261018-221704, Tom's two additions): our exe next to `fs2demo10.exe`
-  extracts it once into `.s2demo\` (own inflater, CRC per file, `.partial` then rename, never into an
+  extracts it once into `.\fs2demo\` (own inflater, CRC per file, `.partial` then rename, never into an
   existing folder) and runs there, with its own `fs2.ini` and pilots. `-dataset fs2demo|fs1demo|retail`
   chooses; otherwise a replay's recorded set, retail VPs next to the exe, the only set present, or
   fs2demo. A first start takes about 10 s; the files match the installer's byte for byte and
