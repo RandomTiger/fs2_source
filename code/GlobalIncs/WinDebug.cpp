@@ -934,6 +934,16 @@ void vm_free_all()
 {
 }
 
+#ifndef NDEBUG
+// Claude: in Debug, C++ allocation goes through the same seam, so the Debug fill (0xCD on allocate, 0xDD on free)
+// covers new and delete too (D-061, D-20261017-223659). Release keeps the CRT operators, unchanged. A size of 0 still
+// gets a unique block; deleting NULL is legal C++ and is not logged.
+void *operator new( size_t size )		{ return vm_malloc( size ? (int)size : 1 ); }
+void *operator new[]( size_t size )	{ return vm_malloc( size ? (int)size : 1 ); }
+void operator delete( void *ptr )		{ if ( ptr ) vm_free( ptr ); }
+void operator delete[]( void *ptr )	{ if ( ptr ) vm_free( ptr ); }
+#endif
+
 
 
 
