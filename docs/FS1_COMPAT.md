@@ -178,6 +178,7 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1FileSystem` | 1 | `.fsm`/`.fsc` indexed; `x.fs2` finds `x.fsm`; plural voice folders mapped; stand-ins for files FS1 lacks (`font03.vf`, `debris02.pof`) |
 | `FS1MissingTables` | 2 | `Parse/Fs1Tables.cpp` supplies text for the 11 tables FS1 lacks that the game reads. The tips popup returns when there are no tips |
 | `FS1TableConvert` | 4 | FS1 tables rewritten while loading: medals, sounds (flyby section), music (14 patterns cut to 12), weapons (trails, swarm), ships (default ship, engine wash), asteroid, and `/* */` comments |
+| `FS1Backgrounds` | 7 | FS1's old-style nebula draws again (FS2 had switched it off), coloured from entries 0-19 of `gamepalette1-NN.pcx`. FS1's `$Bitmap: Sun01` backgrounds become `$Sun` (angles from the transposed orientation matrix, scale 20 / distance); `$Light: 0` suns give no light. Size and placement follow FS1's old formulas, not a side-by-side check |
 | `FS1BriefingScreen` | 9 (start) | In FS1 data, `gr_bitmap` skips a bitmap that did not load: FS2's interface overlays FS1 lacks (`Briefwin`, `InfoBox`), whose frames FS1's screen backgrounds already hold. Positions are still FS2's |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
@@ -194,6 +195,7 @@ Debug still logs 5 bitmap-handle Asserts (other uses of overlays FS1 lacks), the
 - Asteroids: 3 types to FS2's 12; FS1 has no debris fields.
 - Icons: FS1's `icons.tbl` (27 types, one set) parses, but its sets land in FS2's per-species slots in the wrong order. Not converted yet.
 - Species: FS1's `Species.tbl` is a different file; only the tech room reads it. Not converted yet.
+- Backgrounds: no starfield bitmaps besides the sun; FS1 missions use none.
 - Resolution: FS1 needs 640 mode. The trial sets it in the ini; the interface art-mode setting (D-20261017-225737) is the real fix.
 - Trials use your FS2 pilot `Tom.plr`, copied into the FS1 install's `Data\Players\Single`.
 
