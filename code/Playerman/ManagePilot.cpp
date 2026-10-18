@@ -304,9 +304,8 @@ int verify_pilot_file(char *filename, int single, int *rank)
 
 	id = cfread_uint(file);
 	if (id != PLR_FILE_ID) {
-		nprintf(("Warning", "Player file has invalid signature\n"));
+		mprintf(("Pilot file %s has an invalid signature; skipped and left as it is\n", filename));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 
@@ -315,9 +314,8 @@ int verify_pilot_file(char *filename, int single, int *rank)
 /*	if (file_version < INITIAL_RELEASE_FILE_VERSION) { */
 //	if (file_version != CURRENT_PLAYER_FILE_VERSION) {
 	if (file_version < LOWEST_COMPATIBLE_PLAYER_FILE_VERSION) {
-		nprintf(("Warning", "WARNING => Player file is outdated and not compatible...\n"));
+		mprintf(("Pilot file %s is version %u, older than %d; skipped and left as it is\n", filename, file_version, LOWEST_COMPATIBLE_PLAYER_FILE_VERSION));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 	if (file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
@@ -559,9 +557,8 @@ int read_pilot_file(char *callsign, int single, player *p)
 	cf_set_version( file, Player_file_version );
 
 	if (Player_file_version < LOWEST_COMPATIBLE_PLAYER_FILE_VERSION) {
-		nprintf(("Warning", "WARNING => Player file is outdated and not compatible...\n"));
+		mprintf(("Pilot file %s is version %u, older than %d; not loaded and left as it is\n", filename, Player_file_version, LOWEST_COMPATIBLE_PLAYER_FILE_VERSION));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 	if (Player_file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", Player_file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
