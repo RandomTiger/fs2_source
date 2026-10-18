@@ -638,6 +638,11 @@ int autotest_report(char *kind, char *text, char *file, int line)
 	return 1;
 }
 
+void autotest_note(char *text)
+{
+	autotest_logf("%s", text);
+}
+
 int autotest_exit_code(int code)
 {
 	int failed, i;
