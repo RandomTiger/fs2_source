@@ -16,6 +16,7 @@
 #include "PsTypes.h"
 #include "cfile.h"
 #include "parselo.h"
+#include "vecmat.h"
 #include "ContextHelp.h"
 #include "Fs1Tables.h"
 
@@ -68,6 +69,9 @@ static void fs1_stars_tbl()
 	fs1_line("$Sun: Sun01");
 	fs1_line("$Sunglow: SunGlow01");
 	fs1_line("$SunRGBI: 1.0 1.0 1.0 1.0");
+	fs1_line("$Sun: Sun01-unlit");					// FS1's sun with $Light: 0, which gives no light (cfile maps the name to Sun01)
+	fs1_line("$Sunglow: SunGlow01");
+	fs1_line("$SunRGBI: 1.0 1.0 1.0 0.0");
 	fs1_line("#end");
 	for (i = 1; i <= 4; i++) {
 		fs1_line("$Debris: debris%02d", i);
@@ -462,6 +466,80 @@ static void fs1_asteroid_line(char *line)
 	}
 }
 
+// FS1 missions (.fsm), #Background bitmaps: FS1 places a bitmap with "$Bitmap:", "$Orientation:" (a matrix whose
+// forward vector points at it), "$Rotation rate:", "$Distance:" and "$Light:".  FS2 reads "$Sun:" with angles and a
+// scale.  FS2 puts a sun on the third column of its angles' matrix, so the angles come from the transposed FS1
+// matrix.  FS1 drew the bitmap one unit either side of its centre at that distance (calculate_bitmap_points, kept
+// commented out in Starfield/StarField.cpp), and FS2 draws a sun 0.05 * scale across at distance 1, so the
+// scale is 20 / distance.  Every FS1 background bitmap is Sun01; with "$Light: 0" it becomes Sun01-unlit, which
+// stars.tbl gives no light.
+static int Fs1_in_background;
+static char Fs1_bg_name[NAME_LENGTH];
+static float Fs1_bg_matrix[9];
+static int Fs1_bg_floats = -1;					// matrix numbers read so far, -1 outside $Orientation
+static float Fs1_bg_distance;
+
+static void fs1_mission_line(char *line)
+{
+	char *v, *end;
+	matrix m;
+	angles a;
+	float f, scale;
+	int light;
+
+	if (line[0] == '#') {
+		Fs1_in_background = (fs1_key(line, "#Background bitmaps") != NULL);
+	}
+	if (!Fs1_in_background) {
+		fs1_out("%s", line);
+		return;
+	}
+
+	if ((v = fs1_key(line, "$Bitmap:")) != NULL) {
+		fs1_name(v, Fs1_bg_name, NAME_LENGTH);
+		return;
+	}
+	if ((v = fs1_key(line, "$Orientation:")) != NULL) {
+		Fs1_bg_floats = 0;
+		line = v;
+	}
+	if ((Fs1_bg_floats >= 0) && (Fs1_bg_floats < 9)) {
+		for (v = line; (Fs1_bg_floats < 9) && *v; v = end) {
+			while ((*v == ',') || (*v == ' ') || (*v == '\t')) {
+				v++;
+			}
+			f = (float)strtod(v, &end);
+			if (end == v) {
+				break;
+			}
+			Fs1_bg_matrix[Fs1_bg_floats++] = f;
+		}
+		return;
+	}
+	if (fs1_key(line, "$Rotation rate:")) {
+		return;
+	}
+	if ((v = fs1_key(line, "$Distance:")) != NULL) {
+		Fs1_bg_distance = (float)atof(v);
+		return;
+	}
+	if ((v = fs1_key(line, "$Light:")) != NULL) {
+		light = atoi(v);
+		// the transpose: FS1's rows are FS2's columns
+		m.rvec.x = Fs1_bg_matrix[0];	m.uvec.x = Fs1_bg_matrix[1];	m.fvec.x = Fs1_bg_matrix[2];
+		m.rvec.y = Fs1_bg_matrix[3];	m.uvec.y = Fs1_bg_matrix[4];	m.fvec.y = Fs1_bg_matrix[5];
+		m.rvec.z = Fs1_bg_matrix[6];	m.uvec.z = Fs1_bg_matrix[7];	m.fvec.z = Fs1_bg_matrix[8];
+		vm_extract_angles_matrix(&a, &m);
+		scale = (Fs1_bg_distance > 0.0f) ? (20.0f / Fs1_bg_distance) : 2.0f;
+		fs1_out("$Sun: %s%s", Fs1_bg_name, light ? "" : "-unlit");
+		fs1_out("+Angles: %f %f %f", a.p, a.b, a.h);
+		fs1_out("+Scale: %f", scale);
+		Fs1_bg_floats = -1;
+		return;
+	}
+	fs1_out("%s", line);
+}
+
 typedef struct fs1_converter {
 	char *filename;
 	void (*prepare_fn)(char *line);		// optional first pass, for what a line needs from later in the file
@@ -475,6 +553,8 @@ static fs1_converter Fs1_converters[] = {
 	{ "weapons.tbl",		fs1_weapons_prepare,		fs1_weapons_line },
 	{ "ships.tbl",			fs1_ships_prepare,		fs1_ships_line },
 	{ "asteroid.tbl",		NULL,							fs1_asteroid_line },
+	{ "*.fsm",				NULL,							fs1_mission_line },		// every FS1 mission
+	{ "*.fs2",				NULL,							fs1_mission_line },		// the same, asked for by its FS2 name (cfile finds the .fsm)
 };
 
 // calls fn on each line of text, without its line end
@@ -534,7 +614,15 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 		fs1_blank_block_comments(text, len);
 	}
 	for (i = 0; i < sizeof(Fs1_converters) / sizeof(Fs1_converters[0]); i++) {
-		if (!stricmp(filename, Fs1_converters[i].filename)) {
+		char *name = Fs1_converters[i].filename;
+		int flen = strlen(filename), nlen = strlen(name);
+
+		if (name[0] == '*') {
+			// "*.ext": any file ending in .ext
+			if ((flen >= nlen - 1) && !stricmp(filename + flen - (nlen - 1), name + 1)) {
+				conv = &Fs1_converters[i];
+			}
+		} else if (!stricmp(filename, name)) {
 			conv = &Fs1_converters[i];
 		}
 	}
@@ -554,6 +642,10 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	Fs1_weapon[0] = Fs1_ship[0] = Fs1_default_ship[0] = 0;
 	Fs1_num_swarm = 0;
 	Fs1_pattern = -1;
+	Fs1_in_background = 0;
+	Fs1_bg_floats = -1;
+	Fs1_bg_name[0] = 0;
+	Fs1_bg_distance = 10.0f;
 
 	if (conv->prepare_fn) {
 		fs1_each_line(text, len, conv->prepare_fn);

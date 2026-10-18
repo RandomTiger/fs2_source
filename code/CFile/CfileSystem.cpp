@@ -632,6 +632,7 @@ static int cf_fs1_mission_name( char *src, char *dst )
 	static char *stand_in[][2] = {
 		{ "font03.vf", "font02.vf" },		// the title font
 		{ "debris02.pof", "debris01.pof" },	// debris of a ship vaporized by a beam; FS1 has no beams
+		{ "sun01-unlit.pcx", "sun01.pcx" },	// FS1's sun with $Light: 0 (Parse/Fs1Tables.cpp)
 	};
 	for (i=0; i<sizeof(stand_in)/sizeof(stand_in[0]); i++ )	{
 		if ( !stricmp( src, stand_in[i][0] ) ) {

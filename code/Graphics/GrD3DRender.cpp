@@ -316,6 +316,7 @@
 #include "Line.h"
 #include "Cfile.h"
 #include "Neb.h"
+#include "Nebula.h"	// Claude: FS1 nebula colour ramp
 #include "3d.h"
 
 typedef enum gr_texture_source {
@@ -690,6 +691,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	// Make nebula use the texture mapper... this blends the colors better.
 	if ( flags & TMAP_FLAG_NEBULA ){
+		if ( !Cfile_fs1_data )	// Claude: FS1's nebula draws here (docs/FS1_COMPAT.md)
 		Int3();
 		/*
 		flags |= TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT;
@@ -876,6 +878,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 		if ( flags & TMAP_FLAG_NEBULA )	{
 			int pal = (verts[i]->b*(NEBULA_COLORS-1))/255;
+			ubyte *gr_palette = Cfile_fs1_data ? Nebula_fs1_ramp : ::gr_palette;	// Claude: in FS1 data the next lines read FS1's nebula ramp
 			r = gr_palette[pal*3+0];
 			g = gr_palette[pal*3+1];
 			b = gr_palette[pal*3+2];
