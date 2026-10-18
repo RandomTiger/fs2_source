@@ -169,7 +169,7 @@ int Badge_index[MAX_BADGES];
 #define RANK_MEDAL_REGION		12			// region number of the rank medal
 
 // coords for indiv medal bitmaps
-int Medal_coords[GR_NUM_RESOLUTIONS][NUM_MEDALS][2] = {
+int Medal_coords[GR_NUM_RESOLUTIONS][18][2] = {	// Claude: 18 rows (the retail layout) so the FS2_DEMO build compiles; its 16 medals have no layout here, docs/FS2_DEMO.md
 	{				// GR_640
 		{ 89, 47 },					// eps. peg. lib
 		{ 486, 47 },				// imp. order o' vasuda
