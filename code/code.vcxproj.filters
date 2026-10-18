@@ -186,6 +186,9 @@
     <ClCompile Include="CFile\CfileSystem.cpp">
       <Filter>CFile</Filter>
     </ClCompile>
+    <ClCompile Include="CFile\DataSetInstall.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
     <ClCompile Include="Cmdline\cmdline.cpp">
       <Filter>Cmdline</Filter>
     </ClCompile>
@@ -903,6 +906,9 @@
       <Filter>CFile</Filter>
     </ClInclude>
     <ClInclude Include="CFile\CfileSystem.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
+    <ClInclude Include="CFile\DataSetInstall.h">
       <Filter>CFile</Filter>
     </ClInclude>
     <ClInclude Include="Cmdline\cmdline.h">

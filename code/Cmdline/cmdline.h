@@ -172,6 +172,7 @@ extern char *Cmdline_game_password;
 extern char *Cmdline_rank_above;
 extern char *Cmdline_rank_below;
 extern char *Cmdline_connect_addr;
+extern char *Cmdline_dataset;	// Claude: -dataset, see DataSetInstall.h
 extern int Cmdline_multi_log;
 extern int Cmdline_server_firing;
 extern int Cmdline_client_dodamage;

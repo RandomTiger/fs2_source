@@ -250,6 +250,8 @@ cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every s
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm autotest_awards_arg("-at_awards", NULL);	// Claude: the tour's debriefing shows awards, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
+cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
+char *Cmdline_dataset = NULL;						// Claude
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
@@ -650,6 +652,9 @@ int parse_cmdline(char *cmdline)
 	if(ini_arg.found()){
 		os_config_set_ini(ini_arg.str());
 	}
+	if(dataset_arg.found()){	// Claude
+		Cmdline_dataset = dataset_arg.str();	// Claude
+	}	// Claude
 
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
 	if(autotest_arg.found()){
