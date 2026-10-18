@@ -11,6 +11,8 @@ Each set goes through:
   nodraw     tools\nodraw_check.ps1, Release
   model      tools\sound_model_check.ps1 (no answer from the sound device)
   headless   tools\nodraw_check.ps1 -Headless in Release and Debug (no window, graphics or sound device)
+Then, once per run, tools\tools_check.ps1: every tool project builds in Release and does its basic job. It sends keys
+to FRED, so leave the keyboard alone while it runs (about 3 minutes).
 
 Usage (PowerShell, from anywhere):
   tools\suite_check.ps1 [-Full] [-Out <dir>] [-GameDir <dir>]
@@ -57,7 +59,13 @@ foreach ($c in $checks) {
 	$line | Add-Content $summary
 	$line
 }
-$verdict = if ($failed) { "FAIL ($failed of $($checks.Count) checks)" } else { 'PASS' }
+# every tool builds and does its basic job (tools\tools_check.ps1; needs the desktop, sends keys to FRED)
+$last = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tools_check.ps1') -Game $GameDir | Select-Object -Last 1
+if ($LASTEXITCODE -or ($last -notmatch '^PASS')) { $failed++ }
+$line = "tools: $last"
+$line | Add-Content $summary
+$line
+$verdict = if ($failed) { "FAIL ($failed of $($checks.Count + 1) checks)" } else { 'PASS' }
 $verdict | Add-Content $summary
 $verdict
 if ($failed) { exit 1 }
