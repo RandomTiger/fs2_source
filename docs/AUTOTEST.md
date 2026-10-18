@@ -88,7 +88,7 @@ While an autotest runs:
 |---|---|
 | 0 | Pass |
 | 1 | `Error()` |
-| 2 | A mission did not start, an `Assert` or `Int3` was hit, or a flag was invalid |
+| 2 | A mission did not start, an `Assert`, `Int3` or `Warning` was hit, or a flag was invalid |
 | 5 | The watchdog found the game stuck |
 | `0xC...` | A crash, with its exception code |
 | 3, 4 | A replay desync or setup error (`docs/REPLAY.md`) |

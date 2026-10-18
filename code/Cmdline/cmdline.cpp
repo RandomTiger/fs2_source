@@ -350,7 +350,7 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 	// the old arguments
 //	Assert(parm->args == NULL);
 	if ( parm->args != NULL ) {
-		delete( parm->args );
+		delete [] parm->args;	// Claude: allocated with new[]; was scalar delete (#7)
 		parm->args = NULL;
 	}
 
