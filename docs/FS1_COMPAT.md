@@ -1,0 +1,175 @@
+# FS1 compatibility: what it takes for this engine to play FreeSpace 1 data
+
+Investigation only. No code has changed. Branch `FS1Compat`, off `origin/RecordPlayback` at `d0c412f`.
+
+Decisions this works under:
+- **D-064**: FS1 is a secondary goal behind the Godot port. Code that reads older formats is not dead code and is not cut.
+- **D-20261017-225737**: GR_640 stays as an interface art mode, separate from render resolution. Table converters and mission file-name handling go in data loading, not game logic. FS1 fidelity is best effort; an FS1 recording suite would be regression-only.
+- **D-20261017-223742**: FS1 is a feature branch off RecordPlayback, merged into Enhanced when green.
+- **D-20261018-134401**: the 37 FS1 demo code blocks are held under D-064, not cut.
+
+Data surveyed: GOG *Conflict: FreeSpace - The Great War* 1.06, with Silent Threat, at `PATH_FS1` (`U:\GOG Games\Freespace`). Nothing was copied into the repo. The data was read with throwaway scripts in a scratch folder.
+
+---
+
+## 1. What FS1's data is
+
+### Archives
+FS1 uses the same VP archive format as FS2: signature `VPVP`, version 2, the same directory layout.
+
+| Archive | Where | Contents |
+|---|---|---|
+| `root.vp` | install root | all 17 tables, the main campaign (55 missions, 3 campaign files), 3 models |
+| `mdisk.vp` | install root | Silent Threat: 60 missions, 5 campaign files, 5 replacement tables, 6 models, music, voice |
+| `freespace.vp` | `Data\` | models, textures, interface art, HUD art, effects, sounds, music, fonts, persona and training voice |
+| `voc.vp` | `Data\` | briefing and debriefing voice |
+| `cbanim.vp` | `Data\` | command briefing animations |
+| `data1\`, `data2\` | install | copies of the two CDs: the same VPs again, plus the movies (`.mve`) |
+
+The movies exist only in `data1\` and `data2\`, not under `Data\Movies`.
+
+### Tables
+- FS1 has 17 tables. FS2 has 30. FS1 has one FS2 lacks (`tooltips.tbl`, which the FS2 code still reads).
+- **14 of the 17 are encrypted** with the old scheme: signature `0xDEADBEEF`, characters packed into 7 bits, then XOR with the byte offset. `credits.tbl`, `cutscenes.tbl`, `menu.tbl` and `Species.tbl` are plain text. FS2's tables use the newer `0x5C331A55` scheme.
+- Once decrypted, most tables are the same format as FS2's, with a few fields renamed or missing. The differences are listed in section 3.
+- Silent Threat's `mdisk.vp` replaces `ships`, `weapons`, `sounds`, `music` and `credits`. They are supersets of the main game's tables (71 ship classes against 67).
+
+### Missions and campaigns
+- Missions are `.fsm`, campaigns `.fsc`. FS2 uses `.fs2` and `.fc2`.
+- Every FS1 mission says `$Version: 0.10`.
+- The 55 main campaign missions are plain text. 59 of the 60 Silent Threat missions and all 5 of its campaign files are encrypted with the same old scheme as the tables.
+- The campaign files name missions with their extension (`$Mission: SM1-01.fsm`, `next-mission "BTM-02.FSM"`), in mixed case.
+- Every SEXP operator the FS1 missions use exists in FS2's operator table (112 different operators used).
+
+### Models
+- `.pof`, POF versions 1901 to 2014. FS2 accepts 1900 to 21xx, and FS2's retail models are 2117.
+- They use the **FS1 header chunks**: `OHDR` (object header) and `SOBJ` (sub-object), where FS2 uses `HDR2` and `OBJ2`. The fields inside are in a different order.
+- They have none of the chunks FS2 added (`INSG` insignia, `ACEN` autocentre, `GRID`).
+- FS1 also ships 101 `.p3d` files beside the models. Nothing in this source reads `.p3d`, so they look like editor or source files.
+
+### Textures and art
+- Textures and interface art are 8-bit paletted PCX (one plane), the same as FS2's 640 art. Each file carries its own palette. The `*Palette.pcx` files and the `.clr` palette cache are from FS1's 8-bit display mode.
+- Animations are `.ani` version 2, the same as FS2.
+- Fonts: `font01.vf` and `font02.vf`, the same `VFNT` format as FS2. FS1 has **no `font03.vf`**.
+- Old-style nebulas: `nebula01-03.neb`.
+
+### Art resolution
+**FS1 has no 1024 art.** Full-screen interface art is 640x480 (121 files at exactly 640x480). FS2 marks its 1024 art with a `2_` prefix (1384 files). FS1 has 120 `2_` files, but all of them are persona voice `.wav` files, not art. This confirms Tom's recollection in D-20261017-225737.
+
+---
+
+## 2. What the FS2 engine already reads, and where it fails (static reading)
+
+This is from reading the code, not from running it. A trial run against the FS1 data still needs Tom's OK (question 1).
+
+### Already works, or very close
+- **VP archives**: same format. The engine looks for `*.vp` in the root and in every known data folder, so it finds `Data\freespace.vp`, `voc.vp` and `cbanim.vp` (`code/CFile/CfileSystem.cpp:264`).
+- **Old POF versions**: the reader still has branches for versions below 1903, 2003, 2007, 2009 and 2014 (`code/Model/ModelRead.cpp:1310-1385`).
+- **Mission file body**: the parser still accepts FS1 fields. It logs an older `$Version` and carries on (`code/Mission/MissionParse.cpp:650`). FS1's debriefing format, `#Plot Info`, `+Persona Index` and old `+Nebula:` are all still handled. Old `.neb` nebulas still load (`code/Starfield/Nebula.cpp:269`).
+- **Campaign file body**: same fields (`code/Mission/MissionCampaign.cpp:495-610`).
+- **SEXPs**: every operator FS1 uses exists.
+- **Table formats**: `ai`, `cutscenes`, `menu`, `rank`, `traitor`, `credits` and `messages` match FS2 field for field once decrypted. Ship class entries match too: every FS1 ship flag is known to FS2 (`code/Ship/Ship.cpp:1347-1402`).
+- **Textures, animations, fonts 1 and 2**: same formats.
+
+### Fails
+In load order, the first failure blocks everything after it:
+
+1. **Encrypted tables come out as garbage.** `Encrypt.cpp` defines `ENCRYPT_NEW`, so `unencrypt()` only decodes the new signature. `is_encrpyted()` still reports `0xDEADBEEF` files as encrypted, and `unencrypt_new()` then copies them through still scrambled. The old decoder is still in the file under `#else` (`code/Parse/Encrypt.cpp:56`, `:204`, `:380`). The first table read fails, and so do Silent Threat's encrypted missions.
+2. **FS1 missions and campaigns are invisible.** The file system only indexes extensions listed for each folder, and `Data\Missions` lists `.fs2 .fc2 .ntl .ssv` (`code/CFile/cfile.cpp:194`, filter applied at `CfileSystem.cpp:542`).
+3. **Mission names with extensions break.** `cf_add_ext("SM1-01.fsm", ".fs2")` gives `SM1-01.fsm.fs2` (`code/CFile/cfile.cpp:519`). FS1 campaign files and `next-mission` name missions this way.
+4. **Briefing and debriefing voice is invisible.** FS1 stores it in `data\voice\briefings` and `data\voice\debriefings`. FS2's folders are `Data\Voice\Briefing` and `Data\Voice\Debriefing`. Folder names must match exactly (`CfileSystem.cpp:538`).
+5. **Models fail to load.** The engine is compiled for FS2 headers (`#define FREESPACE2_FORMAT`, `code/Model/ModelsInc.h:27`), so it skips FS1's `OHDR` and `SOBJ` chunks. The FS1 field order is still in the source under `#if defined(FREESPACE1_FORMAT)` (`ModelRead.cpp:1272`, `:1414`), but only as a compile-time switch.
+6. **Tables FS1 does not have**, which FS2 reads: `mainhall`, `hud`, `stars`, `nebula`, `lightning`, `mflash`, `weapon_expl`, `ssm`, `strings`, `tstrings`, `tips`, `help`, `pixels`, `launchhelp`. A missing file aborts the parse (`code/Parse/PARSELO.CPP:1131`). Whether each one is then fatal or skipped depends on its caller. The trial run will show which.
+7. **`font03.vf` is missing.** It is loaded unconditionally (`code/Graphics/Font.cpp:875`).
+
+Movies do not play in this source for FS2 either (`movie_play` is commented out). That is not an FS1 gap.
+
+---
+
+## 3. The gaps, by area
+
+### Tables
+| Table | Gap | Kind |
+|---|---|---|
+| all 14 encrypted | old `0xDEADBEEF` encryption | code path (bring back the old decoder) |
+| `ships` | no `#Default Player Ship` section (FS1 marks it with a `default_player_ship` flag instead), no `#Engine Wash Info` section; both required (`Ship.cpp:1664`, `:1672`) | converter |
+| `weapons` | `$Trail:` is `YES`/`NO` in FS1. FS2 treats any `$Trail:` as "has a trail" and then requires `+Start Width`, `+End Width`, `+Start Alpha`, `+End Alpha`, `+Max Life`. FS1 gives `+Head Width`, `+Tail Width`, `+Life` (`Weapons.cpp:1045`). Every `$Trail: NO` weapon would fail | converter |
+| `sounds` | 144 game and 52 interface sounds against FS2's 192 and 65. No `#Flyby Sounds` section (required, `GameSnd.cpp:359`). The engine finds sounds by slot number, and 87 game slots and 33 interface slots hold a different sound. Ships and weapons refer to sounds by FS1 slot number | converter (remap slots, add flyby section, renumber references in ships and weapons) |
+| `music` | FS1 soundtracks have 14 patterns (three "normal" patterns that chain). FS2 has 12 with one normal pattern, and asserts at 12 (`EventMusic.cpp:1060`, `EventMusic.h:125-138`) | converter, or a code path if the chaining is wanted (question 3) |
+| `medals` | 16 medals against 18; `$Wavefile 1:`/`$Wavefile 2:` against `$Wavefile Base:` (`Medals.cpp:340`). `NUM_MEDALS` is 16 or 18 at compile time (`Scoring.h:180`) | converter, plus a run-time medal count |
+| `Species` | an entirely different file: three species descriptions, against FS2's tech-room intel entries read from the same file name (`TechMenu.cpp:1270`) | converter |
+| `asteroid` | 3 entries against 12; the engine asserts it has all 12 (`Asteroid.cpp:2017`) | converter (fill in the debris entries) |
+| `icons` | 27 briefing icon types, one set each. FS2 has 35 types with three species sets each (`MissionBriefCommon.cpp:730`) | converter (copy each set per species, map types by order) |
+| `fireball` | `$LOD:` is optional; same 6 entries | none |
+| 14 FS2-only tables | see section 2, item 6 | defaults, generated in data loading (question 2) |
+
+### Missions
+- Extensions `.fsm` and `.fsc`, and mission names that carry the extension: file-name handling in data loading.
+- Background: FS1 writes `$Bitmap:`, `$Orientation:` (a matrix), `$Rotation rate:`, `$Distance:`, `$Light:`. FS2 reads only `$Sun:` and `$Starbitmap:` with angles and scale (`MissionParse.cpp:3232-3296`). FS1 backgrounds and suns would be dropped silently. Needs a converter: matrix to angles, `$Distance` to scale, `$Light: 1` to a sun.
+- Silent Threat missions are encrypted: covered by the decryption fix.
+- Everything else read cleanly against the parser's required fields.
+
+### Models
+- `OHDR`/`SOBJ` chunks: a code path. Recognise both chunk IDs at run time and read each in its own field order. The FS1 order is already in the source behind the compile switch.
+- The older POF versions already have branches. FS1 models have no insignia or autocentre data, which FS2 treats as optional.
+- `.p3d`: ignore.
+
+### Interface art
+- All art is 640, which fits the kept GR_640 mode. Render resolution is a separate setting (D-20261017-225737).
+- No `mainhall.tbl`. FS1 has the art (`mainhall1`, `mainhall2`, `main1-*`, `main2-*` animations), but the door and animation positions were built into the FS1 exe. A main hall table for FS1 has to be written.
+- **Screen layouts are the largest unknown.** FS2's screens place their buttons from coordinate arrays in the code, set for FS2's art. FS1's screens are laid out differently. For example, FS1 has `shipselect-m.pcx` (the click mask) but no `ShipSelect.pcx` background, and no `WeaponLoadout` background. Only 296 of FS2's 1567 interface art names exist in FS1. Without per-screen FS1 layouts, FS1 menus will draw with buttons in the wrong places. Static reading cannot measure this; the trial run will.
+- No `font03.vf`: fall back to `font02`.
+- HUD: all 98 FS1 HUD art names exist in FS2. FS2 adds 57 more, such as engine wash and extra head animations. Gauge positions come from code and `hud.tbl`, which FS1 does not have.
+
+### Campaign flow
+- Campaign file format: compatible.
+- Mission names carry `.fsm`: file-name handling.
+- The default campaign name, the built-in mission list and the "is this a Volition mission" check all assume FS2 names (`FreeSpace.cpp:726` onwards).
+- FS1 pilots (`.plr`, `.csg`) are not imported. New pilots only.
+- Silent Threat is a second campaign in the same install (`SilentThreat.fsc`), and its tables replace the main game's. Question 4.
+
+### Sound and music
+- The sound slot remap is the main piece (see Tables). Without it, built-in sounds play the wrong file and data-driven ones go out of range.
+- Briefing and debriefing voice folders need mapping (section 2, item 4).
+- Music: drop or chain FS1's extra normal patterns (question 3).
+- Movies: not played in this source for either game.
+
+---
+
+## 4. Batch plan
+
+Each batch is a branch off `FS1Compat` (or work on it directly if small), verified, then merged into `FS1Compat`. The FS2 recordings must replay unchanged after every batch: FS1 support must not move FS2 play. All FS1 handling sits behind FS1 data detection at start-up, the same pattern as demo mode (D-063), so FS2 runs take none of these paths.
+
+| Batch | What | Converter or code path |
+|---|---|---|
+| 1. Data detection and file system | Detect FS1 data at start-up. Index `.fsm`/`.fsc`. Map FS1 folder names (`briefings`, `debriefings`). Mission file-name handling (strip or swap `.fsm`) | code path, in data loading |
+| 2. Old decryption | Decode `0xDEADBEEF` and `0xCACACACA` at run time, chosen by signature. The old decoder is already in `Encrypt.cpp` | code path |
+| 3. Table converters | ships, weapons, sounds (with renumbering), music, medals, species, asteroid, icons. They rewrite the table text in memory after reading and before parsing, so the parsers are unchanged | converters, in data loading |
+| 4. Missing tables | Generate defaults for the 14 FS2-only tables, including an FS1 main hall | generated data (question 2) |
+| 5. Models | Read `OHDR`/`SOBJ` by chunk ID | code path |
+| 6. Missions | Background `$Bitmap` converter. Load every FS1 mission headless and check it parses | converter |
+| 7. Trial run and first mission | Build, start on FS1 data, reach the main hall, fly the first training mission | — |
+| 8. Interface layouts | Per-screen FS1 coordinates for the screens that differ, selected by the data mode. The largest batch; size it after batch 7 | code path |
+| 9. Regression suite | FS1 recordings, regression-only (D-20261017-225737 item 2) | — |
+
+Batches 1, 2 and 5 are small and independent. Batch 3 depends on 2, because the converters work on decrypted text. Batch 7 can run as soon as 1 to 5 are in. Batch 8 is the open-ended one.
+
+Static reading suggests the engine core (missions, SEXPs, ship classes, physics fields, models after batch 5) is close. The work is in the loading layer and the interface.
+
+---
+
+## 5. Branch scope
+
+Nothing was changed outside `FS1Compat`. The branch has no upstream set, so a plain `git push` cannot land on `RecordPlayback`. Nothing has been pushed.
+
+---
+
+## 6. Open questions for Tom
+
+1. **Trial run.** May I build `FS1Compat` and start it against the FS1 data? The build writes its exe to `PATH_FS2`. The game must run with the FS1 install as its working folder, which means either copying the exe into `U:\GOG Games\Freespace` or adding a data-folder option. Which do you prefer? Without fixes, it is expected to stop at the first encrypted table.
+2. **Missing tables (batch 4).** Should the 14 FS2-only tables be generated as defaults in code? Or should we write FS1 versions as project files in the repo? The second option is closer to "data", but some of those values (main hall positions, for example) come from FS1. That may count as FreeSpace data under the no-commit rule.
+3. **FS1 music.** Should FS1's three chaining normal patterns be dropped down to FS2's single one (converter only)? Or should the FS1 sequence come back (a code path in event music)?
+4. **Silent Threat.** Is it in scope, and is it a second campaign in the same FS1 mode?
+5. **Interface layouts (batch 8).** Is per-screen FS1 layout the goal? Or is "menus usable, positions approximate" enough for a secondary goal?
+6. **Multiplayer.** Can I assume it is out of scope for FS1?
+7. **Tools.** Should the VP lister and old-table decoder I wrote for this survey go into `tools/` on `FS1Compat` (they read from the install at run time and commit no data)? Or should they stay out?
