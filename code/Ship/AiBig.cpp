@@ -1026,7 +1026,7 @@ void ai_big_maybe_fire_weapons(float dist_to_enemy, float dot_to_enemy, vector *
 
 					ai_choose_secondary_weapon(Pl_objp, aip, En_objp);
 					int current_bank = tswp->current_secondary_bank;
-					weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[current_bank]];
+					weapon_info	*swip = Weapon_info + tswp->secondary_bank_weapons[current_bank];	// Claude: address only; the index can be -1 here (#18, D-077)
 
 					//	If ship is protected and very low on hits, don't fire missiles.
 					if ((current_bank > -1) &&  (!(En_objp->flags & OF_PROTECTED) || (En_objp->hull_strength > 10*swip->damage))) {

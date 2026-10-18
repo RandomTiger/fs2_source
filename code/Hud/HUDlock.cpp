@@ -468,7 +468,7 @@ void hud_lock_reset(float lock_time_scale)
 	ship_weapon	*swp;
 
 	swp = &Player_ship->weapons;
-	wip = &Weapon_info[swp->secondary_bank_weapons[swp->current_secondary_bank]];
+	wip = Weapon_info + swp->secondary_bank_weapons[swp->current_secondary_bank];	// Claude: address only; the index can be -1 here (#18, D-077)
 
 	Player_ai->current_target_is_locked = 0;
 	Players[Player_num].lock_indicator_visible = 0;
