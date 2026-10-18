@@ -180,20 +180,21 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1TableConvert` | 4 | FS1 tables rewritten while loading: medals, sounds (flyby section), music (14 patterns cut to 12), weapons (trails, swarm), ships (default ship, engine wash), asteroid, and `/* */` comments |
 | `FS1Backgrounds` | 7 | FS1's old-style nebula draws again (FS2 had switched it off), coloured from entries 0-19 of `gamepalette1-NN.pcx`. FS1's `$Bitmap: Sun01` backgrounds become `$Sun` (angles from the transposed orientation matrix, scale 20 / distance); `$Light: 0` suns give no light. Size and placement follow FS1's old formulas, not a side-by-side check |
 | `FS1BriefingScreen` | 9 (start) | In FS1 data, `gr_bitmap` skips a bitmap that did not load: FS2's interface overlays FS1 lacks (`Briefwin`, `InfoBox`), whose frames FS1's screen backgrounds already hold. Positions are still FS2's |
+| `FS1DebugNoise` | 4 | Debug runs clean. `icons.tbl`: each FS1 set is written three times, once per species. The context-help bracket checks (the two start-up Int3s) are skipped in FS1 data. `$Weapons Precedence` drops names the table does not define ("Disruptor Missile"). Converter state is reset for each file |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
 - `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
 - `sm1-01`, the first combat mission: the waves are destroyed, both goals ("Eliminate Hostiles", "Protect the Orff") complete, "Mission End" at 202 s. PASS with no Assert, Int3 or warning.
 
-Debug still logs 5 bitmap-handle Asserts (other uses of overlays FS1 lacks), the 2 start-up Int3s and the "Disruptor Missile" warning.
+In Debug, `sm1-01`, `btm-01` and `btm-02` (60 s each) PASS with no Assert, Int3 or warning.
+
+These runs did not use `-playernpc`, so nobody flew the player ship.
 
 **Known, not yet handled:**
-- Two Int3s during start-up, with no location logged.
-- FS1's own `weapons.tbl` lists a "Disruptor Missile" it does not define (a warning; FS1 data, left alone).
 - Music: FS1's chained normal patterns are cut for now (batch 5 brings them back).
 - Medals: 16 to FS2's 18; slots 16 and 17 stay empty. Badge voices are `<persona>_badge_x`, and FS2's default persona 9 has no FS1 file.
 - Asteroids: 3 types to FS2's 12; FS1 has no debris fields.
-- Icons: FS1's `icons.tbl` (27 types, one set) parses, but its sets land in FS2's per-species slots in the wrong order. Not converted yet.
+- Icons: FS1 has 27 briefing icon types to FS2's 35; the last 8 get no FS1 set.
 - Species: FS1's `Species.tbl` is a different file; only the tech room reads it. Not converted yet.
 - Backgrounds: no starfield bitmaps besides the sun; FS1 missions use none.
 - Resolution: FS1 needs 640 mode. The trial sets it in the ini; the interface art-mode setting (D-20261017-225737) is the real fix.
