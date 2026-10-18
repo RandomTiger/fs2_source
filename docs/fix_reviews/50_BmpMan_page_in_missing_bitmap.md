@@ -1,6 +1,6 @@
 # Fix review: paging in a missing bitmap writes before the bitmap table
 
-**Recommendation: TAKE.** Memory corruption reachable from any missing bitmap; retail data never reaches it, so no retail recording changes. GitHub issue #25. Decided by the steward (D-20261018-194722); made on `FS2Demo` with the demo work, written so it can be cherry-picked to `OriginalSourceBugFixes`.
+**Recommendation: TAKE.** Memory corruption reachable from any missing bitmap; retail data never reaches it, so no retail recording changes. GitHub issue #25. Decided by the steward (D-20261018-194722); made on `FS2Demo` with the demo work, and cherry-picked to `OriginalSourceBugFixes` on Tom's decision (steward review with Tom, 2026-10-18).
 
 ## The bug
 `stars_page_in` (`Starfield/StarField.cpp`) loads the subspace glow and pages it in with no check:

@@ -18,6 +18,7 @@
 #include "popup.h"
 #include "localize.h"
 #include "Replay.h"
+#include "DataSetInstall.h"	// Claude
 #include "Autotest.h"
 #include "ExceptionHandler.h"
 #include "Demo.h"
@@ -197,6 +198,14 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	#endif
 	
 	parse_cmdline(szCmdLine);	
+	{	// Claude: the data set folder, made from a demo installer on the first start; everything after this reads and writes there (D-20261018-221704)
+		char ds_dir[1024], ds_err[512];	// Claude
+		if (dataset_select_folder(exe_dir, Cmdline_dataset, replay_peek_data_set(game_is_volition_mission), ds_dir, sizeof(ds_dir), ds_err, sizeof(ds_err))) {	// Claude
+			Error(LOCATION, "%s", ds_err);	// Claude
+			return 1;	// Claude
+		}	// Claude
+		SetCurrentDirectory(ds_dir);	// Claude
+	}	// Claude
 	replay_startup();
 
 #ifdef STANDALONE_ONLY_BUILD
