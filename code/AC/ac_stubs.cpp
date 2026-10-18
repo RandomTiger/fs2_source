@@ -91,6 +91,7 @@ int find_freespace_cd(char*){return 0;}
 void game_flush(){}
 void game_process_event(int, int);
 int Game_skill_level;
+int View_percent = 100;	// Claude: the game view (Render/GameView.cpp, from LogicDrawSplit) reads it; FreeSpace.cpp defines it in the game (D-068)
 float flFrametime;
 int game_check_key(){return 0;}
 void game_stop_time(){}
