@@ -567,7 +567,8 @@ int autotest_exit_code(int code)
 		return code;
 	}
 
-	failed = Autotest_missions_failed || Autotest_asserts || Autotest_int3s;
+	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)
+	failed = Autotest_missions_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
 	for (i = 0; i < Autotest_num_sites; i++) {
 		autotest_logf("%6d x %s %s line %d\n", Autotest_sites[i].count, Autotest_sites[i].kind, Autotest_sites[i].file ? Autotest_sites[i].file : "", Autotest_sites[i].line);
 	}
