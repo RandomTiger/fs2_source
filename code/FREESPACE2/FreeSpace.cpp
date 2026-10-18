@@ -5273,7 +5273,12 @@ void game_process_event( int current_state, int event )
 
 		case GS_EVENT_GAME_INIT:
 	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
+			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
+				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
+			} else {	// Claude
 			gameseq_set_state(GS_STATE_INITIAL_PLAYER_SELECT);
+			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
 			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
