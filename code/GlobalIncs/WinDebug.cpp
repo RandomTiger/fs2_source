@@ -323,118 +323,6 @@ void unmangle(char *dst, const char *src)
 	*dst++ = 0;
 }
 
-#ifdef DUMPRAM
-
-typedef struct MemSymbol {
-	int	section;
-	int	offset;
-	int	size;
-	char	name[132];
-} MemSymbol;
-
-int Num_symbols = 0;
-int Max_symbols = 0;
-MemSymbol *Symbols;
-
-void InitSymbols()
-{
-	Num_symbols = 0;
-	Max_symbols = 5000;
-	Symbols = (MemSymbol *)malloc(Max_symbols*sizeof(MemSymbol));
-	if ( !Symbols )	{
-		Max_symbols = 0;
-	}
-}
-
-void Add_Symbol( int section, int offset, const char *name, char *module )
-{
-	if ( Num_symbols >= Max_symbols ) {
-		return;
-	}
-
-	MemSymbol * sym = &Symbols[Num_symbols++];
-	
-	sym->section = section;
-	sym->offset = offset;
-	sym->size = -1;
-	
-	strcpy( sym->name, name );	
-	strcat( sym->name, "(" );	
-	strcat( sym->name, module );	
-	strcat( sym->name, ")" );	
-
-}
-
-int Sym_compare( const void *arg1, const void *arg2 )
-{
-	MemSymbol * sym1 = (MemSymbol *)arg1;
-	MemSymbol * sym2 = (MemSymbol *)arg2;
-
-	if ( sym1->section < sym2->section )	{
-		return -1;
-	} else if ( sym1->section > sym2->section ) {
-		return 1;
-	} else {
-		if ( sym1->offset > sym2->offset )	{
-			return 1;
-		} else {
-			return -1;
-		}
-	}
-}
-
-int Sym_compare1( const void *arg1, const void *arg2 )
-{
-	MemSymbol * sym1 = (MemSymbol *)arg1;
-	MemSymbol * sym2 = (MemSymbol *)arg2;
-
-	if ( sym1->size < sym2->size )	{
-		return 1;
-	} else if ( sym1->size > sym2->size ) {
-		return -1;
-	} else {
-		return 0;
-	}
-}
-
-void DumpSymbols()
-{
-	int i;
-
-	qsort( Symbols, Num_symbols, sizeof(MemSymbol), Sym_compare );
-	
-	for (i=0;i<Num_symbols; i++ )	{
-		MemSymbol * sym1 = &Symbols[i];
-		MemSymbol * sym2 = &Symbols[i+1];
-		if ( (i<Num_symbols-1) && (sym1->section == sym2->section) )	{
-			sym1->size = sym2->offset-sym1->offset;
-		} else {
-			sym1->size = -1;
-		}
-	}
-
-	qsort( Symbols, Num_symbols, sizeof(MemSymbol), Sym_compare1 );
-
-
-	FILE *fp = fopen( "dump", "wt" );
-
-	fprintf( fp, "%-100s %10s %10s\n", "Name", "Size", "Total" );
-
-	int total_size = 0;
-	for (i=0;i<Num_symbols; i++ )	{
-		MemSymbol * sym = &Symbols[i];
-		if ( sym->size > 0 )
-			total_size += sym->size;
-		fprintf( fp, "%-100s %10d %10d\n", sym->name, sym->size, total_size );
-	}
-
-	fclose(fp);
-	
-	free( Symbols );
-	Symbols = NULL;
-	_asm int 3
-}
-#endif
 
 void PE_Debug::DumpSymbolInfo( DumpBuffer& dumpBuffer, DWORD relativeAddress )
 {
@@ -443,9 +331,6 @@ void PE_Debug::DumpSymbolInfo( DumpBuffer& dumpBuffer, DWORD relativeAddress )
 	PIMAGE_SYMBOL fnSymbol = NULL ;
 	DWORD maxFnAddress = 0 ;
 
-	#ifdef DUMPRAM
-	InitSymbols();
-	#endif
 
 	// Variables to keep track of file symbols
 	PIMAGE_SYMBOL fileSymbol = NULL ;
@@ -482,35 +367,6 @@ void PE_Debug::DumpSymbolInfo( DumpBuffer& dumpBuffer, DWORD relativeAddress )
 			}
 		}
 
-	#ifdef DUMPRAM
-		if ( !isFunction && (currentSym->SectionNumber>-1) )	{
-			if ( (symName[0]=='_' && symName[1]!='$') || (symName[0]=='?') ) {
-
-				char pretty_module[1024];
-
-				if ( fileSymbol )	{
-					const char* auxSym = (const char*)(latestFileSymbol + 1) ;
-					char tmpFile[ VA_MAX_FILENAME_LEN ] ;
-					strcpy( tmpFile, auxSym ) ;
-					strcpy( pretty_module, tmpFile );
-					char *p = pretty_module+strlen(pretty_module)-1;
-					// Move p to point to first letter of EXE filename
-					while( (*p!='\\') && (*p!='/') && (*p!=':') )
-						p--;
-					p++;	
-					if ( strlen(p) < 1 ) {
-						strcpy( pretty_module, "<unknown>" );
-					} else {
-						memmove( pretty_module, p, strlen(p)+1 );
-					}
-				} else {
-					strcpy( pretty_module, "" );
-				}
-
-				Add_Symbol( currentSym->SectionNumber, currentSym->Value, symName, pretty_module );
-			}
-		}
-	#endif
 
 		// Advance counters, skip aux symbols
 		i += currentSym->NumberOfAuxSymbols ;
@@ -518,9 +374,6 @@ void PE_Debug::DumpSymbolInfo( DumpBuffer& dumpBuffer, DWORD relativeAddress )
 		currentSym++ ;
 	}
 
-	#ifdef DUMPRAM
-	DumpSymbols();
-	#endif
 	
 	// dump symbolic info if found
 	if ( fileSymbol )	{
@@ -1018,209 +871,78 @@ void getmem()
 }
 */
 
+// Claude: the allocation seam (D-061, D-075). Debug and Release are the same code apart from the
+// Debug fill. The CRT allocator replaces the private Win32 heap (HeapCreate, HeapAlloc, HeapFree,
+// HeapCompact); a host engine swaps its own allocator in here. (malloc) and (free) in parentheses
+// call the CRT functions, not the macros PsTypes.h points at this file.
+
 #ifndef NDEBUG
-
-#include <crtdbg.h>
-
-int TotalRam = 0;
-
-#define nNoMansLandSize 4
-
-typedef struct _CrtMemBlockHeader
-{
-        struct _CrtMemBlockHeader * pBlockHeaderNext;
-        struct _CrtMemBlockHeader * pBlockHeaderPrev;
-        char *                      szFileName;
-        int                         nLine;
-        size_t                      nDataSize;
-        int                         nBlockUse;
-        long                        lRequest;
-        unsigned char               gap[nNoMansLandSize];
-        /* followed by:
-         *  unsigned char           data[nDataSize];
-         *  unsigned char           anotherGap[nNoMansLandSize];
-         */
-} _CrtMemBlockHeader;
-
-#define pHdr(pbData) (((_CrtMemBlockHeader *)pbData)-1)
-
-int __cdecl MyAllocHook(
-   int      nAllocType,
-   void   * pvData,
-   size_t   nSize,
-   int      nBlockUse,
-   long     lRequest,
-   const char * szFileName,
-   int      nLine
-   )
-{
-   // char *operation[] = { "", "allocating", "re-allocating", "freeing" };
-   // char *blockType[] = { "Free", "Normal", "CRT", "Ignore", "Client" };
-
-   if ( nBlockUse == _CRT_BLOCK )   // Ignore internal C runtime library allocations
-      return( TRUE );
-
-   _ASSERT( ( nAllocType > 0 ) && ( nAllocType < 4 ) );
-   _ASSERT( ( nBlockUse >= 0 ) && ( nBlockUse < 5 ) );
-
-	if ( nAllocType == 3 )	{
-		_CrtMemBlockHeader *phd = pHdr(pvData);
-		nSize = phd->nDataSize;
-	} 
-
-//	mprintf(( "Total RAM = %d\n", TotalRam ));
-
-/*   mprintf(( "Memory operation in %s, line %d: %s a %d-byte '%s' block (# %ld)\n",
-            szFileName, nLine, operation[nAllocType], nSize, 
-            blockType[nBlockUse], lRequest ));
-   if ( pvData != NULL )
-      mprintf(( " at %X", pvData ));
-
-	mprintf(("\n" ));
-*/
-
-   return( TRUE );         // Allow the memory operation to proceed
-}
- 
-void windebug_memwatch_init()
-{
-	//_CrtSetAllocHook(MyAllocHook);
-	TotalRam = 0;
-}
-
+// Claude: the Debug array guard's counters (PsTypes.h, D-20261018-030012)
+int Guard_fire_count = 0;
+int Guard_self_test_running = 0;
 #endif
-
-#define NEW_MALLOC
-
-
-int Watch_malloc = 0;
-DCF_BOOL(watch_malloc, Watch_malloc );
-
-HANDLE Heap = 0;
-
-#define HEAP_FLAG HEAP_NO_SERIALIZE
-// #define HEAP_FLAG	HEAP_GENERATE_EXCEPTIONS
 
 // Returns 0 if not enough RAM.
 int vm_init(int min_heap_size)
 {
-	#ifndef NDEBUG
-	TotalRam = 0;
-	#endif
-
-	#ifdef NEW_MALLOC
-		Heap = HeapCreate( HEAP_FLAG, min_heap_size, 0 );
-		if ( Heap == NULL )	{
-			return 0;
-		}
-	#endif
 	return 1;
 }
 
-char *clean_filename(char *name)
-{
-	char *p = name+strlen(name)-1;
-	// Move p to point to first letter of EXE filename
-	while( (*p!='\\') && (*p!='/') && (*p!=':') )
-		p--;
-	p++;	
-
-	return p;	
-}
-
-#ifndef NDEBUG
-void *vm_malloc( int size, char *filename, int line )
-#else
 void *vm_malloc( int size )
-#endif
 {
-	#ifndef NDEBUG
-	if ( !Heap )	{
-		TotalRam += size;
-
-		return _malloc_dbg(size, _NORMAL_BLOCK, __FILE__, __LINE__ );
-	}
-	#endif
- 
-	void *ptr = HeapAlloc(Heap, HEAP_FLAG, size );
+	void *ptr = (malloc)( size );
 
 	if ( ptr == NULL )	{
-		mprintf(( "HeapAlloc failed!!!!!!!!!!!!!!!!!!!\n" ));
+		mprintf(( "malloc failed!!!!!!!!!!!!!!!!!!!\n" ));
 
 			Error(LOCATION, "Out of memory.  Try closing down other applications, increasing your\n"
 				"virtual memory size, or installing more physical RAM.\n");
 
 	}
 	#ifndef NDEBUG
-		int actual_size = HeapSize(Heap, HEAP_FLAG, ptr);
-		if ( Watch_malloc )	{
-			mprintf(( "Malloc %d bytes [%s(%d)]\n", actual_size, clean_filename(filename), line ));
-		}
-		TotalRam += actual_size;
+		// Claude: Debug fill (D-061, D-075). A read of memory nobody wrote sees 0xCD, the same
+		// every run, so it shows up as a Debug-only divergence instead of hiding in stale bytes.
+		memset( ptr, 0xCD, size );
 	#endif
 	return ptr;
 }
 
-#ifndef NDEBUG
-char *vm_strdup( const char *ptr, char *filename, int line )
-#else
 char *vm_strdup( const char *ptr )
-#endif
 {
 	char *dst;
 	int len = strlen(ptr);
-	#ifndef NDEBUG
-		dst = (char *)vm_malloc( len+1, filename, line );
-	#else
-		dst = (char *)vm_malloc( len+1 );
-	#endif
+	dst = (char *)vm_malloc( len+1 );
 	strcpy( dst, ptr );
 	return dst;
 }
 
-#ifndef NDEBUG
-void vm_free( void *ptr, char *filename, int line )
-#else
 void vm_free( void *ptr )
-#endif
 {
 	if ( !ptr ) {
-		#ifndef NDEBUG
-			mprintf(("Why are you trying to free a NULL pointer?  [%s(%d)]\n", clean_filename(filename), line));
-		#else
-			mprintf(("Why are you trying to free a NULL pointer?\n"));
-		#endif
+		mprintf(("Why are you trying to free a NULL pointer?\n"));
 		return;
 	}
 
 	#ifndef NDEBUG
-	if ( !Heap )	{
-		#ifndef NDEBUG
-		_CrtMemBlockHeader *phd = pHdr(ptr);
-		int nSize = phd->nDataSize;
-
-		TotalRam -= nSize;
-		#endif
-
-		_free_dbg(ptr,_NORMAL_BLOCK);
-		return;
-	}
+		// Claude: Debug fill (D-061, D-075): a read after free sees 0xDD.
+		memset( ptr, 0xDD, _msize(ptr) );
 	#endif
-
-	#ifndef NDEBUG
-		int actual_size = HeapSize(Heap, HEAP_FLAG, ptr);
-		if ( Watch_malloc )	{
-			mprintf(( "Free %d bytes [%s(%d)]\n", actual_size, clean_filename(filename), line ));
-		}
-		TotalRam -= actual_size;
-	#endif
-	HeapFree( Heap, HEAP_FLAG, ptr );
-	HeapCompact(Heap, HEAP_FLAG);
+	(free)( ptr );
 }
 
 void vm_free_all()
 {
 }
+
+#ifndef NDEBUG
+// Claude: in Debug, C++ allocation goes through the same seam, so the Debug fill (0xCD on allocate, 0xDD on free)
+// covers new and delete too (D-061, D-20261017-223659). Release keeps the CRT operators, unchanged. A size of 0 still
+// gets a unique block; deleting NULL is legal C++ and is not logged.
+void *operator new( size_t size )		{ return vm_malloc( size ? (int)size : 1 ); }
+void *operator new[]( size_t size )	{ return vm_malloc( size ? (int)size : 1 ); }
+void operator delete( void *ptr )		{ if ( ptr ) vm_free( ptr ); }
+void operator delete[]( void *ptr )	{ if ( ptr ) vm_free( ptr ); }
+#endif
 
 
 

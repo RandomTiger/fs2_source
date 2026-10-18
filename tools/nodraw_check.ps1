@@ -117,6 +117,8 @@ foreach ($m in $Missions) {
 		$counts = Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
 		if ($counts) { $line += " ($($counts.Matches[0].Value))" }
 		if ($code -ne 0) { $ok = $false }
+		# a Debug build must prove its array guards fire (D-20261018-030012)
+		if (($Config -match '^d') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
 	$line | Add-Content $summary

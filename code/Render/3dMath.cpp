@@ -156,14 +156,6 @@ MONITOR( NumRotations );
 
 ubyte g3_rotate_vertex(vertex *dest,vector *src)
 {
-#if 0
-	vector tempv;
-	Assert( G3_count == 1 );
-	vm_vec_sub(&tempv,src,&View_position);
-	vm_vec_rotate( (vector *)&dest->x, &tempv, &View_matrix );
-	dest->flags = 0;	//not projected
-	return g3_code_vertex(dest);
-#else
 	float tx, ty, tz, x,y,z;
 	ubyte codes;
 
@@ -209,7 +201,6 @@ ubyte g3_rotate_vertex(vertex *dest,vector *src)
 	dest->flags = 0;	// not projected
 
 	return codes;
-#endif
 }	
 
 

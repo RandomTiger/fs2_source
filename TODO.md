@@ -50,6 +50,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
       position where the replay reads the timer; likely focus/pause related).
 - [x] Commit the recorder work on RecordPlayback.
 - [x] Record a full mission and confirm the replay matches its trace (SM1-01).
+- [ ] Tom (2026-10-17): back-fill every historical fix as a GitHub issue on RandomTiger/fs2_source: one per fix, from the OriginalSourceBugFixes commits and docs/fix_reviews, then each later layer's fixes, labelled and linked to its commit. New findings are logged as issues as they are found (#1, #2 so far).
 - [ ] Threshold experiments E1-E4 for TraceDiff tolerances.
 
 ## 32 bit rendering (32BitRendering branch)

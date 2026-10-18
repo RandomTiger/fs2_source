@@ -25,7 +25,7 @@
 
 int Total_goal_ship_names = 0;
 char Goal_ship_names[MAX_GOAL_SHIP_NAMES][NAME_LENGTH];
-ai_info Ai_info[MAX_AI_INFO];
+GUARDED_ARRAY(ai_info, Ai_info, MAX_AI_INFO);	// Claude: Debug bounds guard (D-076)
 ai_info *Player_ai;
 
 // Return index of free AI slot.

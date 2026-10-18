@@ -436,7 +436,7 @@ typedef struct beam_weapon_info {
 	beam_weapon_section_info sections[MAX_BEAM_SECTIONS];			// info on the visible sections of the beam 	
 } beam_weapon_info;
 
-extern weapon Weapons[MAX_WEAPONS];
+extern GUARDED_ARRAY(weapon, Weapons, MAX_WEAPONS);	// Claude: Debug bounds guard (D-076)
 
 #define WEAPON_TITLE_LEN			48
 
@@ -531,7 +531,7 @@ typedef struct missile_obj {
 } missile_obj;
 extern missile_obj Missile_obj_list;
 
-extern weapon_info Weapon_info[MAX_WEAPON_TYPES];
+extern GUARDED_ARRAY(weapon_info, Weapon_info, MAX_WEAPON_TYPES);	// Claude: Debug bounds guard (D-076)
 
 extern int Num_weapon_types;			// number of weapons in the game
 extern int First_secondary_index;

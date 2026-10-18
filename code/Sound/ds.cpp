@@ -1037,7 +1037,7 @@ int ds_init_property_set()
 //
 // returns:     -1           => init failed
 //               0           => init success
-int ds_init(int use_a3d, int use_eax)
+int ds_init(int use_eax)
 {
 	HRESULT			hr;
 	HWND				hwnd;
@@ -2670,11 +2670,6 @@ ds_eax_init_failed:
 int ds_eax_is_inited()
 {
 	return Ds_eax_inited;
-}
-
-bool ds_using_a3d()
-{	
-	return false;
 }
 
 // Called once per game frame to make sure voice messages aren't looping

@@ -128,13 +128,8 @@ int Os_debugger_running = 0;
 // OSAPI FORWARD DECLARATIONS
 //
 
-#ifdef THREADED
-	// thread handler for the main message thread
-	DWORD win32_process(DWORD lparam);
-#else
 	DWORD win32_process1(DWORD lparam);
 	DWORD win32_process1(DWORD lparam);
-#endif
 
 // Fills in the Os_debugger_running with non-zero if debugger detected.
 void os_check_debugger();
@@ -169,20 +164,7 @@ void os_init(char * wclass, char * title, char *app_name, char *version_string )
 
 	InitializeCriticalSection( &Os_lock );
 
-	#ifdef THREADED
-		// Create an even to signal that the window is created, 
-		// so that we don't return from this function until 
-		// the window is all properly created.
-		HANDLE Window_created = CreateEvent( NULL, FALSE, FALSE, NULL );
-		hThread = CreateThread( NULL, 0, (LPTHREAD_START_ROUTINE)win32_process, Window_created, 0, &ThreadID );
-		if ( WaitForSingleObject( Window_created, 5000 )==WAIT_TIMEOUT)	{			//INFINITE );
-			mprintf(( "Wait timeout!\n" ));
-		}
-		CloseHandle(Window_created);
-		Window_created = NULL;
-	#else
 		win32_process1(0);
-	#endif // THREADED
 
 	// initialized
 	Os_inited = 1;
@@ -316,41 +298,6 @@ void os_resume()
 //
 
 #pragma warning(disable:4702)
-#ifdef THREADED
-
-// thread handler for the main message thread
-DWORD win32_process(DWORD lparam)
-{
-	MSG msg;
-	HANDLE Window_created = (HANDLE)lparam;
-
-	if ( !win32_create_window() )
-		return 0;
-
-	// Let the app continue once the window is created
-	SetEvent(Window_created);
-
-	while (1)	{	
-		if (WaitMessage() == TRUE)	{
-			EnterCriticalSection(&Os_lock);			
-			while(PeekMessage(&msg,0,0,0,PM_REMOVE))	{
-				if ( msg.message == WM_DESTROY )	{
-					LeaveCriticalSection(&Os_lock);
-
-					// cleanup and exit this thread!!
-					DeleteCriticalSection(&Os_lock);
-					return 0;
-				}
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-			LeaveCriticalSection(&Os_lock);
-		} 
-	}
-	return 0;
-}
-
-#else
 DWORD win32_process1(DWORD lparam)
 {
 	if ( !win32_create_window() )
@@ -371,7 +318,6 @@ DWORD win32_process2(DWORD lparam)
 
 	return 0;
 }
-#endif // THREADED
 #pragma warning(default:4702)
 
 // Fills in the Os_debugger_running with non-zero if debugger detected.
@@ -595,9 +541,6 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 					//	mprintf(( "Priority: HIGH\n" ));
 					joy_reacquire_ff();
 
-#ifdef THREADED
-					SetThreadPriority( hThread, THREAD_PRIORITY_HIGHEST );
-#endif
 
 					gr_activate(fAppActive);
 					//SetThreadPriority( hThread, THREAD_PRIORITY_TIME_CRITICAL );
@@ -613,9 +556,6 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 					// minimize it
 					// key_outkey( KEY_PAUSE );
 
-#ifdef THREADED
-					SetThreadPriority( hThread, THREAD_PRIORITY_NORMAL );
-#endif
 					gr_activate(fAppActive);
 				}
 			}
@@ -744,23 +684,7 @@ BOOL win32_create_window()
 // Claude: the Windows host's event pump (HostHooksWin32.cpp, D-051); was the body of os_poll
 void os_win32_poll_events()
 {
-#ifndef THREADED
 	win32_process2(0);
-#else
-	MSG msg;
-	EnterCriticalSection(&Os_lock);
-	while(PeekMessage(&msg,0,0,0,PM_NOREMOVE))	{		
-		if ( msg.message == WM_DESTROY )	{
-			break;
-		}
-		if (PeekMessage(&msg,0,0,0,PM_REMOVE))	{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}		
-		Got_message++;
-	}
-	LeaveCriticalSection(&Os_lock);
-#endif
 }
 
 void os_poll()

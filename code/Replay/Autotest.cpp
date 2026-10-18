@@ -277,6 +277,17 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 	autotest_logf("Autotest, Release build %s %s\n", __DATE__, __TIME__);
 #else
 	autotest_logf("Autotest, Debug build %s %s\n", __DATE__, __TIME__);
+	{
+		// Claude: prove the array guard fires before any recording relies on it (D-20261018-030012)
+		guarded_array<int, 1> probe;
+		int before = Guard_fire_count;
+		Guard_self_test_running = 1;
+		int *past_end = &probe[1];	// address only, nothing is read
+		Guard_self_test_running = 0;
+		int fired = Guard_fire_count - before;
+		Guard_fire_count = before;
+		autotest_logf("guards: %s\n", ((fired == 1) && (past_end == probe.data + 1)) ? "assert" : "OFF");
+	}
 #endif
 
 	Autotest_time = autotest_int_arg("-at_time", time, AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);

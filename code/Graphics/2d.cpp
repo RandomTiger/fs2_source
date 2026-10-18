@@ -505,77 +505,6 @@ void gr_close()
 //XSTR:OFF
 DCF(gr,"Changes graphics mode")
 {
-#ifndef HARDWARE_ONLY
-	int mode = gr_screen.mode;
-
-	if ( Dc_command )	{
-		dc_get_arg(ARG_STRING);
-		
-		if ( !strcmp( Dc_arg, "a"))	{
-			Int3();
-			mode = GR_SOFTWARE;
-		} else if ( !strcmp( Dc_arg, "b"))	{
-			Int3();
-			mode = GR_DIRECTDRAW;
-		} else if ( !strcmp( Dc_arg, "d"))	{
-			mode = GR_DIRECT3D;
-		} else if ( !strcmp( Dc_arg, "g"))	{
-			mode = GR_GLIDE;
-		} else if ( !strcmp( Dc_arg, "o"))	{
-			Int3();
-			mode = GR_OPENGL;
-		} else {
-			// print usage, not stats
-			Dc_help = 1;
-		}
-
-		/*
-		if ( mode != gr_screen.mode )	{
-			dc_printf( "Setting new video mode...\n" );
-			int errcode = gr_init( gr_screen.max_w, gr_screen.max_h, mode );
-			if (errcode)	{
-				dc_printf( "Error %d.  Graphics unchanged.\n", errcode );
-			}
-		}
-		*/
-	}
-
-	if ( Dc_help )	{
-		dc_printf( "Usage: gr mode\n" );
-		dc_printf( "The options can be:\n" );
-		dc_printf( "Macros:  A=software win32 window (obsolete)\n" );
-		dc_printf( "         B=software directdraw fullscreen (obsolete)\n" );
-		dc_printf( "         D=Direct3d\n" );
-		dc_printf( "         G=Glide\n" );
-		dc_printf( "         O=OpenGl (obsolete)\n" );
-		Dc_status = 0;	// don't print status if help is printed.  Too messy.
-	}
-
-	if ( Dc_status )	{
-		switch( gr_screen.mode )	{
-		case GR_SOFTWARE:
-			Int3();
-			dc_printf( "Win32 software windowed\n" );
-			break;
-		case GR_DIRECTDRAW:
-			Int3();
-			dc_printf( "DirectDraw software windowed\n" );
-			break;
-		case GR_DIRECT3D:
-			dc_printf( "Direct3D\n" );
-			break;
-		case GR_GLIDE:
-			dc_printf( "3Dfx Glide\n" );
-			break;
-		case GR_OPENGL:
-			Int3();
-			dc_printf( "OpenGl\n" );
-			break;
-		default:
-			Int3();		// Invalid graphics mode
-		}
-	}
-#endif
 }
 //XSTR:ON
 
@@ -1074,7 +1003,7 @@ void gr_bitmap(int x, int y)
 	int w, h;
 
 	// d3d and glide support texture poly shiz
-	if(((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) && Gr_bitmap_poly){		
+	if((gr_screen.mode == GR_DIRECT3D) && Gr_bitmap_poly){	// Claude: Glide test removed; that renderer is gone (D-070)
 		int idx, s_idx;
 		// float u_scale, v_scale;
 		bitmap_section_info *sections;			

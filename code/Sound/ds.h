@@ -143,7 +143,7 @@ extern LPDIRECTSOUND				pDirectSound;
 
 extern HRESULT (__stdcall *pfn_DirectSoundCaptureCreate)(LPGUID lpGUID, LPDIRECTSOUNDCAPTURE *lplpDSC, LPUNKNOWN pUnkOuter);
 
-int	ds_init(int use_a3d, int use_eax);
+int	ds_init(int use_eax);
 void	ds_close();
 void	ds_get_primary_format(WAVEFORMATEX *wfx);
 int	ds_parse_wave(char *filename, ubyte **dest, uint *dest_size, WAVEFORMATEX **header);
@@ -174,7 +174,6 @@ void	ds_stop_easy(int sid);
 int	ds_get_channel_size(int channel);
 int	ds_is_3d_buffer(int sid);
 int	ds_using_ds3d();
-bool	ds_using_a3d();
 
 unsigned int ds_get_primary_buffer_interface();
 unsigned int ds_get_dsound_interface();

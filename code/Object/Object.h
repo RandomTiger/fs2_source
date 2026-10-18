@@ -481,7 +481,7 @@ extern int Object_next_ship_signature;
 extern int Object_next_signature;		
 extern int num_objects;
 
-extern object Objects[];
+extern GUARDED_ARRAY(object, Objects, MAX_OBJECTS);	// Claude: Debug bounds guard (D-076)
 extern int Highest_object_index;		//highest objnum
 extern int Highest_ever_object_index;
 extern object obj_free_list;

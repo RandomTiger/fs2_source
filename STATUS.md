@@ -34,7 +34,27 @@ Carried, by Tom's call:
 - **Demo recording suite.** Recordings over the demo missions, shipped in the repo with their own reference entry, so the suite runs without a retail install (public CI). The demo data is the only data set the project can redistribute. Demo behaviour is its own logic, not a subset of the retail suite; where the two differ, retail is the oracle and the demo keeps what the shipped demo did. First step: a compile-time `FS2_DEMO` build playing the demo data. Tom to be involved.
 - **One exe for demo and retail.** The game detects which data set it has and switches to demo mode at run time, so both share a binary and a recording format. Sized in `docs/DEMO_CODE.md` on `PrePortCleanup`: about 85 `FS2_DEMO` blocks in about 45 files, mostly menus and mission UI, plus a dozen pool limits that become run-time caps; about eight batches. Scheduled after the `PrePortCleanup` order (D-062), and proved by the demo suite and the retail suite both replaying unchanged. Until then no cleanup change touches demo-conditional code.
 
-## Upcoming feature branches (D-20261017-223742), unscheduled until Tom briefs them
+## PrePortCleanup (D-059 to D-062, D-066 to D-070)
+No change may alter a recording; each cut passes the x86 quick suite and x64 headless 48/48, Release and Debug.
+- G2 done: branches of five never-defined macros (754 lines).
+- G3 done: 39 `#if 0` blocks cut; 3 multiplayer blocks restored (D-069), since multiplayer stays out of the cut (D-060, D-014).
+- G4 decided by Tom (D-068): FRED, the tools and the software renderer (`GrSoft` and its scanline and blit files) are kept. They are not game code and are excluded from D-060 and from D-062 item 1, which means one renderer in the game build.
+- Tools build and run (D-068): with MFC installed, FRED2, Pofview and Nebedit build, and with the start-up heap fix (#11) they run: FRED opens and saves missions, Pofview opens models, Nebedit edits. Their software views are wireframe only, as in the released source, whose software texture mapper never linked (#13, D-20261018-022937). The VS2022 standard (every project builds and runs, steward with Tom) is checked by `tools/tools_check.ps1` (on `RecordPlayback`, 2026-10-18): all nine tool projects build in Release, the command-line tools do their basic job, FRED opens and saves a mission, Pofview opens a model given on its command line (#12 fixed on `VS2022`) and Nebedit opens. Its first run found #22 (Fonttool never set up its heap, review 49). Next: it joins the quick suite.
+- G5 (Glide remnants, D-070): the renderer selection and the launcher-name mapping wait for the demo and build-variant work (`docs/DEMO_CODE.md`).
+- G5 done (D-070): two Glide sites; G6 done (D-071): the Aureal A3D remnants. EAX and DirectSound3D are a live setting and go to the sound backend collapse (D-062 item 2).
+- G2b done (D-072): `#ifndef HARDWARE_ONLY` branches, 1068 lines. They compile in neither the game nor the tools; the proof for FRED is that macro argument until the tools build check runs.
+- G8 closed with no cut (D-074): 8-bit and palette paths carry the fonts and HUD gauges; 16-bit is a user setting. Pass two (G4 to G8) is complete; next is D-061 (memory wrapper trim, Debug fill, then array guards).
+- G7 kept (D-073): `Demo/Demo.cpp` is Volition's own `.fsd` demo recorder, reachable in Debug, superseded by RecordPlayback and unrelated to the data-set demo mode (D-063).
+- Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer, and the GR_640 interface art mode. GR_640 is a kept UI art mode: FS1 has no 1024 art, so UI art mode and in-game render resolution become separate settings. No cut or collapse may assume 1024-only art, and the renderer collapse brief must say how GR_640 UI art survives (steward with Tom, 2026-10-17). FS1 itself stays unscheduled; its table converters and mission file-name handling go in data loading, not game logic. Checked: no cleanup cut so far removed GR_640 code.
+
+Tom's decisions, not scheduled:
+- Textured tool views before FRED moves to Godot: revive the 8-bit software texture path for the tools (reopens part of G2b) or write a 32-bit one; costed on issue #13 (D-20261018-022937).
+- Decided: 16-bit colour stays (D-20261017-231123); the renderer collapse keeps it and the GR_640 UI art.
+- Decided: both sound backends stay until an audio assessment method exists, scripted listening situations per API (D-20261017-231124).
+- Remove the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites in ship, damage and simulation code) as superseded by RecordPlayback (D-073 (b)).
+
+## Upcoming feature branches (D-20261017-223742), demo mode authorised after the current queue, starting with a brief (D-20261017-231126); FS1 unscheduled
+Order (Tom, 2026-10-18): the tools check into the quick suite, then the FS2 demo brief, then the audio assessment brief, then the rest of the D-062 order.
 - Demo mode by data detection (D-063): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 - FS1 compatibility (D-064): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 

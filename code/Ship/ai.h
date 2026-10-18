@@ -586,7 +586,7 @@ extern void ai_frame_all(void);
 
 extern int find_guard_obj(void);
 
-extern ai_info Ai_info[];
+extern GUARDED_ARRAY(ai_info, Ai_info, MAX_AI_INFO);	// Claude: Debug bounds guard (D-076)
 extern ai_info *Player_ai;
 
 extern int Waypoints_created;	// externed since needed for save/restore

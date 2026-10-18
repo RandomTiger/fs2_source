@@ -266,12 +266,6 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	}
 
 	
-	#ifndef NDEBUG				
-	{
-		extern void windebug_memwatch_init();
-		windebug_memwatch_init();
-	}
-	#endif
 	
 	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
 	char root_dir[1024];
