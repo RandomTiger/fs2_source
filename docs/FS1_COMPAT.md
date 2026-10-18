@@ -178,8 +178,13 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1FileSystem` | 1 | `.fsm`/`.fsc` indexed; `x.fs2` finds `x.fsm`; plural voice folders mapped; stand-ins for files FS1 lacks (`font03.vf`, `debris02.pof`) |
 | `FS1MissingTables` | 2 | `Parse/Fs1Tables.cpp` supplies text for the 11 tables FS1 lacks that the game reads. The tips popup returns when there are no tips |
 | `FS1TableConvert` | 4 | FS1 tables rewritten while loading: medals, sounds (flyby section), music (14 patterns cut to 12), weapons (trails, swarm), ships (default ship, engine wash), asteroid, and `/* */` comments |
+| `FS1BriefingScreen` | 9 (start) | In FS1 data, `gr_bitmap` skips a bitmap that did not load: FS2's interface overlays FS1 lacks (`Briefwin`, `InfoBox`), whose frames FS1's screen backgrounds already hold. Positions are still FS2's |
 
-**FS1 trial now** (`-autotest -at_mission btm-01`, Debug and Release, FS1 install's `fs2.ini` set to 640x480): every table, model, the pilot and the mission file load, and the mission starts. It stops on the briefing screen, which draws `Briefwin` and `InfoBox` art that FS1 does not have (its briefing screen is one combined background). That is interface work (batch 9).
+**FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
+- `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
+- `sm1-01`, the first combat mission: the waves are destroyed, both goals ("Eliminate Hostiles", "Protect the Orff") complete, "Mission End" at 202 s. PASS with no Assert, Int3 or warning.
+
+Debug still logs 5 bitmap-handle Asserts (other uses of overlays FS1 lacks), the 2 start-up Int3s and the "Disruptor Missile" warning.
 
 **Known, not yet handled:**
 - Two Int3s during start-up, with no location logged.
