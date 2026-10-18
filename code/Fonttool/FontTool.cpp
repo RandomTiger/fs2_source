@@ -90,6 +90,7 @@ int main(int argc, char *argv[] )
 
 	t1 = NONE;
 	t2 = NONE;
+	vm_init(16*1024*1024);	// Claude: code.lib's malloc needs the heap; Ac sets it up, Fonttool never did (#22)
 
 	if ( (argc < 1) || (argc>3) )	{
 		printf( Usage );
