@@ -7871,6 +7871,13 @@ void demo_upsell_show_screens()
 {
 	int current_time, k;
 	int done = 0;
+	int at_on, at_time, at_speed;	// Claude
+
+	// Claude: autotest and replay leave the sales screens straight away; a player still sees them, as shipped (D-20261018-221703)
+	autotest_get_settings(&at_on, &at_time, &at_speed);	// Claude
+	if (at_on || (Replay_mode == REPLAY_PLAY)) {	// Claude
+		return;	// Claude
+	}	// Claude
 
 	if ( !Demo_upsell_bitmaps_loaded ) {
 		demo_upsell_load_bitmaps();
