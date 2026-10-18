@@ -982,6 +982,66 @@ void replay_game_init_done()
 {
 }
 
+// the FreeSpace 2 demo's own missions and campaign (its built-in list, FreeSpace.cpp, FS2_DEMO); no retail file has these names
+static char *Replay_demo_missions[] = { "SPDemo-01", "SPDemo-02", "DemoTrain", "Demo", "MPDemo-01", "Demo-DOG-01" };
+
+static int replay_is_demo_mission(char *filename)
+{
+	char base[_MAX_FNAME];
+	int i;
+
+	_splitpath(filename, NULL, NULL, base, NULL);
+	for (i = 0; i < (int)(sizeof(Replay_demo_missions) / sizeof(Replay_demo_missions[0])); i++) {
+		if (!stricmp(base, Replay_demo_missions[i])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// The data set a recording was made on, from what the header already holds (D-20261018-175706: no format
+// change below GodotPrep): its campaign, else its mission.  1 demo, 0 retail, -1 unknown (our own test
+// missions play on either set).
+static int replay_recorded_data_set(int (*is_volition_mission)(char *filename))
+{
+	char base[_MAX_FNAME];
+
+	if (Hdr.campaign[0]) {
+		_splitpath(Hdr.campaign, NULL, NULL, base, NULL);
+		if (!stricmp(base, "demo")) {
+			return 1;
+		}
+		if (!stricmp(base, "freespace2")) {
+			return 0;
+		}
+	}
+	if (replay_is_demo_mission(Hdr.mission)) {
+		return 1;
+	}
+	if (is_volition_mission(Hdr.mission)) {	// this build's built-in list: retail's in a retail build
+		return 0;
+	}
+	return -1;
+}
+
+void replay_check_data_set(int demo, int (*is_volition_mission)(char *filename))
+{
+	int recorded;
+
+	if ((Replay_mode != REPLAY_PLAY) || Replay_auto) {
+		return;
+	}
+	recorded = replay_recorded_data_set(is_volition_mission);
+	if (recorded < 0) {
+		replay_logf("data set: unknown (recording), %s (this run)\n", demo ? "demo" : "retail");
+		return;
+	}
+	replay_logf("data set: %s (recording), %s (this run)\n", recorded ? "demo" : "retail", demo ? "demo" : "retail");
+	if (recorded != demo) {
+		replay_fatal("'%s' was recorded on the %s data and this game has the %s data", Replay_file, recorded ? "demo" : "retail", demo ? "demo" : "retail");
+	}
+}
+
 int replay_load_pilot()
 {
 	if (Replay_mode != REPLAY_PLAY) {
