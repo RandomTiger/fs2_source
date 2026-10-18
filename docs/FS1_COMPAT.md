@@ -162,11 +162,19 @@ Static reading suggests the engine core (missions, SEXPs, ship classes, physics 
 
 Nothing was changed outside `FS1Compat`. The branch has no upstream set, so a plain `git push` cannot land on `RecordPlayback`. Nothing has been pushed.
 
+### Branch-local build target
+On `FS1Compat`, `Freespace2.vcxproj` and `Freespace2.vcxproj.user` build into, and debug from, `PATH_FS1` instead of `PATH_FS2` (commit `cebafe2`), so trial runs load FS1 data. This must not reach Enhanced or the port.
+
+### Before merging
+1. Revert the build-target commit on `FS1Compat`: `git revert cebafe2`.
+2. Run `tools\branch_check.ps1`. It reports an error for any layer, local or on origin, whose project files mention `PATH_FS1`.
+3. Merge into Enhanced. If FS1 work goes on afterwards, re-apply the build target with `git revert <the revert commit>`.
+
 ---
 
 ## 6. Open questions for Tom
 
-1. **Trial run.** May I build `FS1Compat` and start it against the FS1 data? The build writes its exe to `PATH_FS2`. The game must run with the FS1 install as its working folder, which means either copying the exe into `U:\GOG Games\Freespace` or adding a data-folder option. Which do you prefer? Without fixes, it is expected to stop at the first encrypted table.
+1. ~~**Trial run.**~~ Answered: build into `PATH_FS1` on this branch only (section 5).
 2. **Missing tables (batch 4).** Should the 14 FS2-only tables be generated as defaults in code? Or should we write FS1 versions as project files in the repo? The second option is closer to "data", but some of those values (main hall positions, for example) come from FS1. That may count as FreeSpace data under the no-commit rule.
 3. **FS1 music.** Should FS1's three chaining normal patterns be dropped down to FS2's single one (converter only)? Or should the FS1 sequence come back (a code path in event music)?
 4. **Silent Threat.** Is it in scope, and is it a second campaign in the same FS1 mode?
