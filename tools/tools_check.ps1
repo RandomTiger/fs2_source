@@ -4,16 +4,39 @@
 #   copies font kerning, Ac starts. GUI tools, from the game folder: FRED opens a mission (File > Open) and saves it, Pofview opens
 #   a model given on its command line, Nebedit opens. HelpEd is built only.
 # GUI checks send keys to the windows they open, so run this on an interactive desktop and leave the keyboard alone.
-# Usage: powershell -File tools\tools_check.ps1 [-Game <FreeSpace 2 folder>] [-NoBuild]
+# Usage: powershell -File tools\tools_check.ps1 [-Game <FreeSpace 2 folder>] [-NoBuild] [-RepoDir <checkout>]
+#   -RepoDir checks another checkout (a lower layer such as VS2022, which has no copy of this script).
 # Exit code 0 when every check passes, 1 otherwise.
-param([string]$Game = $env:PATH_FS2, [switch]$NoBuild)
-$repo = Split-Path $PSScriptRoot -Parent
+param([string]$Game = $env:PATH_FS2, [switch]$NoBuild, [string]$RepoDir)
+$repo = if ($RepoDir) { $RepoDir } else { Split-Path $PSScriptRoot -Parent }
 if (-not $Game -or -not (Test-Path "$Game\Root_fs2.vp")) { Write-Output "FAIL   no FreeSpace 2 folder: set PATH_FS2 or pass -Game"; exit 1 }
 $w = Join-Path $env:TEMP "fs2_tools_check"
 Remove-Item $w -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$w\bin", "$w\pack\data" | Out-Null
 $failed = 0
-function Out-Result($ok, $msg) { if ($ok) { Write-Output "ok     $msg" } else { Write-Output "FAIL   $msg"; $script:failed++ } }
+
+# Known failures, by layer (D-20261018-120739): original-code bugs that are fixed on a higher layer, keyed by the tool
+# name a run check starts with. A listed failure is reported but not counted; a listed check that passes is counted,
+# so the list cannot go stale. Builds are never listed.
+$knownByLayer = @{
+	'VS2022' = @{
+		'Fonttool' = '#22, fixed on OriginalSourceBugFixes (review 49)'
+		'Pofview'  = '#11, fixed on OriginalSourceBugFixes (review 45)'
+		'Nebedit'  = '#11, fixed on OriginalSourceBugFixes (review 45)'
+	}
+}
+$layer = git -C $repo rev-parse --abbrev-ref HEAD 2>$null
+$known = if ($layer -and $knownByLayer.ContainsKey($layer)) { $knownByLayer[$layer] } else { @{} }
+$knownSeen = @()
+function Out-Result($ok, $msg) {
+	$tool = ($msg -split ' ')[0]
+	if ($known.ContainsKey($tool)) {
+		if ($ok) { Write-Output "STALE  $msg (listed as a known failure on ${layer}: $($known[$tool]); remove it from the list)"; $script:failed++ }
+		else { Write-Output "known  $msg ($($known[$tool]))"; $script:knownSeen += $tool }
+		return
+	}
+	if ($ok) { Write-Output "ok     $msg" } else { Write-Output "FAIL   $msg"; $script:failed++ }
+}
 
 # FRED links into PATH_FS2; send it to the scratch folder so the game folder is not touched by the build
 if (-not $NoBuild) {
@@ -145,9 +168,12 @@ if (Get-VpFile 'sm1-01.fs2' $m) {
 	if ($open -and [ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('ToolsCheck.fs2~') }
 	$null = Wait-Text $p '^ToolsCheck' 30; Start-Sleep 3
 	$title = ((Texts $p) -split ' / ')[0]
-	$p.Refresh(); $ws.AppActivate($p.Id) | Out-Null; Start-Sleep 1
-	if ([ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('^s') }; Start-Sleep 6
-	$saved = (Get-Item $m).LastWriteTime -gt $before
+	$saved = $false
+	for ($try = 0; $try -lt 3 -and -not $saved; $try++) {
+		$p.Refresh(); $ws.AppActivate($p.Id) | Out-Null; Start-Sleep 1
+		if ([ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('^s') }
+		for ($i = 0; $i -lt 8 -and -not $saved; $i++) { Start-Sleep 1; $saved = (Get-Item $m).LastWriteTime -gt $before }
+	}
 	$whole = (Select-String $m -Pattern '#Mission Info' -Quiet) -and (Select-String $m -Pattern '#End' -Quiet)
 	Check-Gui 'FRED opens and saves a mission' $p 'ToolsCheck' ($saved -and $whole) "(title '$title', saved $saved, whole $whole)"
 	Remove-Item $m -ErrorAction SilentlyContinue
@@ -167,5 +193,5 @@ Check-Gui 'Nebedit opens' $p '.' $true ''
 
 Start-Sleep 2
 foreach ($k in $copies.Keys) { Remove-Item $k -ErrorAction SilentlyContinue }
-Write-Output $(if ($failed) { "FAIL   $failed check(s) failed" } else { 'PASS' })
+Write-Output $(if ($failed) { "FAIL   $failed check(s) failed" } elseif ($knownSeen) { "PASS (known failures on ${layer}: $($knownSeen -join ', '))" } else { 'PASS' })
 exit [int]($failed -gt 0)
