@@ -53,8 +53,15 @@ Tom's decisions, not scheduled:
 
 ## Upcoming feature branches (D-20261017-223742), demo mode authorised after the current queue, starting with a brief (D-20261017-231126); FS1 unscheduled
 Order (Tom, 2026-10-18): the tools check into the quick suite, then the FS2 demo brief, then the audio assessment brief, then the rest of the D-062 order.
+- Done 2026-10-18: the tools check (`tools/tools_check.ps1`, every tool project builds in Release and does its basic job) runs in the suite and passes on every layer from `VS2022` up.
+- Layers swapped (Tom, D-20261018-130305): `PrePort` -> `PrePortCleanup` -> `PrePort64` -> `GodotPrep`; all merged, suite green and pushed 2026-10-18.
+- Demo (D-20261018-134401): CI downloads the demo and installs it with `tools/demo_install.py`; no demo data in git. Demo batch 1 (D-20261018-154908, old table and pilot loading) done on `FS2Demo`, not pushed: both builds load the unmodified demo data, retail recordings unchanged. Plan and findings in `docs/FS2_DEMO.md` on `FS2Demo`.
 - Demo mode by data detection (D-063): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 - FS1 compatibility (D-064): a branch off `RecordPlayback`, merged into `Enhanced` when green.
+
+## Proposed before the port (Tom, 2026-10-18), not yet ordered
+- **Build warnings to zero.** Release game build: 2,420 distinct warnings. 2,313 are C4996 (the CRT's "unsafe" string functions); one project setting, `_CRT_SECURE_NO_WARNINGS`, silences them without touching code. About 100 are real: C4456-C4459 (a local hides another, 92), C4505 (unused static functions, 4), C4731 (inline assembly changes the frame pointer, 3), MSB8028 (shared intermediate folders, 2). Tools and Debug not yet counted. Tom 2026-10-18: a feature branch off `RecordPlayback` (not `VS2022`), so every change is checked against the recordings, and no re-recording is allowed on it: a warning fix that changes a trace is wrong. Merged into `Enhanced` when green. Each fix in original code goes through fix-or-keep; the order goes to the steward.
+- **Loading optimisations.** `stars_page_in` pages in every starfield bitmap and every sun and glow for every level, not just the ones the mission uses. First a survey of what level loading pages in and how long it takes, then the fixes; nothing that changes what a mission plays.
 
 ## Open items
 - SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
