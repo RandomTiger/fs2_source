@@ -583,6 +583,27 @@ void cf_build_file_list()
 }
 
 
+// Claude: FS1 data detection (docs/FS1_COMPAT.md).  FreeSpace 1 keeps its main archive in Data\freespace.vp,
+// a file FreeSpace 2 does not have.  FS1-only loading paths check this flag, so FS2 data never takes them.
+int Cfile_fs1_data = 0;
+
+static void cf_detect_fs1_data()
+{
+	char *suffix = "\\Data\\freespace.vp";
+	int i, len, slen = strlen(suffix);
+
+	Cfile_fs1_data = 0;
+	for (i=0; i<Num_roots; i++ )	{
+		cf_root *root = cf_get_root(i);
+		len = strlen(root->path);
+		if ( (root->roottype == CF_ROOTTYPE_PACK) && (len >= slen) && !stricmp(root->path + len - slen, suffix) )	{
+			Cfile_fs1_data = 1;
+			break;
+		}
+	}
+	mprintf(( "Game data: FreeSpace %d\n", Cfile_fs1_data ? 1 : 2 ));
+}
+
 void cf_build_secondary_filelist(char *cdrom_dir)
 {
 	int i;
@@ -616,6 +637,7 @@ void cf_build_secondary_filelist(char *cdrom_dir)
 
 	// build the list of files themselves
 	cf_build_file_list();
+	cf_detect_fs1_data();		// Claude: FS1 or FS2 data
 
 	mprintf(( "Found %d roots and %d files.\n", Num_roots, Num_files ));
 }
