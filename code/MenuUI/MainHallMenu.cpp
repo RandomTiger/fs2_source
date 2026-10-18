@@ -1956,8 +1956,8 @@ void main_hall_read_table()
 	if ((rval = setjmp(parse_abort)) != 0) {	// Claude: the other table readers' pattern; a parse error longjmp'd into a stale buffer
 		Error(LOCATION, "Unable to parse mainhall.tbl!  Code = %i.\n", rval);	// Claude
 	} else {	// Claude
-		read_file_text("mainhall.tbl");
-		reset_parse();
+	read_file_text("mainhall.tbl");
+	reset_parse();
 	}	// Claude
 
 	// go for it
