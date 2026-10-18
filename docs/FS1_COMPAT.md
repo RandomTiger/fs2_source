@@ -183,6 +183,7 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1DebugNoise` | 4 | Debug runs clean. `icons.tbl`: each FS1 set is written three times, once per species. The context-help bracket checks (the two start-up Int3s) are skipped in FS1 data. `$Weapons Precedence` drops names the table does not define ("Disruptor Missile"). Converter state is reset for each file |
 | `FS1TurretPoints` | 6 | The turret firing-point Assert allows `MAX_TFP` (4), the size of the array; it stopped at 3. FS2's models never have 4; FS1's `freighter03.pof` has a turret with 4 |
 | `FS1Recordings` | - | 25 FS1 recordings, see below |
+| `FS1BriefingArt` | 9 | Briefing screen in FS1's layout. `BriefTrans.ani` plays when it opens (FS2 had commented this out), and its last frame, the only place FS1 keeps the map window and text box, becomes the background. Button positions come from matching each button's frames against that frame (mean colour error under 3 of 255); the map window, text box, info box and close-up popup are measured from the art. The stage text and title positions are estimates above the map frame. No drawn labels on the common and briefing buttons, since FS1's art has them; the common buttons use the same positions on the ship and weapon screens. Clicks on FS1's VCR controls, which sit inside the map window, do not pick icons. The scene-cut static is clipped to the window |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
 - `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
@@ -206,6 +207,13 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 - Backgrounds: no starfield bitmaps besides the sun; FS1 missions use none.
 - Resolution: FS1 needs 640 mode. The trial sets it in the ini; the interface art-mode setting (D-20261017-225737) is the real fix.
 - Trials use your FS2 pilot `Tom.plr`, copied into the FS1 install's `Data\Players\Single`.
+
+**Interface issues seen by hand (2026-10-18, Release, FS1 data):**
+- Pilot select: the buttons are drawn at FS2's positions but clicked through FS1's mask, so the click areas are well off the art. FS2's drawn labels sit over the ones in FS1's art, and "FreeSpace 2 / Copyright 1999" is drawn over FS1's logo.
+- Main menu: crashed (access violation at offset `0x14b7ba` in `FS2vs2022r.exe`). Not located yet; it needs a symbol build.
+- Ship select and weapon loadout: FS1 has no background bitmap for them, so the briefing's frame stays on screen underneath. FS2's labels and positions are used throughout and overlap.
+- Screens without a background are not redrawn, so the mouse cursor leaves a trail as it moves.
+- `gr_bitmap_ex` in Direct3D locks the back buffer in the middle of a frame and hung the game, so it is best avoided.
 
 ---
 
