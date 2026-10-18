@@ -882,6 +882,25 @@ int Guard_fire_count = 0;
 int Guard_self_test_running = 0;
 #endif
 
+#include <stdarg.h>
+extern char Game_current_mission_filename[];
+extern fix Missiontime;
+void trial_log(const char *fmt, ...)	// TRIAL
+{
+	FILE *f = fopen("trial.log", "a");
+	if (!f) return;
+	fprintf(f, "%s %.2f ", Game_current_mission_filename, Missiontime / 65536.0f);
+	va_list ap; va_start(ap, fmt); vfprintf(f, fmt, ap); va_end(ap);
+	fprintf(f, "\n");
+	fclose(f);
+}
+int trial_formation_fix()	// TRIAL
+{
+	static int v = -1;
+	if (v < 0) v = getenv("FS2_FORMATION_FIX") ? 1 : 0;
+	return v;
+}
+
 // Returns 0 if not enough RAM.
 int vm_init(int min_heap_size)
 {

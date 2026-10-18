@@ -1807,6 +1807,28 @@ void get_tangent_point(vector *tan1, vector *p0, vector *centerp, vector *p1, fl
 //	--------------------------------------------------------------------------
 //	Given an object and a point, turn towards the point, resulting in
 // approach behavior.
+// TRIAL #1: is objp the leader of the formation it flies in?
+extern void trial_log(const char *fmt, ...);
+extern int trial_formation_fix();
+object * get_wing_leader(int wingnum);
+static int trial_formation_not_leader(ai_info *aip, object *objp)
+{
+	int retail = ((Objects + aip->goal_objnum) != objp);
+	int fixed = retail;
+	if ((aip->ai_flags & AIF_FORMATION_WING) && (aip->wing >= 0)) {
+		object *leader = get_wing_leader(aip->wing);
+		fixed = (leader != objp);
+	}
+	if (retail && !fixed) {
+		static int logged[MAX_SHIPS];
+		static char mission[64];
+		extern char Game_current_mission_filename[];
+		if (strcmp(mission, Game_current_mission_filename)) { strcpy(mission, Game_current_mission_filename); memset(logged, 0, sizeof(logged)); }
+		if (!logged[objp->instance]) { logged[objp->instance] = 1; trial_log("#1 leader %s (wing %s) treated as a follower by the retail test", Ships[objp->instance].ship_name, Wings[aip->wing].name); }
+	}
+	return trial_formation_fix() ? fixed : retail;
+}
+
 void turn_towards_point(object *objp, vector *point, vector *slide_vec, float bank_override)
 {
 	ai_info	*aip;
@@ -1814,7 +1836,7 @@ void turn_towards_point(object *objp, vector *point, vector *slide_vec, float ba
 	
 	// check if in formation and if not leader, don't change rotvel.z (bank to match leader elsewhere)
 	if (aip->ai_flags & AIF_FORMATION) {
-		if ((Objects + aip->goal_objnum) != objp) {	// Claude: address only; goal_objnum can be -1 here (D-077)
+		if (trial_formation_not_leader(aip, objp)) {	// TRIAL #1	// Claude: address only; goal_objnum can be -1 here (D-077)
 			float rotvel_z = objp->phys_info.rotvel.z;
 			ai_turn_towards_vector(point, objp, flFrametime, Ship_info[Ships[objp->instance].ship_info_index].srotation_time, slide_vec, NULL, bank_override, 0);
 			objp->phys_info.rotvel.z = rotvel_z;
@@ -14023,7 +14045,7 @@ void ai_process( object * obj, int ai_index, float frametime )
 		physics_read_flying_controls( &obj->orient, &obj->phys_info, &AI_ci, frametime);
 		// if obj is in formation and not flight leader, don't update rotvel
 		if (aip->ai_flags & AIF_FORMATION) {
-			if ((Objects + aip->goal_objnum) != obj) {	// Claude: address only; goal_objnum can be -1 here (D-077)
+			if (trial_formation_not_leader(aip, obj)) {	// TRIAL #1	// Claude: address only; goal_objnum can be -1 here (D-077)
 				obj->phys_info.desired_rotvel = copy_desired_rotvel;
 				obj->phys_info.rotvel = copy_desired_rotvel;
 			}

@@ -1753,6 +1753,12 @@ int collide_ship_ship( obj_pair * pair )
 				quadrant_num = -1;
 			}
 
+			{	// TRIAL #1: same-wing collisions
+				extern void trial_log(const char *fmt, ...);
+				ship *hs = &Ships[ship_ship_hit_info.heavy->instance], *ls = &Ships[ship_ship_hit_info.light->instance];
+				if ((hs->wingnum >= 0) && (hs->wingnum == ls->wingnum))
+					trial_log("#1 collide wing %s: %s takes %.3f, %s takes %.3f", Wings[hs->wingnum].name, hs->ship_name, 100.0f * damage/HeavyOne->phys_info.mass, ls->ship_name, dam2);
+			}
 			ship_apply_local_damage(ship_ship_hit_info.heavy, ship_ship_hit_info.light, &world_hit_pos, 100.0f * damage/HeavyOne->phys_info.mass, quadrant_num, CREATE_SPARKS, ship_ship_hit_info.submodel_num, &ship_ship_hit_info.collision_normal);
 			hud_shield_quadrant_hit(ship_ship_hit_info.heavy, quadrant_num);
 

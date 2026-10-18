@@ -4022,6 +4022,79 @@ MONITOR( NumShips );
 // when adding code to this function, decide whether or not a client in a multiplayer game
 // needs to execute the code you are adding.  Code which moves things, creates things, etc
 // probably doesn't need to be called.  If you don't know -- find Allender!!!
+
+// ---- FormationGhost (throwaway) ----
+#include <stdlib.h>
+object * get_wing_leader(int wingnum);
+static FILE *Ghost_out = NULL;
+static int Ghost_out_checked = 0;
+static void ghost_capture(object *obj)
+{
+	if (!Ghost_out_checked) { Ghost_out_checked = 1; char *f = getenv("FS2_GHOST_OUT"); if (f) Ghost_out = fopen(f, "w"); }
+	if (!Ghost_out) return;
+	ship *shipp = &Ships[obj->instance];
+	if (shipp->ai_index < 0) return;
+	ai_info *aip = &Ai_info[shipp->ai_index];
+	if (!(aip->ai_flags & AIF_FORMATION_WING) || (aip->wing < 0) || (get_wing_leader(aip->wing) != obj)) return;
+	matrix *m = &obj->orient;
+	fprintf(Ghost_out, "%d %s|%d %f %f %f %f %f %f %f %f %f %f %f %f\n", Missiontime, shipp->ship_name, shipp->ship_info_index,
+		obj->pos.x, obj->pos.y, obj->pos.z, m->rvec.x, m->rvec.y, m->rvec.z, m->uvec.x, m->uvec.y, m->uvec.z, m->fvec.x, m->fvec.y, m->fvec.z);
+}
+
+#define GHOST_MAX 200000
+typedef struct { int t; char name[NAME_LENGTH]; int sclass; vector pos; matrix orient; } ghost_rec;
+static ghost_rec *Ghost = NULL;
+static int Ghost_n = 0, Ghost_checked = 0;
+static void ghost_load()
+{
+	Ghost_checked = 1;
+	char *f = getenv("FS2_GHOST_IN");
+	if (!f) return;
+	FILE *fp = fopen(f, "r");
+	if (!fp) return;
+	Ghost = (ghost_rec *)malloc(sizeof(ghost_rec) * GHOST_MAX);
+	char line[512];
+	while (Ghost_n < GHOST_MAX && fgets(line, sizeof(line), fp)) {
+		ghost_rec *g = &Ghost[Ghost_n];
+		char *bar = strchr(line, '|');
+		if (!bar) continue;
+		*bar = 0;
+		char *sp = strchr(line, ' ');
+		if (!sp) continue;
+		*sp = 0;
+		g->t = atoi(line);
+		strncpy(g->name, sp + 1, NAME_LENGTH - 1); g->name[NAME_LENGTH - 1] = 0;
+		matrix *m = &g->orient;
+		if (sscanf(bar + 1, "%d %f %f %f %f %f %f %f %f %f %f %f %f", &g->sclass, &g->pos.x, &g->pos.y, &g->pos.z,
+			&m->rvec.x, &m->rvec.y, &m->rvec.z, &m->uvec.x, &m->uvec.y, &m->uvec.z, &m->fvec.x, &m->fvec.y, &m->fvec.z) == 13)
+			Ghost_n++;
+	}
+	fclose(fp);
+}
+void ghost_render_all()
+{
+	if (!Ghost_checked) ghost_load();
+	if (!Ghost_n) return;
+	// for each ship name, the last record at or before the current mission time
+	static int last[MAX_SHIPS];
+	char seen[MAX_SHIPS][NAME_LENGTH];
+	int nseen = 0, i, j;
+	for (i = 0; i < Ghost_n && Ghost[i].t <= Missiontime; i++) {
+		for (j = 0; j < nseen; j++) if (!strcmp(seen[j], Ghost[i].name)) break;
+		if (j == nseen) { if (nseen == MAX_SHIPS) continue; strcpy(seen[nseen], Ghost[i].name); nseen++; }
+		last[j] = i;
+	}
+	for (j = 0; j < nseen; j++) {
+		ghost_rec *g = &Ghost[last[j]];
+		if (Missiontime - g->t > F1_0) continue;		// that ship's captured path has ended
+		int model = Ship_info[g->sclass].modelnum;
+		if (model < 0) continue;
+		model_set_outline_color(0, 255, 0);
+		model_render(model, &g->orient, &g->pos, MR_SHOW_OUTLINE | MR_NO_POLYS | MR_NO_LIGHTING);
+	}
+}
+// ---- end FormationGhost ----
+
 void ship_process_post(object * obj, float frametime)
 {
 	int	num;
@@ -4036,6 +4109,7 @@ void ship_process_post(object * obj, float frametime)
 
 	num = obj->instance;
 	Assert( num >= 0 && num < MAX_SHIPS);
+	ghost_capture(obj);	// FormationGhost
 	Assert( obj->type == OBJ_SHIP );
 	Assert( Ships[num].objnum == OBJ_INDEX(obj));	
 

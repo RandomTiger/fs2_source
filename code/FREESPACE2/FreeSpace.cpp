@@ -3422,6 +3422,7 @@ void game_render_frame( vector * eye_pos, matrix * eye_orient )
 	}
 
 	obj_render_all(obj_render);
+	{ extern void ghost_render_all(); ghost_render_all(); }	// FormationGhost
 	beam_render_all();						// render all beam weapons
 	particle_render_all();					// render particles after everything else.
 	trail_render_all();						// render missilie trails after everything else.	
