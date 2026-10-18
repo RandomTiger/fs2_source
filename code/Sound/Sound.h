@@ -299,7 +299,7 @@ int snd_get_duration(int snd_id);
 // get a 3D vol and pan for a particular sound
 int	snd_get_3d_vol_and_pan(game_snd *gs, vector *pos, float* vol, float *pan, float radius=0.0f);
 
-int	snd_init(int use_a3d, int use_eax);
+int	snd_init(int use_eax);
 void	snd_close();
 
 // Return 1 or 0 to show that sound system is inited ok

@@ -851,7 +851,7 @@ typedef struct ship_info {
 } ship_info;
 
 extern int num_wings;
-extern ship Ships[MAX_SHIPS];
+extern GUARDED_ARRAY(ship, Ships, MAX_SHIPS);	// Claude: Debug bounds guard (D-076)
 extern ship	*Player_ship;
 
 // Data structure to track the active missiles
@@ -954,13 +954,13 @@ typedef struct wing {
 #define STARTING_WING_GAMMA		2
 #define STARTING_WING_ZETA			3
 
-extern wing Wings[MAX_WINGS];
+extern GUARDED_ARRAY(wing, Wings, MAX_WINGS);	// Claude: Debug bounds guard (D-076)
 extern int Starting_wings[MAX_PLAYER_WINGS];
 extern int ai_paused;
 
 extern int Num_reinforcements;
 extern int Num_ship_types;
-extern ship_info Ship_info[MAX_SHIP_TYPES];
+extern GUARDED_ARRAY(ship_info, Ship_info, MAX_SHIP_TYPES);	// Claude: Debug bounds guard (D-076)
 extern reinforcements Reinforcements[MAX_REINFORCEMENTS];
 
 // structure definition for ship type counts.  Used to give a count of the number of ships

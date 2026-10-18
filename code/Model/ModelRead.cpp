@@ -1211,21 +1211,6 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 	// code to get a filename to write out subsystem information for each model that
 	// is read.  This info is essentially debug stuff that is used to help get models
 	// into the game quicker
-#if 0
-	{
-		char bname[_MAX_FNAME];
-
-		_splitpath(filename, NULL, NULL, bname, NULL);
-		sprintf(debug_name, "%s.subsystems", bname);
-		ss_fp = cfopen(debug_name, "wb", CFILE_NORMAL, CF_TYPE_TABLES );
-		if ( !ss_fp )	{
-			mprintf(( "Can't open debug file for writing subsystems for %s\n", filename));
-		} else {
-			strcpy(model_filename, filename);
-			ss_warning_shown = 0;
-		}
-	}
-#endif
 
 	id = cfread_int(fp);
 
@@ -2009,9 +1994,6 @@ int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 
 //	int Model_ram = 0;
 
-#ifndef NDEBUG
-	int ram_before = TotalRam;
-#endif
 
 	//Assert(strlen(filename) <= 12);
 
@@ -2205,13 +2187,6 @@ int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 		}
 	}
 
-#ifndef NDEBUG
-	int ram_after = TotalRam;
-
-	pm->ram_used = ram_after - ram_before;
-	Model_ram += pm->ram_used;
-	//mprintf(( "Model RAM = %d KB\n", Model_ram ));
-#endif
 
 	return pm->id;
 }
@@ -2865,47 +2840,6 @@ int model_rotate_gun(int model_num, model_subsystem *turret, matrix *orient, ang
 //======================================================
 // DEBUG code to draw the normal out of this gun and a circle
 // at the gun point.
-#if 0
-	{
-		vector tmp;
-		vector tmp1;
-		vertex dpnt1, dpnt2;
-
-		model_clear_instance(model_num);
-		sm->angs.p = turret2->p;
-		sm_parent->angs.h = turret1->h;
-
-		model_find_world_point(&tmp, &vmd_zero_vector, model_num, turret->turret_gun_sobj, orient, pos );
-		gr_set_color(255,0,0);
-		g3_rotate_vertex( &dpnt1, &tmp );
-
-		gr_set_color(255,0,0);
-		g3_draw_sphere(&dpnt1,1.0f);
-
-		vm_vec_copy_scale( &tmp1, &turret->turret_matrix.fvec, 10.0f );
-		model_find_world_point(&tmp, &tmp1, model_num, turret->turret_gun_sobj, orient, pos );
-		g3_rotate_vertex( &dpnt2, &tmp );
-
-		gr_set_color(0,255,0);
-		g3_draw_line(&dpnt1,&dpnt2);
-		gr_set_color(0,128,0);
-		g3_draw_sphere(&dpnt2,0.2f);
-
-		vm_vec_copy_scale( &tmp1, &turret->turret_matrix.rvec, 10.0f );
-		model_find_world_point(&tmp, &tmp1, model_num, turret->turret_gun_sobj, orient, pos );
-		g3_rotate_vertex( &dpnt2, &tmp );
-
-		gr_set_color(0,0,255);
-		g3_draw_line(&dpnt1,&dpnt2);
-
-		vm_vec_copy_scale( &tmp1, &turret->turret_matrix.uvec, 10.0f );
-		model_find_world_point(&tmp, &tmp1, model_num, turret->turret_gun_sobj, orient, pos );
-		g3_rotate_vertex( &dpnt2, &tmp );
-
-		gr_set_color(255,0,0);
-		g3_draw_line(&dpnt1,&dpnt2);
-	}
-#endif
 
 	//------------	
 	// rotate the dest point into the turret gun normal's frame of

@@ -1095,11 +1095,7 @@ void grx_flip()
 				//if (nColors)	mprintf(( "Actually set %d palette colors.\n", nColors ));
 			}
 
-#if 0 
-			BitBlt(hdc,0,h/2,w,h/2,hDibDC,x,y+h/2,SRCCOPY);
-#else
 			BitBlt(hdc,0,0,w,h,hDibDC,x,y,SRCCOPY);
-#endif
 
 			if ( hOldPalette )	
 				SelectPalette(hdc,hOldPalette, FALSE );
@@ -1773,102 +1769,13 @@ static int gr_palette_faded_out = 0;
 
 void grx_fade_out(int instantaneous)	
 {
-#ifndef HARDWARE_ONLY
-	int i;
-	ubyte new_pal[768];
-
-	if (!gr_palette_faded_out) {
-
-		if ( !instantaneous )	{
-	
-			int count = 0;
-			fix start_time, stop_time, t1;
-
-			start_time = timer_get_fixed_seconds();
-			t1 = 0;
-
-			do {
-				for (i=0; i<768; i++ )	{		
-					int c = (gr_palette[i]*(FADE_TIME-t1))/FADE_TIME;
-					if (c < 0 )
-						c = 0;
-					else if ( c > 255 )
-						c = 255;
-			
-					new_pal[i] = (ubyte)c;
-				}
-				grx_change_palette( new_pal );
-				gr_flip();
-				count++;
-
-				t1 = timer_get_fixed_seconds() - start_time;
-
-			} while ( (t1 < FADE_TIME) && (t1>=0) );		// Loop as long as time not up and timer hasn't rolled
-
-			stop_time = timer_get_fixed_seconds();
-
-			mprintf(( "Took %d frames (and %.1f secs) to fade out\n", count, f2fl(stop_time-start_time) ));
-		
-		}
-		gr_palette_faded_out = 1;
-	}
-
-	gr_reset_clip();
-	gr_clear();
-	gr_flip();
-	memset( new_pal, 0, 768 );
-	grx_change_palette( new_pal );
-#else
 	Int3();
-#endif
 }
 
 
 void grx_fade_in(int instantaneous)	
 {
-#ifndef HARDWARE_ONLY
-	int i;
-	ubyte new_pal[768];
-
-	if (gr_palette_faded_out)	{
-
-		if ( !instantaneous )	{
-			int count = 0;
-			fix start_time, stop_time, t1;
-
-			start_time = timer_get_fixed_seconds();
-			t1 = 0;
-
-			do {
-				for (i=0; i<768; i++ )	{		
-					int c = (gr_palette[i]*t1)/FADE_TIME;
-					if (c < 0 )
-						c = 0;
-					else if ( c > 255 )
-						c = 255;
-			
-					new_pal[i] = (ubyte)c;
-				}
-				grx_change_palette( new_pal );
-				gr_flip();
-				count++;
-
-				t1 = timer_get_fixed_seconds() - start_time;
-
-			} while ( (t1 < FADE_TIME) && (t1>=0) );		// Loop as long as time not up and timer hasn't rolled
-
-			stop_time = timer_get_fixed_seconds();
-
-			mprintf(( "Took %d frames (and %.1f secs) to fade in\n", count, f2fl(stop_time-start_time) ));
-		}
-		gr_palette_faded_out = 0;
-	}
-
-	memcpy( new_pal, gr_palette, 768 );
-	grx_change_palette( new_pal );
-#else 
 	Int3();
-#endif
 }
 
 

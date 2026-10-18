@@ -339,7 +339,5 @@ int current_detail_level();
 
 //====================================================================================
 // Memory stuff from WinDebug.cpp
-extern int TotalRam;
-void windebug_memwatch_init();
 
 #endif

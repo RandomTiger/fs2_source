@@ -1814,7 +1814,7 @@ void turn_towards_point(object *objp, vector *point, vector *slide_vec, float ba
 	
 	// check if in formation and if not leader, don't change rotvel.z (bank to match leader elsewhere)
 	if (aip->ai_flags & AIF_FORMATION) {
-		if (&Objects[aip->goal_objnum] != objp) {
+		if ((Objects + aip->goal_objnum) != objp) {	// Claude: address only; goal_objnum can be -1 here (D-077)
 			float rotvel_z = objp->phys_info.rotvel.z;
 			ai_turn_towards_vector(point, objp, flFrametime, Ship_info[Ships[objp->instance].ship_info_index].srotation_time, slide_vec, NULL, bank_override, 0);
 			objp->phys_info.rotvel.z = rotvel_z;
@@ -5859,7 +5859,7 @@ float compute_incoming_payload(object *target_objp)
 int check_ok_to_fire(int objnum, int target_objnum, weapon_info *wip)
 {
 	int	num_homers = 0;
-	object	*tobjp = &Objects[target_objnum];
+	object	*tobjp = Objects + target_objnum;	// Claude: address only; target_objnum can be -1 here (#5, D-077)
 
 	if (target_objnum > -1) {
 		// AL 3-4-98: Ensure objp target is a ship first 
@@ -7365,7 +7365,7 @@ void update_aspect_lock_information(ai_info *aip, vector *vec_to_enemy, float di
 
 	num_weapon_types = get_available_secondary_weapons(Pl_objp, weapon_id_list, weapon_bank_list);
 
-	wip = &Weapon_info[swp->secondary_bank_weapons[swp->current_secondary_bank]];
+	wip = Weapon_info + swp->secondary_bank_weapons[swp->current_secondary_bank];	// Claude: address only; the index can be -1 here (#18, D-077)
 
 	if (num_weapon_types && (wip->wi_flags & WIF_HOMING_ASPECT)) {
 		if (dist_to_enemy > 300.0f - min(enemy_radius, 100.0f))
@@ -8387,7 +8387,7 @@ void ai_chase()
 					if (!(En_objp->flags & OF_PROTECTED)) {
 						ai_choose_secondary_weapon(Pl_objp, aip, En_objp);
 						int current_bank = tswp->current_secondary_bank;
-						weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[tswp->current_secondary_bank]];
+						weapon_info	*swip = Weapon_info + tswp->secondary_bank_weapons[tswp->current_secondary_bank];	// Claude: address only; the index can be -1 here (#18, D-077)
 
 						if (current_bank > -1) {
 							if (aip->ai_flags & AIF_UNLOAD_SECONDARIES) {
@@ -14023,7 +14023,7 @@ void ai_process( object * obj, int ai_index, float frametime )
 		physics_read_flying_controls( &obj->orient, &obj->phys_info, &AI_ci, frametime);
 		// if obj is in formation and not flight leader, don't update rotvel
 		if (aip->ai_flags & AIF_FORMATION) {
-			if (&Objects[aip->goal_objnum] != obj) {
+			if ((Objects + aip->goal_objnum) != obj) {	// Claude: address only; goal_objnum can be -1 here (D-077)
 				obj->phys_info.desired_rotvel = copy_desired_rotvel;
 				obj->phys_info.rotvel = copy_desired_rotvel;
 			}

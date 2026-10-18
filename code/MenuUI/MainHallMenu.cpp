@@ -820,9 +820,6 @@ void main_hall_init(int main_hall_num)
 	Game_mode &= ~(GM_MULTIPLAYER);
 
 	// set the interface palette 
-#ifndef HARDWARE_ONLY
-	palette_use_bm_palette(Main_hall_bitmap);	
-#endif
 
 	Main_hall_mask_w = -1;
 	Main_hall_mask_h = -1;

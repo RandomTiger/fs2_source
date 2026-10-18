@@ -740,9 +740,9 @@ extern void render_path_points(object *objp);
 // mwa -- removed 11/24/97 int	num_ships = 0;
 int	num_wings = 0;
 int	Num_reinforcements = 0;
-ship	Ships[MAX_SHIPS];
+GUARDED_ARRAY(ship, Ships, MAX_SHIPS);	// Claude: Debug bounds guard (D-076)
 ship	*Player_ship;
-wing	Wings[MAX_WINGS];
+GUARDED_ARRAY(wing, Wings, MAX_WINGS);	// Claude: Debug bounds guard (D-076)
 int	Starting_wings[MAX_PLAYER_WINGS];  // wings player starts a mission with (-1 = none)
 int	ships_inited = 0;
 
@@ -764,7 +764,7 @@ int	Player_ship_class;	// needs to be player specific, move to player structure
 ship_obj		Ship_objs[MAX_SHIP_OBJS];		// array used to store ship object indexes
 ship_obj		Ship_obj_list;							// head of linked list of ship_obj structs
 
-ship_info		Ship_info[MAX_SHIP_TYPES];
+GUARDED_ARRAY(ship_info, Ship_info, MAX_SHIP_TYPES);	// Claude: Debug bounds guard (D-076)
 ship_subsys		Ship_subsystems[MAX_SHIP_SUBOBJECTS];
 ship_subsys		ship_subsys_free_list;
 reinforcements	Reinforcements[MAX_REINFORCEMENTS];
@@ -2411,24 +2411,6 @@ void ship_render(object * obj)
 
 	Assert( num >= 0);	
 
-#if 0
-	// show target when attacking big ship
-	vector temp, target;
-	ai_info *aip = &Ai_info[Ships[obj->instance].ai_index];
-	if ( (aip->target_objnum >= 0)  && (Ship_info[Ships[Objects[aip->target_objnum].instance].ship_info_index].flags & (SIF_SUPERCAP|SIF_CAPITAL|SIF_CRUISER)) ) {
-		vm_vec_unrotate(&temp, &aip->big_attack_point, &Objects[aip->target_objnum].orient);
-		vm_vec_add(&target, &temp, &Objects[aip->target_objnum].pos);
-
-		vertex v0, v1;
-		gr_set_color(128,0,0);
-		g3_rotate_vertex( &v0, &obj->pos );
-		g3_rotate_vertex( &v1, &target );
-
-		g3_draw_line(&v0, &v1);
-
-		g3_draw_sphere(&v1, 5.0f);
-	}
-#endif
 
 
 //	if (Ships[num].subtype == SHIP_PLAYER ) return;	

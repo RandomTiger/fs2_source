@@ -189,12 +189,6 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	}
 
 	
-	#ifndef NDEBUG				
-	{
-		extern void windebug_memwatch_init();
-		windebug_memwatch_init();
-	}
-	#endif
 	
 	parse_cmdline(szCmdLine);	
 	replay_startup();

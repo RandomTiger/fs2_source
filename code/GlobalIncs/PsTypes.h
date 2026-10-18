@@ -652,34 +652,7 @@ template <class T> void CAP( T& v, T mn, T mx )
 // Memory management functions
 //=========================================================
 
-#ifndef NDEBUG
-	// Debug versions
-
-	// Returns 0 if not enough RAM.
-	int vm_init(int min_heap_size);
-
-	// Allocates some RAM.
-	void *vm_malloc( int size, char *filename=NULL, int line=-1 );
-
-	// 
-	char *vm_strdup( const char *ptr, char *filename, int line );
-
-	// Frees some RAM. 
-	void vm_free( void *ptr, char *filename=NULL, int line=-1 );
-
-	// Frees all RAM.
-	void vm_free_all();
-
-	// Easy to use macros
-	#define VM_MALLOC(size) vm_malloc((size),__FILE__,__LINE__)
-	#define VM_FREE(ptr) vm_free((ptr),__FILE__,__LINE__)
-
-	#define malloc(size) vm_malloc((size),__FILE__,__LINE__)
-	#define free(ptr) vm_free((ptr),__FILE__,__LINE__)
-	#define strdup(ptr) vm_strdup((ptr),__FILE__,__LINE__)
-	
-#else
-	// Release versions
+// Claude: one set of declarations for Debug and Release (D-075)
 
 	// Returns 0 if not enough RAM.
 	int vm_init(int min_heap_size);
@@ -703,6 +676,32 @@ template <class T> void CAP( T& v, T mn, T mx )
 	#define malloc(size) vm_malloc(size)
 	#define free(ptr) vm_free(ptr)
 	#define strdup(ptr) vm_strdup(ptr)
+
+//=========================================================
+// Claude: Debug-only bounds guards on the large global arrays (D-061, D-076)
+//=========================================================
+// GUARDED_ARRAY(type, name, n) declares `type name[n]` in Release, unchanged. In Debug it declares a
+// guarded_array, the same size and layout, whose [] Asserts the index is in range; it converts to
+// a plain pointer, so `objp - Objects`, `Objects + i` and passing the array on work as before.
+// A guard firing is a finding for Tom, never a silent fix (D-061 item 3).
+#ifndef NDEBUG
+	// Every out-of-range index goes through guard_fired, which counts it and Asserts. Autotest's start-up
+	// self-test (guard_self_test) indexes a probe array out of range with the Assert held back and logs
+	// "guards: assert" only if the count moved, so a guard that has been disabled cannot pass silently
+	// (D-20261018-030012).
+	extern int Guard_fire_count;
+	extern int Guard_self_test_running;
+	inline void guard_fired( int i, int n )	{ Guard_fire_count++; if ( !Guard_self_test_running ) { Assert( (i >= 0) && (i < n) ); } }
+	template <typename T, int N> struct guarded_array {
+		T data[N];
+		T &operator[](int i)				{ if ( !((i >= 0) && (i < N)) ) guard_fired( i, N ); return data[i]; }
+		const T &operator[](int i) const	{ if ( !((i >= 0) && (i < N)) ) guard_fired( i, N ); return data[i]; }
+		operator T *()						{ return data; }
+		operator const T *() const		{ return data; }
+	};
+	#define GUARDED_ARRAY(type, name, n)	guarded_array<type, n> name
+#else
+	#define GUARDED_ARRAY(type, name, n)	type name[n]
 #endif
 
 

@@ -1040,46 +1040,6 @@ int strip_comments(char *readp, int in_comment)
 	return in_comment;	
 }
 
-#if 0
-void strip_all_comments( char *readp, char *writep )
-{
-	int	ch;
-	//char	*writep = readp;
-
-	while ( *readp != EOF_CHAR ) {
-		ch = *readp;
-		if ( ch == COMMENT_CHAR ) {
-			while ( *readp != EOLN )
-				readp++;
-
-			*writep = EOLN;
-			writep++;
-			// get to next character after EOLN
-			readp++;
-		} else if ( (ch == '/') && (readp[1] == '*')) {			// Start of multi-line comment
-			int done;
-			
-			done = 0;
-			while ( !done ) {
-				while ( *readp != '*' )
-					readp++;
-				if ( readp[1] == '/' ) {
-					readp += 2;
-					done = 1;
-				} else {
-					readp++;
-				}
-			}
-		} else {
-			*writep = (char)ch;
-			*writep++;
-			readp++;
-		}
-	}
-
-	*writep = (char)EOF_CHAR;
-}
-#endif
 
 int parse_get_line(char *lineout, int max_line_len, char *start, int max_size, char *cur)
 {

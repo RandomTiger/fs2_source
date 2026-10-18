@@ -117,16 +117,9 @@ void InitEncoder(t_Code code, int QoS, t_Sample* tempBuf1, t_Sample* tempBuf2);
 //     bufOut   - encoded data written here
 //     returns  - number of bytes written to bufOut
 //
-#if defined(CODEC_DEMO)
-// Test program version
-int Encode(t_Sample* bufIn, t_Sample* bufOut, int sizeIn, int sizeOut,
-		   t_CodeInfo* codeInfo,
-           t_Sample* levels, int* modes, int samples[9], int storage[9]);
-#else
 // Release version
 int Encode(t_Sample* bufIn, t_Sample* bufOut, int sizeIn, int sizeOut,
 		   t_CodeInfo* codeInfo);
-#endif
 //
 //////////////////////////////////////////////////////////////////////////////
 

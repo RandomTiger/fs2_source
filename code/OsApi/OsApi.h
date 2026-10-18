@@ -20,13 +20,8 @@ extern int Os_debugger_running;
 // game-wide
 // #define THREADED
 
-#ifdef THREADED
-	#define ENTER_CRITICAL_SECTION(csc)		do { EnterCriticalSection(csc); } while(0);
-	#define LEAVE_CRITICAL_SECTION(csc)		do { LeaveCriticalSection(csc); } while(0);
-#else
 	#define ENTER_CRITICAL_SECTION(csc)		do { } while(0);
 	#define LEAVE_CRITICAL_SECTION(csc)		do { } while(0);
-#endif
 
 // --------------------------------------------------------------------------------------------------
 // OSAPI FUNCTIONS

@@ -18,13 +18,9 @@ $failed = 0
 # Known failures, by layer (D-20261018-120739): original-code bugs that are fixed on a higher layer, keyed by the tool
 # name a run check starts with. A listed failure is reported but not counted; a listed check that passes is counted,
 # so the list cannot go stale. Builds are never listed.
-$knownByLayer = @{
-	'VS2022' = @{
-		'Fonttool' = '#22, fixed on OriginalSourceBugFixes (review 49)'
-		'Pofview'  = '#11, fixed on OriginalSourceBugFixes (review 45)'
-		'Nebedit'  = '#11, fixed on OriginalSourceBugFixes (review 45)'
-	}
-}
+# Empty: Tom moved the tool heap fixes (#11, #22) onto VS2022 on 2026-10-18, so every layer passes outright.
+# Example entry: 'VS2022' = @{ 'Fonttool' = '#22, fixed on OriginalSourceBugFixes (review 49)' }
+$knownByLayer = @{}
 $layer = git -C $repo rev-parse --abbrev-ref HEAD 2>$null
 $known = if ($layer -and $knownByLayer.ContainsKey($layer)) { $knownByLayer[$layer] } else { @{} }
 $knownSeen = @()
@@ -122,7 +118,30 @@ public static class ToolWindows {
 	[DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
 
 	public static bool IsForeground(int pid) { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); return p == pid; }
-
+	[DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+	[DllImport("user32.dll", CharSet = CharSet.Auto)] static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, string l);
+	[DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr h);
+	[DllImport("user32.dll", CharSet = CharSet.Auto)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+	static string Class(IntPtr h) { var s = new StringBuilder(256); GetClassName(h, s, 256); return s.ToString(); }
+	// menu commands go straight to the window, so they need neither focus nor the keyboard
+	public static bool Command(IntPtr h, int id) { return PostMessage(h, 0x0111, (IntPtr)id, IntPtr.Zero); }
+	// fill the file name of a process's open file dialog and press OK; false while no such dialog is up
+	public static bool FileDialog(int pid, string name) {
+		IntPtr dlg = IntPtr.Zero, edit = IntPtr.Zero;
+		EnumWindows((h, l) => {
+			uint p; GetWindowThreadProcessId(h, out p);
+			if (p != pid || !IsWindowVisible(h) || Class(h) != "#32770") return true;
+			IntPtr box = IntPtr.Zero;
+			EnumChildWindows(h, (c, l2) => { if (GetDlgCtrlID(c) == 0x47C) { box = c; return false; } return true; }, IntPtr.Zero);
+			if (box == IntPtr.Zero) return true;
+			EnumChildWindows(box, (c, l2) => { if (Class(c) == "Edit") { edit = c; return false; } return true; }, IntPtr.Zero);
+			if (edit != IntPtr.Zero) { dlg = h; return false; }
+			return true;
+		}, IntPtr.Zero);
+		if (dlg == IntPtr.Zero) return false;
+		SendMessage(edit, 0x000C, IntPtr.Zero, name);	// WM_SETTEXT
+		return Command(dlg, 1);						// IDOK
+	}
 	public static List<string> Of(int pid) {
 		var r = new List<string>();
 		EnumWindows((h, l) => {
@@ -150,30 +169,24 @@ function Check-Gui($name, $p, $want, $extraOk, $extra) {
 $copies = @{ "$Game\Fred2_check.exe" = $fred; "$Game\Pofview_check.exe" = "$repo\Pofview.exe"; "$Game\Nebedit_check.exe" = "$repo\Nebedit.exe" }
 foreach ($k in $copies.Keys) { Copy-Item $copies[$k] $k -Force }
 
-# FRED: File > Open (Ctrl+O), type the mission name, Enter; then Ctrl+S, and the file must still be a whole mission
+# FRED: File > Open, the mission name, OK; then File > Save, and the file must still be a whole mission
 $m = "$Game\data\missions\ToolsCheck.fs2"
 if (Get-VpFile 'sm1-01.fs2' $m) {
 	(Get-Item $m).LastWriteTime = (Get-Date).AddMinutes(-5)
 	$before = (Get-Item $m).LastWriteTime
 	$p = Start-Process "$Game\Fred2_check.exe" -WorkingDirectory $Game -PassThru
-	# each key goes in only once the window it is meant for is up; fixed waits sent Ctrl+O to FRED's start-up
+	# File > Open and File > Save go to FRED as window commands, and the name into the dialog's own edit box: no
+	# keystrokes, so nothing depends on which window has the focus (keystrokes were lost about one run in three)
 	$null = Wait-Text $p 'FRED2' 60; Start-Sleep 2
+	$p.Refresh(); $main = $p.MainWindowHandle
+	$null = [ToolWindows]::Command($main, 0xE101)		# ID_FILE_OPEN
 	$open = $false
-	for ($try = 0; $try -lt 3 -and -not $open; $try++) {
-		$p.Refresh(); $ws.AppActivate($p.Id) | Out-Null; Start-Sleep 1
-		if ([ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('^o'); $open = Wait-Text $p 'File &name' 10 }
-	}
-	Start-Sleep 1
-	# typing into FRED's main window would set off its letter hotkeys, so the name goes in only when the dialog is up
-	if ($open -and [ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('ToolsCheck.fs2~') }
+	for ($i = 0; $i -lt 15 -and -not $open; $i++) { Start-Sleep 1; $open = [ToolWindows]::FileDialog($p.Id, 'ToolsCheck.fs2') }
 	$null = Wait-Text $p '^ToolsCheck' 30; Start-Sleep 3
 	$title = ((Texts $p) -split ' / ')[0]
+	$null = [ToolWindows]::Command($main, 0xE103)		# ID_FILE_SAVE
 	$saved = $false
-	for ($try = 0; $try -lt 3 -and -not $saved; $try++) {
-		$p.Refresh(); $ws.AppActivate($p.Id) | Out-Null; Start-Sleep 1
-		if ([ToolWindows]::IsForeground($p.Id)) { $ws.SendKeys('^s') }
-		for ($i = 0; $i -lt 8 -and -not $saved; $i++) { Start-Sleep 1; $saved = (Get-Item $m).LastWriteTime -gt $before }
-	}
+	for ($i = 0; $i -lt 15 -and -not $saved; $i++) { Start-Sleep 1; $saved = (Get-Item $m).LastWriteTime -gt $before }
 	$whole = (Select-String $m -Pattern '#Mission Info' -Quiet) -and (Select-String $m -Pattern '#End' -Quiet)
 	Check-Gui 'FRED opens and saves a mission' $p 'ToolsCheck' ($saved -and $whole) "(title '$title', saved $saved, whole $whole)"
 	Remove-Item $m -ErrorAction SilentlyContinue

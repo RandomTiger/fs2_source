@@ -222,12 +222,7 @@ int ds3d_update_listener(vector *pos, vector *vel, matrix *orient)
 															DS3D_DEFERRED );
 	}
 
-	float rolloff_factor = 1.0f;
-	if (ds_using_a3d() == true) {
-		rolloff_factor = 3.0f;		// A3D rolloff
-	} else {
-		rolloff_factor = 3.0f;		// EAX rolloff
-	}
+	float rolloff_factor = 3.0f;		// EAX rolloff	// Claude: the A3D branch set the same 3.0 (D-071)
 
 	hr = pDS3D_listener->SetRolloffFactor( rolloff_factor, DS3D_DEFERRED );
 	hr = pDS3D_listener->SetDopplerFactor( 1.0f, DS3D_DEFERRED );

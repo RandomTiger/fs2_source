@@ -557,60 +557,6 @@ void gr8_string(int sx, int sy, char *s )
 		ubyte *fp = Current_font->pixel_data + Current_font->char_data[letter].offset + xd + yd*width;
 		ubyte *dptr = GR_SCREEN_PTR(ubyte, xc, yc);			
 
-#ifndef HARDWARE_ONLY
-		if ( Current_alphacolor )	{
-			for (row=0; row<hc; row++)	{
-				#ifdef USE_INLINE_ASM
-					ubyte *lookup = &Current_alphacolor->table.lookup[0][0];
-						_asm mov edx, lookup
-						_asm xor eax, eax
-						_asm mov ecx, wc
-						_asm xor ebx, ebx
-						_asm mov edi, dptr
-						_asm mov esi, fp
-						_asm shr ecx, 1
-						_asm jz  OnlyOne
-						_asm pushf
-					InnerFontLoop:
-						_asm mov al, [edi]
-						_asm mov bl, [edi+1]
-						_asm add edi,2
-
-						_asm mov ah, [esi]
-						_asm mov bh, [esi+1]
-						_asm add esi,2
-
-						_asm mov al, [edx+eax]
-						_asm mov ah, [edx+ebx]
-
-						_asm mov [edi-2], ax
-
-						_asm dec ecx
-						_asm jnz InnerFontLoop
-
-						_asm popf
-						_asm jnc NotOdd
-
-					OnlyOne:
-						_asm mov al, [edi]
-						_asm mov ah, [esi]
-						_asm mov al, [edx+eax]
-						_asm mov [edi], al
-
-					NotOdd:
-					dptr += gr_screen.rowsize;
-					fp += width;
-				#else
-					int i;
-					for (i=0; i< wc; i++ )	{
-						*dptr++ = Current_alphacolor->table.lookup[*fp++][*dptr];
-					}
-					fp += width - wc;
-					dptr += gr_screen.rowsize - wc;
-				#endif
-			}
-		} else {		// No alpha color
-#endif
 			for (row=0; row<hc; row++)	{
 				int i;
 				for (i=0; i< wc; i++ )	{
