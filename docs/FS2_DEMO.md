@@ -105,7 +105,7 @@ Debug builds of FS2Demo (`d4376b0`), both the `FS2_DEMO` build and the retail bu
 autotest (`-window -autotest`) in `C:\Games\Freespace 2 Demo`. The setup followed
 `docs/AUTOTEST.md`, with the exes copied in and `fs2.ini` created on first start. To get past each
 stop and find the next one, two scratch aids were used, and neither was committed:
-- loose converted copies of three demo tables in `Data	ables`: `medals.tbl` with `$Wavefile Base:`,
+- loose converted copies of three demo tables in `Data\tables`: `medals.tbl` with `$Wavefile Base:`,
   an empty `weapon_expl.tbl` (`#Start` `#End`), and `mainhall.tbl` with `+Music: None`;
 - three `// DIAG` lines:
   - let the `FS2_DEMO` `GS_EVENT_GAME_INIT` arm load the autotest pilot;
