@@ -385,14 +385,20 @@ static int replay_hook_live()
 	return Replay_active && (Replay_depth == 0) && (GetCurrentThreadId() == Replay_main_thread);
 }
 
+// Only the main thread's own nesting counts.  Other threads (the music streamer's timer reads the clock)
+// never touch the stream, and counting their calls made the main thread skip a recorded read (#27)
 void replay_push()
 {
-	Replay_depth++;
+	if (GetCurrentThreadId() == Replay_main_thread) {
+		Replay_depth++;
+	}
 }
 
 void replay_pop()
 {
-	Replay_depth--;
+	if (GetCurrentThreadId() == Replay_main_thread) {
+		Replay_depth--;
+	}
 }
 
 int replay_should_read()
