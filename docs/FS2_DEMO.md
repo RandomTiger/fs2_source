@@ -201,7 +201,7 @@ demo suite.
 |---|---|---|
 | 1 | **Old table and pilot loading (D).** Done (D-20261018-154908): 35b2c0c, f980292, 6b7a34e, cdb9b9f, efca275. | ManagePilot.cpp, Weapons.cpp, MainHallMenu.cpp, Medals.cpp, HUDconfig.cpp (outside `FS2_DEMO` blocks) |
 | 2 | **Detection flag.** Done (D-20261018-175706): the rule in section 3, logged with its inputs, and the replay check. No header field below GodotPrep: the replay takes the recording's data set from its campaign, else its mission name (demo names in Replay.cpp, retail from the build's built-in list); our own test missions are "unknown" and play on either set. | FreeSpace.cpp/.h, Replay, Autotest |
-| 3 | **Record the demo suite** (compile-time `FS2_DEMO` build, with batch 1). | recordings/demo |
+| 3 | **Record the demo suite.** Done (D-20261018-184854/-184856, D-20261018-194722): the three campaign missions in `recordings/demo`, from the compile-time `FS2_DEMO` build; replay and autotest load their own pilot under `FS2_DEMO`; the missing-bitmap write fixed (#25, review 50). | recordings/demo, FreeSpace.cpp, BmpMan.cpp |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
 | 5 | **Pools and limits (Q/Q!).** Arrays keep retail sizes. Under D-20261017-224829 and Tom's decision (section 6, item 3) the demo runs at retail limits, so these `#ifdef` arms go. Q!: objects 300, weapons 100, sexp nodes 1600, wings 15, arrivals 45/10, collision pairs 3000, ship subobjects 360, subsystem status 125, debris 48. Q: particles 500, heads 1/1. `NUM_MEDALS` becomes 18 storage with a run-time count (pilot files). | Object.h, Weapon.h, SEXP.H, Ship.h, MissionParse.h, ObjCollide.cpp, Ship.cpp, Debris.h, Particle.cpp, MissionMessage.cpp, Scoring.h, BmpMan.h (identical arms) |
 | 6 | **Asteroids (W).** The demo has no asteroid models. Asteroid.cpp is compiled always, `Asteroids_enabled` follows the flag, and the 13 dependent blocks become `if`. | Asteroid.cpp, FreeSpace.cpp (sound env, enable), HUDtarget.cpp x2, HUDtargetbox.cpp, CollideDebrisShip/Weapon.cpp, CollideShipShip.cpp, AiCode.cpp, Beam.cpp, MissionParse.cpp, MissionBrief.cpp (asteroid closeup), KeyControl.cpp (debug key) |
@@ -300,6 +300,27 @@ yet (batches 4 to 8).
   others). It goes away with one exe; until then a demo-build pilot must stay out of a retail build's
   players folder. Checks therefore ran in a scratch copy of the demo VPs (`C:\Games\FS2D_scratch`) with a
   retail-format pilot.
+
+### Batch 3: demo suite recorded (done)
+
+- **Reference configuration:** the demo has the 1024 interface art (854 `2_` interface files against
+  retail's 1,278, including `2_MainHall1`), so the suite runs in retail's reference configuration:
+  1024x768, GR_1024, medium skill (`-at_skill 2`), English, LowMem off, data set demo.
+- **Recordings:** `SPDemo-01`, `SPDemo-02` and `DemoTrain`, 120 s of mission time each at 4x with
+  `-playernpc` (3540, 3414 and 3543 frames). Recorded with the `FS2_DEMO` Release build from a scratch
+  copy of the demo VPs (`C:\Games\FS2D_scratch`), never the demo install, with a copy of a pilot made by the
+  `FS2_DEMO` build (`TomDemo`; the recording carries it). Every run goes through the demo's own start-up
+  arm and its demo tables. No Assert, Error, Int3 or Warning in Release or Debug.
+- **Release and Debug identical:** the first recordings desynced in Debug. A hardware watchpoint traced it
+  to `stars_page_in` paging in the missing `SunGlow01` (handle -1), which wrote over MissionParse's
+  arrival-message timers in the Release layout (#25, review 50). Recorded again from the fixed build:
+  30 of 30 replays match (5 per mission in each build). Two earlier drifts, while the PC was in use, did
+  not come back.
+- **Not yet:** autotest still waits on the demo's sales screens after each mission until the watchdog ends
+  it (exit 5, about 2 minutes a run); getting past them is batch 7. Suite scripts and CI are a later batch.
+- **Build trap, again:** a demo build with its own `IntDir` still rebuilt `code`'s objects in the
+  checkout's default folder, so the tools then linked a demo `code.lib`. Build retail last, with
+  `/t:Rebuild`.
 
 ## 6. Tom's decisions (2026-10-18)
 
