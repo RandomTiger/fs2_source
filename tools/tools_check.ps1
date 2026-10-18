@@ -4,10 +4,11 @@
 #   copies font kerning, Ac starts. GUI tools, from the game folder: FRED opens a mission (File > Open) and saves it, Pofview opens
 #   a model given on its command line, Nebedit opens. HelpEd is built only.
 # GUI checks send keys to the windows they open, so run this on an interactive desktop and leave the keyboard alone.
-# Usage: powershell -File tools\tools_check.ps1 [-Game <FreeSpace 2 folder>] [-NoBuild]
+# Usage: powershell -File tools\tools_check.ps1 [-Game <FreeSpace 2 folder>] [-NoBuild] [-RepoDir <checkout>]
+#   -RepoDir checks another checkout (a lower layer such as VS2022, which has no copy of this script).
 # Exit code 0 when every check passes, 1 otherwise.
-param([string]$Game = $env:PATH_FS2, [switch]$NoBuild)
-$repo = Split-Path $PSScriptRoot -Parent
+param([string]$Game = $env:PATH_FS2, [switch]$NoBuild, [string]$RepoDir)
+$repo = if ($RepoDir) { $RepoDir } else { Split-Path $PSScriptRoot -Parent }
 if (-not $Game -or -not (Test-Path "$Game\Root_fs2.vp")) { Write-Output "FAIL   no FreeSpace 2 folder: set PATH_FS2 or pass -Game"; exit 1 }
 $w = Join-Path $env:TEMP "fs2_tools_check"
 Remove-Item $w -Recurse -Force -ErrorAction SilentlyContinue
