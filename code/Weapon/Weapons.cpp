@@ -471,6 +471,17 @@ void parse_weapon_expl_tbl()
 	int	rval, idx;
 	char base_filename[256] = "";
 
+	// Claude: older data (the FreeSpace 2 demo) has no weapon_expl.tbl.  With no file there are no
+	// entries, as with an empty table, and weapons naming an impact explosion play none.  A file that
+	// is there and does not parse is still an Error.
+	CFILE *expl_fp = cfopen(NOX("weapon_expl.tbl"), "rb");	// Claude
+	if (expl_fp == NULL) {	// Claude
+		mprintf(("No weapon_expl.tbl; no weapon impact explosions\n"));	// Claude
+		Num_weapon_expl = 0;	// Claude
+		return;	// Claude
+	}	// Claude
+	cfclose(expl_fp);	// Claude
+
 	// open localization
 	lcl_ext_open();
 

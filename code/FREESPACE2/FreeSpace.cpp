@@ -989,6 +989,33 @@ fs_builtin_mission *game_find_builtin_mission(char *filename)
 	return NULL;
 }
 
+// Claude: the data set (D-063, D-20261018-175706).  Demo if the cfile index has the demo's campaign file
+// and not retail's; anything else, a mixed folder included, is retail.  Checked once, after cfile_init.
+int Game_data_set = GAME_DATA_SET_RETAIL;
+
+static int game_is_volition_mission(char *filename)
+{
+	fs_builtin_mission *m = game_find_builtin_mission(filename);
+
+	return (m != NULL) && (m->flags & FSB_FROM_VOLITION);
+}
+
+void game_detect_data_set()
+{
+	char line[128];
+	int demo = cf_find_file_location(NOX("demo.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+
+	Game_data_set = (demo && !retail) ? GAME_DATA_SET_DEMO : GAME_DATA_SET_RETAIL;
+	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", (Game_data_set == GAME_DATA_SET_DEMO) ? "demo" : "retail", demo ? "y" : "n", retail ? "y" : "n");
+	mprintf(("%s", line));
+	autotest_note(line);
+	if (demo && retail) {
+		Warning(LOCATION, "Both demo.fc2 and freespace2.fc2 are in the data; running as retail\n");
+	}
+	replay_check_data_set(Game_data_set == GAME_DATA_SET_DEMO, game_is_volition_mission);
+}
+
 int game_get_default_skill_level()
 {
 	return DEFAULT_SKILL_LEVEL;
@@ -1999,6 +2026,7 @@ void game_init()
 	if(cfile_init(whee, Game_CDROM_dir)){			// initialize before calling any cfopen stuff!!!
 		exit(1);
 	}		
+	game_detect_data_set();	// Claude: demo or retail data, before any table is read (D-20261018-175706)
 	e1 = timer_get_milliseconds();
 
 	// time a bunch of cfopens	
@@ -5173,7 +5201,12 @@ void game_process_event( int current_state, int event )
 
 		case GS_EVENT_GAME_INIT:
 	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
+			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
+				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
+			} else {	// Claude
 			gameseq_set_state(GS_STATE_INITIAL_PLAYER_SELECT);
+			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
 			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
