@@ -1739,7 +1739,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 
 								n_slots = cfread_int( fp );
 								subsystemp->turret_gun_sobj = physical_parent;
-								Assert(n_slots < MAX_TFP);		// only MAX_TFP firing points per model_subsystem
+								Assert(n_slots <= MAX_TFP);	// Claude: the array holds MAX_TFP; FS1's freighter03.pof has a turret with 4
 								for (j = 0; j < n_slots; j++ )	{
 									cfread_vector( &subsystemp->turret_firing_point[j], fp );
 								}
