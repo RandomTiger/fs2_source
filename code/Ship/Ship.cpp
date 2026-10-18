@@ -4071,10 +4071,26 @@ static void ghost_load()
 	}
 	fclose(fp);
 }
+#include <time.h>
+extern float flFrametime;
+// Pace the drawing to mission time (FS2_GHOST_PACE, default 1 = real time), so a replay can be watched; it waits
+// in the drawing step only, and replay timing comes from the recording, so logic is untouched.
+static void ghost_pace()
+{
+	static float pace = -1.0f;
+	static clock_t last = 0;
+	if (pace < 0.0f) { char *e = getenv("FS2_GHOST_PACE"); pace = e ? (float)atof(e) : 1.0f; }
+	if (pace <= 0.0f) return;
+	clock_t want = (clock_t)(flFrametime * pace * CLOCKS_PER_SEC);
+	while (last && (clock() - last) < want) { }
+	last = clock();
+}
+
 void ghost_render_all()
 {
 	if (!Ghost_checked) ghost_load();
 	if (!Ghost_n) return;
+	ghost_pace();
 	// for each ship name, the last record at or before the current mission time
 	static int last[MAX_SHIPS];
 	char seen[MAX_SHIPS][NAME_LENGTH];
