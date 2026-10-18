@@ -606,8 +606,8 @@ static char Cf_fs1_mission_extensions[] = ".fs2 .fc2 .ntl .ssv .fsm .fsc";
 static char *Cf_fs2_mission_extensions = NULL;
 
 // Claude: the game asks for missions as .fs2 and campaigns as .fc2, sometimes on a name that already has the
-// FS1 extension (FS1 campaign files list "SM1-01.fsm").  In FS1 data, 1 and the FS1 name in dst if src was
-// one of those; 0 otherwise.
+// FS1 extension (FS1 campaign files list "SM1-01.fsm").  Also FS1's stand-ins for files it lacks.  In FS1
+// data, 1 and the FS1 name in dst if src was one of those; 0 otherwise.
 static int cf_fs1_mission_name( char *src, char *dst )
 {
 	static char *ext[2][2] = { { ".fs2", ".fsm" }, { ".fc2", ".fsc" } };
@@ -624,6 +624,18 @@ static int cf_fs1_mission_name( char *src, char *dst )
 			} else {
 				strcpy( dst + len - 4, ext[i][1] );	// "btm-01.fs2" -> "btm-01.fsm"
 			}
+			return 1;
+		}
+	}
+
+	// files FS1 lacks, and what stands in for them
+	static char *stand_in[][2] = {
+		{ "font03.vf", "font02.vf" },		// the title font
+		{ "debris02.pof", "debris01.pof" },	// debris of a ship vaporized by a beam; FS1 has no beams
+	};
+	for (i=0; i<sizeof(stand_in)/sizeof(stand_in[0]); i++ )	{
+		if ( !stricmp( src, stand_in[i][0] ) ) {
+			strcpy( dst, stand_in[i][1] );
 			return 1;
 		}
 	}

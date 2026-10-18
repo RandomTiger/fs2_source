@@ -1162,6 +1162,9 @@ void read_file_text(char *filename, int mode)
 	cfclose(mf);
 	}	// Claude
 
+	// Claude: FS1 table formats to FS2's (docs/FS1_COMPAT.md)
+	file_len = fs1_table_convert(filename, Mission_text_raw, file_len, MISSION_TEXT_SIZE);
+
 	//	If you hit this assert, it is probably telling you the obvious.  The file
 	//	you are trying to read is truly too large.  Look at *filename to see the file name.
 	Assert(file_len < MISSION_TEXT_SIZE);

@@ -148,6 +148,7 @@
 #include "gamesnd.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 //#define MAX_MEDAL_TYPES 63 // the # of medals which exist so far
 
@@ -354,7 +355,7 @@ void parse_medal_tbl()
 	}
 
 	required_string("#End");
-	Assert( num_medals == NUM_MEDALS );
+	Assert( (num_medals == NUM_MEDALS) || Cfile_fs1_data );	// Claude: FS1 has 16 medals (docs/FS1_COMPAT.md)
 
 	// be sure that the badges kill numbers show up in order
 	for (i = 0; i < MAX_BADGES-1; i++ ) {

@@ -11,4 +11,8 @@
 // stays valid until the next call.
 char *fs1_table_default(char *filename);
 
+// In FS1 data, rewrites an FS1 table's text (len bytes, room for max_len) into the form FS2's parser
+// reads, and returns its new length.  Tables with no converter come back unchanged.
+int fs1_table_convert(char *filename, char *text, int len, int max_len);
+
 #endif
