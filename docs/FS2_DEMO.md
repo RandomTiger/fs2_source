@@ -99,7 +99,57 @@ which leaves retail unchanged by construction. With that, both configurations li
 retail layout. The demo's 16 FS1 medals have no layout in this source, but the demo walls off the
 medals screen (`Barracks.cpp`, `game_feature_not_in_demo_popup`), so no layout is needed.
 
-Nothing has been run against the demo data with a project build yet.
+### First runs of project builds on the demo data (2026-10-18)
+
+Debug builds of FS2Demo (`d4376b0`), both the `FS2_DEMO` build and the retail build, ran under
+autotest (`-window -autotest`) in `C:\Games\Freespace 2 Demo`. The setup followed
+`docs/AUTOTEST.md`, with the exes copied in and `fs2.ini` created on first start. To get past each
+stop and find the next one, two scratch aids were used, and neither was committed:
+- loose converted copies of three demo tables in `Data	ables`: `medals.tbl` with `$Wavefile Base:`,
+  an empty `weapon_expl.tbl` (`#Start` `#End`), and `mainhall.tbl` with `+Music: None`;
+- three `// DIAG` lines:
+  - let the `FS2_DEMO` `GS_EVENT_GAME_INIT` arm load the autotest pilot;
+  - make a scratch pilot when none exists;
+  - name `Int3`'s callers.
+
+Afterwards the tables, exes, logs and scratch pilots were moved out of the demo folder and the DIAG
+lines reverted.
+
+What happened, in order:
+
+1. **Unmodified data, `FS2_DEMO` build:** `Error` at start-up. First `medals.tbl` ("Required token
+   `$Wavefile Base:`"). With that converted, `weapon_expl.tbl` (code 5, file missing). With that
+   supplied, the game started and reached the pilot screen.
+2. **The pilot screen deleted Tom's demo pilot.** The demo exe writes pilot file version 135.
+   `LOWEST_COMPATIBLE_PLAYER_FILE_VERSION` is `CURRENT_PLAYER_FILE_VERSION` (140) in both builds, and
+   `ManagePilot.cpp` calls `delete_pilot_file` on any older pilot. That removed `Tom.plr` and
+   `Tom.demo.csg` with `_unlink` (not recoverable). `Tom.demo.css` survived. The players folder is now
+   backed up before every run, and runs use a scratch pilot of our own.
+3. **The `FS2_DEMO` build never reaches autotest's pilot load.** Its `GS_EVENT_GAME_INIT` arm
+   (`FS2_DEMO || OEM_BUILD`) always goes to the pilot screen, where the retail arm calls
+   `replay_load_pilot`/`autotest_load_pilot`. The watchdog stopped it there (state 38).
+4. **New pilot, `FS2_DEMO` build:** `hud_1.hcf` (the demo's HUD colours) has 37 gauges where the code
+   reads `NUM_HUD_GAUGES` (39). The parse aborts with a warning per missing gauge, and the last two
+   gauges keep their defaults.
+5. **Main hall:** the missing `+Music:` aborts the parse. `main_hall_read_table` has no `setjmp` of its
+   own, so the abort jumps into a stale `parse_abort` buffer and the process died (exit 127, no log
+   line).
+6. **With the three converted tables, `FS2_DEMO` build:** all three campaign missions load and play
+   with no `Assert`, `Int3`, `Warning` or `Error`. That covers `SPDemo-01` and `SPDemo-02` (120 s each,
+   events firing to mission time 120) and `DemoTrain` (120 s). Autotest plays them in the built-in list
+   order (SPDemo-01, SPDemo-02, DemoTrain), not the order in `demo.fc2`. After the last mission the game
+   hangs in `GS_STATE_QUIT_GAME`: the demo upsell screens wait for a key press, and the watchdog ended
+   the run.
+7. **Retail build, same converted tables and a retail-format scratch pilot:** all three missions play.
+   There are two reports each run:
+   - `Assert num_medals == NUM_MEDALS` (16 vs 18, `Medals.cpp`);
+   - one `Int3` in `hud_anim_load` from `brief_init` (`MissionBrief.cpp`), because the demo has no
+     `briefmap.ani` (the briefing fade wall, batch 8).
+
+   With `-at_mission`, the retail build exits normally.
+
+So the static list held. The run added the pilot deletion, the short `hud_1.hcf`, the missing `setjmp`
+in the main hall parse, and two autotest gaps in the `FS2_DEMO` flow (pilot load, upsell wait).
 
 ## 3. Detection rule
 
@@ -149,7 +199,7 @@ demo suite.
 
 | # | Batch | Blocks |
 |---|---|---|
-| 1 | **Data handling (D).** Make the parsers read demo tables: `weapon_expl.tbl` optional, `+Music:` optional, medals `$Wavefile 1/2` or `Base`, medal count from the table. Retail traces must not move. | Weapons.cpp, MainHallMenu.cpp, Medals.cpp (outside `FS2_DEMO` blocks) |
+| 1 | **Old table and pilot loading (D).** Proposed in detail below; awaiting the steward. | ManagePilot.cpp, Weapons.cpp, MainHallMenu.cpp, Medals.cpp, HUDconfig.cpp (outside `FS2_DEMO` blocks) |
 | 2 | **Detection flag.** The rule in section 3, a log line, the recording-header field and the replay check. | FreeSpace.cpp, Replay |
 | 3 | **Record the demo suite** (compile-time `FS2_DEMO` build, with batch 1). | recordings/demo |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
@@ -158,6 +208,47 @@ demo suite.
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
+
+### Batch 1 proposal: old table and pilot loading
+
+Goal: with the unmodified demo install, both builds load every demo table and the demo pilot screen
+without an `Error`, `Assert`, `Int3` or deleted file. On retail data nothing changes: every retail
+recording replays unchanged. All of it is original code outside `FS2_DEMO` blocks, so each item gets a
+fix-or-keep review.
+
+1. **Never delete an older pilot** (`ManagePilot.cpp`: the invalid-signature and too-old paths in the
+   pilot list reader and `read_pilot_file`). An unreadable or older pilot is skipped and logged, and
+   its files are left alone. The same goes for the "Campaign save file too old ... Deleting" paths in
+   `MissionCampaign.cpp`. Reading demo pilots (version 135; `read_stats_block` already has a branch
+   for them) is not in this batch.
+2. **`weapon_expl.tbl` optional** (`Weapons.cpp`): if the file does not exist, there are no weapon
+   explosion entries (`Num_weapon_expl = 0`), as if the table were empty. A file that exists and fails
+   to parse is still an `Error`.
+3. **`mainhall.tbl` `+Music:` optional** (`MainHallMenu.cpp`): if it is absent, the music name is empty
+   and the main hall plays no music (`main_hall_start_music` already handles an unknown name). Give
+   `main_hall_read_table` its own `setjmp` with an `Error`, as the other table readers have, so a parse
+   error is reported instead of jumping into a stale buffer.
+4. **`medals.tbl` old badge sound fields** (`Medals.cpp`): accept `$Wavefile 1:` and `$Wavefile 2:` in
+   place of `$Wavefile Base:`, taking the base name from `$Wavefile 1:` without its `1_` prefix. The
+   demo has no badge voice files, so only the parse matters. **Medal count:** keep the arrays at
+   `NUM_MEDALS` and add a run-time count from the table. The `Assert` becomes count <= `NUM_MEDALS`, and
+   the unused slots stay empty. Pilot files still store `NUM_MEDALS` values.
+5. **Short `.hcf` files** (`HUDconfig.cpp`, `hud_config_color_load`): read gauges until the file ends,
+   at most `NUM_HUD_GAUGES`. The rest keep their defaults, and no warning is given.
+
+Not in batch 1, recorded for later batches:
+- the briefing fade `Int3` (batch 8 wall);
+- the `FS2_DEMO` `GAME_INIT` arm bypassing the autotest and replay pilot load (batch 7, flow);
+- autotest getting past the upsell screens (batch 7, experience);
+- autotest's campaign order.
+
+Checks:
+- Retail build: quick suite (14 custom, `sm1-01`, `sm3-06`) with traces unchanged; `tools_check`.
+- Demo, `FS2_DEMO` Debug: the three campaign missions under autotest on the unmodified demo install,
+  with no `Error`, `Assert`, `Warning` or `Int3` from tables.
+- Retail Debug build on the demo install: the same three missions, with only the briefing `Int3` left.
+- The players folder is backed up before each run, with a scratch pilot only.
+- One commit per item, each with its review in the message.
 
 The rest of D-062's order still comes first (D-063 item 3). This branch merges into `Enhanced` when green
 (D-20261017-223742).
