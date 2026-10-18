@@ -181,6 +181,8 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1Backgrounds` | 7 | FS1's old-style nebula draws again (FS2 had switched it off), coloured from entries 0-19 of `gamepalette1-NN.pcx`. FS1's `$Bitmap: Sun01` backgrounds become `$Sun` (angles from the transposed orientation matrix, scale 20 / distance); `$Light: 0` suns give no light. Size and placement follow FS1's old formulas, not a side-by-side check |
 | `FS1BriefingScreen` | 9 (start) | In FS1 data, `gr_bitmap` skips a bitmap that did not load: FS2's interface overlays FS1 lacks (`Briefwin`, `InfoBox`), whose frames FS1's screen backgrounds already hold. Positions are still FS2's |
 | `FS1DebugNoise` | 4 | Debug runs clean. `icons.tbl`: each FS1 set is written three times, once per species. The context-help bracket checks (the two start-up Int3s) are skipped in FS1 data. `$Weapons Precedence` drops names the table does not define ("Disruptor Missile"). Converter state is reset for each file |
+| `FS1TurretPoints` | 6 | The turret firing-point Assert allows `MAX_TFP` (4), the size of the array; it stopped at 3. FS2's models never have 4; FS1's `freighter03.pof` has a turret with 4 |
+| `FS1Recordings` | - | 25 FS1 recordings, see below |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
 - `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
@@ -189,6 +191,11 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 In Debug, `sm1-01`, `btm-01` and `btm-02` (60 s each) PASS with no Assert, Int3 or warning.
 
 These runs did not use `-playernpc`, so nobody flew the player ship.
+
+**FS1 recordings** (`recordings\fs1`): the main campaign (`freespace.fsc`) without the 5 training missions (`btm-*`) and the 4 that start in red alert (`sm2-06a`, `sm2-10a`, `sm3-05a`, `sm3-09a`; replay does not support red alert). 120 s each, the AI flying the player. Made with `tools\record_autotest.ps1 -Fs1`; `tools\replay_check.ps1` replays them in `PATH_FS1` with the exes found there, after the FS2 recordings.
+- All 25 replay with identical traces in Release and Debug, with no Assert, Int3 or warning. The whole suite, 47 FS2 and 25 FS1 recordings, passed 72 of 72 in 9 minutes.
+- Once, the Release replay of `sm3-06a` desynced at frame 3320 of 3544 (the run asked for `mouse_pos` where the recording has `timer_ms`). Two reruns matched. Not explained yet.
+- The exes must be in the FS1 install. On `FS1Compat` the build puts them there; elsewhere they have to be copied in.
 
 **Known, not yet handled:**
 - Music: FS1's chained normal patterns are cut for now (batch 5 brings them back).
