@@ -954,7 +954,7 @@ typedef struct wing {
 #define STARTING_WING_GAMMA		2
 #define STARTING_WING_ZETA			3
 
-extern wing Wings[MAX_WINGS];
+extern GUARDED_ARRAY(wing, Wings, MAX_WINGS);	// Claude: Debug bounds guard (D-076)
 extern int Starting_wings[MAX_PLAYER_WINGS];
 extern int ai_paused;
 

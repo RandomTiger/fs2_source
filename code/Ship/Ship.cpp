@@ -742,7 +742,7 @@ int	num_wings = 0;
 int	Num_reinforcements = 0;
 GUARDED_ARRAY(ship, Ships, MAX_SHIPS);	// Claude: Debug bounds guard (D-076)
 ship	*Player_ship;
-wing	Wings[MAX_WINGS];
+GUARDED_ARRAY(wing, Wings, MAX_WINGS);	// Claude: Debug bounds guard (D-076)
 int	Starting_wings[MAX_PLAYER_WINGS];  // wings player starts a mission with (-1 = none)
 int	ships_inited = 0;
 
