@@ -117,6 +117,15 @@ typedef struct	{
 	ubyte		filler[60];
 } PCXHeader;
 
+// Claude: true when real_filename fits the MAX_FILENAME_LEN buffer the functions below copy it into, both as
+// given and with its extension replaced by ".pcx". Longer names overflowed the stack (#10).
+static int pcx_filename_fits( char *real_filename )
+{
+	char *dot = strchr( real_filename, '.' );
+	int base = dot ? (int)(dot - real_filename) : (int)strlen( real_filename );
+	return ( (int)strlen( real_filename ) < MAX_FILENAME_LEN ) && ( base + 4 < MAX_FILENAME_LEN );
+}
+
 // reads header information from the PCX file into the bitmap pointer
 int pcx_read_header(char *real_filename, int *w, int *h, ubyte *pal )
 {
@@ -124,6 +133,8 @@ int pcx_read_header(char *real_filename, int *w, int *h, ubyte *pal )
 	CFILE * PCXfile;
 	char filename[MAX_FILENAME_LEN];
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_OPENING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
@@ -173,6 +184,8 @@ int pcx_read_bitmap_8bpp( char * real_filename, ubyte *org_data, ubyte *palette 
 	ubyte *pixdata;
 	char filename[MAX_FILENAME_LEN];
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_OPENING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
@@ -259,6 +272,8 @@ int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data, int bytes_per_
 	ushort bit_16;	
 	ubyte r, g, b, al;
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_OPENING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
@@ -372,6 +387,8 @@ int pcx_read_bitmap_16bpp_aabitmap( char * real_filename, ubyte *org_data )
 	char filename[MAX_FILENAME_LEN];
 	ubyte palette[768];		
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_OPENING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
@@ -467,6 +484,8 @@ int pcx_read_bitmap_16bpp_nondark( char * real_filename, ubyte *org_data )
 	ushort bit_16;	
 	ubyte r, g, b, al;
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_OPENING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
@@ -638,6 +657,8 @@ int pcx_write_bitmap( char * real_filename, int w, int h, ubyte ** row_ptrs, uby
 	FILE * PCXfile;
 	char filename[MAX_FILENAME_LEN];
 		
+	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
+		return PCX_ERROR_WRITING;
 	strcpy( filename, real_filename );
 	char *p = strchr( filename, '.' );
 	if ( p ) *p = 0;
