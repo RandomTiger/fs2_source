@@ -353,12 +353,45 @@ static int fs1_drop_flag(char *line, char *flag)
 // - Swarm missiles.  FS1 marks them with a "Swarm" flag; FS2 reads "$Swarm: <count>" before $LaunchSnd.
 //   FS1 always fired SWARM_DEFAULT_NUM_MISSILES_FIRED (4), so that is the count.
 // - FS1's "No Ship" flag has no FS2 meaning and is dropped.
+// - FS1's $Player Weapon Precedence lists "Disruptor Missile", which its table does not define (FS2 warns and
+//   skips it).  Names the table does not define are left out of the list.
 #define FS1_MAX_SWARM_WEAPONS		32
+#define FS1_MAX_WEAPONS				128
 
 static int Fs1_in_trail;
 static char Fs1_weapon[NAME_LENGTH];						// the weapon being read
 static char Fs1_swarm[FS1_MAX_SWARM_WEAPONS][NAME_LENGTH];	// weapons with FS1's Swarm flag
 static int Fs1_num_swarm;
+static char Fs1_weapons[FS1_MAX_WEAPONS][NAME_LENGTH];	// every weapon the table defines
+static int Fs1_num_weapons;
+static int Fs1_in_precedence;
+
+// removes each quoted name on a precedence list line that the table does not define
+static void fs1_drop_unknown_weapons(char *line)
+{
+	char *open, *close, name[NAME_LENGTH];
+	int i, n, known;
+
+	for (open = strchr(line, '"'); open && ((close = strchr(open + 1, '"')) != NULL); open = strchr(open, '"')) {
+		n = close - open - 1;
+		if (n > NAME_LENGTH - 1) {
+			n = NAME_LENGTH - 1;
+		}
+		memcpy(name, open + 1, n);
+		name[n] = 0;
+		known = 0;
+		for (i = 0; i < Fs1_num_weapons; i++) {
+			if (!stricmp(name, Fs1_weapons[i])) {
+				known = 1;
+			}
+		}
+		if (known) {
+			open = close + 1;
+		} else {
+			memmove(open, close + 1, strlen(close + 1) + 1);
+		}
+	}
+}
 
 static void fs1_weapons_prepare(char *line)
 {
@@ -366,6 +399,9 @@ static void fs1_weapons_prepare(char *line)
 
 	if ((v = fs1_key(line, "$Name:")) != NULL) {
 		fs1_name(v, Fs1_weapon, NAME_LENGTH);
+		if (Fs1_num_weapons < FS1_MAX_WEAPONS) {
+			strcpy(Fs1_weapons[Fs1_num_weapons++], Fs1_weapon);
+		}
 	} else if (fs1_key(line, "$Flags:") && strstr(line, "\"Swarm\"") && (Fs1_num_swarm < FS1_MAX_SWARM_WEAPONS)) {
 		strcpy(Fs1_swarm[Fs1_num_swarm++], Fs1_weapon);
 	}
@@ -375,6 +411,16 @@ static void fs1_weapons_line(char *line)
 {
 	char *v;
 	int i;
+
+	if (fs1_key(line, "$Player Weapon Precedence:")) {
+		Fs1_in_precedence = 1;
+	}
+	if (Fs1_in_precedence) {
+		fs1_drop_unknown_weapons(line);
+		if (strchr(line, ')')) {
+			Fs1_in_precedence = 0;
+		}
+	}
 
 	if ((v = fs1_key(line, "$Name:")) != NULL) {
 		fs1_name(v, Fs1_weapon, NAME_LENGTH);
@@ -540,6 +586,30 @@ static void fs1_mission_line(char *line)
 	fs1_out("%s", line);
 }
 
+// icons.tbl: FS1 gives one set of three animations (regular, fade, highlight) per briefing icon type, in the
+// same type order as FS2's ICON_ defines.  FS2 reads three sets per type, one for each species.  Each FS1
+// set is written out three times.
+static char Fs1_icon_set[3][256];
+static int Fs1_icon_count;
+
+static void fs1_icons_line(char *line)
+{
+	int i;
+
+	if (fs1_key(line, "$Name:")) {
+		strncpy(Fs1_icon_set[Fs1_icon_count], line, 255);
+		Fs1_icon_set[Fs1_icon_count][255] = 0;
+		if (++Fs1_icon_count == 3) {
+			for (i = 0; i < 9; i++) {
+				fs1_out("%s", Fs1_icon_set[i % 3]);
+			}
+			Fs1_icon_count = 0;
+		}
+		return;
+	}
+	fs1_out("%s", line);
+}
+
 typedef struct fs1_converter {
 	char *filename;
 	void (*prepare_fn)(char *line);		// optional first pass, for what a line needs from later in the file
@@ -553,6 +623,7 @@ static fs1_converter Fs1_converters[] = {
 	{ "weapons.tbl",		fs1_weapons_prepare,		fs1_weapons_line },
 	{ "ships.tbl",			fs1_ships_prepare,		fs1_ships_line },
 	{ "asteroid.tbl",		NULL,							fs1_asteroid_line },
+	{ "icons.tbl",			NULL,							fs1_icons_line },
 	{ "*.fsm",				NULL,							fs1_mission_line },		// every FS1 mission
 	{ "*.fs2",				NULL,							fs1_mission_line },		// the same, asked for by its FS2 name (cfile finds the .fsm)
 };
@@ -646,6 +717,9 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	Fs1_bg_floats = -1;
 	Fs1_bg_name[0] = 0;
 	Fs1_bg_distance = 10.0f;
+	Fs1_icon_count = 0;
+	Fs1_num_weapons = 0;
+	Fs1_in_precedence = 0;
 
 	if (conv->prepare_fn) {
 		fs1_each_line(text, len, conv->prepare_fn);
