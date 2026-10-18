@@ -444,6 +444,7 @@
 #include "GrGlide.h"
 #include "GrOpenGL.h"
 #include "GrDirectDraw.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 screen gr_screen;
 
@@ -1118,6 +1119,12 @@ void gr_bitmap(int x, int y)
 	int section_x, section_y;	
 	int x_line, y_line;
 	int w, h;
+
+	// Claude: FS1 data lacks some of FS2's interface overlays (Briefwin, InfoBox...); FS1's screen
+	// backgrounds already hold those frames, so a draw of one that did not load is skipped (docs/FS1_COMPAT.md)
+	if ( Cfile_fs1_data && (gr_screen.current_bitmap < 0) ) {
+		return;
+	}
 
 	// d3d and glide support texture poly shiz
 	if(((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) && Gr_bitmap_poly){		
