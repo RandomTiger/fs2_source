@@ -35,7 +35,7 @@ Add-Event $m @{ Name = 'Start'; Formula = "( when`n   ( true )`n   ( send-messag
 Add-Step $m 'Hostiles' 3 @('( send-message "Beta 1" "Normal" "Engaging" )')
 Add-Step $m 'Flood' 8 @('( send-message "#Command" "Low" "Low 1" )', '( send-message "#Command" "Low" "Low 2" )', '( send-message "Beta 2" "Normal" "Normal 1" )', '( send-message "Beta 3" "Normal" "Normal 2" )', '( send-message "#Command" "High" "High 1" )', '( send-message "#Command" "High" "High 2" )', '( send-random-message "#Command" "Normal" "Low 1" "Low 2" "Normal 1" )')
 Add-Step $m 'List' 4 @('( send-message-list "#Command" "High" "List 1" 0 "Beta 1" "Normal" "List 2" 3000 "#Command" "Low" "List 3" 2000 )')
-Add-Step $m 'Cargo' 8 @('( transfer-cargo "Container" "Poseidon" )', '( exchange-cargo "Poseidon" "Container" )', '( cargo-no-deplete "Container" )')
+Add-Step $m 'Cargo' 8 @('( transfer-cargo "Container" "Poseidon" )', '( exchange-cargo "Poseidon" "Container" )', '( cargo-no-deplete "Poseidon" )')
 Add-Step $m 'Jettison' 5 @('( jettison-cargo-delay "Poseidon" 0 )')
 Add-Step $m 'Invalidate' 5 @('( invalidate-goal "Doomed survives" )', '( add-remove-escort "Isis" 15 )', '( add-remove-escort "Poseidon" 0 )')
 Add-Step $m 'Doom' 5 @('( self-destruct "Doomed" )', '( modify-variable @phase[0] 1 )')
