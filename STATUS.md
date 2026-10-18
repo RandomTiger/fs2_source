@@ -37,7 +37,7 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 - G2 done: branches of five never-defined macros (754 lines).
 - G3 done: 39 `#if 0` blocks cut; 3 multiplayer blocks restored (D-069), since multiplayer stays out of the cut (D-060, D-014).
 - G4 decided by Tom (D-068): FRED, the tools and the software renderer (`GrSoft` and its scanline and blit files) are kept. They are not game code and are excluded from D-060 and from D-062 item 1, which means one renderer in the game build.
-- Tools build and run (D-068): with MFC installed, FRED2, Pofview and Nebedit build, and with the start-up heap fix (#11) they run: FRED opens and saves missions, Pofview opens models, Nebedit edits. Their software views are wireframe only, as in the released source, whose software texture mapper never linked (#13, D-20261018-022937). The VS2022 standard (every project builds and runs, steward with Tom) is being audited from `VS2022` up; the tools build-and-run check joins the quick suite from there.
+- Tools build and run (D-068): with MFC installed, FRED2, Pofview and Nebedit build, and with the start-up heap fix (#11) they run: FRED opens and saves missions, Pofview opens models, Nebedit edits. Their software views are wireframe only, as in the released source, whose software texture mapper never linked (#13, D-20261018-022937). The VS2022 standard (every project builds and runs, steward with Tom) is checked by `tools/tools_check.ps1` (on `RecordPlayback`, 2026-10-18): all nine tool projects build in Release, the command-line tools do their basic job, FRED opens and saves a mission, Pofview opens a model given on its command line (#12 fixed on `VS2022`) and Nebedit opens. Its first run found #22 (Fonttool never set up its heap, review 49). Next: it joins the quick suite.
 - G5 (Glide remnants, D-070): the renderer selection and the launcher-name mapping wait for the demo and build-variant work (`docs/DEMO_CODE.md`).
 - G5 done (D-070): two Glide sites; G6 done (D-071): the Aureal A3D remnants. EAX and DirectSound3D are a live setting and go to the sound backend collapse (D-062 item 2).
 - G2b done (D-072): `#ifndef HARDWARE_ONLY` branches, 1068 lines. They compile in neither the game nor the tools; the proof for FRED is that macro argument until the tools build check runs.
@@ -52,6 +52,7 @@ Tom's decisions, not scheduled:
 - Remove the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites in ship, damage and simulation code) as superseded by RecordPlayback (D-073 (b)).
 
 ## Upcoming feature branches (D-20261017-223742), demo mode authorised after the current queue, starting with a brief (D-20261017-231126); FS1 unscheduled
+Order (Tom, 2026-10-18): the tools check into the quick suite, then the FS2 demo brief, then the audio assessment brief, then the rest of the D-062 order.
 - Demo mode by data detection (D-063): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 - FS1 compatibility (D-064): a branch off `RecordPlayback`, merged into `Enhanced` when green.
 
