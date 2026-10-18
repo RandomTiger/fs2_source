@@ -473,6 +473,9 @@ void hud_lock_reset(float lock_time_scale)
 	Player_ai->current_target_is_locked = 0;
 	Players[Player_num].lock_indicator_visible = 0;
 	Player->target_in_lock_cone = 0;
+	if ( swp->secondary_bank_weapons[swp->current_secondary_bank] < 0 )	// Claude: no secondary, no lock time; read Weapon_info[-1], which gave 0 (#15)
+		Player->lock_time_to_target = 0.0f;
+	else
 	Player->lock_time_to_target = i2fl(wip->min_lock_time*lock_time_scale);
 	Player->current_target_sx = -1;
 	Player->current_target_sy = -1;
