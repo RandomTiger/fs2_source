@@ -3,6 +3,10 @@ Records missions under autotest into recordings\autotest, then replays each in R
 compares the traces.
 
   tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>]
+                            [-RecDir <dir>] [-Extra '<more game parameters>']
+
+-RecDir puts the recordings somewhere other than recordings\autotest (the demo suite: recordings\demo).
+-Extra is added to the recording's command line, for example '-at_pilot TomDemo -at_skill 2'.
 
 Automatic recordings run with -playernpc: the AI flies the player ship. A mission whose notes say
 "autotest: player stays still" is still played with nobody flying the player (the game checks).
@@ -15,12 +19,14 @@ param(
 	[Parameter(Mandatory = $true)][string[]]$Missions,
 	[int]$Time = 120,
 	[switch]$NoPlayerNpc,
-	[string]$GameDir = $env:PATH_FS2
+	[string]$GameDir = $env:PATH_FS2,
+	[string]$RecDir,
+	[string]$Extra = ''
 )
 
 $repo = Split-Path $PSScriptRoot
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
-$rec = Join-Path $repo 'recordings\autotest'
+$rec = if ($RecDir) { $RecDir } else { Join-Path $repo 'recordings\autotest' }
 $out = Join-Path $repo ("replays\record_" + (Get-Date -Format 'yyyyMMdd_HHmm'))
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $rec, $out | Out-Null
@@ -39,7 +45,7 @@ foreach ($m in $Missions) {
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$npc = if ($NoPlayerNpc) { '' } else { ' -playernpc' }
 	$p = Start-Process (Join-Path $GameDir 'FS2vs2022r.exe') -WorkingDirectory $GameDir -Wait -PassThru `
-		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
+		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc $Extra -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$line = "$m ($t s$npc) record exit=$($p.ExitCode) " + (Get-Content (Join-Path $rec "$m.fs2rec.record.log") -Tail 1)
 	foreach ($c in 'r', 'd') {

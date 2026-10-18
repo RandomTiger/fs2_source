@@ -1950,10 +1950,15 @@ void main_hall_read_table()
 {
 	main_hall_defines *m, temp;
 	int count, idx, s_idx, m_idx;
+	int rval;	// Claude
 
 	// read the file in
+	if ((rval = setjmp(parse_abort)) != 0) {	// Claude: the other table readers' pattern; a parse error longjmp'd into a stale buffer
+		Error(LOCATION, "Unable to parse mainhall.tbl!  Code = %i.\n", rval);	// Claude
+	} else {	// Claude
 	read_file_text("mainhall.tbl");
 	reset_parse();
+	}	// Claude
 
 	// go for it
 	count = 0;
@@ -1976,8 +1981,10 @@ void main_hall_read_table()
 			stuff_string(m->bitmap, F_NAME, NULL, MAX_FILENAME_LEN);
 			required_string("+Mask:");
 			stuff_string(m->mask, F_NAME, NULL, MAX_FILENAME_LEN);
-			required_string("+Music:");
-			stuff_string(m->music, F_NAME, NULL, MAX_FILENAME_LEN);
+			m->music[0] = 0;	// Claude: +Music: is optional (older data, the FreeSpace 2 demo); no name, no main hall music
+			if (optional_string("+Music:")) {	// Claude
+				stuff_string(m->music, F_NAME, NULL, MAX_FILENAME_LEN);
+			}	// Claude
 
 			// intercom sounds
 			required_string("+Num Intercom Sounds:");
