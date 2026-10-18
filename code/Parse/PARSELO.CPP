@@ -104,6 +104,7 @@
 #include "encrypt.h"
 #include "localize.h"
 #include "fhash.h"
+#include "Fs1Tables.h"	// Claude: FS1 compatibility
 
 #define	ERROR_LENGTH	64
 #define	RS_MAX_TRIES	5
@@ -1126,14 +1127,19 @@ void read_file_text(char *filename, int mode)
 
 	strcpy(Current_filename, filename);
 	mf = cfopen(filename, "rb", CFILE_NORMAL, mode);
-	if (mf == NULL) {
+	// Claude: FS1 data lacks some tables FS2 reads; data loading supplies their text (docs/FS1_COMPAT.md)
+	char *fs1_text = (mf == NULL) ? fs1_table_default(filename) : NULL;
+	if ((mf == NULL) && (fs1_text == NULL)) {	// Claude: and no FS1 default
 		nprintf(("Error", "Wokka!  Error opening mission.txt!\n"));
 		longjmp(parse_abort, 5);
 	}
 
 	// read the entire file in
-	int file_len = cfilelength(mf);
+	int file_len = fs1_text ? (int)strlen(fs1_text) : cfilelength(mf);	// Claude: FS1 default
 
+	if ( fs1_text ) {	// Claude: built-in text, never encrypted
+		memcpy(Mission_text_raw, fs1_text, file_len);
+	} else {	// Claude
 	// read first 10 bytes to determine if file is encrypted
 	cfread(Mission_text_raw, min(file_len, 10), 1, mf);
 	file_is_encrypted = is_encrpyted(Mission_text_raw);
@@ -1154,6 +1160,7 @@ void read_file_text(char *filename, int mode)
 	}
 
 	cfclose(mf);
+	}	// Claude
 
 	//	If you hit this assert, it is probably telling you the obvious.  The file
 	//	you are trying to read is truly too large.  Look at *filename to see the file name.
