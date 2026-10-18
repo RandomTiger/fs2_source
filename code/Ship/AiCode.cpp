@@ -14475,7 +14475,7 @@ int firing_aspect_seeking_bomb(object *objp)
 
 	bank_index = swp->current_secondary_bank;
 
-	if (bank_index != -1)
+	if ((bank_index != -1) && (bank_index < swp->num_secondary_banks))	// Claude: a ship with no secondary banks still has bank 0 selected, with stale ammo and weapon (#16)
 		if (swp->secondary_bank_ammo[bank_index] > 0) {
 			if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_BOMB) {
 				if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_HOMING_ASPECT) {
