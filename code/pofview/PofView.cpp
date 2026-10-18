@@ -136,6 +136,10 @@ BOOL CPofViewApp::InitInstance()
 	EnableShellOpen();
 	RegisterShellFileTypes(TRUE);
 
+	// Claude: modern MFC adds an opened file to the shell's recent list through COM, which fails fast if COM
+	// is not initialised; File > Open only worked because the file dialog initialises it (#12)
+	CoInitialize(NULL);
+
 	// Parse command line for standard shell commands, DDE, file open
 	CCommandLineInfo cmdInfo;
 	ParseCommandLine(cmdInfo);
@@ -414,5 +418,6 @@ int CPofViewApp::ExitInstance()
 {
 	// TODO: Add your specialized code here and/or call the base class
 	
+	CoUninitialize();	// Claude: matches the CoInitialize in InitInstance (#12)
 	return CWinApp::ExitInstance();
 }
