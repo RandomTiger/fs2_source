@@ -122,6 +122,7 @@ BOOL CPofViewApp::InitInstance()
 	outwnd_init();
 	#endif
 	timer_init();
+	vm_init(16*1024*1024);	// Claude: code.lib's malloc needs the heap; the game, FRED and Ac set it up, Pofview never did (#11)
 	cfile_init(__argv[0]);
 	palette_load_table( "gamepalette1-01" );
 	gr_init(GR_640, GR_SOFTWARE, 8, 640, 480);
