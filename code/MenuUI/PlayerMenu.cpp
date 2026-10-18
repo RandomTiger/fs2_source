@@ -1482,6 +1482,11 @@ void player_tips_popup()
 {
 	int tip, ret;	
 	
+	// Claude: FS1 data has no tips (docs/FS1_COMPAT.md)
+	if(Num_player_tips <= 0){
+		return;
+	}
+
 	// player has disabled tips
 	if((Player != NULL) && !Player->tips){
 		return;
