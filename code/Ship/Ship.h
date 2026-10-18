@@ -960,7 +960,7 @@ extern int ai_paused;
 
 extern int Num_reinforcements;
 extern int Num_ship_types;
-extern ship_info Ship_info[MAX_SHIP_TYPES];
+extern GUARDED_ARRAY(ship_info, Ship_info, MAX_SHIP_TYPES);	// Claude: Debug bounds guard (D-076)
 extern reinforcements Reinforcements[MAX_REINFORCEMENTS];
 
 // structure definition for ship type counts.  Used to give a count of the number of ships

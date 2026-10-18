@@ -764,7 +764,7 @@ int	Player_ship_class;	// needs to be player specific, move to player structure
 ship_obj		Ship_objs[MAX_SHIP_OBJS];		// array used to store ship object indexes
 ship_obj		Ship_obj_list;							// head of linked list of ship_obj structs
 
-ship_info		Ship_info[MAX_SHIP_TYPES];
+GUARDED_ARRAY(ship_info, Ship_info, MAX_SHIP_TYPES);	// Claude: Debug bounds guard (D-076)
 ship_subsys		Ship_subsystems[MAX_SHIP_SUBOBJECTS];
 ship_subsys		ship_subsys_free_list;
 reinforcements	Reinforcements[MAX_REINFORCEMENTS];
