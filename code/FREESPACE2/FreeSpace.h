@@ -362,5 +362,8 @@ int game_hacked_data();
 // show the oem upsell screens (end of campaign, or close of game
 void oem_upsell_show_screens();
 
+// Claude: the demo's sales screens on exit; WinMainSub calls it from FreeSpaceWin32.cpp since the split
+void demo_upsell_show_screens();
+
 #endif			// endif of #ifndef STAMPER_PROGRAM
 #endif 
