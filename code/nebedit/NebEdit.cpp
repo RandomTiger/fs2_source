@@ -367,8 +367,8 @@ void nebula_draw_2d()
 				gr_line(End_pos_x, Orig_pos_y, Orig_pos_x, Orig_pos_y);
 			} else {
 				gr_set_color(0,100,0);
-				for (int i=0;i<num_pts;i++)
-					if (Selected[i]) gr_circle( x[i], y[i], 5);
+				for (int pi=0;pi<num_pts;pi++)	// Claude: was i, which hid the outer local (C4456)
+					if (Selected[pi]) gr_circle( x[pi], y[pi], 5);
 			}
 		} else if ((Vert_mode==0)&&(Current_point>-1)) {
 			gr_set_color(0,100,0);

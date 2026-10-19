@@ -1328,6 +1328,8 @@ static int ComputeNomData(t_Sample*& in, const int deltas[], int& level)
 // esi in
 // ebp data
 
+#pragma warning(push)	// Claude: the assembly below uses ebp as a data register on purpose; kept as retail (C4731, D-20261019-024004)
+#pragma warning(disable: 4731)
 static int ComputeNomDataF(t_Sample*& inp, const int deltas[], int& level)
 {
 #ifndef _WIN64	// Claude: x86 assembly; x64 uses the C version (D-057)
@@ -1395,6 +1397,7 @@ static int ComputeNomDataF(t_Sample*& inp, const int deltas[], int& level)
     return data;
 #endif
 }
+#pragma warning(pop)	// Claude
 
 #define VERIFY_ASM
 

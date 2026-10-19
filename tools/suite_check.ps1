@@ -13,14 +13,15 @@ Each set goes through:
   headless   tools\nodraw_check.ps1 -Headless in Release and Debug (no window, graphics or sound device)
   restart    tools\restart_check.ps1: sm1-01 then sm3-06 in one process, Release and Debug (D-055)
 Then, once per run, tools\tools_check.ps1: every tool project builds in Release and does its basic job. It sends keys
-to FRED, so leave the keyboard alone while it runs (about 3 minutes).
+to FRED, so leave the keyboard alone while it runs (about 3 minutes). Last, tools\warning_check.ps1: every project
+builds in Release and Debug with no warning (D-20261019-024006; about 25 minutes, exes to its own folder).
 
 Usage (PowerShell, from anywhere):
   tools\suite_check.ps1 [-Full] [-Out <dir>] [-GameDir <dir>]
 
 Build Release and Debug first, and don't build or run the game from another session while this runs.
 Results go to <Out>\summary.txt (default replays\suite_<quick|full>_<date-time>), one line per check, then PASS or FAIL.
-About 25 minutes quick, 2.5 hours full.
+About 50 minutes quick, 3 hours full.
 #>
 param(
 	[switch]$Full,
@@ -67,7 +68,13 @@ if ($LASTEXITCODE -or ($last -notmatch '^PASS')) { $failed++ }
 $line = "tools: $last"
 $line | Add-Content $summary
 $line
-$verdict = if ($failed) { "FAIL ($failed of $($checks.Count + 1) checks)" } else { 'PASS' }
+# no compiler, linker or MSBuild warning in any project (tools\warning_check.ps1)
+$last = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'warning_check.ps1') -RepoDir $repo -Out (Join-Path $env:LOCALAPPDATA 'fs2_warning_check') | Select-Object -Last 1
+if ($LASTEXITCODE -or ($last -notmatch '^PASS')) { $failed++ }
+$line = "warnings: $last"
+$line | Add-Content $summary
+$line
+$verdict = if ($failed) { "FAIL ($failed of $($checks.Count + 2) checks)" } else { 'PASS' }
 $verdict | Add-Content $summary
 $verdict
 if ($failed) { exit 1 }

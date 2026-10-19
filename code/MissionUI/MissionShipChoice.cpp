@@ -712,14 +712,14 @@ char *ss_tooltip_handler(char *str)
 		return Ship_info[Selected_ss_class].manufacturer_str;
 
 	} else if (!stricmp(str, NOX("@ship_desc"))) {
-		char *str;
+		char *anim_str;	// Claude: was str, which hid the parameter (C4457)
 		int x, y, w, h;
 
-		str = Ship_info[Selected_ss_class].desc;
-		if (!str)
+		anim_str = Ship_info[Selected_ss_class].desc;
+		if (!anim_str)
 			return NULL;
 
-		gr_get_string_size(&w, &h, str);
+		gr_get_string_size(&w, &h, anim_str);
 		x = SHIP_DESC_X - w / 2;
 		y = SHIP_DESC_Y - h / 2;
 
@@ -727,7 +727,7 @@ char *ss_tooltip_handler(char *str)
 		gr_rect(x - 5, y - 5, w + 10, h + 10);
 
 		gr_set_color_fast(&Color_bright_white);
-		gr_string(x, y, str);
+		gr_string(x, y, anim_str);
 		return NULL;
 	}
 

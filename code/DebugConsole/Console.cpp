@@ -720,9 +720,9 @@ void debug_console( void (*_func)() )
 					last_oldcommand++;
 					strcpy( oldcommand_line[last_oldcommand], command_line);
 				} else {
-					int i;
-					for (i=0; i<last_oldcommand; i++ )	{
-						strcpy( oldcommand_line[i], oldcommand_line[i+1] );
+					int ci;	// Claude: was i, which hid the outer local (C4456)
+					for (ci=0; ci<last_oldcommand; ci++ )	{
+						strcpy( oldcommand_line[ci], oldcommand_line[ci+1] );
 					}
 					strcpy( oldcommand_line[last_oldcommand], command_line);
 				}

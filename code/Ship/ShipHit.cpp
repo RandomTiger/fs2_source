@@ -535,8 +535,8 @@ void do_subobj_destroyed_stuff( ship *ship_p, ship_subsys *subsys, vector* hitpo
 
 		vector temp_vec, center_to_subsys, rand_vec;
 		vm_vec_sub(&center_to_subsys, &g_subobj_pos, &objp->pos);
-		for (int i=0; i<num_fireballs; i++) {
-			if (i==0) {
+		for (int fb_i=0; fb_i<num_fireballs; fb_i++) {	// Claude: was i, which hid the outer local (C4456)
+			if (fb_i==0) {
 				// make first fireball at hitpos
 				if (hitpos) {
 					temp_vec = *hitpos;
@@ -888,7 +888,7 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 	int	i, j;
 	for (j=0; j<count; j++) {
 		float	dist, range;
-		ship_subsys	*subsys;
+		ship_subsys	*hit_subsys;	// Claude: was subsys, which hid the outer local (C4456)
 
 		int	min_index = -1;
 		float	min_dist = 9999999.9f;
@@ -902,7 +902,7 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 		Assert(min_index != -1);
 
 		float	damage_to_apply = 0.0f;
-		subsys = subsys_list[min_index].ptr;
+		hit_subsys = subsys_list[min_index].ptr;
 		range = subsys_list[min_index].range;
 		dist = subsys_list[min_index].dist;
 		subsys_list[min_index].dist = 9999999.9f;	//	Make sure we don't use this one again.
@@ -937,23 +937,23 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 				damage_to_apply *= Skill_level_subsys_damage_scale[Game_skill_level];
 			}
 		
-			subsys->current_hits -= damage_to_apply;
-			ship_p->subsys_info[subsys->system_info->type].current_hits -= damage_to_apply;
+			hit_subsys->current_hits -= damage_to_apply;
+			ship_p->subsys_info[hit_subsys->system_info->type].current_hits -= damage_to_apply;
 			damage_left -= damage_to_apply;		// decrease the damage left to apply to the ship subsystems
 
-			if (subsys->current_hits < 0.0f) {
-				damage_left -= subsys->current_hits;
-				ship_p->subsys_info[subsys->system_info->type].current_hits -= subsys->current_hits;
-				subsys->current_hits = 0.0f;					// set to 0 so repair on subsystem takes immediate effect
+			if (hit_subsys->current_hits < 0.0f) {
+				damage_left -= hit_subsys->current_hits;
+				ship_p->subsys_info[hit_subsys->system_info->type].current_hits -= hit_subsys->current_hits;
+				hit_subsys->current_hits = 0.0f;					// set to 0 so repair on subsystem takes immediate effect
 			}
 
-			if ( ship_p->subsys_info[subsys->system_info->type].current_hits < 0.0f ){
-				ship_p->subsys_info[subsys->system_info->type].current_hits = 0.0f;
+			if ( ship_p->subsys_info[hit_subsys->system_info->type].current_hits < 0.0f ){
+				ship_p->subsys_info[hit_subsys->system_info->type].current_hits = 0.0f;
 			}
 
 			// multiplayer clients never blow up subobj stuff on their own
-			if ( (subsys->current_hits <= 0.0f) && !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK)){
-				do_subobj_destroyed_stuff( ship_p, subsys, hitpos );
+			if ( (hit_subsys->current_hits <= 0.0f) && !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK)){
+				do_subobj_destroyed_stuff( ship_p, hit_subsys, hitpos );
 			}
 
 			if (damage_left <= 0)	{ // no more damage to distribute, so stop checking

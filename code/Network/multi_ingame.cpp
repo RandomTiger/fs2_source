@@ -1269,7 +1269,7 @@ void process_ingame_ships_packet( ubyte *data, header *hinfo )
 
 	// go through the ship obj list and delete everything. YEAH
 	if(!Ingame_ships_deleted){
-		int idx;
+		int ship_idx;	// Claude: was idx, which hid the outer local (C4456)
 
 		// no player object
 		Player_obj = NULL;
@@ -1277,9 +1277,9 @@ void process_ingame_ships_packet( ubyte *data, header *hinfo )
 		Player_ai = NULL;
 
 		// delete all ships
-		for(idx=0; idx<MAX_SHIPS; idx++){
-			if((Ships[idx].objnum >= 0) && (Ships[idx].objnum < MAX_OBJECTS)){
-				obj_delete(Ships[idx].objnum);
+		for(ship_idx=0; ship_idx<MAX_SHIPS; ship_idx++){
+			if((Ships[ship_idx].objnum >= 0) && (Ships[ship_idx].objnum < MAX_OBJECTS)){
+				obj_delete(Ships[ship_idx].objnum);
 			}
 		}
 
@@ -1763,7 +1763,7 @@ void send_ingame_ship_request_packet(int code,int rdata,net_player *pl)
 
 	// if this is a confirm to a player -- send data to the other players in the game telling them
 	if ( (code == INGAME_SR_CONFIRM) && (Net_player->flags & NETINFO_FLAG_AM_MASTER) ) {
-		int i, player_num;
+		int wing_i, player_num;	// Claude: was i, which hid the outer local (C4456)
 
 		player_num = NET_PLAYER_NUM(pl);
 		code = INGAME_PLAYER_CHOICE;
@@ -1771,9 +1771,9 @@ void send_ingame_ship_request_packet(int code,int rdata,net_player *pl)
 		ADD_DATA(code);
 		ADD_DATA(player_num);
 		ADD_DATA(Objects[rdata].net_signature);
-		for (i = 0; i < MAX_PLAYERS; i++ ) {
-			if(MULTI_CONNECTED(Net_players[i]) && (&Net_players[i] != Net_player) && (i != player_num) ) {				
-				multi_io_send_reliable(&Net_players[i], data, packet_size);
+		for (wing_i = 0; wing_i < MAX_PLAYERS; wing_i++ ) {
+			if(MULTI_CONNECTED(Net_players[wing_i]) && (&Net_players[wing_i] != Net_player) && (wing_i != player_num) ) {				
+				multi_io_send_reliable(&Net_players[wing_i], data, packet_size);
 			}
 		}
 	}
@@ -2010,25 +2010,25 @@ void process_ingame_ship_request_packet(ubyte *data, header *hinfo)
 		break;
 
 	case INGAME_PLAYER_CHOICE: {
-		int player_num;
+		int ship_player_num;	// Claude: was player_num, which hid the outer local (C4456)
 		ushort net_signature;
-		object *objp;
+		object *ship_objp;	// Claude: was objp, which hid the outer local (C4456)
 
 		// get the player number of this guy, and the net signature of the ship he has chosen
-		GET_DATA(player_num);
+		GET_DATA(ship_player_num);
 		GET_DATA(net_signature);
 		PACKET_SET_SIZE();
 
-		objp = multi_get_network_object(net_signature);
-		if ( objp == NULL ) {
+		ship_objp = multi_get_network_object(net_signature);
+		if ( ship_objp == NULL ) {
 			// bogus!!!  couldn't find the object -- we cannot connect his -- this is really bad!!!
-			nprintf(("Network", "Couldn't find ship for ingame joiner %s\n", Net_players[player_num].player->callsign));
+			nprintf(("Network", "Couldn't find ship for ingame joiner %s\n", Net_players[ship_player_num].player->callsign));
 			break;
 		}
-		objp->flags |= OF_PLAYER_SHIP;
-		objp->flags &= ~OF_COULD_BE_PLAYER;
+		ship_objp->flags |= OF_PLAYER_SHIP;
+		ship_objp->flags &= ~OF_COULD_BE_PLAYER;
 
-		multi_assign_player_ship( player_num, objp, Ships[objp->instance].ship_info_index );
+		multi_assign_player_ship( ship_player_num, ship_objp, Ships[ship_objp->instance].ship_info_index );
 
 		break;
 		}

@@ -875,11 +875,11 @@ char *wl_tooltip_handler(char *str)
 		return NULL;
 
 	if (!stricmp(str, "@weapon_desc")) {
-		char *str;
+		char *anim_str;	// Claude: was str, which hid the parameter (C4457)
 		int x, y, w, h;
 
-		str = Weapon_info[Selected_wl_class].desc;
-		gr_get_string_size(&w, &h, str);
+		anim_str = Weapon_info[Selected_wl_class].desc;
+		gr_get_string_size(&w, &h, anim_str);
 		x = Wl_weapon_desc_coords[gr_screen.res][0] - w / 2;
 		y = Wl_weapon_desc_coords[gr_screen.res][1] - h / 2;
 
@@ -887,7 +887,7 @@ char *wl_tooltip_handler(char *str)
 		gr_rect(x - 5, y - 5, w + 10, h + 10);
 
 		gr_set_color_fast(&Color_bright_white);
-		gr_string(x, y, str);
+		gr_string(x, y, anim_str);
 		return NULL;
 	}
 

@@ -201,15 +201,15 @@ BOOL orient_editor::OnInitDialog()
 		m_object_index = 0;
 	}
 
-	m_spin1.SetRange(99999, -99999);
+	m_spin1.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
 	m_spin1.SetPos((int) convert(m_position_x));
-	m_spin2.SetRange(99999, -99999);
+	m_spin2.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
 	m_spin2.SetPos((int) convert(m_position_y));
-	m_spin3.SetRange(99999, -99999);
+	m_spin3.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
 	m_spin3.SetPos((int) convert(m_position_z));
-	m_spin4.SetRange(99999, -99999);
-	m_spin5.SetRange(99999, -99999);
-	m_spin6.SetRange(99999, -99999);
+	m_spin4.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
+	m_spin5.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
+	m_spin6.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
 	UpdateData(FALSE);
 	return TRUE;
 }
