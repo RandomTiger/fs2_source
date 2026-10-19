@@ -133,13 +133,48 @@ No game code is changed for these on this branch.
 4. **Upsell and title screens.** FS2's demo code shows `UpSell01`, `UpSell02` and FS2's title screen; the FS1
    demo's are `DemoUpsell1`-`4` and `DemoTitle1`.
 5. **Missing tables.** `cutscenes.tbl` (the cutscene screen, which the demo lacks) and `species.tbl` (only the
-   tech room reads FS1's). Neither screen is reachable in the demo (item 3).
+   tech room reads FS1's). Neither screen is reachable in the demo (item 3), but `cutscenes.tbl` is read at
+   start-up, so FS1 data now gets an empty one when the file is missing (`Parse/Fs1Tables.cpp`, with Tom's OK).
 6. **Smaller tables.** 13 ships and 15 weapons. FS1 retail's table conversion applies; whether anything the
    engine looks up by name (a default ship, a weapon in `sounds.tbl` or `icons.tbl`) is absent is not checked
    yet.
 7. **Missions and campaign.** Same format as FS1 retail, so `FS1Compat`'s mission loading applies; none of the
    four missions has been loaded yet.
 8. **Pilots.** None shipped; the engine makes its own.
+9. **Web cursor.** The demo has no `cursorweb.ani`, which `gr_init` Asserts on in Debug. Its only user
+   (popups with web links) checks for it, so the Assert now allows it missing in FS1 data
+   (`Graphics/2d.cpp`, with Tom's OK).
+
+### First run (2026-10-19)
+
+The demo, extracted by `dataset_fs1_extract` and run by hand with the Debug exe, stopped at start-up on
+`cutscenes.tbl`, then on the web cursor (items 5 and 9, both fixed). Then, under `-autotest` with each of
+`btmdemo`, `demo01` and `demo02a`, every mission stops before loading:
+
+- **Error: "Error loading animation file: thruster03"**, the Shivan thrusters, which the demo does not ship. The
+  original game skipped them in its `DEMO` build (below). This is the stopper.
+- **Warnings**: the demo's own `ships.tbl` lets three ships carry `D-Missile`, `Interceptor` and `Hornet#Weak`,
+  which its `weapons.tbl` does not define (Volition's data; the original demo would have skipped them quietly).
+- **Int3s**, cause not found yet.
+
+### The original `DEMO` blocks
+
+The FreeSpace 1 demo was a separate build (`#define DEMO`); these are the blocks it compiled differently. FS2's
+own demo blocks are `FS2_DEMO`. Per the work spec they are converted by fs2-work-manager's data-set profile
+table; the FS1 demo rows go in after its first batch is in Enhanced (Tom, 2026-10-19). What the FS1 demo needs
+from each:
+
+| block | what the demo build did | needed by the FS1 demo data |
+|---|---|---|
+| `Ship.cpp:3527`, `:3544` | loads 4 thruster anims and 4 glows, not 6 (no Shivan thrusters) | yes: `thruster03`, `thruster03a`, `thrusterglow03`, `thrusterglow03a` are absent; start-up stops without it |
+| `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) |
+| `MissionScreenCommon.cpp:532`, `:1043`, `:1064`, `:1081`, `:1117` | ship and weapon selection disabled; their buttons and keys play a fail sound | probably: the demo has 3 of the loadout screens' pictures; not checked |
+| `MissionShipChoice.cpp:2823`, `:2864`, `MissionWeaponChoice.cpp:1406`, `:1477`, `:1640` | ship and weapon icons and anims not loaded | goes with the line above |
+| `MissionMessage.cpp:1500` | no talking-head anims for messages | yes: the demo has no head anims |
+| `Shield.cpp:178`, `:255` | no shield-hit effect | to check: the demo has no `shieldhit` bitmaps |
+| `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway |
+| `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked |
+| `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment |
 
 ## 6. Not done
 
