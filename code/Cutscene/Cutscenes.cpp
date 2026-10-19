@@ -140,7 +140,7 @@
 #include "FreeSpace.h"
 #include "Key.h"
 #include "BmpMan.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "popup.h"
 #include "MainHallMenu.h"
 #include "AlphaColors.h"
@@ -422,7 +422,7 @@ void cutscenes_screen_play()
 	full_name = cf_add_ext(name, NOX(".mve"));
 
 	// no soup for you!
-	/*
+	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	int rval = movie_play(full_name);
 	if ( !rval ) {
 		char str[256];
@@ -430,7 +430,6 @@ void cutscenes_screen_play()
 		sprintf(str, XSTR( "Unable to play movie %s.", 204), Cutscenes[which_cutscene].name );
 		popup(0, 1, POPUP_OK, str );
 	}
-	*/
 }
 
 void cutscenes_screen_scroll_line_up()
