@@ -218,6 +218,32 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 - Ship select and weapon loadout: fixed by `FS1ShipWeaponScreens`, including the mouse trail there (a screen whose background did not load is not redrawn). Other screens may still lack backgrounds.
 - FS1 does have a map window bitmap, `mapwin.pcx` (549x260, the size of `BriefMap.ani`), with `MapWin01-04` as its edges and `ShipWin01-04` as a frame for the ship screen; `FS1BriefingArt` uses the last frame of `BriefTrans.ani` instead, which looks the same. `ssbutton01-03.ani` animate the selected screen in the top-left common buttons; not played yet.
 - The original FS1 (`FS.exe`, GOG) does not run on this machine (Windows 11): it hangs on a yellow screen, so there are no side-by-side comparison shots.
+
+**Interface survey (2026-10-19, Debug, FS1 data, `sm1-01`).** Every single-player screen was opened from the main hall or during the mission by a temporary autotest tour, and screenshotted. Two problems run through nearly every screen:
+- **Doubled labels.** FS1's art has its labels painted in. FS2 draws its own on top (`UI_WINDOW::add_XSTR`), a few pixels off, so most labels appear twice. One check in FS1 data could drop them all; the briefing, ship and weapon screens already skip theirs.
+- **Buttons at FS2's positions.** Click areas come from FS1's masks, so the art and the click areas disagree. Each screen needs its own FS1 positions, found the way the briefing's were.
+
+| Screen | Other problems |
+|---|---|
+| Pilot select | "FreeSpace 2 / Copyright 1999" drawn over FS1's logo |
+| Barracks | Pilot picture and squad boxes empty |
+| Tech room | FS2's Intelligence tab, which FS1 lacks. Asserts on opening: `buttonHeight > 5` (`SLIDER2.cpp:83`) and a bad bitmap handle (`BmpMan.cpp:1231`); the list's slider art does not fit |
+| Simulator room | Mission list empty |
+| Campaign room | No campaigns listed: the list looks for FS2's `.fc2` files, FS1's are `.fsc` |
+| Load mission | FS2's developer screen; works |
+| Options | Sliders drawn away from FS1's tracks; a grey and white checker block where a slider bitmap is missing |
+| Control config | Right-hand buttons drawn twice over, at both sets of positions |
+| HUD config | The gauge preview is not drawn (only the reticle). Same slider Asserts as the tech room |
+| Medals | Looks right |
+| Credits | **Crashes** (heap corruption, `0xC0000374`) |
+| Cutscenes | Only "Introduction" listed; movies are not played by this source anyway |
+| Gameplay help | Text names FreeSpace 2 ("Quit FreeSpace 2 immediately") |
+| In-game HUD | Works |
+| Pause | Magenta full-screen background |
+| Mission log | Works apart from the labels |
+| Objectives (`GS_EVENT_SHOW_GOALS`) | Stops the game: `Objectives-m` is missing. FS2 may never open this screen |
+| Hotkeys | From a mission: works apart from the labels. From the main hall: crashes (access violation); it is normally only opened from a briefing or a mission |
+| Debriefing | Works apart from the labels and buttons |
 - `gr_bitmap_ex` in Direct3D locks the back buffer in the middle of a frame and hung the game, so it is best avoided.
 
 ---
