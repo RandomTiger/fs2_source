@@ -368,6 +368,32 @@ void parse_medal_tbl()
 	lcl_ext_close();
 }
 
+// Claude: FS1 data: the medals screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md).  FS1 has 16 medals,
+// its rank insignia is region 16 (FS2's is 12, which is FS1's Ace badge), and each medal's bitmap is the size of its mask
+// region, so it goes at the region's corner.  The callsign sits in FS1's name bar; exit is MX_17.  Medal counts a pilot
+// saved past FS1's 16 (one saved under FS2 data) have no FS1 medal and are not shown.
+#define FS1_NUM_MEDALS		16
+static int Medals_rank_region = RANK_MEDAL_REGION;
+
+static void medals_fs1_layout()
+{
+	// medals 0-15, then the rank
+	static int Fs1_coords[FS1_NUM_MEDALS + 1][2] = { {109,73}, {473,73}, {146,149}, {219,150}, {360,150}, {432,149}, {88,242}, {168,242},
+		{247,249}, {328,249}, {406,243}, {483,242}, {341,107}, {373,107}, {405,107}, {287,184}, {209,112} };
+	int i;
+
+	for (i=0; i<=FS1_NUM_MEDALS; i++) {
+		Medal_coords[GR_640][i][0] = Fs1_coords[i][0];
+		Medal_coords[GR_640][i][1] = Fs1_coords[i][1];
+	}
+	Medals_rank_region = FS1_NUM_MEDALS;
+	Medals_callsign_y[GR_640] = 80;
+	Medals_buttons[GR_640][MEDALS_EXIT].filename = "MX_17";
+	Medals_buttons[GR_640][MEDALS_EXIT].x = 561;
+	Medals_buttons[GR_640][MEDALS_EXIT].y = 411;
+	Medals_buttons[GR_640][MEDALS_EXIT].hotspot = 17;
+}
+
 void medal_main_init(player *pl, int mode)
 {
 	int idx;
@@ -387,6 +413,9 @@ void medal_main_init(player *pl, int mode)
 	#endif
 
 	Medals_mode = mode;
+	if ( Cfile_fs1_data ) {	// Claude
+		medals_fs1_layout();
+	}
 
 	snazzy_menu_init();
 	Medals_window.create( 0, 0, gr_screen.max_w, gr_screen.max_h, 0 );	
@@ -583,6 +612,14 @@ int medal_main_do()
 	blit_callsign();	
 	
 	region = snazzy_menu_do((ubyte*)Medals_mask->data, Medals_mask_w, Medals_mask_h, NUM_MEDAL_REGIONS, Medal_regions, &selected);
+	if ( Cfile_fs1_data && (region >= 0) ) {	// Claude: FS1's rank is region 16, its region 12 a medal
+		if (region == Medals_rank_region) {
+			blit_label(Ranks[Player_score->rank].name, &Medal_coords[gr_screen.res][region][0], 1);
+		} else if ( (region < FS1_NUM_MEDALS) && (Player_score->medals[region] > 0) ) {
+			blit_label(Medals[region].name, &Medal_coords[gr_screen.res][region][0], Player_score->medals[region] );
+		}
+		region = -1;
+	}
 	switch (region) {
 		case ESC_PRESSED:
 			if (Medals_mode == MM_NORMAL) {
@@ -660,7 +697,7 @@ void init_medal_bitmaps()
 
 	for (idx=0; idx<NUM_MEDALS; idx++) {
 		Medal_bitmaps[idx] = -1;
-		if (Player_score->medals[idx] > 0) {
+		if ( (Player_score->medals[idx] > 0) && (!Cfile_fs1_data || (idx < FS1_NUM_MEDALS)) ) {	// Claude: FS1 has 16 medals
 			int num_medals;
 			char filename[NAME_LENGTH], base[NAME_LENGTH];
 			
@@ -728,7 +765,7 @@ void blit_medals()
 	int idx;
 
 	for (idx=0; idx<NUM_MEDALS; idx++) {
-		if (Player_score->medals[idx] > 0) {
+		if ( (Player_score->medals[idx] > 0) && (!Cfile_fs1_data || (idx < FS1_NUM_MEDALS)) ) {	// Claude: FS1 has 16 medals
 			gr_set_bitmap(Medal_bitmaps[idx]);
 			gr_bitmap(Medal_coords[gr_screen.res][idx][0], Medal_coords[gr_screen.res][idx][1]);
 		}
@@ -736,6 +773,6 @@ void blit_medals()
 
 	// now blit rank, since that "medal" doesnt get loaded (or drawn) the normal way
 	gr_set_bitmap(Rank_bm);
-	gr_bitmap(Medal_coords[gr_screen.res][RANK_MEDAL_REGION][0], Medal_coords[gr_screen.res][RANK_MEDAL_REGION][1]);
+	gr_bitmap(Medal_coords[gr_screen.res][Medals_rank_region][0], Medal_coords[gr_screen.res][Medals_rank_region][1]);	// Claude: was RANK_MEDAL_REGION
 }
 
