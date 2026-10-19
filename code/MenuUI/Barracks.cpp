@@ -101,6 +101,7 @@
 #include "Mouse.h"
 #include "OsRegistry.h"
 #include "AlphaColors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 void delete_pilot_file( char *pilot_name, int single );		// manage_pilot.cpp
 
@@ -913,10 +914,12 @@ void barracks_init_player_stuff(int mode)
 		Num_pilots = cf_get_file_list_preallocated(MAX_PILOTS, Pilots_arr, Pilots, CF_TYPE_MULTI_PLAYERS, NOX("*.plr"), CF_SORT_TIME);
 
 		// enable squad logo switching
+		if ( !Cfile_fs1_data ) {	// Claude: FS1 has no squad logos
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.enable();
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.unhide();
 		Buttons[gr_screen.res][B_SQUAD_NEXT_BUTTON].button.enable();
 		Buttons[gr_screen.res][B_SQUAD_NEXT_BUTTON].button.unhide();			
+		}	// Claude
 	}
 
 	int ranks[MAX_PILOTS];
@@ -1317,6 +1320,32 @@ void barracks_draw_squad_pic()
 }
 
 // -----------------------------------------------------------------------------
+// Claude: FS1 data: FS1's 640 layout.  Button positions found by matching each BAB_xx's first frame against a
+// retail FS1 screenshot (mean colour error under 4 of 255); the pilot list, pilot picture (Ter0007 matched) and
+// its "n of m" where retail draws them.  FS1 has no squad logos and no BAB_17/18, so those two buttons get no
+// hotspot and stay hidden.  Overwrites the GR_640 entries.
+static void barracks_fs1_layout()
+{
+	static int Fs1_coords[BARRACKS_NUM_BUTTONS][2] = {
+		{12,121}, {322,137}, {346,137}, {570,140}, {591,140}, {562,410}, {469,427}, {447,452}, {365,415}, {0,225},
+		{0,185}, {124,121}, {374,127}, {70,121}, {329,13}, {380,13}, {183,121}, {0,0}, {0,0}
+	};
+	int i;
+
+	for (i=0; i<BARRACKS_NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+	Buttons[GR_640][B_SQUAD_PREV_BUTTON].hotspot = -1;
+	Buttons[GR_640][B_SQUAD_NEXT_BUTTON].hotspot = -1;
+	Barracks_list_coords[GR_640][BARRACKS_X_COORD] = 58;
+	Barracks_list_coords[GR_640][BARRACKS_Y_COORD] = 37;
+	Barracks_image_coords[GR_640][BARRACKS_X_COORD] = 460;
+	Barracks_image_coords[GR_640][BARRACKS_Y_COORD] = 33;
+	Barracks_image_number_coords[GR_640][BARRACKS_X_COORD] = 489;
+	Barracks_image_number_coords[GR_640][BARRACKS_Y_COORD] = 168;
+}
+
 void barracks_init()
 {
 	UI_WINDOW *w = &Ui_window;
@@ -1333,6 +1362,10 @@ void barracks_init()
 	if(Background_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
 		Int3();
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude
+		barracks_fs1_layout();
 	}
 
 	// create buttons
@@ -1386,7 +1419,7 @@ void barracks_init()
 	Cur_pilot = &Players[Player_num];
 
 	// disable squad logo selection buttons in single player
-	if(!(Cur_pilot->flags & PLAYER_FLAGS_IS_MULTI)){
+	if(!(Cur_pilot->flags & PLAYER_FLAGS_IS_MULTI) || Cfile_fs1_data){	// Claude: FS1 has no squad logos
 		// squad logo picture buttons		
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.hide();
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.disable();
