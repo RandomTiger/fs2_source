@@ -463,6 +463,7 @@
 #include "multiui.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 //#define MAX_PRIMARY_BANKS		3
 //#define MAX_SECONDARY_BANKS	3	//	Lowered from 5 to 3 by MK on 3/25/98.  This needs to be <= MAX_WL_SECONDARY or you'll get stack overwrites.
@@ -1122,7 +1123,7 @@ void weapon_buttons_init()
 	}
 
 	// add all xstrs
-	for(i=0; i<WEAPON_SELECT_NUM_TEXT; i++) {
+	for(i=0; (i<WEAPON_SELECT_NUM_TEXT) && !Cfile_fs1_data; i++) {	// Claude: FS1's reset button art has its label
 		Weapon_ui_window.add_XSTR(&Weapon_select_text[gr_screen.res][i]);
 	}
 
@@ -2072,6 +2073,18 @@ void weapon_select_common_init()
 //
 // The Weapon_select_open flag is set to 1 when weapon_select_init() completes successfully
 //
+// Claude: FS1 data: FS1's 640 layout.  The weapon anim (244x214, with the weapon's title, stats and description in
+// it) matched against BRIEF.pcx's background; FS2's overhead ship, icon and button positions already fit FS1's
+// WeaponLoadout-m.pcx.  FS1 has no WLB_08/09; its secondary list scrolls with the ship screen's buttons.  The reset
+// button sits as on the ship screen (ship_select_fs1_layout).  Overwrites the GR_640 entries.
+static void weapon_select_fs1_layout()
+{
+	Wl_weapon_ani_coords[GR_640][0] = 383;		Wl_weapon_ani_coords[GR_640][1] = 116;
+	Buttons[GR_640][WL_BUTTON_SCROLL_SECONDARY_UP].filename = NOX("SSB_08");
+	Buttons[GR_640][WL_BUTTON_SCROLL_SECONDARY_DOWN].filename = NOX("SSB_09");
+	Buttons[GR_640][WL_BUTTON_RESET].x = 559;	Buttons[GR_640][WL_BUTTON_RESET].y = 316;
+}
+
 void weapon_select_init()
 {
 	common_set_interface_palette("WeaponPalette");
@@ -2173,6 +2186,10 @@ void weapon_select_init()
 	snazzy_menu_add_region(&Weapon_select_region[Num_weapon_select_regions++], "",	ICON_SHIP_SECONDARY_2,		0);
 	snazzy_menu_add_region(&Weapon_select_region[Num_weapon_select_regions++], "",	ICON_SHIP_SECONDARY_3,		0);
 
+	if ( Cfile_fs1_data ) {	// Claude
+		weapon_select_fs1_layout();
+	}
+
 	// init common UI
 	Weapon_ui_window.create( 0, 0, gr_screen.max_w, gr_screen.max_h, 0 );
 
@@ -2187,6 +2204,9 @@ void weapon_select_init()
 		Weapon_select_background_bitmap = bm_load(Weapon_select_multi_background_fname[gr_screen.res]);
 	} else {
 		Weapon_select_background_bitmap = bm_load(Weapon_select_background_fname[gr_screen.res]);
+	}
+	if ( Cfile_fs1_data && (Weapon_select_background_bitmap < 0) ) {	// Claude: FS1 has no WeaponLoadout; its screens share Brief's background
+		Weapon_select_background_bitmap = bm_load(NOX("Brief"));
 	}
 
 	Weapon_ui_window.tooltip_handler = wl_tooltip_handler;
@@ -2913,7 +2933,9 @@ void weapon_select_do(float frametime)
 	}
 
 	// render weapon description text
-	wl_render_weapon_desc(frametime);
+	if ( !Cfile_fs1_data ) {	// Claude: FS1's weapon anims carry the title, stats and description
+		wl_render_weapon_desc(frametime);
+	}
 
 	wl_maybe_flash_button();
 
