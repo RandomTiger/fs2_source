@@ -639,7 +639,7 @@ extern void gr_activate(int active);
 
 #define gr_init_color		GR_CALL(gr_screen.gf_init_color)
 #define gr_init_alphacolor2	GR_CALL(gr_screen.gf_init_alphacolor)
-static void gr_init_alphacolor( color * dst, int r, int g, int b, int alpha, int type=AC_TYPE_HUD )
+static inline void gr_init_alphacolor( color * dst, int r, int g, int b, int alpha, int type=AC_TYPE_HUD )	// Claude: was static; inline keeps it out of the warning for every file that does not call it (C4505)
 {
 	gr_init_alphacolor2(dst, r, g, b, alpha, type);
 }
@@ -649,7 +649,7 @@ static void gr_init_alphacolor( color * dst, int r, int g, int b, int alpha, int
 #define gr_set_color_fast	GR_CALL(gr_screen.gf_set_color_fast)
 
 #define gr_set_bitmap2		GR_CALL(gr_screen.gf_set_bitmap)
-static void gr_set_bitmap( int bitmap_num, int alphablend=GR_ALPHABLEND_NONE, int bitbltmode=GR_BITBLT_MODE_NORMAL, float alpha=1.0f, int sx = -1, int sy = -1 )
+static inline void gr_set_bitmap( int bitmap_num, int alphablend=GR_ALPHABLEND_NONE, int bitbltmode=GR_BITBLT_MODE_NORMAL, float alpha=1.0f, int sx = -1, int sy = -1 )	// Claude: was static; inline keeps it out of the warning for every file that does not call it (C4505)
 {
 	gr_set_bitmap2(bitmap_num, alphablend, bitbltmode, alpha, sx, sy);
 }
@@ -701,7 +701,7 @@ static void gr_set_bitmap( int bitmap_num, int alphablend=GR_ALPHABLEND_NONE, in
 #define gr_get_region		GR_CALL(gr_screen.gf_get_region)
 
 #define gr_fog_set2			GR_CALL(gr_screen.gf_fog_set)
-static void gr_fog_set(int fog_mode, int r, int g, int b, float fog_near = -1.0f, float fog_far = -1.0f)
+static inline void gr_fog_set(int fog_mode, int r, int g, int b, float fog_near = -1.0f, float fog_far = -1.0f)	// Claude: was static; inline keeps it out of the warning for every file that does not call it (C4505)
 {
 	gr_fog_set2(fog_mode, r, g, b, fog_near, fog_far);
 }
@@ -715,7 +715,7 @@ static void gr_fog_set(int fog_mode, int r, int g, int b, float fog_near = -1.0f
 #define gr_filter_set		GR_CALL(gr_screen.gf_filter_set)
 
 #define gr_tcache_set2		GR_CALL(gr_screen.gf_tcache_set)
-static int gr_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int fail_on_full = 0, int sx = -1, int sy = -1, int force = 0)
+static inline int gr_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int fail_on_full = 0, int sx = -1, int sy = -1, int force = 0)	// Claude: was static; inline keeps it out of the warning for every file that does not call it (C4505)
 { 
 	return gr_tcache_set2(bitmap_id, bitmap_type, u_scale, v_scale, fail_on_full, sx, sy, force); 
 }
