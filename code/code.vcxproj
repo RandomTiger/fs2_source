@@ -234,6 +234,7 @@
     <ClCompile Include="CFile\CfileArchive.cpp" />
     <ClCompile Include="CFile\CfileList.cpp" />
     <ClCompile Include="CFile\CfileSystem.cpp" />
+    <ClCompile Include="CFile\DataSetInstall.cpp" />
     <ClCompile Include="Cmdline\cmdline.cpp" />
     <ClCompile Include="CMeasure\CMeasure.cpp" />
     <ClCompile Include="ControlConfig\ControlsConfig.cpp" />
@@ -481,6 +482,7 @@
     <ClInclude Include="CFile\cfile.h" />
     <ClInclude Include="CFile\CfileArchive.h" />
     <ClInclude Include="CFile\CfileSystem.h" />
+    <ClInclude Include="CFile\DataSetInstall.h" />
     <ClInclude Include="Cmdline\cmdline.h" />
     <ClInclude Include="CMeasure\CMeasure.h" />
     <ClInclude Include="ControlConfig\ControlsConfig.h" />
