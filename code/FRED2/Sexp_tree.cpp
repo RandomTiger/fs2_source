@@ -3239,7 +3239,7 @@ int sexp_tree::add_default_operator(int op, int argnum)
 
 				// from name get type
 				int temp_type = Sexp_variables[sexp_var_index].type;
-				int type;
+				int type = SEXPT_VALID | SEXPT_STRING;	// Claude: was unset for a variable that is neither number nor string (#73)
 				if (temp_type & SEXP_VARIABLE_NUMBER) {
 					type = SEXPT_VALID | SEXPT_NUMBER;
 				} else if (temp_type & SEXP_VARIABLE_STRING) {
@@ -3903,6 +3903,7 @@ int sexp_tree::get_modify_variable_type()
 		Assert(sexp_var_index != -1);
 	} else {
 		Int3();  // should not be called otherwise
+		return 0;	// Claude: was going on to read Sexp_variables[] with sexp_var_index unset; 0 is the not-a-variable result below (#73)
 	}
 
 	if (Sexp_variables[sexp_var_index].type & SEXP_VARIABLE_NUMBER) {
