@@ -1,0 +1,6 @@
+<!-- The FS2_DEMO build (docs/FS2_DEMO.md): tools\build_demo.ps1 passes this file with /p:ForceImportBeforeCppTargets. -->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemDefinitionGroup>
+    <ClCompile><PreprocessorDefinitions>FS2_DEMO;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+  </ItemDefinitionGroup>
+</Project>
