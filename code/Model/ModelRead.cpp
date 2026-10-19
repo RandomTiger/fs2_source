@@ -2684,6 +2684,7 @@ void submodel_stepped_rotate(model_subsystem *psub, submodel_instance_info *sii)
 	}
 
 	// get base angle
+#pragma warning(suppress: 4703)	// Claude: ang_next can be unset here; kept as retail, fix review 05
 	*ang_next = cur_step * step_size;
 
 	// determine which phase of rotation we're in

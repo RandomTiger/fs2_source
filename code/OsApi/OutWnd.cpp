@@ -356,6 +356,7 @@ void mono_init()
 	OSVERSIONINFO ver;
 	
 	ver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+#pragma warning(suppress: 4996)	// Claude: GetVersionEx kept as retail (the debug mono-monitor check)
 	GetVersionEx(&ver);
 	if ( ver.dwPlatformId == VER_PLATFORM_WIN32_NT )	{
 		mono_found = 0;
