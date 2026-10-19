@@ -120,7 +120,7 @@ BOOL CObjectTree::OnInitDialog()
 
 				int i;
 
-				sprintf( m_title, "%s's subobjects", pDoc->GetTitle() );
+				sprintf( m_title, "%s's subobjects", (LPCSTR)pDoc->GetTitle() );	// Claude: a CString passed to sprintf (#71)
 
 				SetWindowText(m_title);
 						
@@ -150,7 +150,7 @@ BOOL CObjectTree::OnInitDialog()
 				CollapseAll();
 
 			} else {
-				sprintf( m_title, "%s's subobjects", pDoc->GetTitle() );
+				sprintf( m_title, "%s's subobjects", (LPCSTR)pDoc->GetTitle() );	// Claude: a CString passed to sprintf (#71)
 
 				SetWindowText(m_title);
 			}

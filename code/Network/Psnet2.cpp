@@ -2326,7 +2326,7 @@ unsigned int psnet_ras_status()
 
 	for (i = 0; i < num_connections; i++ ) {
 		RASCONNSTATUS status;
-		unsigned long size;
+		unsigned long packet_size_left;	// Claude: was size, which hid the outer local (C4456)
 
 		ml_printf("Connection %d:", i);
 		ml_printf("Entry Name: %s", rasbuffer[i].szEntryName);
@@ -2342,9 +2342,9 @@ unsigned int psnet_ras_status()
 		}
 
 		// get the projection informatiom
-		size = sizeof(projection);
-		projection.dwSize = size;
-		rval = pRasGetProjectionInfo(rasbuffer[i].hrasconn, RASP_PppIp, &projection, &size );
+		packet_size_left = sizeof(projection);
+		projection.dwSize = packet_size_left;
+		rval = pRasGetProjectionInfo(rasbuffer[i].hrasconn, RASP_PppIp, &projection, &packet_size_left );
 		if ( rval != 0 ) {
 			FreeLibrary( ras_handle );
 			return INADDR_ANY;

@@ -1897,9 +1897,9 @@ char *player_generate_death_text( player *player_p, char *death_text )
 			sprintf(death_text, XSTR( "%s was killed by a beam from an unknown source", 1081), player_p->callsign);
 		} else {					
 			// is this from a friendly ship?
-			int ship_index;
-			ship_index = ship_name_lookup(player_p->killer_parent_name, 1);
-			if((ship_index >= 0) && (Player_ship != NULL) && (Player_ship->team == Ships[ship_index].team)){
+			int target_ship_index;	// Claude: was ship_index, which hid the outer local (C4456)
+			target_ship_index = ship_name_lookup(player_p->killer_parent_name, 1);
+			if((target_ship_index >= 0) && (Player_ship != NULL) && (Player_ship->team == Ships[target_ship_index].team)){
 				sprintf(death_text, XSTR( "%s was destroyed by friendly beam fire from %s", 1339), player_p->callsign, player_p->killer_parent_name);
 			} else {
 				sprintf(death_text, XSTR( "%s was destroyed by a beam from %s", 1082), player_p->callsign, player_p->killer_parent_name);

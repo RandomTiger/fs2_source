@@ -1082,14 +1082,14 @@ void grx_flip()
 		int w = gr_screen.clip_width;
 		int h = gr_screen.clip_height;
 
-		HPALETTE hOldPalette = NULL;
+		HPALETTE hPrevPalette = NULL;	// Claude: was hOldPalette, which hid the global (C4459)
 		HDC hdc = GetDC(hwnd);
 
 		if ( hdc )	{
 			t1 = timer_get_fixed_seconds();
 
 			if (hPalette)	{
-				hOldPalette=SelectPalette(hdc,hPalette, FALSE );
+				hPrevPalette=SelectPalette(hdc,hPalette, FALSE );
 				uint nColors = RealizePalette( hdc );
 				nColors;
 				//if (nColors)	mprintf(( "Actually set %d palette colors.\n", nColors ));
@@ -1097,8 +1097,8 @@ void grx_flip()
 
 			BitBlt(hdc,0,0,w,h,hDibDC,x,y,SRCCOPY);
 
-			if ( hOldPalette )	
-				SelectPalette(hdc,hOldPalette, FALSE );
+			if ( hPrevPalette )	
+				SelectPalette(hdc,hPrevPalette, FALSE );
 
 			ReleaseDC( hwnd, hdc );
 
@@ -1121,11 +1121,11 @@ void grx_flip()
 void grx_flip_window(uint _hdc, int x, int y, int w, int h )
 {
 	HDC hdc = (HDC)_hdc;
-	HPALETTE hOldPalette = NULL;
+	HPALETTE hPrevPalette2 = NULL;	// Claude: was hOldPalette, which hid the global (C4459)
 	int min_w, min_h;
 
 	if (hPalette)	{
-		hOldPalette=SelectPalette(hdc,hPalette, FALSE );
+		hPrevPalette2=SelectPalette(hdc,hPalette, FALSE );
 		RealizePalette( hdc );
 	}
 
@@ -1139,8 +1139,8 @@ void grx_flip_window(uint _hdc, int x, int y, int w, int h )
 
 	//StretchBlt( hdc, 0, 0, w, h, hDibDC, 0, 0, 640, 480, SRCCOPY );
 	
-	if ( hOldPalette ){	
-		SelectPalette(hdc,hOldPalette, FALSE );
+	if ( hPrevPalette2 ){	
+		SelectPalette(hdc,hPrevPalette2, FALSE );
 	}
 }
 

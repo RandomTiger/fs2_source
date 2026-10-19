@@ -643,16 +643,16 @@ void UI_INPUTBOX::process(int focus)
 
 							// check to see if we should limit by pixel width
 							if (pixel_limit > -1) {
-								int w;
+								int text_w;	// Claude: was w, which hid the class member (C4458)
 
 								if (flags & UI_INPUTBOX_FLAG_PASSWD) {
-									gr_get_string_size(&w, NULL, passwd_text);									
+									gr_get_string_size(&text_w, NULL, passwd_text);									
 
 								} else {
-									gr_get_string_size(&w, NULL, text);								
+									gr_get_string_size(&text_w, NULL, text);								
 								}
 
-								if (w > pixel_limit) {
+								if (text_w > pixel_limit) {
 									position--;
 									locked = 1;
 									text[position] = 0;

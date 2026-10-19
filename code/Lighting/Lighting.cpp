@@ -738,8 +738,8 @@ ubyte light_apply( vector *pos, vector * norm, float static_light_level )
 
 	if (Detail.lighting==0) {
 		// No static light
-		ubyte l = ubyte(fl2i(static_light_level*255.0f));
-		return l;
+		ubyte lp = ubyte(fl2i(static_light_level*255.0f));	// Claude: was l, which hid the outer local (C4456)
+		return lp;
 	}
 
 	if ( Lighting_off ) return 191;
@@ -804,9 +804,9 @@ ubyte light_apply( vector *pos, vector * norm, float static_light_level )
 				lval += l->intensity*dot;
 			} else if ( dist < l->rad2_squared )	{
 				// dist from 0 to 
-				float n = dist - l->rad1_squared;
+				float ni = dist - l->rad1_squared;	// Claude: was n, which hid the outer local (C4456)
 				float d = l->rad2_squared - l->rad1_squared;
-				float ltmp = (1.0f - n / d )*dot*l->intensity;
+				float ltmp = (1.0f - ni / d )*dot*l->intensity;
 				lval += ltmp;
 			}
 			if ( lval > 1.0f ) {
@@ -827,10 +827,10 @@ void light_apply_rgb( ubyte *param_r, ubyte *param_g, ubyte *param_b, vector *po
 
 	if (Detail.lighting==0) {
 		// No static light
-		ubyte l = ubyte(fl2i(static_light_level*255.0f));
-		*param_r = l;
-		*param_g = l;
-		*param_b = l;
+		ubyte lp2 = ubyte(fl2i(static_light_level*255.0f));	// Claude: was l, which hid the outer local (C4456)
+		*param_r = lp2;
+		*param_g = lp2;
+		*param_b = lp2;
 		return;
 	}
 
@@ -949,9 +949,9 @@ void light_apply_rgb( ubyte *param_r, ubyte *param_g, ubyte *param_b, vector *po
 			} else if ( dist < l->rad2_squared )	{
 				float ratio;
 				// dist from 0 to 
-				float n = dist - l->rad1_squared;
+				float ni2 = dist - l->rad1_squared;	// Claude: was n, which hid the outer local (C4456)
 				float d = l->rad2_squared - l->rad1_squared;
-				ratio = (1.0f - n / d)*dot*l->intensity;
+				ratio = (1.0f - ni2 / d)*dot*l->intensity;
 				ratio *= 0.25f;
 				rval += l->r*ratio;
 				gval += l->g*ratio;

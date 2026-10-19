@@ -171,7 +171,7 @@
 
 // Claude: 64-bit Windows has only a 64-bit time_t. The file formats keep their 32-bit times in int fields
 // (VP index, campaign stats), so x86 is unchanged (D-057)
-#ifndef _WIN64
+#if !defined(_WIN64) && !defined(_USE_32BIT_TIME_T)	// Claude: some projects also define it (C4005)
 #define _USE_32BIT_TIME_T
 #endif
 
