@@ -229,6 +229,7 @@
 #include "Timer.h"
 #include "neb.h"
 #include "beam.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 
 // will display a notification warning message
@@ -469,6 +470,107 @@ int Options_gamma_num_coords[GR_NUM_RESOLUTIONS][4] = {
 		779, 254, 65, 17		// GR_1024
 	}
 };
+
+// Claude: FS1 data: the options tab in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md).  FS1's art and
+// mask numbers differ from FS2's: its sliders are FS1's own UI_DOT_SLIDER (a bar anim whose frame is the setting,
+// with its arrows at x and x + 216), made here in place of FS2's, whose positions they keep in step; its skill
+// level is one 5-frame anim with a hotspot per level.  FS1's volume bars run 0 to 10, FS2's 0 to 9.
+#define OPTIONS_VOLUME_STEPS	(Cfile_fs1_data ? 10.0f : 9.0f)
+#define FS1_NUM_SLIDERS			6		// sound, music, voice, mouse sensitivity, joystick sensitivity, deadzone
+#define FS1_NUM_SKILLS			5
+static UI_DOT_SLIDER Fs1_sliders[FS1_NUM_SLIDERS];
+static UI_BUTTON Fs1_skill_buttons[FS1_NUM_SKILLS];
+static int Fs1_skill_bitmap = -1, Fs1_skill_frames = 0;
+
+static void options_fs1_layout()
+{
+	// options, multi and detail tabs, exit game, controls config, HUD config, accept; voice off/on; mouse off/on; gamma down/up
+	static char *Fs1_names[PLANETS_ON] = { "OP_00", "OP_01", "OP_02", "OP_03", "OP_05", "OP_06", "OP_07", "OPa_58", "OPa_59", "OPa_62", "OPa_63", "OPa_56", "OPa_57" };
+	static int Fs1_coords[PLANETS_ON][3] = { {84,25,0}, {173,25,1}, {256,25,2}, {6,380,3}, {448,335,5}, {541,335,6}, {560,411,7},
+		{39,99,58}, {104,99,59}, {359,274,62}, {424,274,63}, {451,79,56}, {484,79,57} };
+	int i;
+
+	for (i=0; i<PLANETS_ON; i++) {
+		Buttons[GR_640][i].filename = Fs1_names[i];
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+		Buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	Options_gamma_coords[GR_640][OPTIONS_X_COORD] = 377;
+	Options_gamma_coords[GR_640][OPTIONS_Y_COORD] = 117;
+	Options_gamma_coords[GR_640][OPTIONS_W_COORD] = 200;
+	Options_gamma_coords[GR_640][OPTIONS_H_COORD] = 32;
+	Options_gamma_num_coords[GR_640][OPTIONS_X_COORD] = 399;
+	Options_gamma_num_coords[GR_640][OPTIONS_Y_COORD] = 87;
+}
+
+static void options_fs1_sliders_create()
+{
+	// x, y, id (the down arrow's hotspot, or the bar's with no arrows), arrows, highest position
+	static int Fs1_slider_args[FS1_NUM_SLIDERS][5] = { {29,159,8,1,10}, {29,194,16,1,10}, {29,228,19,1,10}, {358,301,64,0,9}, {358,194,60,0,9}, {358,226,61,0,9} };
+	static int Fs1_skill_hotspot_x[FS1_NUM_SKILLS] = { 42, 80, 117, 155, 193 };
+	int i;
+
+	for (i=0; i<NUM_OPTIONS_SLIDERS; i++) {
+		Options_sliders[gr_screen.res][i].slider.hide();		// FS2's keep the values; FS1's draw and take the clicks
+		Options_sliders[gr_screen.res][i].slider.disable();
+	}
+	for (i=0; i<FS1_NUM_SLIDERS; i++) {
+		Fs1_sliders[i].create(&Ui_window, Fs1_slider_args[i][0], Fs1_slider_args[i][1], NOX("OPa_"), Fs1_slider_args[i][2], Fs1_slider_args[i][3], Fs1_slider_args[i][4]);
+	}
+	for (i=0; i<FS1_NUM_SKILLS; i++) {
+		Fs1_skill_buttons[i].create(&Ui_window, "", Fs1_skill_hotspot_x[i], 295, 32, 13, 0, 1);
+		Fs1_skill_buttons[i].link_hotspot(11 + i);
+		Fs1_skill_buttons[i].hide();
+	}
+	Fs1_skill_bitmap = bm_load_animation(NOX("OPa_11"), &Fs1_skill_frames);
+}
+
+// FS2's slider values to FS1's sliders (from_fs2), or FS1's back, with its skill level clicks
+static void options_fs1_sliders_sync(int from_fs2)
+{
+	int i;
+
+	for (i=0; i<FS1_NUM_SLIDERS; i++) {
+		if (from_fs2) {
+			Fs1_sliders[i].pos = Options_sliders[gr_screen.res][i].slider.pos;
+		} else {
+			Options_sliders[gr_screen.res][i].slider.pos = Fs1_sliders[i].pos;
+		}
+	}
+	if (!from_fs2) {
+		for (i=0; i<FS1_NUM_SKILLS; i++) {
+			if (Fs1_skill_buttons[i].pressed()) {
+				if ( ((Game_mode & GM_IN_MISSION) && (!popupdead_is_active())) || (Game_mode & GM_MULTIPLAYER) ) {
+					gamesnd_play_iface(SND_GENERAL_FAIL);
+				} else {
+					Options_sliders[gr_screen.res][OPT_SKILL_SLIDER].slider.pos = i;
+				}
+			}
+		}
+	}
+}
+
+static void options_fs1_sliders_show(int show)
+{
+	int i;
+
+	for (i=0; i<NUM_OPTIONS_SLIDERS; i++) {
+		Options_sliders[gr_screen.res][i].slider.hide();
+		Options_sliders[gr_screen.res][i].slider.disable();
+	}
+	for (i=0; i<FS1_NUM_SLIDERS; i++) {
+		Fs1_sliders[i].enable(show);
+		if (show) {
+			Fs1_sliders[i].unhide();
+		} else {
+			Fs1_sliders[i].hide();
+		}
+	}
+	for (i=0; i<FS1_NUM_SKILLS; i++) {
+		Fs1_skill_buttons[i].enable(show);
+	}
+}
 
 int Options_skills_text_coords[GR_NUM_RESOLUTIONS][4] = {
 	{
@@ -747,6 +849,9 @@ void options_tab_setup(int set_palette)
 	if( ((Game_mode & GM_IN_MISSION) && (!popupdead_is_active())) || (Game_mode & GM_MULTIPLAYER) ){
 		Options_sliders[gr_screen.res][OPT_SKILL_SLIDER].slider.disable();
 		Ui_window.use_hack_to_get_around_stupid_problem_flag = 0;
+	}
+	if ( Cfile_fs1_data && (Fs1_skill_bitmap >= 0) ) {	// Claude: FS1's sliders (made once options_menu_init has run)
+		options_fs1_sliders_show(Tab == OPTIONS_TAB);
 	}
 
 	// do other special processing
@@ -1047,7 +1152,7 @@ void options_sliders_update()
 	// sound slider
 	if (Options_sliders[gr_screen.res][OPT_SOUND_VOLUME_SLIDER].slider.pos != Sound_volume_int) {
 		Sound_volume_int = Options_sliders[gr_screen.res][OPT_SOUND_VOLUME_SLIDER].slider.pos;
-		Master_sound_volume = ((float) (Sound_volume_int) / 9.0f);
+		Master_sound_volume = ((float) (Sound_volume_int) / OPTIONS_VOLUME_STEPS);	// Claude: was 9.0f
 		set_sound_volume();
 		gamesnd_play_iface(SND_USER_SELECT);
 	}
@@ -1055,7 +1160,7 @@ void options_sliders_update()
 	// music slider
 	if (Options_sliders[gr_screen.res][OPT_MUSIC_VOLUME_SLIDER].slider.pos != Music_volume_int) {
 		Music_volume_int = Options_sliders[gr_screen.res][OPT_MUSIC_VOLUME_SLIDER].slider.pos;
-		Master_event_music_volume = ((float) (Music_volume_int) / 9.0f);
+		Master_event_music_volume = ((float) (Music_volume_int) / OPTIONS_VOLUME_STEPS);	// Claude: was 9.0f
 		if (Master_event_music_volume > 0.0f) {
 			event_music_enable();
 		}
@@ -1067,7 +1172,7 @@ void options_sliders_update()
 	// voice slider
 	if (Options_sliders[gr_screen.res][OPT_VOICE_VOLUME_SLIDER].slider.pos != Voice_volume_int) {
 		Voice_volume_int = Options_sliders[gr_screen.res][OPT_VOICE_VOLUME_SLIDER].slider.pos;
-		Master_voice_volume = ((float) (Voice_volume_int) / 9.0f);
+		Master_voice_volume = ((float) (Voice_volume_int) / OPTIONS_VOLUME_STEPS);	// Claude: was 9.0f
 		set_voice_volume();
 		options_play_voice_clip();
 	}
@@ -1141,6 +1246,10 @@ void options_menu_init()
 
 	common_set_interface_palette("InterfacePalette");  // set the interface palette
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
+
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_layout();
+	}
 
 	for (i=0; i<PLANETS_ON; i++) {
 		b = &Buttons[gr_screen.res][i];
@@ -1217,13 +1326,18 @@ void options_menu_init()
 	
 	// setup slider values 
 	// note slider scale is 0-9, while Master_ values calc with 1-10 scale (hence the -1)
-	Sound_volume_int = Options_sliders[gr_screen.res][OPT_SOUND_VOLUME_SLIDER].slider.pos = (int) (Master_sound_volume * 9.0f + 0.5f);
-	Music_volume_int = Options_sliders[gr_screen.res][OPT_MUSIC_VOLUME_SLIDER].slider.pos = (int) (Master_event_music_volume * 9.0f + 0.5f);	
-	Voice_volume_int = Options_sliders[gr_screen.res][OPT_VOICE_VOLUME_SLIDER].slider.pos = (int) (Master_voice_volume * 9.0f + 0.5f);
+	Sound_volume_int = Options_sliders[gr_screen.res][OPT_SOUND_VOLUME_SLIDER].slider.pos = (int) (Master_sound_volume * OPTIONS_VOLUME_STEPS + 0.5f);	// Claude: was 9.0f
+	Music_volume_int = Options_sliders[gr_screen.res][OPT_MUSIC_VOLUME_SLIDER].slider.pos = (int) (Master_event_music_volume * OPTIONS_VOLUME_STEPS + 0.5f);	// Claude: was 9.0f	
+	Voice_volume_int = Options_sliders[gr_screen.res][OPT_VOICE_VOLUME_SLIDER].slider.pos = (int) (Master_voice_volume * OPTIONS_VOLUME_STEPS + 0.5f);	// Claude: was 9.0f
 	Options_sliders[gr_screen.res][OPT_JOY_SENS_SLIDER].slider.pos = Joy_sensitivity;	
 	Options_sliders[gr_screen.res][OPT_JOY_DEADZONE_SLIDER].slider.pos = Dead_zone_size / 5;	
 	Options_sliders[gr_screen.res][OPT_MOUSE_SENS_SLIDER].slider.pos = Mouse_sensitivity;
 	Options_sliders[gr_screen.res][OPT_SKILL_SLIDER].slider.pos = Game_skill_level;
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_sliders_create();
+		options_fs1_sliders_sync(1);
+		options_fs1_sliders_show(Tab == OPTIONS_TAB);
+	}
 
 	Gamma_colors_inited = 0;
 
@@ -1421,6 +1535,9 @@ void options_menu_do_frame(float frametime)
 			options_button_pressed(i);
 	}
 
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_sliders_sync(0);
+	}
 	options_sliders_update();
 
 	// if we're in the multiplayer options tab, get the background bitmap from the options multi module
@@ -1494,7 +1611,15 @@ void options_menu_do_frame(float frametime)
 		x = Options_skills_text_coords[gr_screen.res][OPTIONS_X_COORD];
 		y = Options_skills_text_coords[gr_screen.res][OPTIONS_Y_COORD];
 		gr_set_color_fast(&Color_bright_white);
+		if ( Cfile_fs1_data ) {	// Claude: FS1's skill level anim, and its name left-aligned
+			if ( (Fs1_skill_bitmap >= 0) && (Game_skill_level >= 0) && (Game_skill_level < Fs1_skill_frames) ) {
+				gr_set_bitmap(Fs1_skill_bitmap + Game_skill_level);
+				gr_bitmap(28, 285);
+			}
+			gr_string(46, 328, Skill_level_names(Game_skill_level));
+		} else {	// Claude
 		gr_string(x + (Options_skills_text_coords[gr_screen.res][OPTIONS_W_COORD] / 2) - (w/2), y, Skill_level_names(Game_skill_level));
+		}	// Claude
 	}
 
 	
