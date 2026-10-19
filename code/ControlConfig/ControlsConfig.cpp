@@ -314,6 +314,7 @@
 #include "multiutil.h"
 #include "AlphaColors.h"
 #include "Replay.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 #define NUM_SYSTEM_KEYS			14
 #define NUM_BUTTONS				19
@@ -1511,6 +1512,28 @@ char *control_config_tooltip_handler(char *str)
 	return NULL;
 }
 
+// Claude: FS1 data: the control config screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md).  FS1's CCB_ art
+// and mask numbers are FS2's; only the places differ, found by matching the art against the screenshot.  The list starts
+// lower, under FS1's tab labels, and the conflict text goes in FS1's box.
+static void control_config_fs1_layout()
+{
+	static int Fs1_coords[NUM_BUTTONS][2] = { {34,30}, {121,30}, {176,30}, {254,30}, {598,168}, {598,219}, {13,394}, {57,394}, {168,394},
+		{456,341}, {394,404}, {501,26}, {513,331}, {572,331}, {469,429}, {562,411}, {223,404}, {289,404}, {333,404} };
+	static int Fs1_list[4] = { 32, 84, 198, 232 };
+	static int Fs1_conflict[4] = { 26, 353, 192, 38 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		CC_Buttons[GR_640][i].x = Fs1_coords[i][0];
+		CC_Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+	for (i=0; i<4; i++) {
+		Control_list_coords[GR_640][i] = Fs1_list[i];
+		Conflict_wnd_coords[GR_640][i] = Fs1_conflict[i];
+	}
+	Conflict_warning_coords[GR_640][1] = 359;	// FS1's conflict strip, over clear conflict
+}
+
 void control_config_init()
 {
 	int i;
@@ -1520,6 +1543,9 @@ void control_config_init()
 	for (i=0; i<CCFG_MAX; i++)
 		Control_config_backup[i] = Control_config[i];
 
+	if ( Cfile_fs1_data ) {	// Claude
+		control_config_fs1_layout();
+	}
 	common_set_interface_palette(NOX("ControlConfigPalette"));  // set the interface palette
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Conflict_background_bitmap_mask_fname[gr_screen.res]);
