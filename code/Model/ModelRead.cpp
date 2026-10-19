@@ -2623,6 +2623,7 @@ void model_get_rotating_submodel_axis(vector *model_axis, vector *world_axis, in
 // Does stepped rotation of a submodel
 #pragma warning ( push )
 #pragma warning (disable : 4701)
+#pragma warning (disable : 4703)	// Claude: the pointer form of 4701; ang_next can be unset, kept as retail (fix review 05)
 void submodel_stepped_rotate(model_subsystem *psub, submodel_instance_info *sii)
 {
 	Assert(psub->flags & MSS_FLAG_STEPPED_ROTATE);
@@ -2684,7 +2685,6 @@ void submodel_stepped_rotate(model_subsystem *psub, submodel_instance_info *sii)
 	}
 
 	// get base angle
-#pragma warning(suppress: 4703)	// Claude: ang_next can be unset here; kept as retail, fix review 05
 	*ang_next = cur_step * step_size;
 
 	// determine which phase of rotation we're in
