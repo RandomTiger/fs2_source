@@ -286,6 +286,10 @@ bool game_using_low_mem();
 // lookup the specified filename. return an fs_builtin_mission* if found, NULL otherwise
 fs_builtin_mission *game_find_builtin_mission(char *filename);
 
+// Claude: which data set the game is running on, a DATA_SET_* value from DataSetInstall.h (D-063, D-20261018-175706)
+extern int Game_data_set;
+void game_detect_data_set();
+
 
 
 //================================================================

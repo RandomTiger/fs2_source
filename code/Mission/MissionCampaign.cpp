@@ -937,10 +937,9 @@ void mission_campaign_savefile_load( char *cfilename )
 
 	version = cfread_int( fp );
 	if ( version < CAMPAIGN_FILE_COMPATIBLE_VERSION ) {
-		Warning(LOCATION, "Campaign save file too old -- not compatible.  Deleting file.\nYou can continue from here without trouble\n\n");
+		Warning(LOCATION, "Campaign save file too old -- not compatible.  Not loaded.\nYou can continue from here without trouble\n\n");	// Claude: was "Deleting file." (#23)
 		cfclose( fp );
-		cf_delete( filename, CF_TYPE_SINGLE_PLAYERS );
-		return;
+		return;	// Claude: the file is left as it is; the next campaign save replaces it (#23)
 	}
 
 	// verify that we are loading the correct type of campaign file for the mode that we are in.
@@ -1055,10 +1054,9 @@ void mission_campaign_savefile_load( char *cfilename )
 
 	version = cfread_int( fp );
 	if ( version < CAMPAIGN_STATS_FILE_COMPATIBLE_VERSION ) {
-		Warning(LOCATION, "Campaign save file too old -- not compatible.  Deleting file.\nYou can continue from here without trouble\n\n");
+		Warning(LOCATION, "Campaign save file too old -- not compatible.  Not loaded.\nYou can continue from here without trouble\n\n");	// Claude: was "Deleting file." (#23)
 		cfclose( fp );
-		cf_delete( filename, CF_TYPE_SINGLE_PLAYERS );
-		return;
+		return;	// Claude: the file is left as it is; the next campaign save replaces it (#23)
 	}
 
 	num_stats_blocks = cfread_int( fp );
