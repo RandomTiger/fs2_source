@@ -259,7 +259,8 @@ On `FS1Compat`, `Freespace2.vcxproj` and `Freespace2.vcxproj.user` build into, a
 ### Before merging
 1. Revert the build-target commit on `FS1Compat`: `git revert cebafe2`.
 2. Run `tools\branch_check.ps1`. It reports an error for any layer, local or on origin, whose project files mention `PATH_FS1`.
-3. Merge into Enhanced. If FS1 work goes on afterwards, re-apply the build target with `git revert <the revert commit>`.
+3. Check FS2's menus visually, once the FS1 layout is finished: screenshot every screen on FS2 data with this branch and with `RecordPlayback`, and compare the images. The replays check gameplay only, and every FS1 layout change is meant to leave FS2 data untouched.
+4. Merge into Enhanced. If FS1 work goes on afterwards, re-apply the build target with `git revert <the revert commit>`.
 
 ---
 
