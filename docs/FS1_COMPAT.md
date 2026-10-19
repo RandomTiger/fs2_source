@@ -189,6 +189,7 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1Labels` | 9 | FS1's interface art has its labels painted in, so in FS1 data `UI_WINDOW::add_XSTR` adds none and FS2's labels no longer sit a few pixels off FS1's on every screen. Where a label still shows twice, it is FS1's button art drawn at FS2's position over the copy in the background |
 | `FS1Credits` | 9 | Fixes the credits crash. FS1's `credits.tbl` has no `#end` and no newline after its last line; FS2 reads lines until `#end`, so it read past the end of the text and kept appending to its buffer. In FS1 data the read stops at the end of the text |
 | `FS1Sliders` | 9 | FS1 has no slider art (`slider*`), which FS2's tech room list and HUD config colour sliders load; the missing bitmap set off two Asserts on opening either screen. In FS1 data a slider with no art is created, but neither drawn nor clicked |
+| `FS1Lists` | 9 | File lists asked for by extension (`*.fs2` missions, `*.fc2` campaigns) also take FS1's `.fsm` and `.fsc` in FS1 data, so the campaign room lists FS1's campaigns and the simulator its single missions. The simulator's list loads behind a popup, which `-autotest` cancels, so autotest screenshots show it empty |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
 - `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
@@ -231,8 +232,8 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 | Pilot select | "FreeSpace 2 / Copyright 1999" drawn over FS1's logo |
 | Barracks | Pilot picture and squad boxes empty |
 | Tech room | FS2's Intelligence tab, which FS1 lacks. Asserts on opening: `buttonHeight > 5` (`SLIDER2.cpp:83`) and a bad bitmap handle (`BmpMan.cpp:1231`); the list's slider art does not fit. Asserts fixed by `FS1Sliders` |
-| Simulator room | Mission list empty |
-| Campaign room | No campaigns listed: the list looks for FS2's `.fc2` files, FS1's are `.fsc` |
+| Simulator room | Mission list empty. Fixed by `FS1Lists`: it lists FS1's 33 single missions (Silent Threat's `mdu-*`). `mdu-02`, `mdu-04` and `mdu-07` raise a Warning ("Required token = [#Mission Info]") when the list loads; not looked into yet |
+| Campaign room | No campaigns listed: the list looks for FS2's `.fc2` files, FS1's are `.fsc`. Fixed by `FS1Lists`; the list is drawn at FS2's position, over the title |
 | Load mission | FS2's developer screen; works |
 | Options | Sliders drawn away from FS1's tracks; a grey and white checker block where a slider bitmap is missing |
 | Control config | Right-hand buttons drawn twice over, at both sets of positions |

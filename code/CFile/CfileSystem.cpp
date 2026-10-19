@@ -875,6 +875,11 @@ int cf_matches_spec(char *filespec, char *filename)
 	if (!dst_ext)
 		return 1;
 	
+	// Claude: in FS1 data, lists of .fs2 missions and .fc2 campaigns also take FS1's .fsm and .fsc
+	if ( Cfile_fs1_data && ((!stricmp(src_ext, ".fs2") && !stricmp(dst_ext, ".fsm")) || (!stricmp(src_ext, ".fc2") && !stricmp(dst_ext, ".fsc"))) ) {
+		return 1;
+	}
+
 	return !stricmp(dst_ext, src_ext);
 }
 
