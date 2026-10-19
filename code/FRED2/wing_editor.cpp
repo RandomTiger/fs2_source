@@ -623,7 +623,7 @@ void wing_editor::initialize_data_safe(int full_update)
 		for (i=0; i<Wings[cur_wing].wave_count; i++)
 			ptr->AddString(Ships[Wings[cur_wing].ship_index[i]].ship_name);
 
-		m_threshold_spin.SetRange(0, Wings[cur_wing].wave_count - 1);
+		m_threshold_spin.SetRange(0, (short) (Wings[cur_wing].wave_count - 1));	// Claude: SetRange takes shorts (C4244)
 		for (i=0; i<Num_reinforcements; i++)
 			if (!stricmp(Reinforcements[i].name, Wings[cur_wing].name))
 				break;
@@ -917,7 +917,7 @@ void wing_editor::update_data_safe()
 	if (m_waves < 1) {
 		m_waves = 1;
 		if (!bypass_errors)
-			sprintf(buf, "Number of waves illegal.  Has been set to 1.", (int) m_waves);
+			sprintf(buf, "Number of waves illegal.  Has been set to 1.");	// Claude: the format takes no argument (#71)
 
 		MessageBox(buf);
 	}

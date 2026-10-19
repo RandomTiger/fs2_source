@@ -208,10 +208,10 @@ void WeaponEditorDlg::DoDataExchange(CDataExchange* pDX)
 				m_ammo4 = m_ammo_max4;
 		}
 
-		m_spin1.SetRange(0, m_ammo_max1);
-		m_spin2.SetRange(0, m_ammo_max2);
-		m_spin3.SetRange(0, m_ammo_max3);
-		m_spin4.SetRange(0, m_ammo_max4);
+		m_spin1.SetRange(0, (short) m_ammo_max1);	// Claude: SetRange takes shorts (C4244)
+		m_spin2.SetRange(0, (short) m_ammo_max2);	// Claude: SetRange takes shorts (C4244)
+		m_spin3.SetRange(0, (short) m_ammo_max3);	// Claude: SetRange takes shorts (C4244)
+		m_spin4.SetRange(0, (short) m_ammo_max4);	// Claude: SetRange takes shorts (C4244)
 
 	} else {
 		if (m_ammo1 != BLANK_FIELD)

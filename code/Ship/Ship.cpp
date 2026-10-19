@@ -5250,7 +5250,7 @@ int ship_fire_primary(object * obj, int stream_weapons, int force)
 			if ( obj == Player_obj ) {
 				if ( winfo_p->launch_snd != -1 ) {
 					weapon_info *wip;
-					ship_weapon *swp;
+					ship_weapon *fire_swp;	// Claude: was swp, which hid the outer local (C4456)
 
 					// HACK
 					if(winfo_p->launch_snd == SND_AUTOCANNON_SHOT){
@@ -5260,9 +5260,9 @@ int ship_fire_primary(object * obj, int stream_weapons, int force)
 					}
 	//				snd_play( &Snds[winfo_p->launch_snd] );
 
-					swp = &Player_ship->weapons;
-					if (swp->current_primary_bank >= 0) {
-						wip = &Weapon_info[swp->primary_bank_weapons[swp->current_primary_bank]];
+					fire_swp = &Player_ship->weapons;
+					if (fire_swp->current_primary_bank >= 0) {
+						wip = &Weapon_info[fire_swp->primary_bank_weapons[fire_swp->current_primary_bank]];
 						joy_ff_play_primary_shoot((int) ((wip->armor_factor + wip->shield_factor * 0.2f) * (wip->damage * wip->damage - 7.5f) * 0.45f + 0.6f) * 10 + 2000);
 					}
 				}
@@ -5799,17 +5799,17 @@ int ship_fire_secondary( object *obj, int allow_swarm )
 
 	if ( obj == Player_obj ) {
 		if ( Weapon_info[weapon].launch_snd != -1 ) {
-			weapon_info *wip;
-			ship_weapon *swp;
+			weapon_info *sel_wip;	// Claude: was wip, which hid the outer local (C4456)
+			ship_weapon *sel_swp;	// Claude: was swp, which hid the outer local (C4456)
 
 			snd_play( &Snds[Weapon_info[weapon].launch_snd], 0.0f, 1.0f, SND_PRIORITY_MUST_PLAY );
-			swp = &Player_ship->weapons;
-			if (swp->current_secondary_bank >= 0) {
-				wip = &Weapon_info[swp->secondary_bank_weapons[swp->current_secondary_bank]];
+			sel_swp = &Player_ship->weapons;
+			if (sel_swp->current_secondary_bank >= 0) {
+				sel_wip = &Weapon_info[sel_swp->secondary_bank_weapons[sel_swp->current_secondary_bank]];
 				if (Player_ship->flags & SF_SECONDARY_DUAL_FIRE){
-					joy_ff_play_secondary_shoot((int) (wip->cargo_size * 2.0f));
+					joy_ff_play_secondary_shoot((int) (sel_wip->cargo_size * 2.0f));
 				} else {
-					joy_ff_play_secondary_shoot((int) wip->cargo_size);
+					joy_ff_play_secondary_shoot((int) sel_wip->cargo_size);
 				}
 			}
 		}
@@ -9373,10 +9373,10 @@ void ship_update_artillery_lock()
 
 			HUD_printf("Firing artillery");
 
-			vector temp;
-			vm_vec_unrotate(&temp, &aip->artillery_lock_pos, &Objects[aip->artillery_objnum].orient);
-			vm_vec_add2(&temp, &Objects[aip->artillery_objnum].pos);			
-			ssm_create(&temp, &Objects[so->objnum].pos, 0, NULL);				
+			vector swap_temp;	// Claude: was temp, which hid the outer local (C4456)
+			vm_vec_unrotate(&swap_temp, &aip->artillery_lock_pos, &Objects[aip->artillery_objnum].orient);
+			vm_vec_add2(&swap_temp, &Objects[aip->artillery_objnum].pos);			
+			ssm_create(&swap_temp, &Objects[so->objnum].pos, 0, NULL);				
 
 			// reset the artillery			
 			aip->artillery_lock_time = 0.0f;			

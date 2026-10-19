@@ -537,13 +537,13 @@ void multi_endgame_cleanup()
 
 	// close all open SPX/TCP reliable sockets
 	if(Net_player->flags & NETINFO_FLAG_AM_MASTER){
-		int idx;
+		int net_idx;	// Claude: was idx, which hid the outer local (C4456)
 		// do it for all players, since we're leaving anyway.
-		for(idx=0;idx<MAX_PLAYERS;idx++){
+		for(net_idx=0;net_idx<MAX_PLAYERS;net_idx++){
 			// 6/25/98 -- MWA delete all players from the game
 
-			if ( &Net_players[idx] != Net_player ) {
-				delete_player( idx );
+			if ( &Net_players[net_idx] != Net_player ) {
+				delete_player( net_idx );
 			}			
 		}
 	}	

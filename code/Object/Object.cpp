@@ -1917,7 +1917,7 @@ void obj_client_simulate(float frametime)
 }
 #endif
 
-void obj_observer_move(float flFrametime)
+void obj_observer_move(float frame_time)	// Claude: was flFrametime, which hid the global (C4459)
 {
 	object *objp;
 	float ft;
@@ -1934,9 +1934,9 @@ void obj_observer_move(float flFrametime)
 	objp->last_pos = objp->pos;
 	objp->last_orient = objp->orient;		// save the orientation -- useful in multiplayer.
 
-	ft = flFrametime;
+	ft = frame_time;
 	obj_move_call_physics( objp, ft );
-	obj_move_all_post(objp, flFrametime);
+	obj_move_all_post(objp, frame_time);
    objp->flags &= ~OF_JUST_UPDATED;
 }
 
