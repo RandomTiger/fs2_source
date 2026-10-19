@@ -566,10 +566,10 @@ void multi_pinfo_blit_pilot_image()
 		gr_set_bitmap(Mp_pilot.bitmap);
 
 		// get width and heigh
-		int w, h;
-		bm_get_info(Mp_pilot.bitmap, &w, &h, NULL, NULL, NULL, NULL);
+		int text_w, h;	// Claude: was w, which hid the outer local (C4456)
+		bm_get_info(Mp_pilot.bitmap, &text_w, &h, NULL, NULL, NULL, NULL);
 
-		gr_bitmap(Multi_pinfo_pilot_coords[gr_screen.res][0] + ((Multi_pinfo_pilot_coords[gr_screen.res][2] - w)/2), 
+		gr_bitmap(Multi_pinfo_pilot_coords[gr_screen.res][0] + ((Multi_pinfo_pilot_coords[gr_screen.res][2] - text_w)/2), 
 					 Multi_pinfo_pilot_coords[gr_screen.res][1] + ((Multi_pinfo_pilot_coords[gr_screen.res][3] - h)/2));
 		// g3_draw_2d_poly_bitmap(Multi_pinfo_pilot_coords[gr_screen.res][0], Multi_pinfo_pilot_coords[gr_screen.res][1], Multi_pinfo_pilot_coords[gr_screen.res][2], Multi_pinfo_pilot_coords[gr_screen.res][3]);
 	}
@@ -613,10 +613,10 @@ void multi_pinfo_blit_squadron_logo()
 		// gr_bitmap(MPI_SQUAD_X, MPI_SQUAD_Y);
 
 		// get width and heigh
-		int w, h;
-		bm_get_info(Mp_squad.bitmap, &w, &h, NULL, NULL, NULL, NULL);
+		int stat_w, h;	// Claude: was w, which hid the outer local (C4456)
+		bm_get_info(Mp_squad.bitmap, &stat_w, &h, NULL, NULL, NULL, NULL);
 
-		gr_bitmap(Multi_pinfo_squad_coords[gr_screen.res][0] + ((Multi_pinfo_squad_coords[gr_screen.res][2] - w)/2), 
+		gr_bitmap(Multi_pinfo_squad_coords[gr_screen.res][0] + ((Multi_pinfo_squad_coords[gr_screen.res][2] - stat_w)/2), 
 					 Multi_pinfo_squad_coords[gr_screen.res][1] + ((Multi_pinfo_squad_coords[gr_screen.res][3] - h)/2));
 		// g3_draw_2d_poly_bitmap(Multi_pinfo_squad_coords[gr_screen.res][0], Multi_pinfo_squad_coords[gr_screen.res][1], Multi_pinfo_squad_coords[gr_screen.res][2], Multi_pinfo_squad_coords[gr_screen.res][3]);
 	}

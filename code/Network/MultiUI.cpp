@@ -7162,11 +7162,11 @@ void multi_jw_plist_process()
 	// if the player has clicked somewhere in the player list area
 	if(Multi_jw_plist_select_button.pressed()){
 		short player_id;
-		int player_index;
+		int kick_player_index;	// Claude: was player_index, which hid the outer local (C4456)
 	
 		player_id = multi_jw_get_mouse_id();
-		player_index = find_player_id(player_id);
-		if(player_index != -1){
+		kick_player_index = find_player_id(player_id);
+		if(kick_player_index != -1){
 			Multi_jw_plist_select_id = player_id;
 			Multi_jw_plist_select_flag = 1;
 		}
