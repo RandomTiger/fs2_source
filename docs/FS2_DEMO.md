@@ -322,6 +322,24 @@ yet (batches 4 to 8).
   checkout's default folder, so the tools then linked a demo `code.lib`. Build retail last, with
   `/t:Rebuild`.
 
+### After batch 3 (done)
+
+- **Sales screens** (D-20261018-221703): autotest and replay leave them at once; a demo run ends with
+  exit 0 in 5 to 17 s instead of the watchdog's 2 minutes.
+- **Suite scripts** (D-20261018-221705): `tools/replay_check.ps1 -DemoDir <folder>` (or `DEMO`) replays
+  `recordings/demo` there in Release and Debug; with no demo folder they are SKIP lines.
+- **Data set enumeration** (Tom, 2026-10-18): FS2 retail, FS2 demo, FS1 retail, FS1 demo
+  (`CFile/DataSetInstall.h`); logs say "data set: FS2 demo". Only the FS2 pair is detected.
+- **Installer extraction** (D-20261018-221704, Tom's two additions): our exe next to `fs2demo10.exe`
+  extracts it once into `.\fs2demo\` (own inflater, CRC per file, `.partial` then rename, never into an
+  existing folder) and runs there, with its own `fs2.ini` and pilots. `-dataset fs2demo|fs1demo|retail`
+  chooses; otherwise a replay's recorded set, retail VPs next to the exe, the only set present, or
+  fs2demo. A first start takes about 10 s; the files match the installer's byte for byte and
+  `demo_install.py`'s. The FS1 demo's cab reader is for the FS1 branch.
+- **Replay race** (#27, D-20261018-232002, on RecordPlayback): the music streamer's thread could make
+  the main thread skip a recorded read. Before the fix about 1 demo replay in 10 drifted; after, 60 of 60
+  match.
+
 ## 6. Tom's decisions (2026-10-18)
 
 The open questions from the first version of this brief, as Tom answered them.

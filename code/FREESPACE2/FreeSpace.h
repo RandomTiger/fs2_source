@@ -286,10 +286,9 @@ bool game_using_low_mem();
 // lookup the specified filename. return an fs_builtin_mission* if found, NULL otherwise
 fs_builtin_mission *game_find_builtin_mission(char *filename);
 
-// Claude: which data set the game is running on, retail or the FreeSpace 2 demo (D-063, D-20261018-175706)
-#define GAME_DATA_SET_RETAIL		0
-#define GAME_DATA_SET_DEMO			1
+// Claude: which data set the game is running on, a DATA_SET_* value from DataSetInstall.h (D-063, D-20261018-175706)
 extern int Game_data_set;
+int game_is_volition_mission(char *filename);	// Claude: a Volition mission in this build's built-in list
 void game_detect_data_set();
 
 

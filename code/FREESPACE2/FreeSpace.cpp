@@ -555,6 +555,7 @@
 #include "Encrypt.h"
 #include "Demo.h"
 #include "Replay.h"
+#include "DataSetInstall.h"	// Claude
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -994,10 +995,10 @@ fs_builtin_mission *game_find_builtin_mission(char *filename)
 }
 
 // Claude: the data set (D-063, D-20261018-175706).  Demo if the cfile index has the demo's campaign file
-// and not retail's; anything else, a mixed folder included, is retail.  Checked once, after cfile_init.
-int Game_data_set = GAME_DATA_SET_RETAIL;
+// and not retail's; anything else, a mixed folder included, is FS2 retail.  Checked once, after cfile_init.
+int Game_data_set = DATA_SET_FS2_RETAIL;
 
-static int game_is_volition_mission(char *filename)
+int game_is_volition_mission(char *filename)	// Claude: the Windows host passes it to the replay
 {
 	fs_builtin_mission *m = game_find_builtin_mission(filename);
 
@@ -1010,14 +1011,14 @@ void game_detect_data_set()
 	int demo = cf_find_file_location(NOX("demo.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
 	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
 
-	Game_data_set = (demo && !retail) ? GAME_DATA_SET_DEMO : GAME_DATA_SET_RETAIL;
-	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", (Game_data_set == GAME_DATA_SET_DEMO) ? "demo" : "retail", demo ? "y" : "n", retail ? "y" : "n");
+	Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;	// only the FreeSpace 2 pair so far
+	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", data_set_name(Game_data_set), demo ? "y" : "n", retail ? "y" : "n");
 	mprintf(("%s", line));
 	autotest_note(line);
 	if (demo && retail) {
 		Warning(LOCATION, "Both demo.fc2 and freespace2.fc2 are in the data; running as retail\n");
 	}
-	replay_check_data_set(Game_data_set == GAME_DATA_SET_DEMO, game_is_volition_mission);
+	replay_check_data_set(Game_data_set, game_is_volition_mission);
 }
 
 int game_get_default_skill_level()
@@ -7513,6 +7514,13 @@ void demo_upsell_show_screens()
 {
 	int current_time, k;
 	int done = 0;
+	int at_on, at_time, at_speed;	// Claude
+
+	// Claude: autotest and replay leave the sales screens straight away; a player still sees them, as shipped (D-20261018-221703)
+	autotest_get_settings(&at_on, &at_time, &at_speed);	// Claude
+	if (at_on || (Replay_mode == REPLAY_PLAY)) {	// Claude
+		return;	// Claude
+	}	// Claude
 
 	if ( !Demo_upsell_bitmaps_loaded ) {
 		demo_upsell_load_bitmaps();
@@ -7825,6 +7833,16 @@ int game_host_init(char *szCmdLine, char *root_dir)
 	os_config_set_dir(Game_root_dir);	// Claude: fs2.ini at the host root (D-056)
 
 	parse_cmdline(szCmdLine);	
+	{	// Claude: the data set folder, made from a demo installer on the first start, becomes the root; everything after this reads and writes there (D-20261018-221704)
+		char ds_dir[1024], ds_err[512];	// Claude
+		if (dataset_select_folder(Game_root_dir, Cmdline_dataset, replay_peek_data_set(game_is_volition_mission), ds_dir, sizeof(ds_dir), ds_err, sizeof(ds_err))) {	// Claude
+			Error(LOCATION, "%s", ds_err);	// Claude
+			return 0;	// Claude
+		}	// Claude
+		strncpy(Game_root_dir, ds_dir, sizeof(Game_root_dir)-1);	// Claude
+		os_config_set_dir(Game_root_dir);	// Claude
+		cfile_chdir(ds_dir);	// Claude
+	}	// Claude
 	replay_startup();
 
 #ifdef STANDALONE_ONLY_BUILD

@@ -51,7 +51,7 @@ Tom's decisions, not scheduled:
 - Textured tool views before FRED moves to Godot: revive the 8-bit software texture path for the tools (reopens part of G2b) or write a 32-bit one; costed on issue #13 (D-20261018-022937).
 - Decided: 16-bit colour stays (D-20261017-231123); the renderer collapse keeps it and the GR_640 UI art.
 - Decided: both sound backends stay until an audio assessment method exists, scripted listening situations per API (D-20261017-231124).
-- Remove the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites in ship, damage and simulation code) as superseded by RecordPlayback (D-073 (b)).
+- On hold (Tom, 2026-10-18): removing the `.fsd` demo recorder (`Demo.cpp`, `Demo.h` and 29 `GM_DEMO_*` sites; D-073 (b)). Tom wants to know what Volition used it for first; backlog issue #70.
 
 ## Upcoming feature branches (D-20261017-223742), demo mode authorised after the current queue, starting with a brief (D-20261017-231126); FS1 unscheduled
 Order (Tom, 2026-10-18): the tools check into the quick suite, then the FS2 demo brief, then the audio assessment brief, then the rest of the D-062 order.
@@ -66,7 +66,6 @@ Order (Tom, 2026-10-18): the tools check into the quick suite, then the FS2 demo
 - **Loading optimisations.** `stars_page_in` pages in every starfield bitmap and every sun and glow for every level, not just the ones the mission uses. First a survey of what level loading pages in and how long it takes, then the fixes; nothing that changes what a mission plays.
 
 ## Open items
-- SM1-07 hand-played recording: Tom's to re-record (D-011); in `TODO.md`.
 
 ## What the port needs from the C++ side
 Both the PrePort backlog and the GodotPrep plan. Background for each is in `docs/PREPORT.md`.
