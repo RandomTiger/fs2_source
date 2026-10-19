@@ -1494,17 +1494,17 @@ void hud_target_missile(object *source_obj, int next_flag)
 
 	if ( !target_found ) {
 	// if no bomb is found, search for bombers
-		ship_obj *start, *so;
+		ship_obj *start_so, *so;	// Claude: was start, which hid the outer local (C4456)
 
 		extern ship_obj *Ship_objs;
 		if ( (aip->target_objnum != -1) && (Objects[aip->target_objnum].type == OBJ_SHIP) && (Ship_info[Ships[Objects[aip->target_objnum].instance].ship_info_index].flags & SIF_BOMBER) ) {
 			int index = Ships[Objects[aip->target_objnum].instance].ship_list_index;
-			start = get_ship_obj_ptr_from_index(index);
+			start_so = get_ship_obj_ptr_from_index(index);
 		} else {
-			start = GET_FIRST(&Ship_obj_list);
+			start_so = GET_FIRST(&Ship_obj_list);
 		}
 
-		for (so=advance_ship(start, next_flag); so!=start; so=advance_ship(so, next_flag)) {
+		for (so=advance_ship(start_so, next_flag); so!=start_so; so=advance_ship(so, next_flag)) {
 			object *ship_obj = &Objects[so->objnum];
 
 			// don't look at header
@@ -3943,10 +3943,10 @@ void hud_show_lead_indicator(vector *target_world_pos)
 	srange = ship_get_secondary_weapon_range(Player_ship);
 
 	if ( swp->current_secondary_bank >= 0 ) {
-		weapon_info	*wip;
+		weapon_info	*bank_wip;	// Claude: was wip, which hid the outer local (C4456)
 		int bank = swp->current_secondary_bank;
-		wip = &Weapon_info[swp->secondary_bank_weapons[bank]];
-		if ( wip->wi_flags & WIF_HOMING_ASPECT ) {
+		bank_wip = &Weapon_info[swp->secondary_bank_weapons[bank]];
+		if ( bank_wip->wi_flags & WIF_HOMING_ASPECT ) {
 			if ( !Player->target_in_lock_cone ) {
 				srange = -1.0f;
 			}
