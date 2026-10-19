@@ -201,7 +201,7 @@ static void fs1_mainhall_tbl()
 				fs1_line("+Door pan: %.2f", (Fs1_hall_doors[hall][i].cx - 320) / 320.0f);
 			}
 
-			fs1_line("+Tooltip Y: %d", res ? 755 : 469);
+			fs1_line("+Tooltip Y: %d", res ? 755 : 456);	// where retail FS1 draws its tooltips
 		}
 	}
 	fs1_line("#end");
