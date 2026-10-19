@@ -51,6 +51,7 @@ int Os_reg_inited = 0;
 #define OS_INI_MISSING			"<missing>"
 
 static char Os_ini_file[MAX_PATH] = "";
+static int Os_ini_from_cmdline = 0;	// Claude: -ini named the file; the root folder no longer chooses it
 static int Os_ini_active = 0;
 
 static char *os_ini_section( char *section )
@@ -111,12 +112,16 @@ static void os_ini_create()
 void os_config_set_ini( char *file )
 {
 	GetFullPathName( file, MAX_PATH, Os_ini_file, NULL );
+	Os_ini_from_cmdline = 1;
 }
 
 // Claude: game_host_init. fs2.ini in the root the host gives, instead of the current directory (D-056).
 // -ini, read after this by parse_cmdline, still names another file.
 void os_config_set_dir( char *dir )
 {
+	if ( Os_ini_from_cmdline ) {	// the data set folder, chosen after parse_cmdline, used to replace the -ini file
+		return;
+	}
 	_snprintf( Os_ini_file, MAX_PATH - 1, "%s\\%s", dir, OS_INI_DEFAULT_FILE );
 	Os_ini_file[MAX_PATH - 1] = 0;
 }
