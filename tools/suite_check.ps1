@@ -6,6 +6,8 @@ The PrePort suite (decision D-042): every check over one set of recordings.
   -Full            every recording. Run once a day and before a branch is called done; note the date and the
                    result in STATUS.md, or it did not happen.
 
+First, tools\build_demo.ps1 builds the FS2_DEMO exe into FS2DEMO_TEST (SKIP without it); the demo set
+(recordings\demo) is in the quick set and replays there.
 Each set goes through:
   replay     tools\replay_check.ps1 in Release and Debug, with sm1-01 and sm3-06 also compared across the builds
   nodraw     tools\nodraw_check.ps1, Release
@@ -42,6 +44,12 @@ if (-not $Full) {
 }
 $m = @()
 if ($missions) { $m = @('-Missions', ($missions -join ',')) }
+# the replay check also takes the demo set, which it runs in FS2DEMO_TEST; the other checks are retail only
+$mReplay = $m
+if ($missions) {
+	$demo = @(Get-ChildItem (Join-Path $repo 'recordings\demo') -Filter '*.fs2rec' -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName })
+	if ($demo) { $mReplay = @('-Missions', (($missions + $demo) -join ',')) }
+}
 
 $checks = @(
 	@{ Name = 'replay';     Script = 'replay_check.ps1';      Args = @('-Configs', 'r,d', '-CrossCheck', 'sm1-01,sm3-06') },
@@ -54,8 +62,19 @@ $checks = @(
 
 "Suite ($set), $(Get-Date -Format 'yyyy-MM-dd HH:mm'), $(if ($missions) { $missions.Count } else { 'all' }) recordings" | Set-Content $summary
 $failed = 0
+# the FS2_DEMO exe, built from this checkout into FS2DEMO_TEST, so a demo build that does not compile fails the suite
+# (D-20261019-175929, 213450). Without FS2DEMO_TEST it is a SKIP, which no merge-up or branch-done claim may rest on.
+if ($env:FS2DEMO_TEST) {
+	$last = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') | Select-Object -Last 1
+	if ($LASTEXITCODE -or ($last -notmatch '^PASS')) { $failed++ }
+	$line = "demo build: $last"
+} else {
+	$line = 'demo build: SKIP (FS2DEMO_TEST not set)'
+}
+$line | Add-Content $summary
+$line
 foreach ($c in $checks) {
-	$a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot $c.Script), '-GameDir', $GameDir, '-Out', (Join-Path $Out $c.Name)) + $c.Args + $m
+	$a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot $c.Script), '-GameDir', $GameDir, '-Out', (Join-Path $Out $c.Name)) + $c.Args + $(if ($c.Name -eq 'replay') { $mReplay } else { $m })
 	$last = & powershell @a | Select-Object -Last 1
 	if ($LASTEXITCODE -or ($last -notmatch 'fail=0')) { $failed++ }
 	$line = "$($c.Name): $last"
@@ -74,7 +93,7 @@ if ($LASTEXITCODE -or ($last -notmatch '^PASS')) { $failed++ }
 $line = "warnings: $last"
 $line | Add-Content $summary
 $line
-$verdict = if ($failed) { "FAIL ($failed of $($checks.Count + 2) checks)" } else { 'PASS' }
+$verdict = if ($failed) { "FAIL ($failed of $($checks.Count + 3) checks)" } else { 'PASS' }
 $verdict | Add-Content $summary
 $verdict
 if ($failed) { exit 1 }
