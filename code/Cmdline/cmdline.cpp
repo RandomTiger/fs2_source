@@ -234,6 +234,7 @@ cmdline_parm d3d_32bit("-32bit", NULL);
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
+cmdline_parm all_cutscenes_arg("-allcutscenes", NULL);		// Claude: list every cutscene in the tech room
 cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
@@ -273,6 +274,7 @@ int Cmdline_mouse_coords = 0;
 int Cmdline_timeout = -1;
 
 int Cmdline_window = 0;
+int Cmdline_all_cutscenes = 0;		// Claude
 
 static cmdline_parm Parm_list(NULL, NULL);
 static int Parm_list_inited = 0;
@@ -626,6 +628,11 @@ int parse_cmdline(char *cmdline)
 	// d3d windowed
 	if(d3d_window.found()){
 		Cmdline_window = 1;
+	}
+
+	// Claude: list every cutscene in the tech room, seen or not
+	if(all_cutscenes_arg.found()){
+		Cmdline_all_cutscenes = 1;
 	}
 
 	// gameplay recorder

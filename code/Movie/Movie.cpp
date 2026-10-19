@@ -29,6 +29,7 @@
 #include "GrInternal.h"
 #include "ds.h"
 #include "AudioStr.h"
+#include "MainHallMenu.h"
 #include "Key.h"
 #include "Mouse.h"
 #include "OsApi.h"
@@ -448,8 +449,51 @@ static int movie_read(CFILE *cf, ogg_sync_state *oy)
 }
 
 // plays an .ogv.  Returns 1 if it was played (to the end or until the player stopped it).
+// The music streams (the menu music) that are playing are paused for the movie, and only those
+// are started again after it: a stream that was already paused stays paused.  The main hall's
+// looping ambient sound is stopped, and started again if it was on.
+#define MOVIE_MAX_STREAMS	30		// MAX_AUDIO_STREAMS in AudioStr.cpp
+
+extern int Main_hall_ambient_loop;		// MainHallMenu.cpp
+
+typedef struct movie_menu_sound {
+	int paused[MOVIE_MAX_STREAMS];
+	int num_paused;
+	int ambient_was_on;
+} movie_menu_sound;
+
+static void movie_pause_menu_sound(movie_menu_sound *ms)
+{
+	replay_push();		// menu sound outside a mission is not part of a recording
+	ms->num_paused = 0;
+	for (int i = 0; i < MOVIE_MAX_STREAMS; i++) {
+		if (audiostream_is_playing(i) == TRUE) {
+			audiostream_pause(i);
+			ms->paused[ms->num_paused++] = i;
+		}
+	}
+	ms->ambient_was_on = (Main_hall_ambient_loop != -1);
+	if (ms->ambient_was_on) {
+		main_hall_stop_ambient();
+	}
+	replay_pop();
+}
+
+static void movie_resume_menu_sound(movie_menu_sound *ms)
+{
+	replay_push();
+	for (int i = 0; i < ms->num_paused; i++) {
+		audiostream_unpause(ms->paused[i]);
+	}
+	if (ms->ambient_was_on) {
+		main_hall_start_ambient();
+	}
+	replay_pop();
+}
+
 static int movie_play_ogv(char *filename)
 {
+	movie_menu_sound menu_sound;
 	CFILE *cf;
 	ogg_sync_state oy;
 	ogg_page og;
@@ -594,7 +638,7 @@ static int movie_play_ogv(char *filename)
 	key_flush();
 	mouse_flush();
 	Mouse_hidden++;
-	audiostream_pause_all();
+	movie_pause_menu_sound(&menu_sound);
 
 	{
 		double frame_len = (double)ti.fps_denominator / (double)ti.fps_numerator;
@@ -713,7 +757,7 @@ static int movie_play_ogv(char *filename)
 		}
 	}
 
-	audiostream_unpause_all();
+	movie_resume_menu_sound(&menu_sound);
 	Mouse_hidden--;
 	key_flush();
 	mouse_flush();
