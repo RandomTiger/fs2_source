@@ -16,6 +16,8 @@ Results go to <Out>\summary.txt, one line per recording; <Out> defaults to repla
 Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
 both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
+With $env:FS2_PROCDUMP set to Sysinternals procdump.exe (downloaded per machine, never committed), each run is watched
+and a crash leaves a dump in <Out>; dumps stay local (they hold game data).
 A line passes when every run says "REPLAY OK" and "MATCH", and every autotest run exits 0 (no Assert, Int3 or Warning). Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
@@ -80,7 +82,18 @@ foreach ($r in $recs) {
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
 		Wait-NoGame
 		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+		# FS2_PROCDUMP (path to Sysinternals procdump.exe): a crash leaves a full dump in <Out> (#74). Dumps hold game
+		# data from memory, so they stay local: never commit or post one, only the stack read from it.
+		$pd = $null
+		if ($env:FS2_PROCDUMP -and (Test-Path $env:FS2_PROCDUMP)) {
+			$dumps = @(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count
+			$pd = Start-Process $env:FS2_PROCDUMP -ArgumentList "-accepteula -e -ma -o $($p.Id) `"$Out`"" -PassThru -WindowStyle Hidden
+		}
 		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += " | $e TIMEOUT"; $ok = $false; continue }
+		if ($pd) {
+			if (-not $pd.WaitForExit(120000)) { Stop-Process $pd -Force }
+			if (@(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count -gt $dumps) { $line += " | $e CRASH DUMP in $Out"; $ok = $false }
+		}
 		$res = 'NO LOG'
 		if (Test-Path "$rec.replay.log") {
 			Copy-Item "$rec.replay.log" $log
