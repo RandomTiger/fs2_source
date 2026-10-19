@@ -188,6 +188,12 @@ similar).
   loads the demo data yet. The suite is recorded after that, with the compile-time `FS2_DEMO` build. Each
   later batch must replay both suites unchanged. A batch that deliberately moves a demo recording (a
   limit going to retail) logs the re-record.
+- **Re-recorded on PrePort** (D-20261019-135404, 2026-10-19): format 4, `FS2_DEMO` build at PrePort's tip,
+  the same pilot and settings. 30 of 30 replays match (5 per mission per build). The event timeline differs
+  from the RecordPlayback-level set in SPDemo-01 and SPDemo-02 (DemoTrain is identical). The retail
+  recordings of the same missions shift the same way between those layers (sound no longer feeding
+  gameplay, the logic/draw split), so this set is the demo reference from PrePort up (D-20261019-175928,
+  #75). Below PrePort the format-3 set stays the reference.
 
 ## 5. Batch plan for one exe
 
