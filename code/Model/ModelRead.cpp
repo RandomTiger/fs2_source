@@ -1360,9 +1360,9 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 					pm->num_xc = cfread_int(fp);
 					if (pm->num_xc > 0) {
 						pm->xc = (cross_section*) malloc(pm->num_xc*sizeof(cross_section));
-						for (int i=0; i<pm->num_xc; i++) {
-							pm->xc[i].z = cfread_float(fp);
-							pm->xc[i].radius = cfread_float(fp);
+						for (int ri=0; ri<pm->num_xc; ri++) {	// Claude: was i, which hid the outer local (C4456)
+							pm->xc[ri].z = cfread_float(fp);
+							pm->xc[ri].radius = cfread_float(fp);
 						}
 					}
 				} else {
@@ -1702,10 +1702,10 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 			case ID_TMIS: {
 				int n_banks, n_slots, parent;
 				model_subsystem *subsystemp;
-				int i, j, snum=-1;
+				int turret_bank, turret_slot, snum=-1;	// Claude: was i, which hid the outer local (C4456)	// Claude: was j, which hid the outer local (C4456)
 	
 				n_banks = cfread_int(fp);				// number of turret points
-				for ( i = 0; i < n_banks; i++ ) {
+				for ( turret_bank = 0; turret_bank < n_banks; turret_bank++ ) {
 					int physical_parent;			// who are we attached to?
 					parent = cfread_int( fp );			// get the turret parent of the object
 
@@ -1722,8 +1722,8 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 								n_slots = cfread_int( fp );
 								subsystemp->turret_gun_sobj = physical_parent;
 								Assert(n_slots < MAX_TFP);		// only MAX_TFP firing points per model_subsystem
-								for (j = 0; j < n_slots; j++ )	{
-									cfread_vector( &subsystemp->turret_firing_point[j], fp );
+								for (turret_slot = 0; turret_slot < n_slots; turret_slot++ )	{
+									cfread_vector( &subsystemp->turret_firing_point[turret_slot], fp );
 								}
 								Assert( n_slots > 0 );
 
@@ -1742,7 +1742,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 						nprintf(("Warning", "Turret object not found for turret firing point in model %s\n", model_filename));
 						cfread_vector( &bogus, fp );
 						n_slots = cfread_int( fp );
-						for (j = 0; j < n_slots; j++ )
+						for (turret_slot = 0; turret_slot < n_slots; turret_slot++ )
 							cfread_vector( &bogus, fp );
 					}
 				}
@@ -1750,7 +1750,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 			}
 
 			case ID_SPCL: {
-				char name[MAX_NAME_LEN], props[MAX_PROP_LEN], *p;
+				char name[MAX_NAME_LEN], subsys_props[MAX_PROP_LEN], *p;	// Claude: was props, which hid the outer local (C4456)
 				int n_specials;
 				float radius;
 				vector pnt;
@@ -1762,7 +1762,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 
 					cfread_string_len(name, MAX_NAME_LEN, fp);			// get the name of this special polygon
 
-					cfread_string_len(props, MAX_PROP_LEN, fp);		// will definately have properties as well!
+					cfread_string_len(subsys_props, MAX_PROP_LEN, fp);		// will definately have properties as well!
 					cfread_vector( &pnt, fp );
 					radius = cfread_float( fp );
 
@@ -1772,14 +1772,14 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 						pm->split_plane[pm->num_split_plane] = pnt.z;
 						pm->num_split_plane++;
 						Assert(pm->num_split_plane <= MAX_SPLIT_PLANE);
-					} else if ( ( p = strstr(props, "$special"))!= NULL ) {
+					} else if ( ( p = strstr(subsys_props, "$special"))!= NULL ) {
 						char type[32];
 
 						get_user_prop_value(p+9, type);
 						if ( !stricmp(type, "subsystem") )						// if we have a subsystem, put it into the list!
-							do_new_subsystem( n_subsystems, subsystems, -1, radius, &pnt, props, &name[1], pm->id );		// skip the first '$' character of the name
+							do_new_subsystem( n_subsystems, subsystems, -1, radius, &pnt, subsys_props, &name[1], pm->id );		// skip the first '$' character of the name
 					} else if ( strstr(name, "$enginelarge") || strstr(name, "$enginehuge") ){
-						do_new_subsystem( n_subsystems, subsystems, -1, radius, &pnt, props, &name[1], pm->id );		// skip the first '$' character of the name
+						do_new_subsystem( n_subsystems, subsystems, -1, radius, &pnt, subsys_props, &name[1], pm->id );		// skip the first '$' character of the name
 					} else {
 						nprintf(("Warning", "Unknown special object type %s while reading model %s\n", name, pm->filename));
 					}					
@@ -1788,7 +1788,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 			}
 			
 			case ID_TXTR: {		//Texture filename list
-				int i,n;
+				int gun_i,n;	// Claude: was i, which hid the outer local (C4456)
 //				char name_buf[128];
 
 				//mprintf(0,"Got chunk TXTR, len=%d\n",len);
@@ -1798,20 +1798,20 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 				// Dont overwrite memory!!
 				Assert(n <= MAX_MODEL_TEXTURES);
 				//mprintf(0,"  num textures = %d\n",n);
-				for (i=0; i<n; i++ )	{
+				for (gun_i=0; gun_i<n; gun_i++ )	{
 					char tmp_name[256];
 					cfread_string_len(tmp_name,127,fp);
 
 					if ( strstr(tmp_name, "thruster") || strstr(tmp_name, "invisible") )	{
 						// Don't load textures for thruster animations or invisible textures
-						pm->textures[i] = -1;
+						pm->textures[gun_i] = -1;
 					} else {
-						pm->textures[i] = bm_load( tmp_name );
-						if (pm->textures[i]<0)	{
+						pm->textures[gun_i] = bm_load( tmp_name );
+						if (pm->textures[gun_i]<0)	{
 							Error( LOCATION, "Couldn't open texture '%s'\nreferenced by model '%s'\n", tmp_name, pm->filename );
 						}
 					}
-					pm->original_textures[i] = pm->textures[i];
+					pm->original_textures[gun_i] = pm->textures[gun_i];
 					//mprintf(0,"<%s>\n",name_buf);
 				}
 
@@ -1897,7 +1897,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 
 			case ID_EYE:					// an eye position(s)
 				{
-					int num_eyes, i;
+					int num_eyes, path_i;	// Claude: was i, which hid the outer local (C4456)
 
 					// all eyes points are stored simply as vectors and their normals.
 					// 0th element is used as usual player view position.
@@ -1905,10 +1905,10 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 					num_eyes = cfread_int( fp );
 					pm->n_view_positions = num_eyes;
 					Assert ( num_eyes < MAX_EYES );
-					for (i = 0; i < num_eyes; i++ ) {
-						pm->view_positions[i].parent = cfread_int( fp );
-						cfread_vector( &pm->view_positions[i].pnt, fp );
-						cfread_vector( &pm->view_positions[i].norm, fp );
+					for (path_i = 0; path_i < num_eyes; path_i++ ) {
+						pm->view_positions[path_i].parent = cfread_int( fp );
+						cfread_vector( &pm->view_positions[path_i].pnt, fp );
+						cfread_vector( &pm->view_positions[path_i].norm, fp );
 					}
 				}
 				break;			

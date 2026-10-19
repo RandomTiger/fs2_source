@@ -1615,8 +1615,8 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 
 		memset(&ddsCaps,0,sizeof(ddsCaps) );
 		ddsCaps.dwCaps = DDSCAPS_TEXTURE;
-		HRESULT ddrval = lpDD->GetAvailableVidMem(&ddsCaps, &dwTotal, &dwFree);
-		if ( ddrval != DD_OK )	{
+		HRESULT flip_ddrval = lpDD->GetAvailableVidMem(&ddsCaps, &dwTotal, &dwFree);	// Claude: was ddrval, which hid the outer local (C4456)
+		if ( flip_ddrval != DD_OK )	{
 			mprintf(( "GR_D3D_INIT: GetAvailableVidMem failed.\n" ));
 			dwFree = 0;
 		}

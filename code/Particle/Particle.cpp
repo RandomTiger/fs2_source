@@ -576,12 +576,12 @@ void particle_render_all()
 					int framenum = p->optional_data;
 
 					if ( p->nframes > 1 )	{
-						int n = fl2i(pct_complete * p->nframes + 0.5);
+						int pn = fl2i(pct_complete * p->nframes + 0.5);	// Claude: was n, which hid the outer local (C4456)
 
-						if ( n < 0 ) n = 0;
-						else if ( n > p->nframes-1 ) n = p->nframes-1;
+						if ( pn < 0 ) pn = 0;
+						else if ( pn > p->nframes-1 ) pn = p->nframes-1;
 
-						framenum += n;
+						framenum += pn;
 					}
 
 					// set the bitmap

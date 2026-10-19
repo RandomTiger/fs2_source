@@ -947,16 +947,16 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	// if we're rendering against a fullneb background
 	if(flags & TMAP_FLAG_PIXEL_FOG){	
-		int r, g, b;
+		int fog_r, fog_g, fog_b;	// Claude: was r, which hid the outer local (C4456)	// Claude: was g, which hid the outer local (C4456)	// Claude: was b, which hid the outer local (C4456)
 		int ra, ga, ba;		
 		ra = ga = ba = 0;		
 
 		// get the average pixel color behind the vertices
 		for(i=0; i<nverts; i++){			
-			neb2_get_pixel((int)d3d_verts[i].sx, (int)d3d_verts[i].sy, &r, &g, &b);
-			ra += r;
-			ga += g;
-			ba += b;
+			neb2_get_pixel((int)d3d_verts[i].sx, (int)d3d_verts[i].sy, &fog_r, &fog_g, &fog_b);
+			ra += fog_r;
+			ga += fog_g;
+			ba += fog_b;
 		}				
 		ra /= nverts;
 		ga /= nverts;
