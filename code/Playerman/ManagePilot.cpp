@@ -407,6 +407,9 @@ void pilot_read_techroom_data(CFILE *file)
 		// read all weapons in
 		for (idx=0; idx<weapon_count; idx++) {
 			in = cfread_ubyte(file);
+			if ( Cfile_fs1_data && (idx >= Num_weapon_types) ) {	// Claude: a pilot saved with FS2's longer weapon table: past FS1's there are no weapons, and a flag there put an empty entry in the tech room (crash)
+				continue;
+			}
 			if (in) {
 				Weapon_info[idx].wi_flags |= WIF_IN_TECH_DATABASE;
 			} else {
