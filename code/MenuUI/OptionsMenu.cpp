@@ -1681,12 +1681,92 @@ void options_detail_synch_sliders()
 	Detail_slider_pos[LIGHTING_SLIDER] = Detail_sliders[gr_screen.res][LIGHTING_SLIDER].slider.pos = Detail.lighting;
 }
 
+// Claude: FS1 data: the detail tab in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md).  FS1's sliders are
+// 5-frame dot anims like FS2's and take FS2's sliders; its on/off pairs and presets take FS2's buttons.  FS1 controls
+// with no direct FS2 setting are shown at their highest and disabled, as FS2 already runs them at its best: model
+// update (in nebula detail's slider), weapon rendering, engine glow (weapon extras' buttons), nebulas (planets and
+// backgrounds' buttons) and effects alpha blending.  SystemVars.cpp holds nebula detail, planets and backgrounds and
+// weapon extras at their highest in FS1 data.
+static UI_DOT_SLIDER_NEW Fs1_weapon_slider;		// weapon rendering
+static UI_BUTTON Fs1_alpha_buttons[2];			// effects alpha blending off, on
+
+static void options_fs1_detail_layout()
+{
+	// model detail, model update, 3D hardware textures, particles, impact effects, shield hit effect, stars, lighting
+	static char *Fs1_slider_names[NUM_DETAIL_SLIDERS] = { "OPc_29", "OPc_30", "OPc_31", "OPc_36", "OPc_33", "OPc_34", "OPc_35", "OPc_45" };
+	static int Fs1_slider_coords[NUM_DETAIL_SLIDERS][3] = { {38,96,29}, {38,143,30}, {38,176,31}, {273,143,36}, {38,284,33}, {38,331,34}, {273,96,35}, {496,96,45} };
+	// nebulas on/off, target view rendering on/off, engine glow on/off; presets low, medium, high, very high, custom
+	static char *Fs1_names[NUM_BUTTONS - PLANETS_ON] = { "OPc_40", "OPc_39", "OPc_42", "OPc_41", "OPc_38", "OPc_37", "OPc_50", "OPc_51", "OPc_52", "OPc_53", "OPc_54" };
+	static int Fs1_coords[NUM_BUTTONS - PLANETS_ON][3] = { {321,237,40}, {264,237,39}, {321,284,42}, {264,284,41}, {321,190,38}, {264,190,37},
+		{516,194,50}, {516,213,51}, {516,232,52}, {498,251,53}, {516,270,54} };
+	int i;
+
+	for (i=0; i<NUM_DETAIL_SLIDERS; i++) {
+		Detail_sliders[GR_640][i].filename = Fs1_slider_names[i];
+		Detail_sliders[GR_640][i].x = Fs1_slider_coords[i][0];
+		Detail_sliders[GR_640][i].y = Fs1_slider_coords[i][1];
+		Detail_sliders[GR_640][i].hotspot = Fs1_slider_coords[i][2];
+	}
+	for (i=PLANETS_ON; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].filename = Fs1_names[i - PLANETS_ON];
+		Buttons[GR_640][i].x = Fs1_coords[i - PLANETS_ON][0];
+		Buttons[GR_640][i].y = Fs1_coords[i - PLANETS_ON][1];
+		Buttons[GR_640][i].hotspot = Fs1_coords[i - PLANETS_ON][2];
+	}
+}
+
+// FS1's weapon rendering slider and alpha blending buttons, made disabled and hidden
+static void options_fs1_detail_create()
+{
+	static char *Fs1_alpha_names[2] = { "OPc_43", "OPc_44" };
+	int i;
+
+	Fs1_weapon_slider.create(&Ui_window, 38, 223, 5, NOX("OPc_32"), 32, NULL, -1, -1, -1, NULL, -1, -1, -1, 20);
+	Fs1_weapon_slider.pos = MAX_DETAIL_LEVEL;
+	Fs1_weapon_slider.disable();
+	Fs1_weapon_slider.hide();
+	for (i=0; i<2; i++) {
+		Fs1_alpha_buttons[i].create(&Ui_window, "", 264 + (57 * i), 331, 60, 30, 0, 1);
+		Fs1_alpha_buttons[i].set_bmaps(Fs1_alpha_names[i]);
+		Fs1_alpha_buttons[i].link_hotspot(43 + i);
+		Fs1_alpha_buttons[i].disable();
+		Fs1_alpha_buttons[i].hide();
+	}
+}
+
+// FS1's extra controls shown with the tab, and FS2's standing in for FS1 controls with no direct setting kept disabled
+static void options_fs1_detail_show(int show)
+{
+	int i;
+
+	if (show) {
+		Fs1_weapon_slider.unhide();
+		Detail_sliders[gr_screen.res][NEBULA_DETAIL_SLIDER].slider.disable();
+		Buttons[gr_screen.res][PLANETS_ON].button.disable();
+		Buttons[gr_screen.res][PLANETS_OFF].button.disable();
+		Buttons[gr_screen.res][WEAPON_EXTRAS_ON].button.disable();
+		Buttons[gr_screen.res][WEAPON_EXTRAS_OFF].button.disable();
+	} else {
+		Fs1_weapon_slider.hide();
+	}
+	for (i=0; i<2; i++) {
+		if (show) {
+			Fs1_alpha_buttons[i].unhide();
+		} else {
+			Fs1_alpha_buttons[i].hide();
+		}
+	}
+}
+
 void options_detail_init()
 {
 	int i;
 	options_buttons *b;
 
 	Detail_original = Detail;
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_detail_layout();
+	}
 
 	options_load_background_and_mask(DETAIL_LEVELS_TAB);
 
@@ -1719,6 +1799,9 @@ void options_detail_init()
 
 	// init the actual slider positions and our internal positions
 	options_detail_synch_sliders();
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_detail_create();
+	}
 }
 
 void options_detail_sliders_update()
@@ -1758,6 +1841,9 @@ void options_detail_hide_stuff()
 
 	// this will hide text unassociated with any real control
 	Detail_bogus.hide();
+	if ( Cfile_fs1_data && Options_detail_inited ) {	// Claude
+		options_fs1_detail_show(0);
+	}
 }
 
 void options_detail_unhide_stuff()
@@ -1771,6 +1857,9 @@ void options_detail_unhide_stuff()
 
 	// this will hide text unassociated with any real control
 	Detail_bogus.unhide();
+	if ( Cfile_fs1_data ) {	// Claude
+		options_fs1_detail_show(1);
+	}
 }
 
 void options_force_button_frame(int n, int frame_num)
@@ -1786,6 +1875,10 @@ void options_detail_do_frame()
 	options_detail_sliders_update();	
 
 	// force on/off buttons to draw their correct setting
+	if ( Cfile_fs1_data ) {	// Claude: FS1's effects alpha blending, always on
+		Fs1_alpha_buttons[0].draw_forced(0);
+		Fs1_alpha_buttons[1].draw_forced(2);
+	}
 
 	if ( Detail.targetview_model ) {
 		options_force_button_frame(HUD_TARGETVIEW_RENDER_ON, 2);
