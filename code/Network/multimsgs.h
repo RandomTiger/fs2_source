@@ -230,7 +230,7 @@ struct ship_subsys;
 
 #define BUILD_HEADER(t) do { data[0]=t; packet_size = HEADER_LENGTH; } while(0)
 #define ADD_DATA(d) do { Assert((packet_size + sizeof(d)) < MAX_PACKET_SIZE); memcpy(data+packet_size, &d, sizeof(d) ); packet_size += sizeof(d); } while (0)
-#define ADD_STRING(s) do { Assert((packet_size + strlen(s) + 4) < MAX_PACKET_SIZE);int len = strlen(s); ADD_DATA(len); memcpy(data+packet_size, s, len ); packet_size += len; } while(0)
+#define ADD_STRING(s) do { Assert((packet_size + strlen(s) + 4) < MAX_PACKET_SIZE);int add_string_len = strlen(s); ADD_DATA(add_string_len); memcpy(data+packet_size, s, add_string_len ); packet_size += add_string_len; } while(0)	// Claude: was len, which hid a caller's len (C4456)
 #define ADD_ORIENT(d) { Assert((packet_size + 17) < MAX_PACKET_SIZE); ubyte dt[17]; multi_pack_orient_matrix(dt,&d); memcpy(data+packet_size,dt,17); packet_size += 17; }
 
 #define GET_DATA(d) do { memcpy(&d, data+offset, sizeof(d) ); offset += sizeof(d); } while(0)

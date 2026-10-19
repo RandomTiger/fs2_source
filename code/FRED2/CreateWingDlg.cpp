@@ -74,7 +74,7 @@ void create_wing_dlg::OnOK()
 
 	for (i=0; i<MAX_WINGS; i++)
 		if (!stricmp(Wings[i].name, m_name) && Wings[i].wave_count) {
-			sprintf(msg, "The name \"%s\" is already being used by another wing", m_name);
+			sprintf(msg, "The name \"%s\" is already being used by another wing", (LPCSTR)m_name);	// Claude: a CString passed to sprintf (#71)
 			MessageBox(msg);
 			return;
 		}

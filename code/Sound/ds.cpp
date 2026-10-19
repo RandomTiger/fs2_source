@@ -838,6 +838,7 @@ void ds_init_channels()
 	// minimum 16 channels
 	MAX_CHANNELS = caps.dwMaxHwMixingStaticBuffers;
 	int dbg_channels = MAX_CHANNELS;
+	(void)dbg_channels;	// Claude: read only by the Debug mprintf below (C4189 in Release)
 	if (MAX_CHANNELS < 16) {
 		MAX_CHANNELS = 16;
 	}

@@ -6838,7 +6838,7 @@ void process_client_update_packet(ubyte *data, header *hinfo)
 
 	// if we have hull information, then read it in.
 	if ( have_hull_info ) {
-		float val;
+		float ack_val;	// Claude: was val, which hid the outer local (C4456)
 		ship_info *sip;
 		ship *shipp;
 		ubyte hull_percent, shield_percent[MAX_SHIELD_SECTIONS], n_subsystems, subsystem_percent[MAX_MODEL_SUBSYSTEMS], threats;
@@ -6882,12 +6882,12 @@ void process_client_update_packet(ubyte *data, header *hinfo)
 			objp = Player_obj;
 			sip = &Ship_info[shipp->ship_info_index];
 
-			val = hull_percent * sip->initial_hull_strength / 100.0f;
-			objp->hull_strength = val;
+			ack_val = hull_percent * sip->initial_hull_strength / 100.0f;
+			objp->hull_strength = ack_val;
 
 			for ( i = 0; i < MAX_SHIELD_SECTIONS; i++ ) {
-				val = (shield_percent[i] * sip->shields / 100.0f) / MAX_SHIELD_SECTIONS;
-				objp->shields[i] = val;
+				ack_val = (shield_percent[i] * sip->shields / 100.0f) / MAX_SHIELD_SECTIONS;
+				objp->shields[i] = ack_val;
 			}
 
 			// for sanity, be sure that the number of susbystems that I read in matches the player.  If not,
@@ -6898,13 +6898,13 @@ void process_client_update_packet(ubyte *data, header *hinfo)
 				for ( subsysp = GET_FIRST(&shipp->subsys_list); subsysp != END_OF_LIST(&shipp->subsys_list); subsysp = GET_NEXT(subsysp) ) {
 					int subsys_type;
 
-					val = subsystem_percent[n_subsystems] * subsysp->system_info->max_hits / 100.0f;
-					subsysp->current_hits = val;
+					ack_val = subsystem_percent[n_subsystems] * subsysp->system_info->max_hits / 100.0f;
+					subsysp->current_hits = ack_val;
 
 					// add the value just generated (it was zero'ed above) into the array of generic system types
 					subsys_type = subsysp->system_info->type;					// this is the generic type of subsystem
 					Assert ( subsys_type < SUBSYSTEM_MAX );
-					shipp->subsys_info[subsys_type].current_hits += val;
+					shipp->subsys_info[subsys_type].current_hits += ack_val;
 					n_subsystems++;
 				}
 			}
