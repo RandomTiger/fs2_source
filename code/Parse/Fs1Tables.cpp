@@ -749,6 +749,25 @@ static void fs1_blank_block_comments(char *text, int len)
 	}
 }
 
+// Some of FS1's missions start with a "//" line FRED wrote ("// Of 1800 total sexp nodes, ..."), before
+// #Mission Info; FS2's parser only knows ';', so its mission-info read (the simulator's list) stopped there.
+// A line starting "//" becomes a ';' comment, in place.
+static void fs1_line_comments(char *text, int len)
+{
+	int i, line_start = 1;
+
+	for (i = 0; i < len; i++) {
+		if (line_start && (i + 1 < len) && (text[i] == '/') && (text[i + 1] == '/')) {
+			text[i] = ';';
+		}
+		if (text[i] == '\n') {
+			line_start = 1;
+		} else if ((text[i] != ' ') && (text[i] != '\t') && (text[i] != '\r')) {
+			line_start = 0;
+		}
+	}
+}
+
 int fs1_table_convert(char *filename, char *text, int len, int max_len)
 {
 	fs1_converter *conv = NULL;
@@ -760,6 +779,9 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	i = strlen(filename);
 	if ((i >= 4) && !stricmp(filename + i - 4, ".tbl")) {
 		fs1_blank_block_comments(text, len);
+	}
+	if ((i >= 4) && (!stricmp(filename + i - 4, ".fs2") || !stricmp(filename + i - 4, ".fsm"))) {
+		fs1_line_comments(text, len);
 	}
 	for (i = 0; i < sizeof(Fs1_converters) / sizeof(Fs1_converters[0]); i++) {
 		char *name = Fs1_converters[i].filename;

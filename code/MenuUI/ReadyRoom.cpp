@@ -94,6 +94,7 @@
 #include "cfilesystem.h"
 #include "freespace.h"
 #include "AlphaColors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 #define MAX_MISSIONS	1024
 
@@ -226,6 +227,7 @@ int Sim_misc_text_coords[GR_NUM_RESOLUTIONS][NUM_SIM_MISC_TEXT][2] = {
 #define READYROOM_LINE_MISSION	3
 
 #define READYROOM_FLAG_FROM_VOLITION			(1<<0)			// volition made
+#define READYROOM_FLAG_FROM_MDISK			(1<<1)			// Claude: FS1 data: from Silent Threat's mdisk.vp, drawn with FS1's "ST" icon
 static struct {	
 	int type;					// see READYROOM_LINE_* defines above
 	char *name;
@@ -298,6 +300,24 @@ char *Mission_icon_bitmap_filenames[NUM_MISSION_ICONS] = {
 void sim_room_load_mission_icons();
 void sim_room_unload_mission_icons();
 void sim_room_blit_icons(int line_index, int y_start, fs_builtin_mission *fb = NULL, int is_md = 0);
+
+// Claude: FS1 data: Silent Threat's missions (in mdisk.vp) get FS1's "ST" icon, and the list's text sits where retail
+// FS1 draws it (a retail FS1 screenshot): the icon at x 57, the mission names 50 pixels right of FS2's.
+#define FS1_SIM_TEXT_X			50
+#define FS1_SIM_SILENT_ICON_X	57
+static int Fs1_silent_icon = -1;
+
+static int sim_room_fs1_from_mdisk(char *filename)
+{
+	char pack[CF_MAX_PATHNAME_LENGTH];
+	int len;
+
+	if ( !Cfile_fs1_data || !cf_find_file_location(filename, CF_TYPE_MISSIONS, pack, NULL, NULL) ) {
+		return 0;
+	}
+	len = strlen(pack);
+	return (len >= 8) && !stricmp(pack + len - 8, "mdisk.vp");
+}
 
 // Finds a hash value for mission filename
 //
@@ -541,9 +561,12 @@ int build_standalone_mission_list_do_frame()
 				if((fb != NULL) && (fb->flags & FSB_FROM_VOLITION)){
 					flags |= READYROOM_FLAG_FROM_VOLITION;
 				}				
+				if ( sim_room_fs1_from_mdisk(filename) ) {	// Claude
+					flags |= READYROOM_FLAG_FROM_MDISK;
+				}
 
 				// add the line
-				sim_room_line_add(READYROOM_LINE_MISSION, Standalone_mission_names[Num_standalone_missions_with_info], Mission_filenames[Num_standalone_missions_with_info], list_x1 + M_TEXT_X, y, flags);			
+				sim_room_line_add(READYROOM_LINE_MISSION, Standalone_mission_names[Num_standalone_missions_with_info], Mission_filenames[Num_standalone_missions_with_info], list_x1 + M_TEXT_X + (Cfile_fs1_data ? FS1_SIM_TEXT_X : 0), y, flags);	// Claude: FS1 offset			
 			}
 		}
 
@@ -641,8 +664,11 @@ void sim_room_build_listing()
 						if((fb != NULL) && (fb->flags & FSB_FROM_VOLITION)){
 							flags |= READYROOM_FLAG_FROM_VOLITION;
 						}
+						if ( sim_room_fs1_from_mdisk(full_filename) ) {	// Claude
+							flags |= READYROOM_FLAG_FROM_MDISK;
+						}
 						
-						sim_room_line_add(READYROOM_LINE_MISSION, Standalone_mission_names[i], Mission_filenames[i], list_x1 + M_TEXT_X, y, flags);
+						sim_room_line_add(READYROOM_LINE_MISSION, Standalone_mission_names[i], Mission_filenames[i], list_x1 + M_TEXT_X + (Cfile_fs1_data ? FS1_SIM_TEXT_X : 0), y, flags);	// Claude: FS1 offset
 						y += font_height + 2;
 					}
 				}
@@ -991,6 +1017,20 @@ int sim_room_button_pressed(int n)
 // Initialize the sim_room assignment screen system.  Called when GS_STATE_sim_room_SCREEN
 // is entered.
 //
+// Claude: FS1 data: FS1's 640 button positions, found by matching each button's art against a retail FS1
+// screenshot (mean colour error under 3 of 255).  LoadMission-m.pcx's hotspots are FS2's.  Overwrites GR_640.
+static void sim_room_fs1_layout()
+{
+	// scroll up, scroll down, single, campaign, help, commit, options, and the four tabs
+	static int Fs1_coords[NUM_BUTTONS][2] = { {7,135}, {7,182}, {23,396}, {198,396}, {469,427}, {554,411}, {447,452}, {0,0}, {0,19}, {0,35}, {0,56} };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+}
+
 void sim_room_init()
 {
 	int i;
@@ -1010,6 +1050,9 @@ void sim_room_init()
 
 	*Game_current_mission_filename = 0;
 	common_set_interface_palette("InterfacePalette");  // set the interface palette
+	if ( Cfile_fs1_data ) {	// Claude
+		sim_room_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Sim_mask_filename[gr_screen.res]);
 
@@ -1355,6 +1398,11 @@ void sim_room_blit_icons(int line_index, int y_start, fs_builtin_mission *fb, in
 		gr_set_bitmap(Mission_icon_bitmaps[MISSION_ICON_VOLITION]);
 		gr_bitmap(Sim_volition_icon_x[gr_screen.res], y_start + MISSION_ICON_VOLITION_Y_OFFSET);
 	}	
+
+	if ( (fb == NULL) && (sim_room_lines[line_index].flags & READYROOM_FLAG_FROM_MDISK) && (Fs1_silent_icon >= 0) ) {	// Claude
+		gr_set_bitmap(Fs1_silent_icon);
+		gr_bitmap(FS1_SIM_SILENT_ICON_X, y_start);
+	}
 }
 
 ///  Campaign room stuff below
@@ -1889,6 +1937,9 @@ void sim_room_load_mission_icons()
 		Mission_icon_bitmaps[idx] = -1;
 		Mission_icon_bitmaps[idx] = bm_load(Mission_icon_bitmap_filenames[idx]);
 	}
+	if ( Cfile_fs1_data ) {	// Claude
+		Fs1_silent_icon = bm_load(NOX("icon-silent"));
+	}
 }
 
 void sim_room_unload_mission_icons()
@@ -1901,5 +1952,9 @@ void sim_room_unload_mission_icons()
 			bm_unload(Mission_icon_bitmaps[idx]);
 			Mission_icon_bitmaps[idx] = -1;
 		}
+	}
+	if ( Fs1_silent_icon >= 0 ) {	// Claude
+		bm_unload(Fs1_silent_icon);
+		Fs1_silent_icon = -1;
 	}
 }
