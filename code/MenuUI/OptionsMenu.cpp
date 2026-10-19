@@ -572,6 +572,16 @@ static void options_fs1_sliders_show(int show)
 	}
 }
 
+// draw button n's resting frame (0) or not; an .ani button's frames are consecutive bitmaps
+static void options_fs1_resting_frame(int n, int draw)
+{
+	UI_BUTTON *b = &Buttons[gr_screen.res][n].button;
+
+	if (b->bmap_ids[1] >= 0) {
+		b->bmap_ids[0] = draw ? (b->bmap_ids[1] - 1) : -1;
+	}
+}
+
 int Options_skills_text_coords[GR_NUM_RESOLUTIONS][4] = {
 	{
 		468, 104, 155, 10		// GR_640
@@ -852,6 +862,12 @@ void options_tab_setup(int set_palette)
 	}
 	if ( Cfile_fs1_data && (Fs1_skill_bitmap >= 0) ) {	// Claude: FS1's sliders (made once options_menu_init has run)
 		options_fs1_sliders_show(Tab == OPTIONS_TAB);
+	}
+	if ( Cfile_fs1_data ) {	// Claude: FS1's multiplayer masks number exit game 4, its others 3; and its multiplayer
+		// backgrounds differ under the config buttons, whose resting frame (0) is the options tab's, so there it isn't drawn
+		Buttons[gr_screen.res][ABORT_GAME_BUTTON].button.link_hotspot((Tab == MULTIPLAYER_TAB) ? 4 : 3);
+		options_fs1_resting_frame(CONTROL_CONFIG_BUTTON, Tab != MULTIPLAYER_TAB);
+		options_fs1_resting_frame(HUD_CONFIG_BUTTON, Tab != MULTIPLAYER_TAB);
 	}
 
 	// do other special processing
