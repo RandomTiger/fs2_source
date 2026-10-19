@@ -319,6 +319,24 @@ int credits_screen_button_pressed(int n)
 	return 0;
 }
 
+// Claude: FS1 data: the credits screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md), its buttons placed by
+// matching FS1's art against it, the artwork centred in FS1's window
+static void credits_fs1_layout()
+{
+	// tech database, simulator, cutscenes, credits tabs; exit
+	static int Fs1_coords[NUM_BUTTONS][2] = { {0,0}, {0,19}, {0,35}, {0,56}, {561,411} };
+	static int Fs1_image[4] = { 229, 20, 388, 283 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[i][GR_640].x = Fs1_coords[i][0];
+		Buttons[i][GR_640].y = Fs1_coords[i][1];
+	}
+	for (i=0; i<4; i++) {
+		Credits_image_coords[GR_640][i] = Fs1_image[i];
+	}
+}
+
 void credits_init()
 {
 	int i, w, h;
@@ -495,6 +513,9 @@ void credits_init()
 	Credit_stop_pos = -i2fl(h);
 	Credit_position = Credit_start_pos;
 
+	if ( Cfile_fs1_data ) {	// Claude
+		credits_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Credits_bitmap_mask_fname[gr_screen.res]);
 	common_set_interface_palette("InterfacePalette");  // set the interface palette
