@@ -4722,7 +4722,7 @@ sexp_list_item *sexp_tree::get_listing_opf(int opf, int parent_node, int arg_ind
 			return get_listing_opf_variable_names();
 
 		case OPF_AMBIGUOUS:
-			return NULL();
+			return NULL;	// Claude: was NULL(), the constant 0 called as a function (C4353)
 
 		default:
 			Int3();  // unknown OPF code
