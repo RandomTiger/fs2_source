@@ -45,6 +45,12 @@ static char Replay_file[REPLAY_PATH_LEN];
 static char Replay_trace_file[REPLAY_PATH_LEN];
 static int Replay_trace_full = 0;
 
+// -replay_pace
+static int Replay_pace = 0;
+static int Replay_pace_frames = 0;
+static LARGE_INTEGER Replay_pace_freq, Replay_pace_start;
+static double Replay_pace_target = 0.0;	// seconds of real time the recorded frames so far took
+
 // -autorecord
 #define REPLAY_RESTART_ENV			"FS2_AUTORECORD_RESTART_PID"
 static int Replay_auto = 0;				// record each mission to its own name in Replay_auto_dir
@@ -1736,6 +1742,37 @@ void replay_drive_state(int state)
 	}
 }
 
+void replay_set_pace(int on)
+{
+	Replay_pace = on;
+}
+
+// -replay_pace: flFrametime is the game frame time after time compression, so a frame took flFrametime divided by
+// the compression in real time.  The performance counter is read directly, not through the hooked timers, so the
+// game sees nothing of the waiting.
+static void replay_pace_wait()
+{
+	LARGE_INTEGER now;
+	float compression = f2fl(Game_time_compression);
+
+	if (Replay_pace_frames++ == 0) {
+		QueryPerformanceFrequency(&Replay_pace_freq);
+		QueryPerformanceCounter(&Replay_pace_start);
+		Replay_pace_target = 0.0;
+		return;
+	}
+
+	Replay_pace_target += (compression > 0.0f) ? (flFrametime / compression) : flFrametime;
+	for (;;) {
+		QueryPerformanceCounter(&now);
+		double left = Replay_pace_target - (double)(now.QuadPart - Replay_pace_start.QuadPart) / (double)Replay_pace_freq.QuadPart;
+		if (left <= 0.0) {
+			break;
+		}
+		Sleep((left > 0.002) ? (DWORD)((left - 0.001) * 1000.0) : 0);
+	}
+}
+
 void replay_sim_frame_end()
 {
 	if (!Replay_in_game || !Replay_active) {
@@ -1744,4 +1781,8 @@ void replay_sim_frame_end()
 
 	trace_frame(Replay_frame);
 	Replay_frame++;
+
+	if (Replay_pace && (Replay_mode == REPLAY_PLAY)) {
+		replay_pace_wait();
+	}
 }
