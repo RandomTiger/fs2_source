@@ -52,7 +52,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>.\</OutDir>
+    <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\NebEditDebug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>

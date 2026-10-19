@@ -54,12 +54,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>.\</OutDir>
+    <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\FredDebug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>.\</OutDir>
+    <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\FredRelease\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
