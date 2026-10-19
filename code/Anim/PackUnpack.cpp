@@ -888,13 +888,11 @@ int unpack_pixel_count(anim_instance *ai, ubyte *data, ubyte pix, int count, int
 	}
 	
 	// stuff the pixel
-	if(bpp == 32){	// Claude: 32 bit textures
-		bit_24 = (int)unpack_pixel_32(ai, pix);
-	}
+	uint pix_32 = (bpp == 32) ? unpack_pixel_32(ai, pix) : 0;	// Claude: 32 bit textures; its own variable, so the compiler sees it set (C4701)
 	for(idx=0; idx<count; idx++){
 		switch(bpp){
 		case 32 :	// Claude: 32 bit textures
-			memcpy(data + (idx*4), &bit_24, sizeof(uint));
+			memcpy(data + (idx*4), &pix_32, sizeof(uint));
 			break;
 		case 16 :
 			memcpy(data + (idx*2), &bit_16, sizeof(ushort));
