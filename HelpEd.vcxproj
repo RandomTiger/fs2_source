@@ -179,6 +179,8 @@
     <ProjectReference Include="code\code.vcxproj">
       <Project>{8af849bb-a250-4834-9c96-38b34b201a33}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <!-- Claude: HelpEd uses nothing in code.lib; linking it drew in the Debug global new and delete (D-061) and with them most of the game -->
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
