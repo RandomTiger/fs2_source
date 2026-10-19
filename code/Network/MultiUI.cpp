@@ -5449,7 +5449,7 @@ int multi_create_ok_to_commit()
 			if(Net_players[idx].player != NULL){
 				sprintf(err_string, "%s %s", Net_players[idx].player->callsign, XSTR("has hacked tables/data", 1271)); 
 			} else {
-				sprintf(err_string, "%s", Net_players[idx].player->callsign, XSTR("has hacked tables/data", 1271)); 
+				sprintf(err_string, "%s", XSTR("has hacked tables/data", 1271));	// Claude: this is the player == NULL branch; it read player->callsign (#71)
 			}
 			send_game_chat_packet(Net_player, err_string, MULTI_MSG_ALL, NULL, NULL, 1);
 		}
@@ -7162,11 +7162,11 @@ void multi_jw_plist_process()
 	// if the player has clicked somewhere in the player list area
 	if(Multi_jw_plist_select_button.pressed()){
 		short player_id;
-		int player_index;
+		int kick_player_index;	// Claude: was player_index, which hid the outer local (C4456)
 	
 		player_id = multi_jw_get_mouse_id();
-		player_index = find_player_id(player_id);
-		if(player_index != -1){
+		kick_player_index = find_player_id(player_id);
+		if(kick_player_index != -1){
 			Multi_jw_plist_select_id = player_id;
 			Multi_jw_plist_select_flag = 1;
 		}

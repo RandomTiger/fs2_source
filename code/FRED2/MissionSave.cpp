@@ -2379,14 +2379,14 @@ int CFred_mission_save::save_asteroid_fields()
 
 		// field_debris_type (only if ship genre)
 		if (Asteroid_field.debris_genre == DG_SHIP) {
-			for (int idx=0; idx<3; idx++) {
-				if (Asteroid_field.field_debris_type[idx] != -1) {
+			for (int debris_idx=0; debris_idx<3; debris_idx++) {	// Claude: was idx, which hid the outer local (C4456)
+				if (Asteroid_field.field_debris_type[debris_idx] != -1) {
 					if (optional_string_fred("+Field Debris Type:")){
 						parse_comments();
 					} else {
 						fout("\n+Field Debris Type:");
 					}
-					fout(" %d", Asteroid_field.field_debris_type[idx]);
+					fout(" %d", Asteroid_field.field_debris_type[debris_idx]);
 				}
 			}
 		} else {

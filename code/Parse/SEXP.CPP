@@ -1298,7 +1298,7 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 			case OPF_AWACS_SUBSYSTEM:
 			case OPF_SUBSYSTEM: {
 				char *shipname;
-				int shipnum,ship_class, i;
+				int shipnum,ship_class, var_i;	// Claude: was i, which hid the outer local (C4456)
 				int ship_index;				
 
 				if (type2 != SEXP_ATOM_STRING){
@@ -1350,19 +1350,19 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 					}
 				}
 
-				for (i=0; i<Ship_info[ship_class].n_subsystems; i++){
-					if (!stricmp(Ship_info[ship_class].subsystems[i].subobj_name, CTEXT(index))){
+				for (var_i=0; var_i<Ship_info[ship_class].n_subsystems; var_i++){
+					if (!stricmp(Ship_info[ship_class].subsystems[var_i].subobj_name, CTEXT(index))){
 						break;
 					}
 				}
 
-				if (i == Ship_info[ship_class].n_subsystems){
+				if (var_i == Ship_info[ship_class].n_subsystems){
 					return SEXP_CHECK_INVALID_SUBSYS;
 				}
 
 				// if we're checking for an AWACS subsystem and this is not an awacs subsystem
 				if(Fred_running){
-					if((type == OPF_AWACS_SUBSYSTEM) && !(Ship_info[ship_class].subsystems[i].flags & MSS_FLAG_AWACS)){
+					if((type == OPF_AWACS_SUBSYSTEM) && !(Ship_info[ship_class].subsystems[var_i].flags & MSS_FLAG_AWACS)){
 						return SEXP_CHECK_INVALID_SUBSYS;
 					}
 				}
@@ -1429,7 +1429,7 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 				}
 
 				if (Fred_running) {
-					int ship_num, ship2, i, w = 0, z;
+					int ship_num, ship2, ni, w = 0, nz;	// Claude: were i, z, which hid the outer locals (C4456)
 
 					ship_num = ship_name_lookup(CTEXT(Sexp_nodes[op_index].rest));
 					if (ship_num < 0) {
@@ -1444,23 +1444,23 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 					}
 
 					Assert(Sexp_nodes[index].subtype == SEXP_ATOM_LIST);
-					z = Sexp_nodes[index].first;
-					Assert(Sexp_nodes[z].subtype != SEXP_ATOM_LIST);
-					z = find_operator(CTEXT(z));
+					nz = Sexp_nodes[index].first;
+					Assert(Sexp_nodes[nz].subtype != SEXP_ATOM_LIST);
+					nz = find_operator(CTEXT(nz));
 					if (ship_num >= 0) {
-						if (!query_sexp_ai_goal_valid(z, ship_num)){
+						if (!query_sexp_ai_goal_valid(nz, ship_num)){
 							return SEXP_CHECK_ORDER_NOT_ALLOWED;
 						}
 
 					} else {
-						for (i=0; i<Wings[w].wave_count; i++){
-							if (!query_sexp_ai_goal_valid(z, Wings[w].ship_index[i])){
+						for (ni=0; ni<Wings[w].wave_count; ni++){
+							if (!query_sexp_ai_goal_valid(nz, Wings[w].ship_index[ni])){
 								return SEXP_CHECK_ORDER_NOT_ALLOWED;
 							}
 						}
 					}
 
-					if ((z == OP_AI_DOCK) && (Sexp_nodes[index].rest >= 0)) {
+					if ((nz == OP_AI_DOCK) && (Sexp_nodes[index].rest >= 0)) {
 						ship2 = ship_name_lookup(CTEXT(Sexp_nodes[index].rest));
 						if ((ship_num < 0) || !ship_docking_valid(ship_num, ship2)){
 							return SEXP_CHECK_DOCKING_NOT_ALLOWED;
@@ -1663,24 +1663,24 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 					return SEXP_CHECK_TYPE_MISMATCH;
 
 				if (Fred_running) {
-					int ship_num, model, i, z;
+					int ship_num, model, ni2, nz2;	// Claude: were i, z, which hid the outer locals (C4456)
 
-					z = find_parent_operator(op_index);
-					ship_num = ship_name_lookup(CTEXT(Sexp_nodes[z].rest));
+					nz2 = find_parent_operator(op_index);
+					ship_num = ship_name_lookup(CTEXT(Sexp_nodes[nz2].rest));
 					if (ship_num < 0) {
 						if (bad_index)
-							*bad_index = Sexp_nodes[z].rest;
+							*bad_index = Sexp_nodes[nz2].rest;
 
 						return SEXP_CHECK_INVALID_SHIP;  // should have already been caught earlier, but just in case..
 					}
 
 					model = Ships[ship_num].modelnum;
-					z = model_get_num_dock_points(model);
-					for (i=0; i<z; i++)
-						if (!stricmp(CTEXT(index), model_get_dock_name(model, i)))
+					nz2 = model_get_num_dock_points(model);
+					for (ni2=0; ni2<nz2; ni2++)
+						if (!stricmp(CTEXT(index), model_get_dock_name(model, ni2)))
 							break;
 
-					if (i == z)
+					if (ni2 == nz2)
 						return SEXP_CHECK_INVALID_DOCKER_POINT;
 				}
 
@@ -1691,7 +1691,7 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 					return SEXP_CHECK_TYPE_MISMATCH;
 
 				if (Fred_running) {
-					int ship_num, model, i, z;
+					int ship_num, model, ni3, nz3;	// Claude: were i, z, which hid the outer locals (C4456)
 
 					ship_num = ship_name_lookup(CTEXT(Sexp_nodes[op_index].rest));
 					if (ship_num < 0) {
@@ -1702,12 +1702,12 @@ int check_sexp_syntax(int index, int return_type, int recursive, int *bad_index,
 					}
 
 					model = Ships[ship_num].modelnum;
-					z = model_get_num_dock_points(model);
-					for (i=0; i<z; i++)
-						if (!stricmp(CTEXT(index), model_get_dock_name(model, i)))
+					nz3 = model_get_num_dock_points(model);
+					for (ni3=0; ni3<nz3; ni3++)
+						if (!stricmp(CTEXT(index), model_get_dock_name(model, ni3)))
 							break;
 
-					if (i == z)
+					if (ni3 == nz3)
 						return SEXP_CHECK_INVALID_DOCKEE_POINT;
 				}
 

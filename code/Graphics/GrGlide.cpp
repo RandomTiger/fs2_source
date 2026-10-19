@@ -2238,11 +2238,11 @@ void gr_glide_flash(int r, int g, int b)
 	
 		GrVertex GrVerts[4];
 
-		float r,g,b,a;
+		float flash_r,flash_g,flash_b,a;	// Claude: was r, which hid the parameter (C4457)	// Claude: was g, which hid the parameter (C4457)	// Claude: was b, which hid the parameter (C4457)
 
-		r = i2fl(Flash_r);
-		g = i2fl(Flash_g);
-		b = i2fl(Flash_b);
+		flash_r = i2fl(Flash_r);
+		flash_g = i2fl(Flash_g);
+		flash_b = i2fl(Flash_b);
 		a = i2fl(255);
 
 		float x1, x2, y1, y2;
@@ -2256,33 +2256,33 @@ void gr_glide_flash(int r, int g, int b)
 		i = 0;
 		GrVerts[i].x = x1;
 		GrVerts[i].y = y1;
-		GrVerts[i].r = r;
-		GrVerts[i].g = g;
-		GrVerts[i].b = b;
+		GrVerts[i].r = flash_r;
+		GrVerts[i].g = flash_g;
+		GrVerts[i].b = flash_b;
 		GrVerts[i].a = a;
 
 		i = 1;
 		GrVerts[i].x = x2;
 		GrVerts[i].y = y1;
-		GrVerts[i].r = r;
-		GrVerts[i].g = g;
-		GrVerts[i].b = b;
+		GrVerts[i].r = flash_r;
+		GrVerts[i].g = flash_g;
+		GrVerts[i].b = flash_b;
 		GrVerts[i].a = a;
 
 		i = 2;
 		GrVerts[i].x = x2;
 		GrVerts[i].y = y2;
-		GrVerts[i].r = r;
-		GrVerts[i].g = g;
-		GrVerts[i].b = b;
+		GrVerts[i].r = flash_r;
+		GrVerts[i].g = flash_g;
+		GrVerts[i].b = flash_b;
 		GrVerts[i].a = a;
 
 		i = 3;
 		GrVerts[i].x = x1;
 		GrVerts[i].y = y2;
-		GrVerts[i].r = r;
-		GrVerts[i].g = g;
-		GrVerts[i].b = b;
+		GrVerts[i].r = flash_r;
+		GrVerts[i].g = flash_g;
+		GrVerts[i].b = flash_b;
 		GrVerts[i].a = a;
 
 		grDrawPolygonVertexList( 4, GrVerts );

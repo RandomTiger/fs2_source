@@ -106,9 +106,9 @@ BOOL adjust_grid_dlg::OnInitDialog()
 		GetDlgItem(IDC_EDIT_Z)->EnableWindow(FALSE);
 	}
 
-	m_spinx.SetRange(99999, -99999);
-	m_spiny.SetRange(99999, -99999);
-	m_spinz.SetRange(99999, -99999);
+	m_spinx.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
+	m_spiny.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
+	m_spinz.SetRange((short)-31073, (short)31073);	// Claude: retail FRED: 99999 truncated to short by VC6; kept, see #72
 	return TRUE;
 }
 

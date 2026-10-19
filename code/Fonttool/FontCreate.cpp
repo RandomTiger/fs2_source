@@ -288,9 +288,9 @@ void fonttool_create_new( font *fnt )
 }
 	
 
-void fonttool_add_char( font *fnt, int x1, int y1, int real_w, int h, ubyte *data, int rowsize )
+void fonttool_add_char( font *fnt, int x1, int y1, int real_w, int h, ubyte *char_pixels, int rowsize )	// Claude: was data, which hid the global (C4459)
 {
-	int x, y, n, offset;
+	int x, y, n, pixel_offset;	// Claude: was offset, which hid the global (C4459)
 	int w;
 	
 	n = fnt->num_chars;
@@ -328,14 +328,14 @@ void fonttool_add_char( font *fnt, int x1, int y1, int real_w, int h, ubyte *dat
 		free(fnt->pixel_data);
 		fnt->pixel_data = NULL;
 	}
-	offset = fnt->pixel_data_size;
+	pixel_offset = fnt->pixel_data_size;
 	fnt->pixel_data_size += w*h;
 	fnt->pixel_data = new_pixel_data;
-	new_pixel_data = fnt->pixel_data + offset;
+	new_pixel_data = fnt->pixel_data + pixel_offset;
 
 	new_char->byte_width = w;
 	new_char->spacing = real_w;
-	new_char->offset = offset;
+	new_char->offset = pixel_offset;
 	new_char->kerning_entry = -1;
 	new_char->user_data = 0;
 
@@ -345,7 +345,7 @@ void fonttool_add_char( font *fnt, int x1, int y1, int real_w, int h, ubyte *dat
 			if ( x >= real_w)
 				c = 0;
 			else
-				c = data[x+y*rowsize];
+				c = char_pixels[x+y*rowsize];
 			if ( c > 15 ) {
 				num_bad_pixels++;
 				c = 15;
@@ -439,7 +439,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->kern_data_size )	{
 		fnt->kern_data = (font_kernpair *)malloc( fnt->kern_data_size );
 		if (!fnt->kern_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->kern_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->kern_data, fnt->kern_data_size, 1, fp );
@@ -449,7 +449,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->char_data_size )	{
 		fnt->char_data = (font_char *)malloc( fnt->char_data_size );
 		if (!fnt->char_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->char_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->char_data, fnt->char_data_size, 1, fp );
@@ -459,7 +459,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->pixel_data_size )	{
 		fnt->pixel_data = (ubyte *)malloc( fnt->pixel_data_size );
 		if (!fnt->pixel_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->pixel_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->pixel_data, fnt->pixel_data_size, 1, fp );
@@ -490,9 +490,9 @@ void fonttool_read( char *filename, font *fnt )
 	int i,x,y;
 	x = y = 0;
 	for (i=0; i<fnt->num_chars; i++ )	{
-		ubyte * fp;
+		ubyte * char_pixel;	// Claude: was fp, which hid the outer local (C4456)
 		int x1, y1;
-		fp = &fnt->pixel_data[fnt->char_data[i].offset];
+		char_pixel = &fnt->pixel_data[fnt->char_data[i].offset];
 		if ( x + fnt->char_data[i].byte_width >= fnt->bm_w )	{
 			x = 0;
 			y += fnt->h;
@@ -505,7 +505,7 @@ void fonttool_read( char *filename, font *fnt )
 
 		for( y1=0; y1<fnt->h; y1++ )	{
 			for (x1=0; x1<fnt->char_data[i].byte_width; x1++ )	{
-				uint c = *fp++;
+				uint c = *char_pixel++;
 				if ( c > 14 ) c = 14;
 				fnt->bm_data[(x+x1)+(y+y1)*fnt->bm_w] = unsigned char(c);	
 			}
@@ -531,7 +531,7 @@ void fonttool_copy_kern( font *src, font *dst )
 	}
 	dst->kern_data = (font_kernpair *)malloc( src->kern_data_size );
 	if (!dst->kern_data)	{
-		printf( "Out of memory copying %d bytes of font data.\n" );
+		printf( "Out of memory copying %d bytes of font data.\n", src->kern_data_size );	// Claude: the size was missing (#71)
 		myexit(1);
 	}
 	memcpy( dst->kern_data, src->kern_data, src->kern_data_size );
