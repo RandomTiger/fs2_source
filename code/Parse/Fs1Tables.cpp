@@ -107,23 +107,100 @@ static void fs1_help_tbl()
 	}
 }
 
-// mainhall.tbl: FS1's two main halls, background and mask only, with FS1's main menu music.  The door
-// and animation positions were built into the FS1 exe; they come with the interface batch.  FS1 has
-// no 1024 art, so the 1024 entries use the 640 art.  The tooltip line sits near the bottom of the screen,
-// at the same height as FS2's.
+// mainhall.tbl: FS1's two main halls.  The door and animation positions were built into the FS1 exe;
+// these were found by matching each anim's first frame against the hall's background (exact for all
+// doors), and each door belongs to the mask region it covers.  The mouse jumps to the middle of a
+// door's mask region, and its sound pans by that point's x.  Doors use FS1's main hall door sounds,
+// and each hall its three intercom sounds (FS1's sounds.tbl).  The ambient anims play now and then,
+// silent: which of FS1's lift, weld and crane sounds go with them, on which frames, is not known.
+// FS1 has no 1024 art, so the 1024 entries use the 640 art.  The tooltip line sits near the bottom of
+// the screen, at the same height as FS2's.
+typedef struct fs1_hall_anim {
+	char *name;
+	int x, y;		// where the anim draws
+	int cx, cy;		// a door: the middle of its mask region
+} fs1_hall_anim;
+
+static fs1_hall_anim Fs1_hall_doors[2][6] = {			// in region order: exit, barracks, ready room, tech room, options, campaign
+	{ {"main1-d1", 68, 260, 103, 301}, {"main1-d6", 309, 34, 338, 67}, {"main1-d3", 312, 264, 386, 299},
+	  {"main1-d4", 457, 34, 551, 101}, {"main1-d5", 530, 206, 574, 293}, {"main1-d2", 305, 133, 358, 170} },
+	{ {"main2-d1", 199, 265, 264, 297}, {"main2-d6", 296, 278, 334, 309}, {"main2-d3", 423, 138, 531, 220},
+	  {"main2-d4", 363, 187, 381, 209}, {"main2-d5", 47, 307, 107, 340}, {"main2-d2", 325, 311, 394, 372} },
+};
+
+static fs1_hall_anim Fs1_hall_misc[2][4] = {
+	{ {"main1-m1", 14, 14}, {"main1-m2", 174, 198} },
+	{ {"main2-m1", 0, 37}, {"main2-m2", 59, 0}, {"main2-m3", 80, 115}, {"main2-m4", 0, 182} },
+};
+static int Fs1_hall_num_misc[2] = { 2, 4 };
+static int Fs1_hall_intercom[2] = { 38, 49 };			// the first of each hall's three
+
 static void fs1_mainhall_tbl()
 {
-	int hall, res;
+	int hall, res, i;
 
-	for (hall = 1; hall <= 2; hall++) {
+	for (hall = 0; hall < 2; hall++) {
 		for (res = 0; res < 2; res++) {
 			fs1_line("$Main Hall");
-			fs1_line("+Bitmap: MainHall%d", hall);
-			fs1_line("+Mask: MainHall%d-m", hall);
+			fs1_line("+Bitmap: MainHall%d", hall + 1);
+			fs1_line("+Mask: MainHall%d-m", hall + 1);
 			fs1_line("+Music: Choco Mousse");
-			fs1_line("+Num Intercom Sounds: 0");
-			fs1_line("+Num Misc Animations: 0");
-			fs1_line("+Num Door Animations: 0");
+
+			fs1_line("+Num Intercom Sounds: 3");
+			for (i = 0; i < 3; i++) {
+				fs1_line("+Intercom delay: 8000 15000");
+			}
+			for (i = 0; i < 3; i++) {
+				fs1_line("+Intercom sound: %d", Fs1_hall_intercom[hall] + i);
+			}
+			for (i = 0; i < 3; i++) {
+				fs1_line("+Intercom pan: 0.0");
+			}
+
+			fs1_line("+Num Misc Animations: %d", Fs1_hall_num_misc[hall]);
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim: %s", Fs1_hall_misc[hall][i].name);
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim delay: -1 10000 20000");
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim coords: %d %d", Fs1_hall_misc[hall][i].x, Fs1_hall_misc[hall][i].y);
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim mode: 2");		// MISC_ANIM_MODE_TIMED
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim pan: 0.0");
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim sounds: 0");
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim trigger: 0");
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim handles: 0");
+			}
+			for (i = 0; i < Fs1_hall_num_misc[hall]; i++) {
+				fs1_line("+Misc anim flags: 0");
+			}
+
+			fs1_line("+Num Door Animations: 6");
+			for (i = 0; i < 6; i++) {
+				fs1_line("+Door anim: %s", Fs1_hall_doors[hall][i].name);
+			}
+			for (i = 0; i < 6; i++) {
+				fs1_hall_anim *d = &Fs1_hall_doors[hall][i];
+				fs1_line("+Door coords: %d %d %d %d", d->x, d->y, d->cx, d->cy);
+			}
+			for (i = 0; i < 6; i++) {
+				fs1_line("+Door sounds: 23 24");		// FS1's main hall door opens, closes
+			}
+			for (i = 0; i < 6; i++) {
+				fs1_line("+Door pan: %.2f", (Fs1_hall_doors[hall][i].cx - 320) / 320.0f);
+			}
+
 			fs1_line("+Tooltip Y: %d", res ? 755 : 469);
 		}
 	}
