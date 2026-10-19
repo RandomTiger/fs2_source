@@ -152,6 +152,7 @@
 #include "freespace.h"
 #include "AlphaColors.h"
 #include "Localize.h"
+#include "parselo.h"	// Claude: Mp, EOF_CHAR
 
 #define CREDITS_MUSIC_DELAY	2000
 #define CREDITS_SCROLL_RATE	15.0f
@@ -358,6 +359,9 @@ void credits_init()
 		// keep reading everything in
 		strcpy(Credit_text,"");		
 		while(!check_for_string_raw("#end")){			
+			if ( Cfile_fs1_data && (*Mp == EOF_CHAR) ) {	// Claude: FS1's credits.tbl has no #end; stop at the end of the text
+				break;
+			}
 			stuff_string_line(line, 511);
 			linep1 = line;
 
@@ -367,6 +371,9 @@ void credits_init()
 				strcat(Credit_text, "\n");			
 				linep1 = linep2;
 			} while (linep2 != NULL);
+			if ( Cfile_fs1_data && (Mp[-1] == EOF_CHAR) ) {	// Claude: the last line had no newline, so Mp has stepped past the end
+				break;
+			}
 		}		
 
 		// close localization

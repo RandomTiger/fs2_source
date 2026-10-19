@@ -187,6 +187,7 @@ Each piece was its own branch off `FS1Compat`. Each is merged only after the FS2
 | `FS1MainHall` | 9 | The stand-in `mainhall.tbl` gives each FS1 hall its six door anims and its ambient anims (2 and 4), at positions found by matching each anim's first frame against the hall background (exact for every door); each door goes with the mask region it covers. FS1's door and intercom sounds; the ambient anims are silent. Fixes the main hall crash: with no door anims, lingering over a door read a missing anim instance in `main_hall_mouse_grab_region` (now guarded). Checked by hovering all six regions of hall 1 in Debug |
 | `FS1ShipWeaponScreens` | 9 | Ship select and weapon loadout use Brief's background (FS1 has no `ShipSelect` or `WeaponLoadout`). FS1's ship anims (633x224) and weapon anims (244x214) carry the name, stats and description in the art; they are placed by matching their first frame against that background, and FS2's drawn ship info and weapon description are skipped. Ship anims loop from frame 37, FS1's value. The weapon screen's secondary list scrolls with `SSB_08/09` (FS1 has no `WLB_08/09`). The ship screen's scroll buttons and both reset buttons are placed by FS1's masks: they were cut from a background FS1 does not ship, so they could not be matched |
 | `FS1Labels` | 9 | FS1's interface art has its labels painted in, so in FS1 data `UI_WINDOW::add_XSTR` adds none and FS2's labels no longer sit a few pixels off FS1's on every screen. Where a label still shows twice, it is FS1's button art drawn at FS2's position over the copy in the background |
+| `FS1Credits` | 9 | Fixes the credits crash. FS1's `credits.tbl` has no `#end` and no newline after its last line; FS2 reads lines until `#end`, so it read past the end of the text and kept appending to its buffer. In FS1 data the read stops at the end of the text |
 
 **FS1 missions play** (`-autotest`, Release, FS1 install's `fs2.ini` set to 640x480):
 - `btm-01`, the first training mission: 400 s of mission time, PASS with no Assert, Int3 or warning. Its later events wait on the player following instructions, so they do not fire under autotest.
@@ -198,7 +199,7 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 
 **FS1 recordings** (`recordings\fs1`): the main campaign (`freespace.fsc`) without the 5 training missions (`btm-*`) and the 4 that start in red alert (`sm2-06a`, `sm2-10a`, `sm3-05a`, `sm3-09a`; replay does not support red alert). 120 s each, the AI flying the player. Made with `tools\record_autotest.ps1 -Fs1`; `tools\replay_check.ps1` replays them in `PATH_FS1` with the exes found there, after the FS2 recordings.
 - All 25 replay with identical traces in Release and Debug, with no Assert, Int3 or warning. The whole suite, 47 FS2 and 25 FS1 recordings, passed 72 of 72 in 9 minutes.
-- Once, the Release replay of `sm3-06a` desynced at frame 3320 of 3544 (the run asked for `mouse_pos` where the recording has `timer_ms`). Two reruns matched. Not explained yet.
+- Once, the Release replay of `sm3-06a` desynced at frame 3320 of 3544 (the run asked for `mouse_pos` where the recording has `timer_ms`). Two reruns matched. Not explained yet. A second case on 2026-10-19: `sm3-08a` desynced at frame 3543 of 3544 (the run asked for `end` where the recording has `mouse_pos`); three reruns matched.
 - The exes must be in the FS1 install. On `FS1Compat` the build puts them there; elsewhere they have to be copied in.
 - Re-recorded for `FS1BriefingArt`: with the briefing's transition anim, 6 of the old recordings desynced on sound calls mid-mission, the same way every time, while all 47 FS2 recordings matched. The cause is in the original code: `message_queue_process` (`MissionMessage.cpp:1268`) keeps a message's head anim instance pointer after the anim ends and its instance goes back to the free list, so `anim_playing()` is true again once another anim reuses that instance. Message timing therefore depends on which anim instances earlier screens used. Not fixed (a candidate for `OriginalSourceBugFixes`).
 
@@ -236,7 +237,7 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 | Control config | Right-hand buttons drawn twice over, at both sets of positions |
 | HUD config | The gauge preview is not drawn (only the reticle). Same slider Asserts as the tech room |
 | Medals | Looks right |
-| Credits | **Crashes** (heap corruption, `0xC0000374`) |
+| Credits | Crashed (heap corruption, `0xC0000374`). Fixed by `FS1Credits` |
 | Cutscenes | Only "Introduction" listed; movies are not played by this source anyway |
 | Gameplay help | Text names FreeSpace 2 ("Quit FreeSpace 2 immediately") |
 | In-game HUD | Works |
