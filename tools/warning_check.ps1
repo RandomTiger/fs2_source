@@ -28,6 +28,9 @@ foreach ($p in $projects) {
 	foreach ($c in 'Release', 'Debug') {
 		# code.lib is shared by most projects; a stale one from another branch or variant would hide its warnings
 		Get-ChildItem $RepoDir -Recurse -Filter code.lib -ErrorAction SilentlyContinue | Remove-Item
+		# Rebuild first cleans what the last build wrote, as listed in the .tlog folders, and that includes the exes a
+		# normal build put in the game folder; without the lists only this check's own outputs are replaced
+		Get-ChildItem $RepoDir -Recurse -Directory -Filter *.tlog -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 		$log = Join-Path $Out "${p}_$c.txt"
 		& $msb (Join-Path $RepoDir "$p.vcxproj") /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$RepoDir\" /m /v:m /nologo > $log 2>&1
 		$code = $LASTEXITCODE
