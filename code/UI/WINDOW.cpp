@@ -133,6 +133,7 @@
 #include "Font.h"
 #include "localize.h"
 #include "cmdline.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 // global xstr colors
 color *Xstr_colors[UI_NUM_XSTR_COLORS][3] = {
@@ -585,6 +586,10 @@ void UI_WINDOW::set_ignore_gadgets(int state)
 
 void UI_WINDOW::add_XSTR(char *string, int _xstr_id, int _x, int _y, UI_GADGET *_assoc, int _color_type, int _font_id)
 {
+	if ( Cfile_fs1_data ) {	// Claude: FS1's interface art has its labels painted in
+		return;
+	}
+
 	int idx;
 	int found = -1;
 	UI_XSTR *x;
@@ -631,6 +636,10 @@ void UI_WINDOW::add_XSTR(char *string, int _xstr_id, int _x, int _y, UI_GADGET *
 
 void UI_WINDOW::add_XSTR(UI_XSTR *xstr)
 {
+	if ( Cfile_fs1_data ) {	// Claude: FS1's interface art has its labels painted in
+		return;
+	}
+
 	int idx;
 	int found = -1;
 	UI_XSTR *x;
