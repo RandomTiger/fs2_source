@@ -125,6 +125,7 @@
 #include "AlphaColors.h"
 #include "GameSequence.h"
 #include "Popup.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 UI_WINDOW	Popupdead_window;
 UI_BUTTON	Popupdead_buttons[POPUPDEAD_NUM_CHOICES_MAX];				// actual lit buttons
@@ -215,6 +216,21 @@ int Popupdead_multi_type;			// what kind of popup is active for muliplayer
 int Popupdead_skip_active = 0;	// The skip-misison popup is active
 int Popupdead_skip_already_shown = 0;
 
+// Claude: FS1 data: FS1's PopDeath is laid out like FS2's, but its buttons, PopD_00 to PopD_02, match the art at
+// x 343, y 32, 53 and 73 (error about 1 of 255), a few pixels off FS2's slots.  FS1 has no PopD_03, so the fourth
+// (red alert) slot is FS2's.  Overwrites the GR_640 entries.
+static void popupdead_fs1_layout()
+{
+	static int button_y[3] = {395, 416, 436};
+	int i;
+
+	for ( i = 0; i < 3; i++ ) {
+		Popupdead_button_coords[GR_640][i][0] = 474;		Popupdead_button_coords[GR_640][i][1] = button_y[i];
+		Popupdead_region_coords[GR_640][i][0] = 460;		Popupdead_region_coords[GR_640][i][1] = button_y[i] + 6;
+		Popupdead_region_coords[GR_640][i][2] = 506;		Popupdead_region_coords[GR_640][i][3] = button_y[i] + 22;
+	}
+}
+
 // Initialize the dead popup data
 void popupdead_start()
 {
@@ -229,6 +245,10 @@ void popupdead_start()
 	// increment number of deaths
 	Player->failures_this_session++;
 
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1's button slots
+		popupdead_fs1_layout();
+	}
 
 	// create base window
 	Popupdead_window.create(Popupdead_background_coords[gr_screen.res][0], Popupdead_background_coords[gr_screen.res][1], 1, 1, 0);
