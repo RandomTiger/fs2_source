@@ -230,6 +230,7 @@
 #include "ContextHelp.h"
 #include "AlphaColors.h"
 #include "AnimPlay.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 char *Cmd_brief_fname[GR_NUM_RESOLUTIONS] = {
 	"CommandBrief",
@@ -609,6 +610,31 @@ void cmd_brief_ani_wave_init(int index)
 	}
 }
 
+// Claude: FS1 data: the command briefing in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md): the text in the left
+// box, the animation in the right, the stage buttons along the bottom.  FS1's CBB_ art and mask number them differently
+// (pause is CBB_07, in the middle), so each FS2 button takes FS1's art, place and hotspot, found by matching the art.
+static void cmd_brief_fs1_layout()
+{
+	// first, prev, pause, next, last stage; help, options, accept
+	static char *Fs1_names[NUM_BUTTONS] = { "CBB_00", "CBB_01", "CBB_07", "CBB_02", "CBB_03", "CBB_04", "CBB_05", "CBB_06" };
+	static int Fs1_coords[NUM_BUTTONS][3] = { {144,442,0}, {169,442,1}, {195,442,7}, {221,442,2}, {247,442,3}, {469,424,4}, {447,452,5}, {552,411,6} };
+	static int Fs1_text[4] = { 33, 165, 362, 270 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Cmd_brief_buttons[GR_640][i].filename = Fs1_names[i];
+		Cmd_brief_buttons[GR_640][i].x = Fs1_coords[i][0];
+		Cmd_brief_buttons[GR_640][i].y = Fs1_coords[i][1];
+		Cmd_brief_buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	for (i=0; i<4; i++) {
+		Cmd_text_wnd_coords[GR_640][i] = Fs1_text[i];
+	}
+	Cmd_stage_y[GR_640] = 148;
+	Cmd_image_wnd_coords[GR_640][CMD_X_COORD] = 423;
+	Cmd_image_wnd_coords[GR_640][CMD_Y_COORD] = 138;
+}
+
 void cmd_brief_init(int team)
 {
 	common_music_init(SCORE_BRIEFING);
@@ -642,6 +668,9 @@ void cmd_brief_init(int team)
 	gr_set_palette(Palette_name, Palette, 1);
 	*/
 
+	if ( Cfile_fs1_data ) {	// Claude
+		cmd_brief_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Cmd_brief_mask[gr_screen.res]);
 
