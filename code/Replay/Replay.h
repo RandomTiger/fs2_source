@@ -66,6 +66,10 @@ extern int Replay_mode;
 // command line (called from parse_cmdline)
 void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
 void replay_set_autorecord(char *dir);
+// -replay_pace: a replay waits each mission frame until real time catches up with the recorded frame time, so it
+// plays at the speed it was recorded instead of as fast as the PC can draw.  Only real time is spent; nothing the
+// game reads changes, so the trace is the same as without it.
+void replay_set_pace(int on);
 
 // -autorecord restart, called from WinMainSub
 void replay_wait_for_restart();		// first thing: wait for the instance that started this one to close

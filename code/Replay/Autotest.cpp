@@ -29,6 +29,7 @@
 #include "MissionScreenCommon.h"
 #include "MissionParse.h"
 #include "MissionGoals.h"
+#include "MissionBrief.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -352,6 +353,187 @@ static void autotest_main_menu()
 	gameseq_post_event(GS_EVENT_START_GAME);
 }
 
+// -at_menus: a tour of every single-player screen instead of playing missions.  Each stop posts the
+// event a button would, waits for its state, stays a few frames, then leaves the way its Back button
+// does.  The mission screens use the -at_mission mission, or the first campaign mission.
+// Not visited: the pilot screen (it deletes old pilot files, #23) and the goals screen (GS_STATE_SHOW_GOALS), which
+// FS2 cannot reach: its control has no key and no tab, and its art (Objectives) is not in the FS2 data.
+#define AUTOTEST_TOUR_COMMIT		-1		// not an event: commit_pressed(), as the Commit button
+#define AUTOTEST_TOUR_SCREEN		-2		// not an event: the briefing screens' own buttons, which pick the next screen
+#define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
+#define AUTOTEST_TOUR_FRAMES		30		// frames drawn on each screen
+#define AUTOTEST_TOUR_PLAY_FRAMES	120		// frames of gameplay before the in-game screens
+extern int Next_screen;	// MissionScreenCommon.cpp: the briefing screen to go to
+typedef struct autotest_stop {
+	char *name;
+	int event, state, leave;
+} autotest_stop;
+static autotest_stop Autotest_tour[] = {
+	{ "Options",			GS_EVENT_OPTIONS_MENU,				GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE },
+	{ "Control config",		GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE },
+	{ "HUD config",			GS_EVENT_HUD_CONFIG,				GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE },
+	{ "Medals",				GS_EVENT_VIEW_MEDALS,				GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE },
+	{ "Barracks",			GS_EVENT_BARRACKS_MENU,				GS_STATE_BARRACKS_MENU,				GS_EVENT_MAIN_MENU },
+	{ "Tech room",			GS_EVENT_TECH_MENU,					GS_STATE_TECH_MENU,					GS_EVENT_MAIN_MENU },
+	{ "Campaign room",		GS_EVENT_CAMPAIGN_ROOM,				GS_STATE_CAMPAIGN_ROOM,				GS_EVENT_MAIN_MENU },
+	{ "Simulator room",		GS_EVENT_SIMULATOR_ROOM,			GS_STATE_SIMULATOR_ROOM,			GS_EVENT_MAIN_MENU },
+	{ "Cutscenes",			GS_EVENT_GOTO_VIEW_CUTSCENES_SCREEN,	GS_STATE_VIEW_CUTSCENES,			GS_EVENT_MAIN_MENU },
+	{ "Credits",			GS_EVENT_CREDITS,					GS_STATE_CREDITS,					GS_EVENT_MAIN_MENU },
+	{ "Command briefing",	GS_EVENT_START_GAME,				GS_STATE_CMD_BRIEF,					AUTOTEST_TOUR_STAY },
+	{ "Briefing",			GS_EVENT_START_BRIEFING,			GS_STATE_BRIEFING,					AUTOTEST_TOUR_STAY },
+	{ "Ship select",		AUTOTEST_TOUR_SCREEN,				GS_STATE_SHIP_SELECT,				AUTOTEST_TOUR_STAY },
+	{ "Weapon select",		AUTOTEST_TOUR_SCREEN,				GS_STATE_WEAPON_SELECT,				AUTOTEST_TOUR_STAY },
+	{ "Gameplay",			AUTOTEST_TOUR_COMMIT,				GS_STATE_GAME_PLAY,					AUTOTEST_TOUR_STAY },
+	{ "Pause",				GS_EVENT_PAUSE_GAME,				GS_STATE_GAME_PAUSED,				GS_EVENT_PREVIOUS_STATE },
+	{ "Mission log",		GS_EVENT_MISSION_LOG_SCROLLBACK,	GS_STATE_MISSION_LOG_SCROLLBACK,	GS_EVENT_PREVIOUS_STATE },
+	{ "Hotkeys",			GS_EVENT_HOTKEY_SCREEN,				GS_STATE_HOTKEY_SCREEN,				GS_EVENT_PREVIOUS_STATE },
+	{ "Gameplay help",		GS_EVENT_GAMEPLAY_HELP,				GS_STATE_GAMEPLAY_HELP,				GS_EVENT_PREVIOUS_STATE },
+	{ "In-game options",	GS_EVENT_OPTIONS_MENU,				GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE },
+	{ "In-game controls",	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE },
+	{ "In-game HUD config",	GS_EVENT_HUD_CONFIG,				GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE },
+	{ "Debriefing",			GS_EVENT_DEBRIEF,					GS_STATE_DEBRIEF,					GS_EVENT_END_GAME },
+};
+#define AUTOTEST_TOUR_STOPS	((int)(sizeof(Autotest_tour) / sizeof(Autotest_tour[0])))
+
+#define AUTOTEST_TOUR_GO		0		// post the stop's event
+#define AUTOTEST_TOUR_ARRIVE	1		// wait for its state
+#define AUTOTEST_TOUR_LOOK		2		// stay a few frames
+#define AUTOTEST_TOUR_BACK		3		// wait to be back where the stop started
+static int Autotest_menus = 0;				// -at_menus
+static int Autotest_tour_stop = 0;
+static int Autotest_tour_phase = AUTOTEST_TOUR_GO;
+static int Autotest_tour_from;				// the state the stop started in
+static int Autotest_tour_frames;
+static DWORD Autotest_tour_ms;
+static int Autotest_tour_seen = 0;
+static int Autotest_tour_failed = 0;
+
+void autotest_set_menus()
+{
+	if (!Autotest_harness) {
+		return;
+	}
+	Autotest_menus = 1;
+	autotest_logf("Menu tour: %d screens\n", AUTOTEST_TOUR_STOPS);
+}
+
+static void autotest_tour_end(char *why)
+{
+	if (why) {
+		Autotest_tour_failed++;
+		autotest_logf("FAILED: menu tour stopped at '%s': %s\n", Autotest_tour[Autotest_tour_stop].name, why);
+	}
+	autotest_logf("Menu tour: %d of %d screens seen\n", Autotest_tour_seen, AUTOTEST_TOUR_STOPS);
+	if (!why && (Autotest_tour_seen < AUTOTEST_TOUR_STOPS)) {
+		Autotest_tour_failed++;
+		autotest_logf("FAILED: menu tour missed %d screens\n", AUTOTEST_TOUR_STOPS - Autotest_tour_seen);
+	}
+	Autotest_tour_stop = AUTOTEST_TOUR_STOPS;
+	gameseq_post_event(GS_EVENT_QUIT_GAME);
+}
+
+// each frame, in place of the mission driving
+static void autotest_tour_frame(int state)
+{
+	autotest_stop *s;
+
+	if (Autotest_tour_stop >= AUTOTEST_TOUR_STOPS) {
+		return;
+	}
+	s = &Autotest_tour[Autotest_tour_stop];
+
+	switch (Autotest_tour_phase) {
+		case AUTOTEST_TOUR_GO:
+			// the tour starts from the main hall
+			if ((Autotest_tour_stop == 0) && (state != GS_STATE_MAIN_MENU)) {
+				return;
+			}
+			Autotest_tour_from = state;
+			Autotest_tour_ms = Autotest_frame_ms;
+			Autotest_tour_phase = AUTOTEST_TOUR_ARRIVE;
+			// already there (the screen before opened it): look at it from this frame
+			if (state == s->state) {
+				autotest_tour_frame(state);
+				return;
+			}
+			if (s->event == GS_EVENT_START_GAME) {
+				if (!autotest_next_mission()) {
+					autotest_tour_end("no mission for the mission screens");
+					return;
+				}
+				strncpy(Game_current_mission_filename, Autotest_current, MAX_FILENAME_LEN - 1);
+				Game_mode &= ~(GM_CAMPAIGN_MODE);
+				autotest_logf("Menu tour: mission screens with '%s'\n", Autotest_current);
+			}
+			if (s->event == AUTOTEST_TOUR_COMMIT) {
+				commit_pressed();
+			} else if (s->event == AUTOTEST_TOUR_SCREEN) {
+				// as the Ship Selection and Weapon Loadout buttons: posting the event alone leaves Next_screen on the
+				// briefing, and the screen goes straight back to it
+				if (brief_only_allow_briefing()) {
+					autotest_tour_end("the mission has no ship or weapon selection (training or scramble)");
+					return;
+				}
+				Next_screen = (s->state == GS_STATE_SHIP_SELECT) ? ON_SHIP_SELECT : ON_WEAPON_SELECT;
+			} else {
+				gameseq_post_event(s->event);
+			}
+			return;
+
+		case AUTOTEST_TOUR_ARRIVE:
+			// a mission with no command briefing goes straight on to the briefing
+			if ((s->state == GS_STATE_CMD_BRIEF) && (state == GS_STATE_BRIEFING)) {
+				autotest_logf("Menu tour: '%s' has no command briefing\n", Autotest_current);
+				Autotest_tour_seen++;
+				break;
+			}
+			if (state != s->state) {
+				if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+					autotest_tour_end("its screen did not open");
+				}
+				return;
+			}
+			Autotest_tour_seen++;
+			autotest_logf("Menu tour: '%s'\n", s->name);
+			Autotest_tour_frames = 0;
+			Autotest_tour_phase = AUTOTEST_TOUR_LOOK;
+			return;
+
+		case AUTOTEST_TOUR_LOOK:
+			if (state != s->state) {
+				autotest_tour_end("its screen closed by itself");
+				return;
+			}
+			if (++Autotest_tour_frames < ((s->state == GS_STATE_GAME_PLAY) ? AUTOTEST_TOUR_PLAY_FRAMES : AUTOTEST_TOUR_FRAMES)) {
+				return;
+			}
+			if (s->leave == AUTOTEST_TOUR_STAY) {
+				break;
+			}
+			gameseq_post_event(s->leave);
+			Autotest_tour_ms = Autotest_frame_ms;
+			Autotest_tour_phase = AUTOTEST_TOUR_BACK;
+			return;
+
+		case AUTOTEST_TOUR_BACK:
+			// a pushed screen returns to where it started; the others go back to the main hall
+			if (state != ((s->leave == GS_EVENT_PREVIOUS_STATE) ? Autotest_tour_from : GS_STATE_MAIN_MENU)) {
+				if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+					autotest_tour_end("did not go back");
+				}
+				return;
+			}
+			break;
+	}
+
+	// on to the next stop, from the next frame
+	Autotest_tour_phase = AUTOTEST_TOUR_GO;
+	if (++Autotest_tour_stop == AUTOTEST_TOUR_STOPS) {
+		Autotest_tour_stop--;
+		autotest_tour_end(NULL);
+	}
+}
+
 void autotest_drive_state(int state)
 {
 	if (!Autotest_harness) {
@@ -359,6 +541,14 @@ void autotest_drive_state(int state)
 	}
 
 	Autotest_frame_ms = GetTickCount();
+	if (Autotest_menus && (Replay_mode != REPLAY_PLAY)) {
+		if (state != Autotest_state) {
+			Autotest_state_ms = Autotest_frame_ms;
+			Autotest_state = state;
+		}
+		autotest_tour_frame(state);
+		return;
+	}
 	if (state == Autotest_state) {
 		// a menu the autotest drives has not moved on (an event was refused or flushed), so give up on
 		// this mission and go on to the next one
@@ -552,7 +742,7 @@ int autotest_exit_code(int code)
 	}
 
 	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)
-	failed = Autotest_missions_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
+	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
 	for (i = 0; i < Autotest_num_sites; i++) {
 		autotest_logf("%6d x %s %s line %d\n", Autotest_sites[i].count, Autotest_sites[i].kind, Autotest_sites[i].file ? Autotest_sites[i].file : "", Autotest_sites[i].line);
 	}

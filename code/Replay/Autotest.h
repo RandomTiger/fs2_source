@@ -4,6 +4,11 @@
  *
  * Usage:
  *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc]
+ *   -autotest -at_menus [-at_mission <file.fs2>]
+ *
+ * With -at_menus, autotest visits every single-player screen in turn (main hall screens, then the
+ * briefings, loadout, gameplay, the in-game screens and the debriefing with the -at_mission mission or
+ * the first campaign mission), logs each one and quits.  A screen that does not open or close fails it.
  *
  * With no -at_mission, every single-player campaign mission runs in turn.  Each mission runs for
  * -at_time seconds of mission time (default 120) at -at_speed time compression (default 4), with
@@ -34,6 +39,7 @@ extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a r
 
 // command line (called from parse_cmdline)
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
+void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 
 // recording header
 void autotest_get_settings(int *on, int *time, int *speed);
