@@ -397,7 +397,8 @@ typedef struct screen {
 
 	//switch onscreen, offscreen
 	void (*gf_flip)();
-	void (*gf_flip_window)(uint _hdc, int x, int y, int w, int h );
+	// Claude: x64, an HDC fits in 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+	void (*gf_flip_window)(uintptr_t _hdc, int x, int y, int w, int h );
 
 	// Sets the current palette
 	void (*gf_set_palette)(ubyte * new_pal, int restrict_alphacolor);

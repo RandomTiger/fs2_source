@@ -164,7 +164,8 @@ void brief_init();
 void brief_close();
 void brief_do_frame(float frametime);
 void brief_unhide_buttons();
-uint brief_get_closeup_icon();
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t brief_get_closeup_icon();
 void brief_turn_off_closeup_icon();
 
 void briefing_stop_music();

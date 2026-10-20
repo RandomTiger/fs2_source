@@ -175,9 +175,12 @@ int	ds_get_channel_size(int channel);
 int	ds_is_3d_buffer(int sid);
 int	ds_using_ds3d();
 
-unsigned int ds_get_primary_buffer_interface();
-unsigned int ds_get_dsound_interface();
-unsigned int ds_get_property_set_interface();
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_primary_buffer_interface();
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_dsound_interface();
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_property_set_interface();
 
 // Returns the number of channels that are actually playing
 int ds_get_number_channels();

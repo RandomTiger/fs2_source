@@ -202,9 +202,11 @@ int os_foreground()
 }
 
 // Returns the handle to the main window
-uint os_get_window()
+// Claude: x64, HWNDs only use the low 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t os_get_window()
 {
-	return (uint)hwndApp;
+	// Claude: x64, HWNDs only use the low 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)hwndApp;
 }
 
 

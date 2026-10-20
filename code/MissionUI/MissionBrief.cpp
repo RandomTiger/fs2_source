@@ -1014,9 +1014,11 @@ void brief_buttons_init()
 //	brief_get_closeup_icon()
 //
 //
-uint brief_get_closeup_icon()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t brief_get_closeup_icon()
 {
-	return (uint)Closeup_icon;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)Closeup_icon;
 }
 
 // stop showing the closeup view of an icon

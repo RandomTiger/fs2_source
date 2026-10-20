@@ -1118,7 +1118,8 @@ void grx_flip()
 
 // switch onscreen, offscreen
 // Set msg to 0 if calling outside of the window handler.
-void grx_flip_window(uint _hdc, int x, int y, int w, int h )
+// Claude: x64, an HDC fits in 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+void grx_flip_window(uintptr_t _hdc, int x, int y, int w, int h )
 {
 	HDC hdc = (HDC)_hdc;
 	HPALETTE hPrevPalette2 = NULL;	// Claude: was hOldPalette, which hid the global (C4459)
@@ -1584,7 +1585,8 @@ void gr_soft_init()
 
 	if (DibInfo.Header.biHeight > 0)	{
 		// top down 
-		gr_screen.offscreen_buffer = (void *)((uint)gr_screen.offscreen_buffer_base + (gr_screen.max_h - 1) * gr_screen.rowsize);
+		// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+		gr_screen.offscreen_buffer = (void *)((uintptr_t)gr_screen.offscreen_buffer_base + (gr_screen.max_h - 1) * gr_screen.rowsize);
 		gr_screen.rowsize *= -1;
 	} else {
 		// top up

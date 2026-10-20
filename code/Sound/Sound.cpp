@@ -1325,9 +1325,11 @@ void snd_stop_all()
 // Return the pointer to the DirectSound interface
 //
 //
-uint sound_get_ds()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t sound_get_ds()
 {
-	return (uint)pDirectSound;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)pDirectSound;
 }
 
 // ---------------------------------------------------------------------------------------

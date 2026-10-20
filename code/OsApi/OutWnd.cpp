@@ -697,7 +697,8 @@ LRESULT CALLBACK outwnd_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM lParam)
 
 			AppendMenu(h_menu, MFT_STRING, ID_COPY, "&Copy\tEnter");
 			AppendMenu(h_menu, MFT_STRING, ID_FIND, "&Find Text");
-			AppendMenu(h_menu, MF_POPUP, (unsigned int) h_sub_menu, "Filter &Messages");
+			// Claude: x64, AppendMenu takes the submenu as UINT_PTR; unsigned int on Win32 (D-20261020-194406 batch 3)
+			AppendMenu(h_menu, MF_POPUP, (UINT_PTR) h_sub_menu, "Filter &Messages");
 			pt.x = LOWORD(lParam);
 			pt.y = HIWORD(lParam);
 			ClientToScreen(hwnd, &pt);
@@ -1237,7 +1238,8 @@ void outwnd_init(int display_under_freespace_window)
 #ifndef NMONO
 	if (!outwnd_inited)	{
 		outwnd_inited = TRUE;
- 		hOutputThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)outwnd_thread, (LPVOID)display_under_freespace_window, 0, &OutputThreadID);
+ 		// Claude: x64, the int flag goes through INT_PTR to the thread parameter; int on Win32 (D-20261020-194406 batch 3)
+ 		hOutputThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)outwnd_thread, (LPVOID)(INT_PTR)display_under_freespace_window, 0, &OutputThreadID);
 		//SetThreadPriority(hOutputThread, THREAD_PRIORITY_TIME_CRITICAL);
 
 		// set up the monochrome drivers

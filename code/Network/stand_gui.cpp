@@ -461,16 +461,20 @@ void std_gen_set_text(char *str, int field_num)
 	}
 
 	// otherwise set the text
-	ctrl = GetDlgItem(Multi_gen_dialog, (int)MAKEINTRESOURCE(IDC_FIELD1));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Multi_gen_dialog, (int)(INT_PTR)MAKEINTRESOURCE(IDC_FIELD1));
 	switch(field_num){
 	case 0:
-		ctrl = GetDlgItem(Multi_gen_dialog,(int)MAKEINTRESOURCE(IDC_FIELD1));
+		// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+		ctrl = GetDlgItem(Multi_gen_dialog,(int)(INT_PTR)MAKEINTRESOURCE(IDC_FIELD1));
 		break;
 	case 1:
-		ctrl = GetDlgItem(Multi_gen_dialog,(int)MAKEINTRESOURCE(IDC_FIELD2));
+		// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+		ctrl = GetDlgItem(Multi_gen_dialog,(int)(INT_PTR)MAKEINTRESOURCE(IDC_FIELD2));
 		break;
 	case 2:
-		ctrl = GetDlgItem(Multi_gen_dialog,(int)MAKEINTRESOURCE(IDC_FIELD3));
+		// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+		ctrl = GetDlgItem(Multi_gen_dialog,(int)(INT_PTR)MAKEINTRESOURCE(IDC_FIELD3));
 		break;	
 	}
 	SetWindowText(ctrl, str);
@@ -516,7 +520,8 @@ int std_connect_set_connect_count()
 	strcat(str,val);
 
 	// set the text itself
-   ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CON_COUNT));
+   // Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+   ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_CON_COUNT));
    SetWindowText(ctrl,str);
 
 	// return the num of players found
@@ -539,7 +544,8 @@ void std_connect_set_host_connect_status()
 	}
 
 	// get the control and set the status
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_HOST_IS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_HOST_IS));
 	if(found){
 		SetWindowText(ctrl, XSTR("Host connected ? Yes",912));
 	} else {
@@ -553,7 +559,8 @@ void std_connect_add_ip_string(char *string)
    HWND ctrl;
 	
 	// add the item
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE], (int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
 	SendMessage(ctrl, LB_ADDSTRING, (WPARAM)0, (LPARAM)(LPCTSTR)string);
 }
 
@@ -564,7 +571,8 @@ void std_connect_remove_ip_string(char *string)
 	int loc;
 	
 	// get the control handle
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE], (int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
 
 	// NOTE the use of FINDSTRING and _not_ FINDSTRINGEXACT !!
 	// since we've appended the ping to the end of the string, we can only check the 
@@ -584,7 +592,8 @@ void std_connect_set_ip_string(char *lookup,char *string)
 	int loc;
 
 	// get the control handle
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
  
 	// NOTE the use of FINDSTRING and _not_ FINDSTRINGEXACT !!
 	// since we've appended the ping to the end of the string, we can only check the 
@@ -604,7 +613,8 @@ void std_connect_kick_player()
 	HWND ctrl;	
 
 	// get the control handle
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
 
 	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
 	sel = (int)SendMessage(ctrl,LB_GETCURSEL,(WPARAM)0,(LPARAM)0);
@@ -660,7 +670,8 @@ void std_connect_clear_controls()
 	std_connect_set_host_connect_status();
 
 	// reset the list of players and pings
-	handle = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	handle = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
 	SendMessage(handle,LB_RESETCONTENT,(WPARAM)0,(LPARAM)0);
 }
 
@@ -734,7 +745,8 @@ int std_connect_lindex_to_npindex(int index)
 	int ret,idx;
 
 	// get the control handle
-	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CONPING));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_CONPING));
 
 	// get the string contained at a given index	
 	SendMessage(ctrl,LB_GETTEXT,(WPARAM)index,(LPARAM)(LPSTR)list_text);
@@ -768,12 +780,14 @@ BOOL CALLBACK connect_proc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
 		Page_handles[CONNECT_PAGE] = hwndDlg;		
 		
 		// create the standalone name text box and limit its text length
-		Multi_std_name = GetDlgItem(hwndDlg, (int)MAKEINTRESOURCE(IDC_STD_NAME));
+		// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+		Multi_std_name = GetDlgItem(hwndDlg, (int)(INT_PTR)MAKEINTRESOURCE(IDC_STD_NAME));
 		SendMessage(Multi_std_name, EM_SETLIMITTEXT, (WPARAM)MAX_GAMENAME_LEN-1, (LPARAM)0);
 		Multi_std_namechange_force = 1;
 
 		// create the standalone host password input box
-		Multi_std_host_passwd = GetDlgItem(hwndDlg, (int)MAKEINTRESOURCE(IDC_STD_HOST_PASSWD));
+		// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+		Multi_std_host_passwd = GetDlgItem(hwndDlg, (int)(INT_PTR)MAKEINTRESOURCE(IDC_STD_HOST_PASSWD));
 		SendMessage(Multi_std_host_passwd, EM_SETLIMITTEXT, (WPARAM)STD_PASSWD_LEN, (LPARAM)0);
 		memset(Multi_options_g.std_passwd, 0, STD_PASSWD_LEN+1);
 
@@ -1169,7 +1183,8 @@ void std_multi_handle_framecap_scroll(HWND ctrl)
 
 	// update the text display 
 	sprintf(pos_text,"%d",pos);
-	SetWindowText(GetDlgItem(Page_handles[MULTIPLAYER_PAGE],(int)MAKEINTRESOURCE(IDC_FRAMECAP_STATIC)),pos_text);
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	SetWindowText(GetDlgItem(Page_handles[MULTIPLAYER_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_FRAMECAP_STATIC)),pos_text);
 	
 	// set the framecap var
 	Multi_options_g.std_framecap = pos;
@@ -1209,25 +1224,32 @@ void std_multi_init_multi_controls(HWND hwndDlg)
 	std_multi_init_framecap_slider(hwndDlg);
 
 	// create the framerate display text box
-	Standalone_FPS = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_STANDALONE_FPS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Standalone_FPS = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_STANDALONE_FPS));
 
 	// create the missiontime text box
-	Standalone_missiontime = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_STANDALONE_MTIME));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Standalone_missiontime = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_STANDALONE_MTIME));
 
 	// create the mission name text box
-	Standalone_mission_name = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_MISSION_NAME));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Standalone_mission_name = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_MISSION_NAME));
 
 	// create the netgame max players text box
-	Std_ng_max_players = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_NG_MAXPLAYERS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Std_ng_max_players = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_NG_MAXPLAYERS));
 
 	// create the netgame max observers text box
-	Std_ng_max_observers = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_NG_MAXOBSERVERS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Std_ng_max_observers = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_NG_MAXOBSERVERS));
 
 	// create the netgame security text box
-	Std_ng_security = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_NG_SECURITY));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Std_ng_security = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_NG_SECURITY));
 
 	// create the netgame respawns # text box
-	Std_ng_respawns = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_NG_RESPAWNS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Std_ng_respawns = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_NG_RESPAWNS));
 
    // load the goal tree-view bitmaps
 	Goal_bitmaps = ImageList_Create(16,16,ILC_COLOR4 | ILC_MASK,5,0);
@@ -1482,39 +1504,64 @@ void std_pinfo_clear_controls()
 void std_pinfo_init_player_info_controls(HWND hwndDlg)
 {	
 	// create the player callsign listbox
-	Player_name_list = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PLAYER_LIST));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_name_list = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PLAYER_LIST));
 
 	// create the player ship type text box
-	Player_ship_type = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PSHIP_TYPE));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_ship_type = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PSHIP_TYPE));
 
 	// create the player ping time text box
-	Player_ping_time = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PING_TIME));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_ping_time = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PING_TIME));
 
 	// initialize the various and sundry statistics text controls (alltime)
-   Player_stats[0] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PSHOTS));
-	Player_stats[1] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PHITS));
-	Player_stats[2] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PBHHITS));
-	Player_stats[3] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PPCT));
-	Player_stats[4] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_PBHPCT));
-	Player_stats[5] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_SSHOTS));
-	Player_stats[6] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_SECHITS));
-	Player_stats[7] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_SBHHITS));
-	Player_stats[8] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_SPCT));
-	Player_stats[9] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_SBHPCT));
-	Player_stats[10] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_ASSISTS));
+   // Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+   Player_stats[0] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PSHOTS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[1] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[2] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PBHHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[3] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[4] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_PBHPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[5] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_SSHOTS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[6] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_SECHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[7] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_SBHHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[8] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_SPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[9] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_SBHPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_stats[10] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_ASSISTS));
 
 	// initialize the various and sundry statistics text controls (this mission)
-	Player_mstats[0] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MPSHOTS));
-	Player_mstats[1] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MPHITS));
-	Player_mstats[2] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MPBHHITS));
-	Player_mstats[3] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MPPCT));
-	Player_mstats[4] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MPBHPCT));
-	Player_mstats[5] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MSSHOTS));
-	Player_mstats[6] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MSECHITS));
-	Player_mstats[7] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MSBHHITS));
-	Player_mstats[8] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MSPCT));
-	Player_mstats[9] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MSBHPCT));
-	Player_mstats[10] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)MAKEINTRESOURCE(IDC_MASSISTS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[0] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MPSHOTS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[1] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MPHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[2] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MPBHHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[3] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MPPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[4] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MPBHPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[5] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MSSHOTS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[6] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MSECHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[7] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MSBHHITS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[8] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MSPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[9] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MSBHPCT));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Player_mstats[10] = GetDlgItem(Page_handles[PLAYER_INFO_PAGE],(int)(INT_PTR)MAKEINTRESOURCE(IDC_MASSISTS));
 }
 
 // returns true or false depending on whether the passed netplayer is the currently selected guy
@@ -1694,21 +1741,26 @@ void std_gs_clear_controls()
 void std_gs_init_godstuff_controls(HWND hwndDlg)
 {
 	// initialize the player listbox control   
-	God_player_list = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)MAKEINTRESOURCE(IDC_PLAYER_GOD_LIST));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	God_player_list = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_PLAYER_GOD_LIST));
 	
 	// initialize the framerate text box
-	Godstuff_fps = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)MAKEINTRESOURCE(IDC_GODSTUFF_FPS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Godstuff_fps = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_GODSTUFF_FPS));
 
 	// initialize the messaging edit control
-	Godstuff_broadcast_text = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)MAKEINTRESOURCE(IDC_GODSTUFF_BROADCAST));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Godstuff_broadcast_text = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_GODSTUFF_BROADCAST));
 	SendMessage(Godstuff_broadcast_text, EM_SETLIMITTEXT, (WPARAM)CHATBOX_MAX_LEN, (LPARAM)0);
 	SendMessage(Godstuff_broadcast_text, EM_FMTLINES, (WPARAM)TRUE, (LPARAM)0);
 
 	// create the player chatter list box
-	Godstuff_player_messages = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)MAKEINTRESOURCE(IDC_GOD_CHAT));			
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Godstuff_player_messages = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_GOD_CHAT));			
 	
 	// initialize the message broadcast button
-	Godstuff_broadcast_button = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)MAKEINTRESOURCE(IDC_GODSTUFF_SENDMESS));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Godstuff_broadcast_button = GetDlgItem(Page_handles[GODSTUFF_PAGE], (int)(INT_PTR)MAKEINTRESOURCE(IDC_GODSTUFF_SENDMESS));
 	// hide the button -- we can now process return key
 	ShowWindow(Godstuff_broadcast_button, SW_HIDE);
 
@@ -1790,7 +1842,8 @@ void std_debug_clear_controls()
 void std_debug_init_debug_controls(HWND hwndDlg)
 {
 	// create the state string text box
-	Standalone_state_string = GetDlgItem(hwndDlg,(int)MAKEINTRESOURCE(IDC_STANDALONE_STATE));
+	// Claude: x64, through INT_PTR, the id is in the low 16 bits; INT_PTR is int on Win32 (D-20261020-194406 batch 3)
+	Standalone_state_string = GetDlgItem(hwndDlg,(int)(INT_PTR)MAKEINTRESOURCE(IDC_STANDALONE_STATE));
 	
 	// standalone state indicator
 	SetWindowText(Standalone_state_string,"");

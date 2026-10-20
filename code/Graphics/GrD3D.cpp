@@ -400,8 +400,9 @@ void mprint_guid( LPGUID lpGuid )
 #define OP_EXIT(ptr) \
     PUTD3DINSTRUCTION(D3DOP_EXIT, 0, 0, ptr)
 
+// Claude: x64, ULONG_PTR on the next line keeps the whole pointer; ULONG on Win32 (D-20261020-194406 batch 3)
 #define QWORD_ALIGNED(ptr) \
-    (!(0x00000007L & (ULONG)(ptr)))
+    (!(0x00000007L & (ULONG_PTR)(ptr)))
 
 #define D3D_MAX_VERTS 512
 #define D3D_EXBUFFER_SIZE 65536
@@ -1870,7 +1871,8 @@ void gr_d3d_flip_cleanup()
 }
 
 
-void gr_d3d_flip_window(uint _hdc, int x, int y, int w, int h )
+// Claude: x64, an HDC fits in 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+void gr_d3d_flip_window(uintptr_t _hdc, int x, int y, int w, int h )
 {
 }
 
@@ -1987,7 +1989,8 @@ int gr_d3d_save_screen()
 		for (i=0; i<gr_screen.max_h; i++ )	{
 			memcpy( &Gr_saved_screen[gr_screen.max_w * i * gr_screen.bytes_per_pixel], dptr, gr_screen.max_w * gr_screen.bytes_per_pixel );
 		
-			dptr = (uint *)((uint)dptr + ddsd.lPitch);
+			// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+			dptr = (uint *)((uintptr_t)dptr + ddsd.lPitch);
 		}
 	} else {
 		ushort *dptr = (ushort *)ddsd.lpSurface;	
@@ -1995,7 +1998,8 @@ int gr_d3d_save_screen()
 		for (i=0; i<gr_screen.max_h; i++ )	{
 			memcpy( &Gr_saved_screen[gr_screen.max_w * i * gr_screen.bytes_per_pixel], dptr, gr_screen.max_w * gr_screen.bytes_per_pixel );
 		
-			dptr = (ushort *)((uint)dptr + ddsd.lPitch);
+			// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+			dptr = (ushort *)((uintptr_t)dptr + ddsd.lPitch);
 		}
 	}
 
@@ -2049,7 +2053,8 @@ void gr_d3d_restore_screen(int id)
 		for (i=0; i<gr_screen.max_h; i++ )	{
 			memcpy( dptr, &Gr_saved_screen[gr_screen.max_w * i * gr_screen.bytes_per_pixel], gr_screen.max_w * gr_screen.bytes_per_pixel );
 		
-			dptr = (uint *)((uint)dptr + ddsd.lPitch);
+			// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+			dptr = (uint *)((uintptr_t)dptr + ddsd.lPitch);
 		}
 	} else {
 		ushort *dptr = (ushort *)ddsd.lpSurface;	
@@ -2057,7 +2062,8 @@ void gr_d3d_restore_screen(int id)
 		for (i=0; i<gr_screen.max_h; i++ )	{
 			memcpy( dptr, &Gr_saved_screen[gr_screen.max_w * i * gr_screen.bytes_per_pixel], gr_screen.max_w * gr_screen.bytes_per_pixel );
 		
-			dptr = (ushort *)((uint)dptr + ddsd.lPitch);
+			// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+			dptr = (ushort *)((uintptr_t)dptr + ddsd.lPitch);
 		}
 	}
 
@@ -2330,7 +2336,8 @@ void d3d_get_pixel(int x, int y, ubyte *pixel)
 		return;
 	} 
 
-	ubyte *dptr = (ubyte *)((uint)ddsd.lpSurface + y*ddsd.lPitch + (x * gr_screen.bytes_per_pixel));
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	ubyte *dptr = (ubyte *)((uintptr_t)ddsd.lpSurface + y*ddsd.lPitch + (x * gr_screen.bytes_per_pixel));
 	memcpy(pixel, dptr, gr_screen.bytes_per_pixel);	
 
 	// Unlock the buffer
