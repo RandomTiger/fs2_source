@@ -194,6 +194,7 @@
 #include "Multi.h"
 #include "Emp.h"
 #include "Localize.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 static int Reticle_inited = 0;
 
@@ -366,6 +367,97 @@ static int Zero_speed_coords[GR_NUM_RESOLUTIONS][2] = {
 		403, 485
 	}
 };
+// Claude: FS1 data: FS1's reticle.  The arcs and threat icons sit elsewhere, the throttle draws its
+// dark portion, and the holes in the right arc hold FS1's weapon link indicators (rightarc2-6),
+// which FS2 dropped.  Only FS1's 640x480 art exists, so only the GR_640 coords change.
+#define FS1_RETICLE_WEAPON_ANIS		5
+#define FS1_RETICLE_ONE_PRIMARY		0
+#define FS1_RETICLE_TWO_PRIMARY		1
+#define FS1_RETICLE_ONE_SECONDARY	2		// + num banks - 1
+
+static char Fs1_reticle_weapon_names[FS1_RETICLE_WEAPON_ANIS][MAX_FILENAME_LEN] = {
+//XSTR:OFF
+	"rightarc2", "rightarc3", "rightarc4", "rightarc5", "rightarc6"
+//XSTR:ON
+};
+static int Fs1_reticle_weapon_coords[FS1_RETICLE_WEAPON_ANIS][2] = {
+	{406, 253}, {406, 253}, {391, 276}, {391, 276}, {391, 276}
+};
+static hud_frames Fs1_reticle_weapon_gauges[FS1_RETICLE_WEAPON_ANIS];
+
+// FS1's layout, measured against a retail FS1 screenshot; loads the weapon link indicators
+static void hud_reticle_fs1_init()
+{
+	int i;
+
+	Reticle_frame_coords[GR_640][RETICLE_LASER_WARN][0] = 300;
+	Reticle_frame_coords[GR_640][RETICLE_LASER_WARN][1] = 137;
+	Reticle_frame_coords[GR_640][RETICLE_LOCK_WARN][0] = 320;
+	Reticle_frame_coords[GR_640][RETICLE_LOCK_WARN][1] = 137;
+	Reticle_frame_coords[GR_640][RETICLE_LEFT_ARC][0] = 216;
+	Reticle_frame_coords[GR_640][RETICLE_LEFT_ARC][1] = 240;
+	Reticle_frame_coords[GR_640][RETICLE_RIGHT_ARC][0] = 374;
+	Reticle_frame_coords[GR_640][RETICLE_RIGHT_ARC][1] = 242;
+	Max_speed_coords[GR_640][0] = 229;
+
+	for ( i = 0; i < FS1_RETICLE_WEAPON_ANIS; i++ ) {
+		Fs1_reticle_weapon_gauges[i].first_frame = bm_load_animation(Fs1_reticle_weapon_names[i], &Fs1_reticle_weapon_gauges[i].num_frames);
+		if ( Fs1_reticle_weapon_gauges[i].first_frame < 0 ) {
+			Warning(LOCATION,"Cannot load hud ani: %s\n", Fs1_reticle_weapon_names[i]);
+		}
+	}
+}
+
+static void hud_show_fs1_reticle_gauge(int gauge_index, int frame_offset)
+{
+	hud_frames *hfp = &Fs1_reticle_weapon_gauges[gauge_index];
+
+	if ( (hfp->first_frame < 0) || (frame_offset < 0) || (frame_offset >= hfp->num_frames) ) {
+		return;
+	}
+	GR_AABITMAP(hfp->first_frame+frame_offset, Fs1_reticle_weapon_coords[gauge_index][0], Fs1_reticle_weapon_coords[gauge_index][1]);
+}
+
+// the primary and secondary weapon indicators, as the removed hud_show_reticle_weapons() drew them
+static void hud_show_fs1_reticle_weapons()
+{
+	ship_weapon	*swp = &Player_ship->weapons;
+	int num_banks;
+
+	if ( swp->num_primary_banks == 1 ) {
+		hud_show_fs1_reticle_gauge(FS1_RETICLE_ONE_PRIMARY, (swp->current_primary_bank == -1) ? 0 : 1);
+	} else if ( swp->num_primary_banks == 2 ) {
+		if ( swp->current_primary_bank == -1 ) {
+			hud_show_fs1_reticle_gauge(FS1_RETICLE_TWO_PRIMARY, 0);
+		} else if ( Player_ship->flags & SF_PRIMARY_LINKED ) {
+			hud_show_fs1_reticle_gauge(FS1_RETICLE_TWO_PRIMARY, 3);
+		} else {
+			hud_show_fs1_reticle_gauge(FS1_RETICLE_TWO_PRIMARY, swp->current_primary_bank+1);
+		}
+	}
+
+	num_banks = swp->num_secondary_banks;
+	if ( num_banks <= 0 ) {
+		num_banks = Ship_info[Player_ship->ship_info_index].num_secondary_banks;
+	}
+	if ( (num_banks >= 1) && (num_banks <= 3) ) {
+		hud_show_fs1_reticle_gauge(FS1_RETICLE_ONE_SECONDARY+num_banks-1, (swp->num_secondary_banks <= 0) ? 0 : swp->current_secondary_bank+1);
+	}
+}
+
+// the right arc: with holes and the weapon link indicators in them, or whole if that gauge is off
+static void hud_show_fs1_right_arc()
+{
+	int x = Reticle_frame_coords[gr_screen.res][RETICLE_RIGHT_ARC][0];
+	int y = Reticle_frame_coords[gr_screen.res][RETICLE_RIGHT_ARC][1];
+
+	if ( hud_gauge_active(HUD_WEAPON_LINKING_GAUGE) ) {
+		GR_AABITMAP(Reticle_gauges[RETICLE_RIGHT_ARC].first_frame+1, x, y);
+		hud_show_fs1_reticle_weapons();
+	} else {
+		GR_AABITMAP(Reticle_gauges[RETICLE_RIGHT_ARC].first_frame, x, y);
+	}
+}
 
 // Called at the start of each level.. use Reticle_inited so we only load frames once
 void hud_init_reticle()
@@ -391,6 +483,10 @@ void hud_init_reticle()
 		if ( hfp->first_frame < 0 ) {
 			Warning(LOCATION,"Cannot load hud ani: %s\n", Reticle_frame_names[gr_screen.res][i]);
 		}
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1's reticle layout and weapon link indicators
+		hud_reticle_fs1_init();
 	}
 
 	Reticle_inited = 1;
@@ -565,6 +661,9 @@ void hud_show_throttle()
 
 	// draw left arc (the dark portion of the throttle gauge)
 	// hud_render_throttle_background(y_end);
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1 draws it
+		hud_render_throttle_background(y_end);
+	}
 
 	// draw throttle speed number
 	hud_render_throttle_speed(current_speed, y_end);
@@ -780,6 +879,11 @@ void hud_show_right_arc()
 {	
 	hud_set_gauge_color(HUD_CENTER_RETICLE);
 
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1's right arc and weapon link indicators
+		hud_show_fs1_right_arc();
+		return;
+	}
+
 	GR_AABITMAP(Reticle_gauges[RETICLE_RIGHT_ARC].first_frame+1, Reticle_frame_coords[gr_screen.res][RETICLE_RIGHT_ARC][0], Reticle_frame_coords[gr_screen.res][RETICLE_RIGHT_ARC][1]);		
 		
 	// draw the weapons indicators in the holes along the right arc
@@ -835,6 +939,12 @@ void hudreticle_page_in()
 	for ( i = 0; i < NUM_RETICLE_ANIS; i++ ) {
 		hfp = &Reticle_gauges[i];
 		bm_page_in_aabitmap( hfp->first_frame, hfp->num_frames);
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1's weapon link indicators
+		for ( i = 0; i < FS1_RETICLE_WEAPON_ANIS; i++ ) {
+			bm_page_in_aabitmap( Fs1_reticle_weapon_gauges[i].first_frame, Fs1_reticle_weapon_gauges[i].num_frames);
+		}
 	}
 
 }
