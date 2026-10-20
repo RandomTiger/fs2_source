@@ -193,7 +193,9 @@ demo, FS1 retail, FS1 demo.
 
 Each conversion is gated on: the FS2 retail recordings identical in Release and Debug, the FS2 demo replays
 identical, `recordings/fs1` identical, and all four demo missions with no Error, Assert or Int3 in Release and
-Debug (D-20261020-161656).
+Debug (D-20261020-161656). `tools\fs1demo_gate.ps1` runs all of it (about an hour); `tools\fs1demo_run.ps1` runs
+only the demo missions. Both need the FS1 demo folder (`FS1DEMO_PATH`): `fsdemo10.exe` from the original
+download, with a pilot made by starting the game once by hand.
 
 ## 6. Not done
 
