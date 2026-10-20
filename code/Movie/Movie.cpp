@@ -35,6 +35,7 @@
 #include "OsApi.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "cmdline.h"
 
 #include <theora/theoradec.h>
 #include <vorbis/codec.h>
@@ -814,6 +815,10 @@ static int movie_allowed()
 	if (replay_stream_active()) {
 		return 0;
 	}
+	// no window or no drawing (PrePort -headless, -nodraw): nothing to show a movie on
+	if (Cmdline_headless || Cmdline_nodraw) {
+		return 0;
+	}
 
 	return 1;
 }
@@ -830,7 +835,7 @@ int movie_play(char *filename, int unused)
 	}
 
 	if (!movie_allowed()) {
-		mprintf(("Movie: %s skipped (replay, autotest or recording)\n", filename));
+		mprintf(("Movie: %s skipped (replay, autotest, recording, headless or nodraw)\n", filename));
 		return 0;
 	}
 
