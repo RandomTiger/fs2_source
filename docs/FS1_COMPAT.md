@@ -332,7 +332,7 @@ Nice to have later, not needed to play FS1 as retail did.
 
 ## 8. Handover (2026-10-20, from DESKTOP-MAIN)
 
-The FS1 work moves to another machine. Everything below is on GitHub; nothing depends on files on DESKTOP-MAIN, except the FS1 demo branch (last item).
+The FS1 work moves to another machine. Everything below is on GitHub; nothing depends on files on DESKTOP-MAIN. The FS1 demo also needs its installer, `fsdemo10.exe`, on each machine (never committed).
 
 **The first FS1 batch is carried up every layer** (Tom's steward review, D-20261020-103501 to 103505; carry rule D-20261020-103502: each layer's builds, quick suite, `warning_check`, `tools_check`, pushed when green):
 
@@ -362,4 +362,4 @@ Above `Enhanced`, `recordings/fs1` cannot replay (format 3), so FS1 there is pro
 - Above `Enhanced`, `suite_check` passes no `-Fs1Dir`, so with `PATH_FS1` set `replay_check` also runs `recordings/fs1` there, with whatever exe that folder holds, and counts it as passed although TraceDiff cannot read its trace (`GodotPrep`'s suite, 2026-10-20: `sm1-01 (fs1)`).
 - Suite results are hard to read while other sessions build on the same PC (steward note for Tom).
 
-**FS1 demo**: branch `FS1Demo` (three commits: the installer reader and extraction, the demo starting, its `DEMO` blocks listed in `docs/FS1_DEMO.md`) is **on DESKTOP-MAIN only, not pushed** (Tom is trying it first). It is behind `FS1Compat`. Every demo mission stops on the missing Shivan thrusters; the `DEMO` blocks wait for the data set profile table, now in. The demo's own files are extracted at run time from `fsdemo10.exe`; none are committed. The exes Tom is trying in that machine's demo folder are a throwaway build: `FS1Demo` with `FS1Compat`, `FS1Popups` and `FS1BriefingText` merged in, in a detached worktree since removed; no branch holds that combination.
+**FS1 demo**: branch `FS1Demo`, off `FS1Compat` (with `FS1Compat` merged in), pushed 2026-10-20. Its state is in `docs/FS1_DEMO.md` on that branch: the game extracts the demo from `fsdemo10.exe` beside the exe on first start (none of its files are committed), and all four demo missions run with no Error, Assert or Int3 in Release and Debug. Thrusters, shields, loadout, the briefing fade and smoke2 are data-set profile fields (D-20261020-161655, 161656, 163608); the `@` filter and talking heads are next. `tools\fs1demo_run.ps1` and `tools\fs1demo_gate.ps1` there run the demo missions and the full gate.
