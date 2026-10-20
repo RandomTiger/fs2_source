@@ -319,7 +319,18 @@ void UI_SLIDER2::set_currentItem(int _currentItem) {
 		}
 	}	
 	
-	currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);	
+	// Claude: 0/0 when numberItems <= 0 gave INT_MIN (Assert in draw); zero it and clamp, as set_numberItems does
+	if (numberItems <= 0) {
+		currentPosition = 0;
+	} else {
+		currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);	
+		if (currentPosition < 0){
+			currentPosition = 0;
+		}
+		if (currentPosition > numberPositions){
+			currentPosition = numberPositions;
+		}
+	}
 }
 
 void UI_SLIDER2::force_currentItem(int _currentItem) {	
@@ -327,19 +338,52 @@ void UI_SLIDER2::force_currentItem(int _currentItem) {
 	if(currentItem < 0){
 		currentItem = 0;
 	};
-	currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);	
+	// Claude: 0/0 when numberItems <= 0 gave INT_MIN (Assert in draw); zero it and clamp, as set_numberItems does
+	if (numberItems <= 0) {
+		currentPosition = 0;
+	} else {
+		currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);	
+		if (currentPosition < 0){
+			currentPosition = 0;
+		}
+		if (currentPosition > numberPositions){
+			currentPosition = numberPositions;
+		}
+	}
 }
 
 void UI_SLIDER2::forceDown() {
 	if (currentItem < numberItems) {
 		currentItem++;
-		currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);
+		// Claude: 0/0 when numberItems <= 0 gave INT_MIN (Assert in draw); zero it and clamp, as set_numberItems does
+		if (numberItems <= 0) {
+			currentPosition = 0;
+		} else {
+			currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);
+			if (currentPosition < 0){
+				currentPosition = 0;
+			}
+			if (currentPosition > numberPositions){
+				currentPosition = numberPositions;
+			}
+		}
 	}
 }
 
 void UI_SLIDER2::forceUp() {
 	if (currentItem > 0) {
 		currentItem--;
-		currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);
+		// Claude: 0/0 when numberItems <= 0 gave INT_MIN (Assert in draw); zero it and clamp, as set_numberItems does
+		if (numberItems <= 0) {
+			currentPosition = 0;
+		} else {
+			currentPosition = fl2i(((float)currentItem/(float)numberItems) * (float)numberPositions);
+			if (currentPosition < 0){
+				currentPosition = 0;
+			}
+			if (currentPosition > numberPositions){
+				currentPosition = numberPositions;
+			}
+		}
 	}
 }
