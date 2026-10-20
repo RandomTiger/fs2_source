@@ -252,6 +252,7 @@ cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 cmdline_parm no_ship_glow_arg("-noshipglow", NULL);	// Claude: turn off the D3D ship glow
 cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced red ship glow
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
+cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
@@ -695,6 +696,9 @@ int parse_cmdline(char *cmdline)
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
 			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
+		if(autotest_menus_arg.found()){	// Claude: -at_menus
+			autotest_set_menus();
+		}
 	}
 
 	// Claude: -noshipglow turns off the D3D ship glow (Graphics/GrD3DGlow.cpp)
