@@ -283,16 +283,27 @@ These runs did not use `-playernpc`, so nobody flew the player ship.
 
 ## 5. Branch scope
 
-Nothing was changed outside `FS1Compat`. The branch has no upstream set, so a plain `git push` cannot land on `RecordPlayback`. Nothing has been pushed.
+`FS1Compat` is a live branch off `RecordPlayback`, on origin since 2026-10-20 (first 8de2eec, the screenshot-checked tip, then e5d233d). It merges into `Enhanced` after each green batch and stays live; FS1 work goes on here (Tom, 2026-10-20; `docs/BRANCHES.md`). It took `origin/Enhanced` once, for the data set profile table (95ee575). That merge also brought `origin/RecordPlayback`'s four newest commits (the windowed pause screen, `-at_menus`, ProcDump in `replay_check`), so the separate `RecordPlayback` merge the steward planned had nothing left to bring. `RecordPlayback` is merged down into `FS1Compat` before each FS1 batch. `FS1Demo` is the FS1 demo work's branch; nothing here touches it.
+
+### The FS1 branches, in reading order
+Each FS1 change was made on its own branch, merged into `FS1Compat` with `--no-ff`, then tagged `<Name>-done` at its tip (the tag's message names the merge commit) and its branch label removed (steward, D-20261020-091703). The tags are permanent.
+- **Loading FS1 data:** `FS1Detect-done`, `FS1FileSystem-done`, `FS1MissingTables-done`, `FS1TableConvert-done`, `FS1Models-done`, `FS1TurretPoints-done`, `FS1Backgrounds-done`, `FS1Lists-done`, `FS1Credits-done`, `FS1Sliders-done`, `FS1DebugNoise-done`, `FS1Recordings-done`, `FS1DataSetProfile-done`
+- **Main hall and menus:** `FS1MainHall-done`, `FS1MainHallText-done`, `FS1Labels-done`, `FS1PilotSelect-done`, `FS1Barracks-done`, `FS1Simulator-done`, `FS1CampaignRoom-done`, `FS1TechRoom-done`, `FS1Cutscenes-done`, `FS1Medals-done`
+- **Options:** `FS1Options-done`, `FS1OptionsDetail-done`, `FS1OptionsMulti-done`, `FS1ControlConfig-done`, `FS1HudConfig-done`
+- **Briefings:** `FS1BriefingScreen-done`, `FS1BriefingArt-done`, `FS1Briefing-done`, `FS1CmdBrief-done`, `FS1ShipWeaponScreens-done`, `FS1ShipWeapon-done`
+- **In mission:** `FS1Pause-done`, `FS1MissionLog-done`, `FS1Hotkeys-done`, `FS1GameplayHelp-done`, `FS1HudColour-done`, `FS1HudBrightness-done`, `FS1ShieldIcon-done`
+- **Debriefing:** `FS1Debrief-done`, `FS1DebriefStats-done`
+- **Across screens:** `FS1HelpOverlays-done`, `FS1TextColours-done`, `FS1SmallDiffs-done`
+- **Docs only:** `FS1Fs2Check-done`
 
 ### Branch-local build target
-On `FS1Compat`, `Freespace2.vcxproj` and `Freespace2.vcxproj.user` build into, and debug from, `PATH_FS1` instead of `PATH_FS2` (commit `cebafe2`), so trial runs load FS1 data. This must not reach Enhanced or the port.
+On `FS1Compat`, `Freespace2.vcxproj` and `Freespace2.vcxproj.user` build into, and debug from, `PATH_FS1` instead of `PATH_FS2` (commit `cebafe2`), so trial runs load FS1 data. Before the first merge into `Enhanced` it is replaced by a per-data-set property or reverted on `FS1Compat`; the `.user` half goes with the repo-wide untracking of `*.vcxproj.user` (Tom, 2026-10-20).
 
-### Before merging
-1. Revert the build-target commit on `FS1Compat`: `git revert cebafe2`.
+### Before each merge into Enhanced
+1. Replace or revert the build-target change (above), the first time.
 2. Run `tools\branch_check.ps1`. It reports an error for any layer, local or on origin, whose project files mention `PATH_FS1`.
-3. Check FS2's menus visually, once the FS1 layout is finished: screenshot every screen on FS2 data with this branch and with `RecordPlayback`, and compare the images. The replays check gameplay only, and every FS1 layout change is meant to leave FS2 data untouched. Done 2026-10-20 (`FS1Fs2Check`), FS1Compat against `RecordPlayback` 0236e70, both Debug, FS2 data at 1024x768: main hall, tech room, options, barracks, control config, HUD config, medals, cutscenes, simulator, campaign room, command briefing, briefing, ship select, weapon loadout, HUD, pause, mission log, hotkeys, gameplay help and debriefing are pixel-identical apart from things that move between runs (the tech room's turning ship, ships and debris in flight). Credits were left out, as their artwork is random. Repeat it if FS1 work goes on after this.
-4. Merge into Enhanced. If FS1 work goes on afterwards, re-apply the build target with `git revert <the revert commit>`.
+3. The gate: the full 48 recordings in Release and Debug on `FS1Compat`, `recordings/fs1` identical, and the retail quick suite on `FS1Compat` matching `RecordPlayback`. Then a merge brief to the steward: what changed, the suite results, any recording that moved, the FS1 data used. Then the merge and the carry-up.
+4. Check FS2's menus visually, once the FS1 layout is finished: screenshot every screen on FS2 data with this branch and with `RecordPlayback`, and compare the images. The replays check gameplay only, and every FS1 layout change is meant to leave FS2 data untouched. Done 2026-10-20 (`FS1Fs2Check`), FS1Compat against `RecordPlayback` 0236e70, both Debug, FS2 data at 1024x768: main hall, tech room, options, barracks, control config, HUD config, medals, cutscenes, simulator, campaign room, command briefing, briefing, ship select, weapon loadout, HUD, pause, mission log, hotkeys, gameplay help and debriefing are pixel-identical apart from things that move between runs (the tech room's turning ship, ships and debris in flight). Credits were left out, as their artwork is random. Repeat it for each batch that changes any screen.
 
 ---
 

@@ -28,6 +28,7 @@ Each branch in use has its own folder (a git worktree, like a second Perforce wo
 - **Never rebase, squash or amend anything already pushed.** Merge instead. Before a push, local commits can still be tidied.
 - **When `Enhanced` passes the full suite, move `Latest` to it and tag it** (`latest-<date>`), so there are known-good points to go back to.
 - **Keep old branches.** A branch costs nothing; it is how a feature is fixed later.
+- **`FS1Compat`** (FreeSpace 1 data, `docs/FS1_COMPAT.md`) is a live data-set branch off `RecordPlayback` (Tom, 2026-10-20). Its work is done on `FS1*` branches off it, each merged in with `--no-ff`, then tagged `<Name>-done` and its label removed. `RecordPlayback` is merged down into it before each FS1 batch. After each green batch (the full 48 in Release and Debug, `recordings/fs1` identical, the retail quick suite matching `RecordPlayback`) it merges into `Enhanced`, with a merge brief to the steward first. Exception to the feature-branch rule above: it took `Enhanced` once, for the data set profile table, on Tom's order. `FS1Demo`, off it, belongs to the FS1 demo work.
 
 ## Recordings as the referee
 The recordings check "original game plus `OriginalSourceBugFixes`", because the fixes sit below `RecordPlayback`. A fix that changes gameplay means re-recording the affected missions; its review doc says which.
