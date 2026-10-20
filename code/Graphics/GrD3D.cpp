@@ -1969,7 +1969,10 @@ int gr_d3d_save_screen()
 	memset( &ddsd, 0, sizeof( ddsd ) );
 	ddsd.dwSize = sizeof( ddsd );
 
-	ddrval = lpFrontBuffer->Lock( NULL, &ddsd, DDLOCK_WAIT, NULL );
+	// Claude: windowed, the front buffer is the whole desktop and the game's last frame is still in the back buffer
+	// (the flip blits it to the window), so save from there; full-screen, the flip swapped it to the front (review 52)
+	LPDIRECTDRAWSURFACE lpSaveFrom = D3D_window ? lpBackBuffer : lpFrontBuffer;	// Claude
+	ddrval = lpSaveFrom->Lock( NULL, &ddsd, DDLOCK_WAIT, NULL );	// Claude: was lpFrontBuffer
 	if ( ddrval != DD_OK )	{
 		free(Gr_saved_screen);
 		Gr_saved_screen = NULL;
@@ -1997,7 +2000,7 @@ int gr_d3d_save_screen()
 	}
 
 	// Unlock the front buffer
-	lpFrontBuffer->Unlock( NULL );
+	lpSaveFrom->Unlock( NULL );	// Claude: was lpFrontBuffer
 	
 	if ( Gr_d3d_mouse_saved && !D3D_32bit)	{
 		ushort *sptr, *dptr;
