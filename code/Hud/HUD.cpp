@@ -2690,6 +2690,7 @@ void hud_set_gauge_color(int gauge_index, int bright_index)
 			break;
 		}
 	}
+	hud_config_fs1_gauge_alpha(&use_color);	// Claude: FS1 data: FS1's brighter gauges
 
 	gr_set_color_fast(&use_color);	
 }

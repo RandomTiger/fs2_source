@@ -1342,6 +1342,16 @@ int hud_config_fs1_gauge_color(color *clr)
 	return 1;
 }
 
+// In flight, retail FS1's gauges are about 1.18 times as bright as FS2's at the same colour and brightness setting (each
+// level of the retail in-flight screenshot against ours, the HUD config screen showing the same setting in both); its
+// three colours are FS2's HC_colors in hue (retail HUD config screenshots in each).
+void hud_config_fs1_gauge_alpha(color *clr)
+{
+	if ( Cfile_fs1_data ) {
+		gr_init_alphacolor(clr, clr->red, clr->green, clr->blue, min(255, clr->alpha * 118 / 100));
+	}
+}
+
 // Set the HUD color
 void hud_config_set_color(int color)
 {

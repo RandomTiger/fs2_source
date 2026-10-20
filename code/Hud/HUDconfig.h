@@ -216,6 +216,7 @@ void hud_config_color_load(char *name);
 void hud_config_fs1_color_init(int force);
 void hud_config_fs1_color_save();
 int hud_config_fs1_gauge_color(color *clr);
+void hud_config_fs1_gauge_alpha(color *clr);
 
 #endif
 
