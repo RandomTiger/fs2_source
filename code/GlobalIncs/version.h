@@ -111,18 +111,16 @@
 //		1.01	Patch for Win95 volume label bug
 //		1.20	German release version
 
-#if defined (FS2_DEMO)
-	#define FS_VERSION_MAJOR 01					// Major is 0 for pre-release and 1 for 1.0 release
-	#define FS_VERSION_MINOR 10					// Increase by 1 for minor revs, 10 for major.
-	#define FS_VERSION_BUILD 00					// Build version 
-#elif defined(OEM_BUILD)
+#include "DataSetProfile.h"	// Claude
+
+#if defined(OEM_BUILD)
 	#define FS_VERSION_MAJOR 01					// Major is 0 for pre-release and 1 for 1.0 release
 	#define FS_VERSION_MINOR 00					// Increase by 1 for minor revs, 10 for major.
 	#define FS_VERSION_BUILD 00					// Build version 
-#else
-	#define FS_VERSION_MAJOR 01					// Major is 0 for pre-release and 1 for 1.0 release
-	#define FS_VERSION_MINOR 20					// Increase by 1 for minor revs, 10 for major.
-	#define FS_VERSION_BUILD 00					// Build version 
+#else	// Claude: the data set's version (1.20 retail, 1.10 demo), read where it is used (D-20261020-053500)
+	#define FS_VERSION_MAJOR (Game_profile->version_major)
+	#define FS_VERSION_MINOR (Game_profile->version_minor)
+	#define FS_VERSION_BUILD (Game_profile->version_build)
 #endif
 
 #define VERSION_LOC_FNAME			"version.nfo"
@@ -131,12 +129,9 @@
 #ifdef MULTIPLAYER_BETA_BUILD
 	#define MOTD_URL						"http://www.pxo.net/files/fs2beta/motd.txt"
 	#define VERSION_URL					"http://www.pxo.net/files/fs2beta/version.nfo"
-#elif defined(FS2_DEMO)
-	#define MOTD_URL						"http://www.pxo.net/files/fs2demo/motd.txt"
-	#define VERSION_URL					"http://www.pxo.net/files/fs2demo/version.nfo"
-#else
-	#define MOTD_URL						"http://www.pxo.net/files/fs2/motd.txt"
-	#define VERSION_URL					"http://www.pxo.net/files/fs2/version.nfo"
+#else	// Claude: the data set's, read where they are used (D-20261020-053500)
+	#define MOTD_URL						(Game_profile->motd_url)
+	#define VERSION_URL					(Game_profile->version_url)
 #endif
 
 #define VERSION_FILE_COMMENT_CHAR ';'
