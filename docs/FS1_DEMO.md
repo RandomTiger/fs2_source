@@ -196,10 +196,13 @@ demo, FS1 retail, FS1 demo.
 | `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked | held |
 | `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment | held |
 
-Each conversion is gated on: the FS2 retail recordings identical in Release and Debug, the FS2 demo replays
-identical, `recordings/fs1` identical, and all four demo missions with no Error, Assert or Int3 in Release and
-Debug (D-20261020-161656). `tools\fs1demo_gate.ps1` runs all of it (about an hour); `tools\fs1demo_run.ps1` runs
-only the demo missions. Both need the FS1 demo folder (`FS1DEMO_PATH`): `fsdemo10.exe` from the original
+Each conversion is gated on the four FS1 demo missions (btmdemo, demo01, demo02a, demo02b) under autotest in
+Release and Debug with no Error, Assert or Int3; Debug's known demo ships.tbl PARSELO Warnings are allowed
+(D-20261020-211001, Tom: FS1 branches test only their own data). `tools\fs1demo_run.ps1 -Configs r,d` runs it in
+minutes. FS2 retail and FS2 demo replays are not run here: FS1Compat gates this branch's merge-in on
+`recordings/fs1`, and Enhanced gates FS1Compat's batches on the FS2 suites. `tools\fs1demo_gate.ps1` runs the FS1
+demo missions, `recordings/fs1` and the FS2 suites together (about an hour) and is the merge-in tool, not the
+per-change gate. Both need the FS1 demo folder (`FS1DEMO_PATH`): `fsdemo10.exe` from the original
 download, with a pilot made by starting the game once by hand.
 
 ## 6. Not done

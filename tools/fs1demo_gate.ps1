@@ -1,5 +1,6 @@
 <#
-The gate for each FS1 demo change (D-20261020-161656, docs/FS1_DEMO.md section 5), in one run:
+The merge-in check for FS1Demo (D-20261020-211001, docs/FS1_DEMO.md section 5), not the per-change gate; per-change
+gate is fs1demo_run.ps1 -Configs r,d. In one run:
 
   1. the FS2 retail recordings and recordings\fs1, Release and Debug (replay_check -Configs r,d);
   2. the FS2 demo recordings, from an FS2_DEMO build (build_demo.ps1, replay_check);
