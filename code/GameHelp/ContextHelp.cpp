@@ -116,6 +116,7 @@
 #include "Parselo.h"
 #include "localize.h"
 #include "alphacolors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 
 ////////////////////////////////////////////////////////////////////
@@ -238,12 +239,44 @@ void help_overlay_unload(int overlay_id)
 }
 
 // maybe blit a bitmap of a help overlay to the screen
+// Claude: FS1 data: FS1's help overlays are whole 640x480 bitmaps, drawn over the greyed screen (retail FS1 screenshots;
+// docs/FS1_COMPAT.md).  Their names are FS.exe's table, in FS2's overlay order; FS1 has a second tech room overlay for
+// its weapons and species tabs, which have another background.
+static int Fs1_help_tech2 = 0;
+
+void help_overlay_fs1_tech_tab(int data_tab)
+{
+	Fs1_help_tech2 = data_tab;
+}
+
+static void help_overlay_fs1_blit(int overlay_id)
+{
+	static char *Fs1_help_names[MAX_HELP_OVERLAYS] = { "ship_help_over", "weapon_help_over", "brief_help_over", "main_help_overlay",
+		"barracks_help", "control_help", "debrief_help", "multicreate_help", "multistart_help", "multijoin_help", "main_help_overlay2",
+		"hotkey_help", "campaign_help", "simulator_help", "tech_help", "command_help" };
+	char *name = Fs1_help_names[overlay_id];
+	int bmp;
+
+	if ( (overlay_id == TECH_ROOM_OVERLAY) && Fs1_help_tech2 ) {
+		name = NOX("tech_help2");
+	}
+	bmp = bm_load(name);	// the same handle each time, once loaded
+	if (bmp >= 0) {
+		gr_set_bitmap(bmp);
+		gr_bitmap(0, 0);
+	}
+}
+
 void help_overlay_maybe_blit(int overlay_id)
 {
 	Assert(overlay_id >= 0 && overlay_id < MAX_HELP_OVERLAYS);
 
 	if ( Help_overlay_flags & (1<<overlay_id) ) {
 		context_help_grey_screen();
+		if ( Cfile_fs1_data ) {	// Claude
+			help_overlay_fs1_blit(overlay_id);
+			return;
+		}
 		help_overlay_blit(overlay_id);				
 	}
 }
@@ -451,6 +484,7 @@ void help_overlay_init()
 	help_right_bracket_bitmap = bm_load("right_bracket");
 	if(help_right_bracket_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
+		if ( !Cfile_fs1_data )	// Claude: FS1's help overlays were whole bitmaps; it has no brackets (docs/FS1_COMPAT.md)
 		Int3();
 	}
 
@@ -458,6 +492,7 @@ void help_overlay_init()
 	help_left_bracket_bitmap = bm_load("left_bracket");
 	if(help_left_bracket_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
+		if ( !Cfile_fs1_data )	// Claude: as above
 		Int3();
 	}
 
