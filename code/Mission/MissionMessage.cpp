@@ -1236,6 +1236,11 @@ void message_play_anim( message_q *q )
 			
 			// aps.color = &HUD_color_defaults[HUD_color_alpha];
 			aps.color = &HUD_config.clr[HUD_TALKING_HEAD];
+			static color Fs1_head_color;	// Claude: FS1 data: FS1's one HUD colour, unless the options say FS2's
+			Fs1_head_color = HUD_config.clr[HUD_TALKING_HEAD];
+			if ( hud_config_fs1_gauge_color(&Fs1_head_color) ) {
+				aps.color = &Fs1_head_color;
+			}
 
 			Playing_messages[Num_messages_playing].anim = anim_play(&aps);
 		}

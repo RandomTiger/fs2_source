@@ -230,6 +230,7 @@
 #include "neb.h"
 #include "beam.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "HUDconfig.h"	// Claude: FS1 data's HUD colour toggle
 
 
 // will display a notification warning message
@@ -1004,6 +1005,7 @@ void options_cancel_exit()
 	if ( Options_detail_inited ) {
 		Detail = Detail_original;
 	}
+	hud_config_fs1_color_init(1);	// Claude: FS1 data: the saved FS2 HUD colours toggle
 
 	gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
 }
@@ -1232,6 +1234,7 @@ void options_accept()
 	// apply other options (display options, etc)
 	// note: return in here (and play failed sound) if they can't accept yet for some reason
 
+	hud_config_fs1_color_save();	// Claude: FS1 data: the FS2 HUD colours toggle
 	gamesnd_play_iface(SND_COMMIT_PRESSED);
 	gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
 }
@@ -1705,6 +1708,12 @@ void options_detail_synch_sliders()
 // weapon extras at their highest in FS1 data.
 static UI_DOT_SLIDER_NEW Fs1_weapon_slider;		// weapon rendering
 static UI_BUTTON Fs1_alpha_buttons[2];			// effects alpha blending off, on
+// FS2 HUD colours off (FS1's one colour, the default) or on (the pilot's per-gauge colours; HUDconfig.cpp).  FS1 has
+// no such control, so it is FS1's alpha blending off/on art in the empty space under the presets, with its name above
+// it in the font of "Preset detail levels"
+static UI_BUTTON Fs1_hud_color_buttons[2];
+#define FS1_HUD_COLOR_X	476
+#define FS1_HUD_COLOR_Y	306
 
 static void options_fs1_detail_layout()
 {
@@ -1747,7 +1756,31 @@ static void options_fs1_detail_create()
 		Fs1_alpha_buttons[i].link_hotspot(43 + i);
 		Fs1_alpha_buttons[i].disable();
 		Fs1_alpha_buttons[i].hide();
+		Fs1_hud_color_buttons[i].create(&Ui_window, "", FS1_HUD_COLOR_X + 2 + (57 * i), FS1_HUD_COLOR_Y, 56 + (6 * i), 28, 0, 1);
+		Fs1_hud_color_buttons[i].set_bmaps(Fs1_alpha_names[i]);
+		Fs1_hud_color_buttons[i].set_highlight_action(common_play_highlight_sound);
+		Fs1_hud_color_buttons[i].hide();
 	}
+	hud_config_fs1_color_init(0);
+}
+
+static void options_fs1_hud_color_do()
+{
+	int i, w, h;
+	char *name = XSTR("FS2 HUD colors", -1);
+
+	for (i=0; i<2; i++) {
+		if ( Fs1_hud_color_buttons[i].pressed() && (Fs1_hud_fs2_colors != i) ) {
+			Fs1_hud_fs2_colors = i;
+			gamesnd_play_iface(SND_USER_SELECT);
+		}
+	}
+	gr_set_font(FONT1);
+	gr_set_color_fast(&Color_normal);
+	gr_get_string_size(&w, &h, name);
+	gr_string(FS1_HUD_COLOR_X + 121 - w, FS1_HUD_COLOR_Y - h, name);
+	Fs1_hud_color_buttons[0].draw_forced(Fs1_hud_fs2_colors ? 0 : 2);
+	Fs1_hud_color_buttons[1].draw_forced(Fs1_hud_fs2_colors ? 2 : 0);
 }
 
 // FS1's extra controls shown with the tab, and FS2's standing in for FS1 controls with no direct setting kept disabled
@@ -1768,8 +1801,10 @@ static void options_fs1_detail_show(int show)
 	for (i=0; i<2; i++) {
 		if (show) {
 			Fs1_alpha_buttons[i].unhide();
+			Fs1_hud_color_buttons[i].unhide();
 		} else {
 			Fs1_alpha_buttons[i].hide();
+			Fs1_hud_color_buttons[i].hide();
 		}
 	}
 }
@@ -1894,6 +1929,7 @@ void options_detail_do_frame()
 	if ( Cfile_fs1_data ) {	// Claude: FS1's effects alpha blending, always on
 		Fs1_alpha_buttons[0].draw_forced(0);
 		Fs1_alpha_buttons[1].draw_forced(2);
+		options_fs1_hud_color_do();
 	}
 
 	if ( Detail.targetview_model ) {
