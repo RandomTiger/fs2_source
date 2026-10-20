@@ -2630,7 +2630,7 @@ void hud_set_gauge_color(int gauge_index, int bright_index)
 	color use_color;
 	int flash_status = hud_gauge_maybe_flash(gauge_index);
 	use_color = HUD_config.clr[gauge_index];
-	hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one HUD colour, unless the options say FS2's
+	hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one HUD colour
 	int alpha;
 
 	// if we're drawing it as bright

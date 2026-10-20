@@ -1145,7 +1145,7 @@ void hud_config_render_gauges()
 			// set the correct color
 			if(!HC_gauge_regions[gr_screen.res][i].use_iff){
 				use_color = HUD_config.clr[i];			
-				hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one colour, unless the options say FS2's
+				hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one colour
 			} else {
 				if(HC_gauge_regions[gr_screen.res][i].color == 1){
 					use_color = IFF_colors[IFF_COLOR_TAGGED][0];
@@ -1291,11 +1291,9 @@ void hud_config_record_color(int color)
 }
 
 // Claude: FS1 data: FS1 has one HUD colour, amber, blue or green, and a brightness (retail FS1 screenshots;
-// docs/FS1_COMPAT.md).  Every gauge is drawn in it, the brightness scaling it, unless the FS2 HUD colours toggle on the
-// options detail tab is on: then the pilot's per-gauge colours are drawn, as in FS2 data (a new pilot's come from
-// hud_3.hcf).  The per-gauge colours are kept either way.  The pilot file has no place for FS1's colour, brightness or
-// the toggle, so they are kept in the registry (or ini).
-int Fs1_hud_fs2_colors = 0;
+// docs/FS1_COMPAT.md).  Every gauge is drawn in it, the brightness scaling it, in place of the pilot's per-gauge colours
+// (FS2's; a new pilot's come from hud_3.hcf), which are kept.  The pilot file has no place for FS1's colour or
+// brightness, so they are kept in the registry (or ini).
 static int Fs1_hud_color_loaded = 0;
 
 // read FS1's HUD colour settings (once, or again with force, as after a cancel) and make them the HUD's colour
@@ -1307,7 +1305,6 @@ void hud_config_fs1_color_init(int force)
 		return;
 	}
 	if ( !Fs1_hud_color_loaded || force ) {
-		Fs1_hud_fs2_colors = os_config_read_uint(NULL, NOX("FS1HudFS2Colors"), 0) ? 1 : 0;
 		color = os_config_read_uint(NULL, NOX("FS1HudColor"), HUD_COLOR_GREEN);
 		if ( (color != HUD_COLOR_GREEN) && (color != HUD_COLOR_BLUE) && (color != HUD_COLOR_AMBER) ) {
 			color = HUD_COLOR_GREEN;
@@ -1328,18 +1325,17 @@ void hud_config_fs1_color_save()
 	if ( !Cfile_fs1_data ) {
 		return;
 	}
-	os_config_write_uint(NULL, NOX("FS1HudFS2Colors"), Fs1_hud_fs2_colors);
 	os_config_write_uint(NULL, NOX("FS1HudColor"), HUD_config.main_color);
 	os_config_write_uint(NULL, NOX("FS1HudBrightness"), HUD_color_alpha);
 	Fs1_hud_color_loaded = 0;	// read back on the next init
 }
 
-// FS1's one HUD colour at its brightness in place of a gauge's own, keeping its alpha; 0 if FS2's colours are drawn
+// FS1's one HUD colour at its brightness in place of a gauge's own, keeping its alpha; 0 in FS2 data
 int hud_config_fs1_gauge_color(color *clr)
 {
 	int scale = HUD_color_alpha + 1, def = HUD_COLOR_ALPHA_DEFAULT + 1;
 
-	if ( !Cfile_fs1_data || Fs1_hud_fs2_colors ) {
+	if ( !Cfile_fs1_data ) {
 		return 0;
 	}
 	gr_init_alphacolor(clr, min(255, HUD_color_red * scale / def), min(255, HUD_color_green * scale / def), min(255, HUD_color_blue * scale / def), clr->alpha);
@@ -1358,7 +1354,7 @@ void hud_config_set_color(int color)
 	HUD_init_hud_color_array();
 
 	// apply the color to all gauges
-	if ( Cfile_fs1_data && !Fs1_hud_fs2_colors ) {	// Claude: FS1 data: FS1's one colour is drawn instead; the per-gauge ones are kept
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1's one colour is drawn instead; the per-gauge ones are kept
 		return;
 	}
 	for(idx=0; idx<NUM_HUD_GAUGES; idx++){
