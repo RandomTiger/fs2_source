@@ -40,6 +40,7 @@ typedef struct data_set_profile {
 	int	options_mouse_sliders;				// 1 = Options creates the mouse on/off buttons (OPa_62, OPa_63) and the three right-hand dot sliders (ids 60, 61, 64); 0 = not created, their settings keep their values (FS1 demo: no OPa_60-64 in freespace.vp, no place for them on OptionsMain.PCX; OptionsMenu.cpp, D-20261020-213842)
 
 	int	loading_ani_coords[GR_NUM_RESOLUTIONS][2];	// where the loading screen draws Loading.ani on LoadingBG, per art mode (FreeSpace.cpp, D-20261020-222222): each data set's art places its bar differently; the FS1 rows' 1024 pair is the 640 pair x 1.6, derived, not measured (FS1 has 640 art only)
+	const char	*help_overlay_brief_main[2];	// F1 overlay names for the briefing and the main hall; NULL = the table's (ContextHelp.cpp, D-20261020-231902): FS1's demo ships Briefing_Help_Overlay_Demo and Main_Help_Overlay_Demo, as its FS.exe names them
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
