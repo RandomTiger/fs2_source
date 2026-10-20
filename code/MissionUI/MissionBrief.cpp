@@ -296,6 +296,7 @@
 #include "Font.h"
 #include "MissionMessage.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 /*
 #define OBJECTIVES_X	65
@@ -1228,7 +1229,7 @@ void brief_init()
 
 #ifndef FS2_DEMO	
 	hud_anim_init(&Fade_anim, Brief_static_coords[gr_screen.res][0], Brief_static_coords[gr_screen.res][1], Brief_static_name[gr_screen.res]);
-	hud_anim_load(&Fade_anim);
+	if ( Game_profile->brief_fade )	hud_anim_load(&Fade_anim);	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
 #endif
 
 	nprintf(("Alan","Entering brief_init()\n"));
@@ -2284,6 +2285,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			goto Fade_down_anim_start;
 		}
 
+		if ( !Game_profile->brief_fade )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
 		// draw the correct frame of animation
 		framenum = fl2i( (Fade_anim.time_elapsed * Fade_anim.num_frames) / Fade_anim.total_time );
 		if ( framenum < 0 )
@@ -2319,6 +2321,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			return;
 		}
 
+		if ( !Game_profile->brief_fade )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
 		// draw the correct frame of animation
 		framenum = fl2i( (Fade_anim.time_elapsed * Fade_anim.num_frames) / Fade_anim.total_time );
 		if ( framenum < 0 )
