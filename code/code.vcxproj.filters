@@ -240,6 +240,9 @@
     <ClCompile Include="GlobalIncs\crypt.cpp">
       <Filter>GlobalIncs</Filter>
     </ClCompile>
+    <ClCompile Include="GlobalIncs\DataSetProfile.cpp">
+      <Filter>GlobalIncs</Filter>
+    </ClCompile>
     <ClCompile Include="GlobalIncs\SystemVars.cpp">
       <Filter>GlobalIncs</Filter>
     </ClCompile>
@@ -1020,6 +1023,9 @@
       <Filter>GlobalIncs</Filter>
     </ClInclude>
     <ClInclude Include="GlobalIncs\crypt.h">
+      <Filter>GlobalIncs</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalIncs\DataSetProfile.h">
       <Filter>GlobalIncs</Filter>
     </ClInclude>
     <ClInclude Include="GlobalIncs\LinkList.h">
