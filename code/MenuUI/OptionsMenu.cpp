@@ -479,6 +479,7 @@ int Options_gamma_num_coords[GR_NUM_RESOLUTIONS][4] = {
 #define OPTIONS_VOLUME_STEPS	(Cfile_fs1_data ? 10.0f : 9.0f)
 #define FS1_NUM_SLIDERS			6		// sound, music, voice, mouse sensitivity, joystick sensitivity, deadzone
 #define FS1_NUM_SKILLS			5
+#define FS1_SLIDERS_MADE		(Game_profile->options_mouse_sliders ? FS1_NUM_SLIDERS : 3)	// Claude: FS1's demo data has no OPa_60, 61, 64: the mouse and joystick sliders are not made, their settings keep their values (D-20261020-213842)
 static UI_DOT_SLIDER Fs1_sliders[FS1_NUM_SLIDERS];
 static UI_BUTTON Fs1_skill_buttons[FS1_NUM_SKILLS];
 static int Fs1_skill_bitmap = -1, Fs1_skill_frames = 0;
@@ -496,6 +497,10 @@ static void options_fs1_layout()
 		Buttons[GR_640][i].x = Fs1_coords[i][0];
 		Buttons[GR_640][i].y = Fs1_coords[i][1];
 		Buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	if ( !Game_profile->options_mouse_sliders ) {	// Claude: no OPa_62, OPa_63 in FS1's demo data: a button with no file is hidden (D-20261020-213842)
+		Buttons[GR_640][MOUSE_OFF].filename = NULL;
+		Buttons[GR_640][MOUSE_ON].filename = NULL;
 	}
 	Options_gamma_coords[GR_640][OPTIONS_X_COORD] = 377;
 	Options_gamma_coords[GR_640][OPTIONS_Y_COORD] = 117;
@@ -516,7 +521,7 @@ static void options_fs1_sliders_create()
 		Options_sliders[gr_screen.res][i].slider.hide();		// FS2's keep the values; FS1's draw and take the clicks
 		Options_sliders[gr_screen.res][i].slider.disable();
 	}
-	for (i=0; i<FS1_NUM_SLIDERS; i++) {
+	for (i=0; i<FS1_SLIDERS_MADE; i++) {	// Claude: FS1_SLIDERS_MADE, D-20261020-213842
 		Fs1_sliders[i].create(&Ui_window, Fs1_slider_args[i][0], Fs1_slider_args[i][1], NOX("OPa_"), Fs1_slider_args[i][2], Fs1_slider_args[i][3], Fs1_slider_args[i][4]);
 	}
 	for (i=0; i<FS1_NUM_SKILLS; i++) {
@@ -560,7 +565,7 @@ static void options_fs1_sliders_show(int show)
 		Options_sliders[gr_screen.res][i].slider.hide();
 		Options_sliders[gr_screen.res][i].slider.disable();
 	}
-	for (i=0; i<FS1_NUM_SLIDERS; i++) {
+	for (i=0; i<FS1_SLIDERS_MADE; i++) {	// Claude: FS1_SLIDERS_MADE, D-20261020-213842
 		Fs1_sliders[i].enable(show);
 		if (show) {
 			Fs1_sliders[i].unhide();

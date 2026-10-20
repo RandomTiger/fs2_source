@@ -37,6 +37,7 @@ typedef struct data_set_profile {
 	int	talking_heads;						// 0: messages play no head anim, as FS1's demo build: the demo has none (MissionMessage.cpp)
 	int	unknown_weapon_warning;				// 0: a ships.tbl weapon missing from weapons.tbl is logged, not a Warning; FS1's demo data names three (PARSELO.CPP, D-20261020-213146)
 	int	full_version_screens;				// 1 = the full-version screens open; 0 = each site answers game_feature_not_in_demo_popup() (FS1 demo: freespace.vp carries no Campaign*, TechShip*, Hotkeys-M, Objectives-m, Medals-m, OptionsMulti*-M or multiplayer screen art; D-20261020-214042)
+	int	options_mouse_sliders;				// 1 = Options creates the mouse on/off buttons (OPa_62, OPa_63) and the three right-hand dot sliders (ids 60, 61, 64); 0 = not created, their settings keep their values (FS1 demo: no OPa_60-64 in freespace.vp, no place for them on OptionsMain.PCX; OptionsMenu.cpp, D-20261020-213842)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
