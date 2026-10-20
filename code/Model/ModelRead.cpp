@@ -1249,6 +1249,9 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 
 		switch (id) {
 
+#if defined( FREESPACE2_FORMAT )
+			case ID_OHDR_FS1:		// Claude: FS1 object header (docs/FS1_COMPAT.md)
+#endif
 			case ID_OHDR: {		//Object header
 				//vector v;
 
@@ -1260,9 +1263,15 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 				pm->rad = cfread_float(fp);
 				pm->flags = cfread_int(fp);	// 1=Allow tiling
 #elif defined( FREESPACE2_FORMAT )
+				if ( id == ID_OHDR_FS1 ) {	// Claude: FS1 order
+					pm->n_models = cfread_int(fp);
+					pm->rad = cfread_float(fp);
+					pm->flags = cfread_int(fp);	// 1=Allow tiling
+				} else {	// Claude
 				pm->rad = cfread_float(fp);
 				pm->flags = cfread_int(fp);	// 1=Allow tiling
 				pm->n_models = cfread_int(fp);
+				}	// Claude
 //				mprintf(( "Num models = %d\n", pm->n_models ));
 #endif
 				
@@ -1372,6 +1381,9 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 				break;
 			}
 			
+#if defined( FREESPACE2_FORMAT )
+			case ID_SOBJ_FS1:		// Claude: FS1 subobject header (docs/FS1_COMPAT.md)
+#endif
 			case ID_SOBJ: {		//Subobject header
 				int n;
 				char *p, props[MAX_PROP_LEN];
@@ -1384,6 +1396,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 				Assert(n < pm->n_models );
 
 #if defined( FREESPACE2_FORMAT )	
+				if ( id != ID_SOBJ_FS1 )	// Claude: FS1 has the radius after the offset
 				pm->submodel[n].rad = cfread_float(fp);		//radius
 #endif
 
@@ -1398,6 +1411,11 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 	
 #if defined ( FREESPACE1_FORMAT )
 				pm->submodel[n].rad = cfread_float(fp);		//radius
+#endif
+#if defined( FREESPACE2_FORMAT )
+				if ( id == ID_SOBJ_FS1 ) {	// Claude: FS1 order
+					pm->submodel[n].rad = cfread_float(fp);		//radius
+				}
 #endif
 
 //				pm->submodel[n].tree_offset = cfread_int(fp);	//offset
@@ -1706,7 +1724,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 
 								n_slots = cfread_int( fp );
 								subsystemp->turret_gun_sobj = physical_parent;
-								Assert(n_slots < MAX_TFP);		// only MAX_TFP firing points per model_subsystem
+								Assert(n_slots <= MAX_TFP);	// Claude: the array holds MAX_TFP; FS1's freighter03.pof has a turret with 4
 								for (turret_slot = 0; turret_slot < n_slots; turret_slot++ )	{
 									cfread_vector( &subsystemp->turret_firing_point[turret_slot], fp );
 								}

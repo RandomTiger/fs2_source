@@ -400,6 +400,7 @@
 #include "HUDWingmanStatus.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 //////////////////////////////////////////////////////
 // Game-wide Globals
@@ -909,6 +910,19 @@ void ship_select_redraw_pressed_buttons()
 	}
 }
 
+// Claude: FS1 data: FS1's 640 layout.  The ship anim (633x224, with the ship's name, stats and description in it)
+// matched against BRIEF.pcx's background.  The buttons were cut from a background FS1 does not ship, so they are
+// placed by their regions in shipselect-m.pcx: the scroll buttons at the weapon screen's offsets from its regions
+// (FS2's weapon screen positions fit FS1's mask), the reset button where retail draws it (docs/FS1_COMPAT.md).
+// Overwrites the GR_640 entries.
+static void ship_select_fs1_layout()
+{
+	Ship_anim_coords[GR_640][0] = 7;		Ship_anim_coords[GR_640][1] = 76;
+	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_UP].x = 0;		Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_UP].y = 303;
+	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_DOWN].x = 0;	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_DOWN].y = 454;
+	Ship_select_buttons[GR_640][SS_BUTTON_RESET].x = 556;		Ship_select_buttons[GR_640][SS_BUTTON_RESET].y = 321;
+}
+
 void ship_select_buttons_init()
 {
 	ss_buttons	*b;
@@ -924,7 +938,7 @@ void ship_select_buttons_init()
 	}
 
 	// add all xstrs
-	for(i=0; i<SHIP_SELECT_NUM_TEXT; i++){
+	for(i=0; (i<SHIP_SELECT_NUM_TEXT) && !Cfile_fs1_data; i++){	// Claude: FS1's reset button art has its label
 		Ship_select_ui_window.add_XSTR(&Ship_select_text[gr_screen.res][i]);
 	}
 
@@ -1066,6 +1080,10 @@ void ship_select_init()
 									// is needed so we can know if ship_select_close() needs to called if
 									// restoring a game from the Options screen invoked from ship select
 
+	if ( Cfile_fs1_data ) {	// Claude
+		ship_select_fs1_layout();
+	}
+
 	// init ship selection masks and buttons
 	Ship_select_ui_window.create( 0, 0, gr_screen.max_w, gr_screen.max_h, 0 );
 	Ship_select_ui_window.set_mask_bmap(Ship_select_background_mask_fname[gr_screen.res]);
@@ -1076,6 +1094,9 @@ void ship_select_init()
 
 	// init ship selection background bitmpa
 	Ship_select_background_bitmap = bm_load(Ship_select_background_fname[gr_screen.res]);
+	if ( Cfile_fs1_data && (Ship_select_background_bitmap < 0) ) {	// Claude: FS1 has no ShipSelect; its screens share Brief's background
+		Ship_select_background_bitmap = bm_load(NOX("Brief"));
+	}
 }
 
 
@@ -1607,7 +1628,7 @@ void ship_select_do(float frametime)
 			anim_play_struct aps;
 			anim_release_render_instance(Ss_icons[Selected_ss_class].anim_instance);
 			anim_play_init(&aps, Ss_icons[Selected_ss_class].anim, Ship_anim_coords[gr_screen.res][0], Ship_anim_coords[gr_screen.res][1]);
-			aps.start_at = SHIP_ANIM_LOOP_FRAME;
+			aps.start_at = Cfile_fs1_data ? 37 : SHIP_ANIM_LOOP_FRAME;	// Claude: FS1's ship anims loop from frame 37
 //			aps.start_at = 0;
 			aps.screen_id = ON_SHIP_SELECT;
 			aps.framerate_independent = 1;
@@ -1641,7 +1662,9 @@ void ship_select_do(float frametime)
 	}
 
 	// draw out ship information
-	ship_select_blit_ship_info();
+	if ( !Cfile_fs1_data ) {	// Claude: FS1's ship anims carry the name, stats and description
+		ship_select_blit_ship_info();
+	}
 
 
 	ss_maybe_flash_button();

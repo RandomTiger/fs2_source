@@ -479,6 +479,17 @@ typedef struct VP_FILE {
 	int	write_time;	// Claude: the VP index's 32-bit time, was time_t (D-057)
 } VP_FILE;
 
+// Claude: FS1 keeps briefing and debriefing voice in plural folders.  Called on each folder entered in a
+// pack file, so FS1's folders index as FS2's.
+static void cf_fs1_pack_dir( char *search_path )
+{
+	if ( !stricmp( search_path, "data\\voice\\briefings" ) ) {
+		strcpy( search_path, Pathtypes[CF_TYPE_VOICE_BRIEFINGS].path );
+	} else if ( !stricmp( search_path, "data\\voice\\debriefings" ) ) {
+		strcpy( search_path, Pathtypes[CF_TYPE_VOICE_DEBRIEFINGS].path );
+	}
+}
+
 void cf_search_root_pack(int root_index)
 {
 	int i;
@@ -527,6 +538,9 @@ void cf_search_root_pack(int root_index)
 					strcat( search_path,	"\\" );
 				}
 				strcat_s( search_path, CF_MAX_PATHNAME_LENGTH, find.filename );
+				if ( Cfile_fs1_data ) {	// Claude: FS1 folder names
+					cf_fs1_pack_dir( search_path );
+				}
 			}
 
 			//mprintf(( "Current dir = '%s'\n", search_path ));
@@ -583,6 +597,74 @@ void cf_build_file_list()
 }
 
 
+// Claude: FS1 data detection (docs/FS1_COMPAT.md).  FreeSpace 1 keeps its main archive in Data\freespace.vp,
+// a file FreeSpace 2 does not have.  FS1-only loading paths check this flag, so FS2 data never takes them.
+int Cfile_fs1_data = 0;
+
+// Claude: FS1 missions are .fsm and campaigns .fsc (docs/FS1_COMPAT.md)
+static char Cf_fs1_mission_extensions[] = ".fs2 .fc2 .ntl .ssv .fsm .fsc";
+static char *Cf_fs2_mission_extensions = NULL;
+
+// Claude: the game asks for missions as .fs2 and campaigns as .fc2, sometimes on a name that already has the
+// FS1 extension (FS1 campaign files list "SM1-01.fsm").  Also FS1's stand-ins for files it lacks.  In FS1
+// data, 1 and the FS1 name in dst if src was one of those; 0 otherwise.
+static int cf_fs1_mission_name( char *src, char *dst )
+{
+	static char *ext[2][2] = { { ".fs2", ".fsm" }, { ".fc2", ".fsc" } };
+	int i, len = strlen(src);
+
+	if ( !Cfile_fs1_data || (len < 4) || (len >= MAX_PATH_LEN) ) {
+		return 0;
+	}
+	for (i=0; i<2; i++ )	{
+		if ( !stricmp( src + len - 4, ext[i][0] ) ) {
+			strcpy( dst, src );
+			if ( (len >= 8) && !strnicmp( dst + len - 8, ext[i][1], 4 ) ) {
+				dst[len - 4] = 0;			// "SM1-01.fsm.fs2" -> "SM1-01.fsm"
+			} else {
+				strcpy( dst + len - 4, ext[i][1] );	// "btm-01.fs2" -> "btm-01.fsm"
+			}
+			return 1;
+		}
+	}
+
+	// files FS1 lacks, and what stands in for them
+	static char *stand_in[][2] = {
+		{ "font03.vf", "font02.vf" },		// the title font
+		{ "debris02.pof", "debris01.pof" },	// debris of a ship vaporized by a beam; FS1 has no beams
+		{ "sun01-unlit.pcx", "sun01.pcx" },	// FS1's sun with $Light: 0 (Parse/Fs1Tables.cpp)
+	};
+	for (i=0; i<sizeof(stand_in)/sizeof(stand_in[0]); i++ )	{
+		if ( !stricmp( src, stand_in[i][0] ) ) {
+			strcpy( dst, stand_in[i][1] );
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void cf_detect_fs1_data()
+{
+	char *suffix = "\\Data\\freespace.vp";
+	int i, len, slen = strlen(suffix);
+
+	Cfile_fs1_data = 0;
+	for (i=0; i<Num_roots; i++ )	{
+		cf_root *root = cf_get_root(i);
+		len = strlen(root->path);
+		if ( (root->roottype == CF_ROOTTYPE_PACK) && (len >= slen) && !stricmp(root->path + len - slen, suffix) )	{
+			Cfile_fs1_data = 1;
+			break;
+		}
+	}
+	mprintf(( "Game data: FreeSpace %d\n", Cfile_fs1_data ? 1 : 2 ));
+
+	if ( !Cf_fs2_mission_extensions ) {
+		Cf_fs2_mission_extensions = Pathtypes[CF_TYPE_MISSIONS].extensions;
+	}
+	Pathtypes[CF_TYPE_MISSIONS].extensions = Cfile_fs1_data ? Cf_fs1_mission_extensions : Cf_fs2_mission_extensions;
+}
+
 void cf_build_secondary_filelist(char *cdrom_dir)
 {
 	int i;
@@ -613,6 +695,7 @@ void cf_build_secondary_filelist(char *cdrom_dir)
 	
 	// build the list of searchable roots
 	cf_build_root_list(cdrom_dir);	
+	cf_detect_fs1_data();		// Claude: FS1 or FS2 data, before the file list, which depends on it
 
 	// build the list of files themselves
 	cf_build_file_list();
@@ -677,6 +760,12 @@ int cf_find_file_location( char *filespec, int pathtype, char *pack_filename, in
 		}
 
 		return 0;		// If they give a full path, fail if not found.
+	}
+
+	// Claude: FS1 mission and campaign names
+	char fs1_name[MAX_PATH_LEN];
+	if ( cf_fs1_mission_name( filespec, fs1_name ) ) {
+		filespec = fs1_name;
 	}
 
 	// Search the hard drive for files first.
@@ -786,6 +875,11 @@ int cf_matches_spec(char *filespec, char *filename)
 	if (!dst_ext)
 		return 1;
 	
+	// Claude: in FS1 data, lists of .fs2 missions and .fc2 campaigns also take FS1's .fsm and .fsc
+	if ( Cfile_fs1_data && ((!stricmp(src_ext, ".fs2") && !stricmp(dst_ext, ".fsm")) || (!stricmp(src_ext, ".fc2") && !stricmp(dst_ext, ".fsc"))) ) {
+		return 1;
+	}
+
 	return !stricmp(dst_ext, src_ext);
 }
 
