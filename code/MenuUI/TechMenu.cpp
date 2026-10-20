@@ -242,6 +242,7 @@
 #include "AnimPlay.h"
 #include "localize.h"
 #include "Lighting.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 #define REVOLUTION_RATE	5.2f
 
@@ -973,11 +974,125 @@ void techroom_start_anim()
 }
 
 
+// Claude: FS1 data: the tech room in FS1's layout (retail FS1 screenshots; docs/FS1_COMPAT.md), buttons placed by
+// matching FS1's TDB_ art against them.  FS1's ships tab has its own background and mask (TechShipData, FS2's for every
+// tab); its weapons and species tabs use TechData, with no list: the description fills the left box and the animation
+// the right, and the prev/next entry buttons sit under the animation, with other art (TDB_ for TSB_) and mask numbers.
+// The scroll arrows are only on the ships tab.  FS1's weapons.tbl names no tech anims: FS.exe had them by weapon name.
+static int Fs1_tech_bitmaps[2] = { -1, -1 };		// ships tab, weapons and species tabs
+static int Fs1_tech_masks[2] = { -1, -1 };
+
+static void techroom_fs1_layout()
+{
+	// ships, weapons, species tabs; technical database, simulator, cutscenes, credits; list up, down; description up,
+	// down; prev, next entry (ships tab: techroom_fs1_tab moves them for the others); help, options, exit
+	static char *Fs1_names[NUM_BUTTONS] = { "TDB_04", "TDB_05", "TDB_06", "TDB_00", "TDB_01", "TDB_02", "TDB_03", "TSB_16", "TSB_17", "TSB_18", "TSB_19", "TSB_22", "TSB_23", "TDB_13", "TDB_14", "TDB_15" };
+	static int Fs1_coords[NUM_BUTTONS][3] = { {20,429,4}, {70,429,5}, {147,429,6}, {0,0,0}, {0,19,1}, {0,35,2}, {0,56,3},
+		{0,206,16}, {0,254,17}, {411,351,18}, {411,397,19}, {477,337,22}, {524,337,23}, {469,425,13}, {448,452,14}, {552,411,15} };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].filename = Fs1_names[i];
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+		Buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	Tech_list_coords[GR_640][0] = 35;
+	Tech_list_coords[GR_640][1] = 130;
+	Tech_list_coords[GR_640][2] = 180;
+	Tech_list_coords[GR_640][3] = 207;
+	Tech_ship_display_coords[GR_640][0] = 237;
+	Tech_ship_display_coords[GR_640][1] = 115;
+	Tech_ship_display_coords[GR_640][2] = 386;
+	Tech_ship_display_coords[GR_640][3] = 229;
+	Tech_ani_coords[GR_640][0] = 423;
+	Tech_ani_coords[GR_640][1] = 138;
+}
+
+// the weapons and species background and mask, besides the ships tab's that techroom_init loads
+static void techroom_fs1_load()
+{
+	Fs1_tech_bitmaps[0] = Tech_background_bitmap;
+	Fs1_tech_bitmaps[1] = bm_load(NOX("TechData"));
+	Fs1_tech_masks[0] = bm_load(Tech_mask_filename[gr_screen.res]);	// the window's
+	Fs1_tech_masks[1] = bm_load(NOX("TechData-M"));
+}
+
+static void techroom_fs1_unload()
+{
+	Ui_window.set_mask_bmap(Fs1_tech_masks[0], Tech_mask_filename[gr_screen.res]);	// the window releases this one
+	if (Fs1_tech_masks[1] >= 0) {
+		bm_release(Fs1_tech_masks[1]);
+	}
+	if ( (Fs1_tech_bitmaps[1] >= 0) && (Fs1_tech_bitmaps[1] != Tech_background_bitmap) ) {
+		bm_unload(Fs1_tech_bitmaps[1]);
+	}
+	if ( (Fs1_tech_bitmaps[0] >= 0) && (Fs1_tech_bitmaps[0] != Tech_background_bitmap) ) {
+		bm_unload(Fs1_tech_bitmaps[0]);
+	}
+	Fs1_tech_bitmaps[0] = Fs1_tech_bitmaps[1] = -1;
+	Fs1_tech_masks[0] = Fs1_tech_masks[1] = -1;
+}
+
+// the background, mask, description box and prev/next entry buttons for tab Tab
+static void techroom_fs1_tab()
+{
+	// x, y, w, h: under the ship view, or the left box of the weapons and species tabs
+	static int Fs1_desc_coords[2][4] = { {22,361,382,64}, {24,139,376,286} };
+	int data = (Tab != SHIPS_DATA_TAB), i;
+
+	if ( (Fs1_tech_bitmaps[data] >= 0) && (Fs1_tech_masks[data] >= 0) ) {
+		Tech_background_bitmap = Fs1_tech_bitmaps[data];
+		Ui_window.set_mask_bmap(Fs1_tech_masks[data], data ? NOX("TechData-M") : Tech_mask_filename[gr_screen.res]);
+	}
+	for (i=0; i<4; i++) {
+		Tech_desc_coords[GR_640][i] = Fs1_desc_coords[data][i];
+	}
+	Buttons[gr_screen.res][PREV_ENTRY_BUTTON].button.set_bmaps(data ? NOX("TDB_11") : NOX("TSB_22"));
+	Buttons[gr_screen.res][NEXT_ENTRY_BUTTON].button.set_bmaps(data ? NOX("TDB_12") : NOX("TSB_23"));
+	Buttons[gr_screen.res][PREV_ENTRY_BUTTON].button.update_dimensions(-1, data ? 291 : 337, -1, -1);
+	Buttons[gr_screen.res][NEXT_ENTRY_BUTTON].button.update_dimensions(-1, data ? 291 : 337, -1, -1);
+	Buttons[gr_screen.res][PREV_ENTRY_BUTTON].button.link_hotspot(data ? 11 : 22);
+	Buttons[gr_screen.res][NEXT_ENTRY_BUTTON].button.link_hotspot(data ? 12 : 23);
+	for (i=SCROLL_LIST_UP; i<=SCROLL_INFO_DOWN; i++) {
+		Buttons[gr_screen.res][i].button.enable(!data);
+		if (data) {
+			Buttons[gr_screen.res][i].button.hide();
+		} else {
+			Buttons[gr_screen.res][i].button.unhide();
+		}
+	}
+	View_window.enable(!data);	// no ship to turn
+	help_overlay_fs1_tech_tab(data);
+}
+
+// the tech anim FS.exe had for weapon name, or NULL
+static char *techroom_fs1_weapon_anim(char *name)
+{
+	static char *Fs1_weapon_anims[][2] = { {"ML-16 Laser", "CB_ML16"}, {"Disruptor", "CB_Disruptor"}, {"D-Advanced", "CB_DAdvanced"},
+		{"Avenger", "CB_Avenger"}, {"Flail", "CB_Flail"}, {"Prometheus", "CB_Prometheus"}, {"Banshee", "CB_Banshee"}, {"MX-50", "CB_MX50"},
+		{"D-Missile", "CB_DisruptorMissile"}, {"Fury", "CB_Fury"}, {"Hornet", "CB_Hornet"}, {"Interceptor", "CB_Interceptor"},
+		{"Phoenix V", "CB_Phoenix"}, {"Synaptic", "CB_Synaptic"}, {"Stiletto", "CB_Stiletto"}, {"Tsunami", "CB_Tsunami"},
+		{"Harbinger", "CB_Harbinger"}, {"Leech Cannon", "CB_leech"}, {"EM Pulse", "CB_empulse"}, {"S-Breaker", "CB_sbreaker"},
+		{"Cluster Bomb", "CB_cluster"} };
+	int i;
+
+	for (i=0; i<(int)(sizeof(Fs1_weapon_anims) / sizeof(Fs1_weapon_anims[0])); i++) {
+		if (!stricmp(name, Fs1_weapon_anims[i][0])) {
+			return Fs1_weapon_anims[i][1];
+		}
+	}
+	return NULL;
+}
+
 void techroom_change_tab(int num)
 {
 	int i, multi = 0, mask, font_height, max_num_entries_viewable;	
 
 	Tab = num;
+	if ( Cfile_fs1_data ) {	// Claude
+		techroom_fs1_tab();
+	}
 	// Assert(Current_list_size >= 0);
 	List_offset = 0;
 	Cur_entry = 0;
@@ -1050,6 +1165,9 @@ void techroom_change_tab(int num)
 						}
 
 						// load the weapon animation
+						if ( Cfile_fs1_data && (Weapon_info[i].tech_anim_filename[0] == 0) && techroom_fs1_weapon_anim(Weapon_info[i].name) ) {	// Claude: FS1's weapons.tbl names no tech anims
+							strcpy(Weapon_info[i].tech_anim_filename, techroom_fs1_weapon_anim(Weapon_info[i].name));
+						}
 						if(!techroom_load_ani(&Weapon_list[Weapon_list_size].animation, Weapon_info[i].tech_anim_filename)){
 							Weapon_list[Weapon_list_size].has_anim = 0;
 							Weapon_list[Weapon_list_size].animation = NULL;
@@ -1252,6 +1370,27 @@ int techroom_load_ani(anim **animpp, char *name)
 }
 
 
+// Claude: FS1 data: FS1's species.tbl holds only a "$<species> Tech Description:" per species; its anims were in the
+// code, the names FS2 keeps commented out as Intel_anim_filenames
+static void techroom_fs1_species()
+{
+	static char *Fs1_species[3][2] = { {"Terran", "tech_tpilot"}, {"Vasudan", "tech_vasudan"}, {"Shivan", "tech_shivan"} };
+	char tag[64];
+	int i;
+
+	for (i=0; (i<3) && (Intel_info_size < MAX_INTEL_ENTRIES); i++) {
+		sprintf(tag, NOX("$%s Tech Description:"), Fs1_species[i][0]);
+		if (!optional_string(tag)) {
+			continue;
+		}
+		strcpy(Intel_info[Intel_info_size].name, Fs1_species[i][0]);
+		strcpy(Intel_info[Intel_info_size].anim_filename, Fs1_species[i][1]);
+		Intel_info[Intel_info_size].in_tech_db = 1;
+		stuff_string(Intel_info[Intel_info_size].desc, F_MULTITEXT, NULL, TECH_INTEL_DESC_LEN);
+		Intel_info_size++;
+	}
+}
+
 void techroom_intel_init()
 {
 	int rval;
@@ -1271,6 +1410,9 @@ void techroom_intel_init()
 			reset_parse();
 
 			Intel_info_size = 0;
+			if ( Cfile_fs1_data ) {	// Claude
+				techroom_fs1_species();
+			}
 
 			while (optional_string("$Entry:")) {
 				Assert(Intel_info_size < MAX_INTEL_ENTRIES);
@@ -1329,6 +1471,10 @@ void techroom_init()
 	// unflag fullneb 
 	The_mission.flags &= ~MISSION_FLAG_FULLNEB;
 
+	if ( Cfile_fs1_data ) {	// Claude
+		techroom_fs1_layout();
+	}
+
 	// set up UI stuff
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Tech_mask_filename[gr_screen.res]);
@@ -1337,6 +1483,9 @@ void techroom_init()
 	if (Tech_background_bitmap < 0) {
 		// failed to load bitmap, not a good thing
 		Int3();
+	}
+	if ( Cfile_fs1_data ) {	// Claude
+		techroom_fs1_load();
 	}
 
 	for (i=0; i<NUM_BUTTONS; i++) {
@@ -1480,6 +1629,9 @@ void techroom_close()
 		bm_unload(Tech_background_bitmap);
 	}
 
+	if ( Cfile_fs1_data ) {	// Claude
+		techroom_fs1_unload();
+	}
 	Ui_window.destroy();
 	common_free_interface_palette();		// restore game palette
 	if (Palette_bmp){
@@ -1635,11 +1787,19 @@ void techroom_do_frame(float frametime)
 			break;
 
 		case WEAPONS_DATA_TAB:
+			if ( Cfile_fs1_data ) {	// Claude: FS1 has no list here; FS2's first version of this tab drew none either
+				techroom_weapons_render(frametime);
+			} else {	// Claude
 			techroom_weapons_render2(frametime);
+			}	// Claude
 			break;
 
 		case INTEL_DATA_TAB:
+			if ( Cfile_fs1_data ) {	// Claude: as the weapons tab
+				techroom_weapons_render(frametime);
+			} else {	// Claude
 			techroom_intel_render(frametime);
+			}	// Claude
 			break;
 	}
 

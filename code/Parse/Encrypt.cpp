@@ -203,9 +203,8 @@ void encrypt(char *text, int text_len, char *scrambled_text, int *scrambled_len,
 //				text_len			=>	actual number of bytes of unscrambled data
 void unencrypt(char *scrambled_text, int scrambled_len, char *text, int *text_len)
 {
-#ifdef ENCRYPT_NEW
-	unencrypt_new(scrambled_text, scrambled_len, text, text_len);
-#else
+	// Claude: the decoder is chosen by the file's signature, not by ENCRYPT_NEW, so FS1's old-scheme
+	// tables and missions decode too (docs/FS1_COMPAT.md)
 	int i, num_runs;
 	int scramble_offset = 0;
 	int byte_offset = 0;
@@ -215,6 +214,12 @@ void unencrypt(char *scrambled_text, int scrambled_len, char *text, int *text_le
 
 	// Only decrpyt files that start with unique signature
 	memcpy(&encrypt_id, scrambled_text, 4);
+
+	// Claude: new scheme
+	if ( encrypt_id == Encrypt_new_signature ) {
+		unencrypt_new(scrambled_text, scrambled_len, text, text_len);
+		return;
+	}
 
 	if ( (encrypt_id != Encrypt_signature) && (encrypt_id !=  Encrypt_signature_8bit) ) {
 		memcpy(text, scrambled_text, scrambled_len);
@@ -311,7 +316,6 @@ void unencrypt(char *scrambled_text, int scrambled_len, char *text, int *text_le
 	}
 
 	*text_len = byte_offset;
-#endif
 }
 
 #define NUM_LVL1_KEYS					11

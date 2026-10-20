@@ -134,6 +134,7 @@
 #include "2d.h"
 #include "MissionParse.h"
 #include "Neb.h"
+#include "pcxutils.h"	// Claude: FS1 nebula colour ramp
 
 #define MAX_TRIS 200
 #define MAX_POINTS 300
@@ -260,6 +261,26 @@ void nebula_init( char *filename, int pitch, int bank, int heading )
 	nebula_init(filename, &a);
 }
 
+// Claude: FS1 coloured its nebula through palette entries 0-19 of the mission's palette, gamepalette1-NN.pcx,
+// NN being the mission's +Color (Mission_palette) plus one.  The renderer reads the ramp from here (docs/FS1_COMPAT.md).
+ubyte Nebula_fs1_ramp[NEBULA_FS1_RAMP_COLORS * 3];
+
+static void nebula_fs1_load_ramp()
+{
+	char name[MAX_FILENAME_LEN];
+	ubyte pal[768];
+	int w, h, i;
+
+	sprintf( name, NOX("gamepalette1-%02d.pcx"), Mission_palette + 1 );
+	if ( pcx_read_header( name, &w, &h, pal ) == PCX_ERROR_NONE ) {
+		memcpy( Nebula_fs1_ramp, pal, sizeof(Nebula_fs1_ramp) );
+	} else {
+		for (i=0; i<NEBULA_FS1_RAMP_COLORS; i++ ) {
+			Nebula_fs1_ramp[i*3+0] = Nebula_fs1_ramp[i*3+1] = Nebula_fs1_ramp[i*3+2] = (ubyte)((i * 255) / (NEBULA_FS1_RAMP_COLORS - 1));
+		}
+	}
+}
+
 void nebula_init( char *filename, angles * pbh )
 {
 	if ( Nebula_loaded )	{
@@ -268,6 +289,9 @@ void nebula_init( char *filename, angles * pbh )
 
 	if ( load_nebula_sub( cf_add_ext(filename, NOX(".neb")) ) ) {
 		Nebula_loaded = 1;
+	}
+	if ( Nebula_loaded && Cfile_fs1_data ) {	// Claude
+		nebula_fs1_load_ramp();
 	}
 
 	if ( pbh ) {
@@ -288,6 +312,7 @@ void nebula_render()
 	// int r, g, b;
 
 	// no nebula for you!
+	if ( !Cfile_fs1_data )	// Claude: FS1 data draws FS1's nebula (docs/FS1_COMPAT.md)
 	return;
 
 	if ( !Nebula_loaded ) {
