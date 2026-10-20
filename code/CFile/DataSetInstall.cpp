@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "DataSetInstall.h"
+#include "DataSetFs1.h"
 
 static char *Data_set_names[NUM_DATA_SETS] = { "FS2 retail", "FS2 demo", "FS1 retail", "FS1 demo" };
 
@@ -35,7 +36,7 @@ typedef struct dataset_info {
 
 static dataset_info Datasets[] = {
 	{ DATA_SET_FS2_DEMO,	"fs2demo",	"fs2demo10.exe",	1 },
-	{ DATA_SET_FS1_DEMO,	"fs1demo",	"fsdemo10.exe",	0 },		// the FS1 branch adds the InstallShield cab reader
+	{ DATA_SET_FS1_DEMO,	"fs1demo",	"fsdemo10.exe",	1 },		// its InstallShield cab: DataSetFs1.cpp
 };
 #define NUM_DATASETS		(int)(sizeof(Datasets) / sizeof(Datasets[0]))
 #define DATASET_DEFAULT	0						// fs2demo, when more than one set could run
@@ -780,6 +781,15 @@ static int folder_has_vps(char *folder)
 	return 1;
 }
 
+// the FS1 demo keeps its only VP in Data\, not at the top of the folder
+static int folder_has_dataset(dataset_info *ds, char *folder)
+{
+	if (ds->set == DATA_SET_FS1_DEMO) {
+		return dataset_fs1_detect(folder);
+	}
+	return folder_has_vps(folder);
+}
+
 static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err, int err_len)
 {
 	dataset_info *ds = &Datasets[idx];
@@ -792,7 +802,7 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 	strncpy(dir, folder, dir_len - 1);
 	dir[dir_len - 1] = 0;
 
-	if (folder_has_vps(folder)) {
+	if (folder_has_dataset(ds, folder)) {
 		return 0;
 	}
 	if (!file_exists(installer)) {
@@ -807,6 +817,10 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 		// never write into a folder that is already there
 		_snprintf(err, err_len, "%s exists but holds no game data.  Remove it, and the game will make it again from %s.", folder, ds->installer);
 		return 1;
+	}
+	if (ds->set == DATA_SET_FS1_DEMO) {
+		// its own .partial and rename, CRC checked (DataSetFs1.cpp)
+		return dataset_fs1_extract(exe_dir, err, err_len);
 	}
 
 	_snprintf(partial, MAX_PATH - 1, "%s.partial", folder);
@@ -875,7 +889,7 @@ int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *di
 		folder[MAX_PATH - 1] = 0;
 		_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].installer);
 		installer[MAX_PATH - 1] = 0;
-		if (folder_has_vps(folder) || (Datasets[i].can_extract && file_exists(installer))) {
+		if (folder_has_dataset(&Datasets[i], folder) || (Datasets[i].can_extract && file_exists(installer))) {
 			found = i;
 			count++;
 		}
