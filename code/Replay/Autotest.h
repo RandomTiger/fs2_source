@@ -4,6 +4,11 @@
  *
  * Usage:
  *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc]
+ *   -autotest -at_menus [-at_mission <file.fs2>]
+ *
+ * With -at_menus, autotest visits every single-player screen in turn (main hall screens, then the
+ * briefings, loadout, gameplay, the in-game screens and the debriefing with the -at_mission mission or
+ * the first campaign mission), logs each one and quits.  A screen that does not open or close fails it.
  *
  * With no -at_mission, every single-player campaign mission runs in turn.  Each mission runs for
  * -at_time seconds of mission time (default 120) at -at_speed time compression (default 4), with
@@ -34,6 +39,7 @@ extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a r
 
 // command line (called from parse_cmdline)
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
+void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 
 // recording header
 void autotest_get_settings(int *on, int *time, int *speed);
@@ -44,6 +50,7 @@ void autotest_drive_state(int state);	// each frame from game_do_state, after re
 void autotest_frame();						// start of game_do_frame
 int  autotest_popup(char *text);			// 1 if the popup must be answered with its first choice and not shown
 int  autotest_report(char *kind, char *text, char *file, int line);	// Assert / Error / Warning / Int3: 1 if logged, no dialog
+void autotest_note(char *text);			// a line for autotest.log, when autotest is on
 int  autotest_exit_code(int code);		// the process exit code
 
 #endif

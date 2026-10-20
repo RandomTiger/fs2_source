@@ -30,6 +30,7 @@ FonttoolDebug/
 \.vs/freespace2/v14/\.suo
 
 FredDebug/
+FredRelease/
 
 Cfilearchiver\.exe
 
@@ -60,3 +61,6 @@ CFileArchiverRelease/
 CryptstringRelease/
 ScrambleRelease/
 HelpEdRelease/
+
+# crash dumps hold game data from memory (tools/replay_check.ps1, FS2_PROCDUMP)
+*.dmp

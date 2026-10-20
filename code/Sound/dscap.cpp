@@ -335,8 +335,8 @@ int dscap_get_raw_data(unsigned char *outbuf, unsigned int max_size)
 	if ( read_offset >= Dscap_last_capture_offset ) {
 		num_bytes_captured = read_offset-Dscap_last_capture_offset;
 	} else {
-		unsigned long max_size = dscap_max_buffersize();
-		num_bytes_captured = max_size - Dscap_last_capture_offset + read_offset;
+		unsigned long buf_max_size = dscap_max_buffersize();	// Claude: was max_size, which hid the parameter (C4457)
+		num_bytes_captured = buf_max_size - Dscap_last_capture_offset + read_offset;
 	}
 
 	if ( num_bytes_captured <= 0 ) {

@@ -239,7 +239,7 @@ void warpin_render(matrix *orient, vector *pos, int texture_bitmap_num, float ra
 		}
 
 		if (render_it)	{
-			int saved_gr_zbuffering = gr_zbuffer_get();
+			int saved_zbuf_inner = gr_zbuffer_get();	// Claude: was saved_gr_zbuffering, which hid the outer local (C4456)
 			gr_zbuffer_set(GR_ZBUFF_READ);
 
 			// Add in noise 
@@ -249,7 +249,7 @@ void warpin_render(matrix *orient, vector *pos, int texture_bitmap_num, float ra
 			r *= (0.40f + Noise[noise_frame]*0.30f);
 						
 			g3_draw_bitmap( &verts[4], 0,r, TMAP_FLAG_TEXTURED );
-			gr_zbuffer_set(saved_gr_zbuffering);
+			gr_zbuffer_set(saved_zbuf_inner);
 		}
 	}
 

@@ -213,6 +213,7 @@
 #include "Cutscenes.h"
 #include "Bmpman.h"
 #include "Autotest.h"	// Claude
+#include "DataSetProfile.h"	// Claude
 
 // update this when altering data that is read/written to .PLR file
 #define CURRENT_PLAYER_FILE_VERSION					140
@@ -304,9 +305,8 @@ int verify_pilot_file(char *filename, int single, int *rank)
 
 	id = cfread_uint(file);
 	if (id != PLR_FILE_ID) {
-		nprintf(("Warning", "Player file has invalid signature\n"));
+		mprintf(("Pilot file %s has an invalid signature; skipped and left as it is\n", filename));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 
@@ -315,9 +315,8 @@ int verify_pilot_file(char *filename, int single, int *rank)
 /*	if (file_version < INITIAL_RELEASE_FILE_VERSION) { */
 //	if (file_version != CURRENT_PLAYER_FILE_VERSION) {
 	if (file_version < LOWEST_COMPATIBLE_PLAYER_FILE_VERSION) {
-		nprintf(("Warning", "WARNING => Player file is outdated and not compatible...\n"));
+		mprintf(("Pilot file %s is version %u, older than %d; skipped and left as it is\n", filename, file_version, LOWEST_COMPATIBLE_PLAYER_FILE_VERSION));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 
@@ -561,9 +560,8 @@ int read_pilot_file(char *callsign, int single, player *p)
 	cf_set_version( file, Player_file_version );
 
 	if (Player_file_version < LOWEST_COMPATIBLE_PLAYER_FILE_VERSION) {
-		nprintf(("Warning", "WARNING => Player file is outdated and not compatible...\n"));
+		mprintf(("Pilot file %s is version %u, older than %d; not loaded and left as it is\n", filename, Player_file_version, LOWEST_COMPATIBLE_PLAYER_FILE_VERSION));	// Claude: was deleted (#23)
 		cfclose(file);
-		delete_pilot_file( filename, single );
 		return -1;
 	}
 
@@ -685,13 +683,13 @@ int read_pilot_file(char *callsign, int single, player *p)
 	Num_recent_missions = cfread_int( file );
 	Assert(Num_recent_missions <= MAX_RECENT_MISSIONS);
 	for ( i = 0; i < Num_recent_missions; i++ ) {
-		char *p;
+		char *inner_p;	// Claude: was p, which hid the parameter (C4457)
 
 		cfread_string_len( Recent_missions[i], MAX_FILENAME_LEN, file);
 		// Remove the extension
-		p = strchr(Recent_missions[i], '.');
-		if (p)
-			*p = 0;
+		inner_p = strchr(Recent_missions[i], '.');
+		if (inner_p)
+			*inner_p = 0;
 	}
 	
 	// use this block of stats from now on
@@ -781,7 +779,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 	return 0;
 }
 
-void read_stats_block(CFILE *file, int Player_file_version, scoring_struct *stats)
+void read_stats_block(CFILE *file, int stats_file_version, scoring_struct *stats)	// Claude: was Player_file_version, which hid the global (C4459)
 {
 	int i, total;
    
@@ -790,7 +788,7 @@ void read_stats_block(CFILE *file, int Player_file_version, scoring_struct *stat
 	stats->rank = cfread_int(file);
 	stats->assists = cfread_int(file);
 
-	if (Player_file_version < 139) {
+	if (stats_file_version < 139) {
 		// support for FS2_DEMO pilots that still have FS1 medal info in the .plr files
 		for (i=0; i < NUM_MEDALS_FS1; i++) {
 			total = cfread_int(file);			// dummy read
@@ -1157,11 +1155,7 @@ void init_new_pilot(player *p, int reset)
 		hud_set_default_hud_config(p);		// use a default hud config
 
 		// in the demo, load up the hardcoded hcf file
-#ifdef FS2_DEMO
-		hud_config_color_load("hud_1.hcf");
-#else
-		hud_config_color_load("hud_3.hcf");
-#endif
+		hud_config_color_load(Game_profile->default_hcf);	// Claude: the data set's (hud_3.hcf, the demo's hud_1.hcf), was #ifdef FS2_DEMO (D-20261020-053500)
 
 		control_config_reset_defaults();		// get a default keyboard config
 		player_set_pilot_defaults(p);			// set up any player struct defaults

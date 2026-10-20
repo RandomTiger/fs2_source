@@ -555,6 +555,8 @@
 #include "Encrypt.h"
 #include "Demo.h"
 #include "Replay.h"
+#include "DataSetInstall.h"	// Claude
+#include "DataSetProfile.h"	// Claude
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -720,9 +722,9 @@ int Player_died_popup_wait = -1;
 int Player_multi_died_check = -1;
 
 // builtin mission list stuff
-#ifdef FS2_DEMO
-	int Game_builtin_mission_count = 6;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+// Claude: the demo's list, compiled always; each data set profile row points at its list (D-20261020-053501)
+	int Game_builtin_missions_fs2_demo_count = 6;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2_demo[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		{ "SPDemo-01.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
 		{ "SPDemo-02.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
 		{ "DemoTrain.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
@@ -730,17 +732,17 @@ int Player_multi_died_check = -1;
 		{ "MPDemo-01.fs2",				(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 		{ "Demo-DOG-01.fs2",				(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 	};
-#elif defined(PD_BUILD)
-	int Game_builtin_mission_count = 4;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+#if defined(PD_BUILD)	// Claude: the FS2 retail list (and the build variants' lists until batch 9)
+	int Game_builtin_missions_fs2_count = 4;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		{ "sm1-01.fs2",					(FSB_FROM_VOLITION),												""		},
 		{ "sm1-05.fs2",					(FSB_FROM_VOLITION),												""		},		
 		{ "sm1-01",							(FSB_FROM_VOLITION),												""		},
 		{ "sm1-05",							(FSB_FROM_VOLITION),												""		},		
 	};
 #elif defined(MULTIPLAYER_BETA)
-	int Game_builtin_mission_count = 17;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 17;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// multiplayer beta
 		{ "md-01.fs2",						(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 		{ "md-02.fs2",						(FSB_FROM_VOLITION | FSB_MULTI),								""		},
@@ -761,8 +763,8 @@ int Player_multi_died_check = -1;
 		{ "templar.fc2",					(FSB_FROM_VOLITION | FSB_MULTI | FSB_CAMPAIGN_FILE),	""		},	
 	};
 #elif defined(OEM_BUILD)
-	int Game_builtin_mission_count = 17;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 17;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// oem version - act 1 only
 		{ "freespace2oem.fc2",			(FSB_FROM_VOLITION | FSB_CAMPAIGN_FILE),					"" },
 			
@@ -785,8 +787,8 @@ int Player_multi_died_check = -1;
 		{ "tsm-106.fs2",					(FSB_FROM_VOLITION | FSB_CAMPAIGN),							FS_CDROM_VOLUME_1	}
 	};
 #else 
-	int Game_builtin_mission_count = 92;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 92;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// single player campaign
 		{ "freespace2.fc2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN_FILE),					"" },
 			
@@ -931,12 +933,7 @@ static char *Game_loading_ani_fname[GR_NUM_RESOLUTIONS] = {
 	"2_Loading.ani"		// GR_1024
 };
 
-#if defined(FS2_DEMO)
-static char *Game_demo_title_screen_fname[GR_NUM_RESOLUTIONS] = {
-	"PreLoad",
-	"2_PreLoad"
-};
-#elif defined(OEM_BUILD)
+#if defined(OEM_BUILD)	// Claude: the demo's title screen is in the data set profile (D-20261020-053500)
 static char *Game_demo_title_screen_fname[GR_NUM_RESOLUTIONS] = {
 	"OEMPreLoad",
 	"2_OEMPreLoad"
@@ -979,14 +976,48 @@ fs_builtin_mission *game_find_builtin_mission(char *filename)
 	int idx;
 
 	// look through all existing builtin missions
-	for(idx=0; idx<Game_builtin_mission_count; idx++){
-		if(!stricmp(Game_builtin_mission_list[idx].filename, filename)){
-			return &Game_builtin_mission_list[idx];
+	for(idx=0; idx<*Game_profile->builtin_mission_count; idx++){	// Claude: the data set's list (D-20261020-053501)
+		if(!stricmp(Game_profile->builtin_missions[idx].filename, filename)){	// Claude
+			return &Game_profile->builtin_missions[idx];	// Claude
 		}
 	}
 
 	// didn't find it
 	return NULL;
+}
+
+// Claude: the data set (D-063, D-20261018-175706).  Demo if the cfile index has the demo's campaign file
+// and not retail's; anything else, a mixed folder included, is FS2 retail.  Checked once, after cfile_init.
+int Game_data_set = DATA_SET_FS2_RETAIL;
+
+static int game_is_volition_mission(char *filename)
+{
+	int idx;
+
+	// the FS2 retail list whatever the data set, so a retail recording is named retail on the demo too (D-20261020-053501)
+	for (idx = 0; idx < Game_builtin_missions_fs2_count; idx++) {
+		if (!stricmp(Game_builtin_missions_fs2[idx].filename, filename)) {
+			return (Game_builtin_missions_fs2[idx].flags & FSB_FROM_VOLITION) != 0;
+		}
+	}
+	return 0;
+}
+
+void game_detect_data_set()
+{
+	char line[128];
+	int demo = cf_find_file_location(NOX("demo.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+
+	Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;	// only the FreeSpace 2 pair so far
+	data_set_profile_apply(Game_data_set);	// Claude: its row of the profile table (D-20261020-053500)
+	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", data_set_name(Game_data_set), demo ? "y" : "n", retail ? "y" : "n");
+	mprintf(("%s", line));
+	autotest_note(line);
+	if (demo && retail) {
+		Warning(LOCATION, "Both demo.fc2 and freespace2.fc2 are in the data; running as retail\n");
+	}
+	replay_check_data_set(Game_data_set, game_is_volition_mission);
 }
 
 int game_get_default_skill_level()
@@ -1631,7 +1662,7 @@ void game_loading_callback_init()
 
 	Game_loading_ani = anim_load( Game_loading_ani_fname[gr_screen.res]);
 	Assert( Game_loading_ani != NULL );
-	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, 16);
+	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, anim_frame_bpp());	// Claude: was 16
 	Assert( Game_loading_ani_instance != NULL );
 	Game_loading_frame = -1;
 
@@ -2029,6 +2060,7 @@ void game_init()
 	if(cfile_init(whee, Game_CDROM_dir)){			// initialize before calling any cfopen stuff!!!
 		exit(1);
 	}		
+	game_detect_data_set();	// Claude: demo or retail data, before any table is read (D-20261018-175706)
 	e1 = timer_get_milliseconds();
 
 	// time a bunch of cfopens	
@@ -2046,6 +2078,11 @@ void game_init()
 	e2 = timer_get_milliseconds();	
 	*/
 
+#ifndef OEM_BUILD
+	// Claude: the data set's names; settings are kept under the app name (D-20261020-053500)
+	Osreg_app_name = Game_profile->app_name;
+	Osreg_title = Game_profile->title;
+#endif
 	if (Is_standalone) {
 		std_init_standalone();
 	} else {		
@@ -2243,12 +2280,11 @@ void game_init()
 
 	gr_set_gamma(Freespace_gamma);
 
-#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	// Claude: always; display_title_screen shows the data set's title screen, if it has one (was #if FS2_DEMO || OEM_BUILD)
 	// add title screen
 	if(!Is_standalone){
 		display_title_screen();
 	}
-#endif
 	
 	// attempt to load up master tracker registry info (login and password)
 	Multi_tracker_id = -1;		
@@ -2973,7 +3009,7 @@ void player_repair_frame(float frametime)
 #ifndef NDEBUG
 #define NUM_FRAMES_TEST		300
 #define NUM_MIXED_SOUNDS	16
-void do_timing_test(float flFrametime)
+void do_timing_test(float frame_time)	// Claude: was flFrametime, which hid the global (C4459)
 {
 	static int framecount = 0;
 	static int test_running = 0;
@@ -2984,7 +3020,7 @@ void do_timing_test(float flFrametime)
 
 	if ( test_running ) {
 		framecount++;
-		test_time += flFrametime;
+		test_time += frame_time;
 		if ( framecount >= NUM_FRAMES_TEST ) {
 			test_running = 0;
 			nprintf(("General", "%d frames took %.3f seconds\n", NUM_FRAMES_TEST, test_time));
@@ -5245,7 +5281,12 @@ void game_process_event( int current_state, int event )
 
 		case GS_EVENT_GAME_INIT:
 	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
+			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
+				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
+			} else {	// Claude
 			gameseq_set_state(GS_STATE_INITIAL_PLAYER_SELECT);
+			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
 			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
@@ -6496,7 +6537,7 @@ void game_spew_pof_info_sub(int model_num, polymodel *pm, int sm, CFILE *out, in
 	*out_destroyed_total += sub_total_destroyed;
 }
 
-#define BAIL()			do { int idx; for(idx=0; idx<num_files; idx++){ if(pof_list[idx] != NULL){free(pof_list[idx]); pof_list[idx] = NULL;}} return;} while(0);
+#define BAIL()			do { int bail_idx; for(bail_idx=0; bail_idx<num_files; bail_idx++){ if(pof_list[bail_idx] != NULL){free(pof_list[bail_idx]); pof_list[bail_idx] = NULL;}} return;} while(0);	// Claude: was idx, which hid the caller's idx (C4456)
 void game_spew_pof_info()
 {
 	char *pof_list[1000];
@@ -6723,6 +6764,14 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	#endif
 	
 	parse_cmdline(szCmdLine);	
+	{	// Claude: the data set folder, made from a demo installer on the first start; everything after this reads and writes there (D-20261018-221704)
+		char ds_dir[1024], ds_err[512];	// Claude
+		if (dataset_select_folder(exe_dir, Cmdline_dataset, replay_peek_data_set(game_is_volition_mission), ds_dir, sizeof(ds_dir), ds_err, sizeof(ds_err))) {	// Claude
+			Error(LOCATION, "%s", ds_err);	// Claude
+			return 1;	// Claude
+		}	// Claude
+		SetCurrentDirectory(ds_dir);	// Claude
+	}	// Claude
 	replay_startup();
 
 #ifdef STANDALONE_ONLY_BUILD
@@ -7533,10 +7582,10 @@ if ( FS_VERSION_BUILD == 0 ) {
 	sprintf(str,"v%d.%02d.%02d",FS_VERSION_MAJOR, FS_VERSION_MINOR, FS_VERSION_BUILD );
 }
 
-#if defined (FS2_DEMO)
-	strcat(str, " D");
-#elif defined (OEM_BUILD)
+#if defined (OEM_BUILD)
 	strcat(str, " (OEM)");
+#else
+	strcat(str, Game_profile->version_suffix);	// Claude: " D" for the demo, from the data set profile (D-20261020-053500)
 #endif
 //XSTR:ON
 	/*
@@ -7838,6 +7887,13 @@ void demo_upsell_show_screens()
 {
 	int current_time, k;
 	int done = 0;
+	int at_on, at_time, at_speed;	// Claude
+
+	// Claude: autotest and replay leave the sales screens straight away; a player still sees them, as shipped (D-20261018-221703)
+	autotest_get_settings(&at_on, &at_time, &at_speed);	// Claude
+	if (at_on || (Replay_mode == REPLAY_PLAY)) {	// Claude
+		return;	// Claude
+	}	// Claude
 
 	if ( !Demo_upsell_bitmaps_loaded ) {
 		demo_upsell_load_bitmaps();
@@ -8547,11 +8603,20 @@ int game_hacked_data()
 
 void display_title_screen()
 {
-#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
 	///int title_bitmap;
 
+#if defined(OEM_BUILD)
+	char *title_fname = Game_demo_title_screen_fname[gr_screen.res];
+#else
+	char *title_fname = Game_profile->title_screen[gr_screen.res];	// Claude
+	if (title_fname == NULL) {	// Claude: retail has none
+		return;
+	}
+#endif
+
 	// load bitmap
-	int title_bitmap = bm_load(Game_demo_title_screen_fname[gr_screen.res]);
+	int title_bitmap = bm_load(title_fname);	// Claude: was Game_demo_title_screen_fname[gr_screen.res]
 	if (title_bitmap == -1) {
 		return;
 	}
@@ -8578,7 +8643,6 @@ void display_title_screen()
 	gr_flip();
 
 	bm_unload(title_bitmap);
-#endif  // FS2_DEMO || OEM_BUILD
 }
 
 // return true if the game is running with "low memory", which is less than 48MB

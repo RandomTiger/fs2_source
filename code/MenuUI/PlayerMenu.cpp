@@ -1090,7 +1090,11 @@ int player_select_get_last_pilot()
 		// if we've actually found a valid pilot, load him up		
 		if(Player_select_pilot != -1){
 			Player = &Players[0];			
-			read_pilot_file(Pilots_arr[idx],!Player_select_last_is_multi,Player);
+			if (read_pilot_file(Pilots_arr[idx],!Player_select_last_is_multi,Player)) {	// Claude: an unreadable last pilot goes to the pilot screen (#23)
+				mprintf(("Last pilot %s could not be loaded; showing the pilot screen\n", Pilots_arr[idx]));	// Claude
+				Player = NULL;	// Claude
+				return 0;	// Claude
+			}	// Claude
 			Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
 			return 1;		
 		}			

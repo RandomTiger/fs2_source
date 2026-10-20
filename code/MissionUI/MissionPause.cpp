@@ -45,6 +45,7 @@
 #include "Alphacolors.h"
 #include "beam.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "../Pad/PadGame.h"	// Claude: control pad
 
 // ----------------------------------------------------------------------------------------------------------------
 // PAUSE DEFINES/VARS
@@ -189,6 +190,9 @@ void pause_do(int multi)
 		// otherwise process the ui window here
 		else {
 			k = Pause_win.process() & ~KEY_DEBUGGED;
+			if (pad_pause_pressed()) {	// Claude: control pad
+				k = KEY_PAUSE;
+			}
 			switch (k) {			
 			case KEY_ESC:
 			case KEY_PAUSE:

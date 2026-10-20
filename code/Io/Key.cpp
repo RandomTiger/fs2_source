@@ -806,6 +806,7 @@ void key_init()
 
 	OSVERSIONINFO ver;
 	ver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+#pragma warning(suppress: 4996)	// Claude: GetVersionEx kept as retail; an OS read in logic, a PrePort task (D-015)
 	GetVersionEx(&ver);
 	if ( ver.dwPlatformId == VER_PLATFORM_WIN32_NT ) {
 		Key_running_NT = 1;

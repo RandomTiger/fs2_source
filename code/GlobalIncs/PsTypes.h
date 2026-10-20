@@ -169,7 +169,9 @@
 #ifndef _PSTYPES_H
 #define _PSTYPES_H
 
+#ifndef _USE_32BIT_TIME_T	// Claude: some projects also define it (C4005)
 #define _USE_32BIT_TIME_T
+#endif	// Claude
 
 // Build defines.  Comment in/out for whatever build is necessary:
 // #define OEM_BUILD						// enable for OEM builds

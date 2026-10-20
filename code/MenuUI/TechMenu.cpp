@@ -589,10 +589,10 @@ void techroom_render_desc(int xo, int yo, int h)
 		// can be scrolled down
 		int more_txt_x = Tech_desc_coords[gr_screen.res][0] + (Tech_desc_coords[gr_screen.res][2]/2) - 10;	// FIXME should move these to constants since they dont move
 		int more_txt_y = Tech_desc_coords[gr_screen.res][1] + Tech_desc_coords[gr_screen.res][3];				// located below brief text, centered
-		int w, h;
-		gr_get_string_size(&w, &h, XSTR("more", 1469), strlen(XSTR("more", 1469)));
+		int w, anim_h;	// Claude: was h, which hid the parameter (C4457)
+		gr_get_string_size(&w, &anim_h, XSTR("more", 1469), strlen(XSTR("more", 1469)));
 		gr_set_color_fast(&Color_black);
-		gr_rect(more_txt_x-2, more_txt_y, w+3, h);
+		gr_rect(more_txt_x-2, more_txt_y, w+3, anim_h);
 		gr_set_color_fast(&Color_red);
 		gr_string(more_txt_x, more_txt_y, XSTR("more", 1469));  // base location on the input x and y?
 	}

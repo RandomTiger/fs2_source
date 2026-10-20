@@ -928,10 +928,8 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			break;
 		case GR_DIRECT3D:
 			// we only care about possible 32 bit stuff here
-			Cmdline_force_32bit = 0;
-			if(depth == 32){
-				Cmdline_force_32bit = 1;
-			} 
+			// Claude: 32 bit unless -force_16bit, whatever depth the launcher picked
+			Cmdline_force_32bit = Cmdline_force_16bit ? 0 : 1;
 
 			gr_d3d_init();
 

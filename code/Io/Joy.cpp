@@ -212,6 +212,7 @@
 #include "vdinput.h"
 #include "OsApi.h"
 #include "Replay.h"
+#include "../Pad/PadGame.h"	// Claude: control pad
 
 #define PRECALIBRATED 1
 
@@ -557,6 +558,12 @@ int joy_init()
 
 	joy_num_sticks = 0;
 	memset(&ji, 0, sizeof(ji));
+
+	// Claude: control pad. An XInput pad also shows up here as a joystick; leave it to the pad module
+	if (pad_owns_joystick()) {
+		mprintf(("Joystick: XInput pad found, legacy joystick off\n"));
+		Cur_joystick = -1;
+	}
 	ji.dwSize = sizeof(ji);
 	ji.dwFlags = JOY_RETURNALL;
 

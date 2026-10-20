@@ -937,10 +937,9 @@ void mission_campaign_savefile_load( char *cfilename )
 
 	version = cfread_int( fp );
 	if ( version < CAMPAIGN_FILE_COMPATIBLE_VERSION ) {
-		Warning(LOCATION, "Campaign save file too old -- not compatible.  Deleting file.\nYou can continue from here without trouble\n\n");
+		Warning(LOCATION, "Campaign save file too old -- not compatible.  Not loaded.\nYou can continue from here without trouble\n\n");	// Claude: was "Deleting file." (#23)
 		cfclose( fp );
-		cf_delete( filename, CF_TYPE_SINGLE_PLAYERS );
-		return;
+		return;	// Claude: the file is left as it is; the next campaign save replaces it (#23)
 	}
 
 	// verify that we are loading the correct type of campaign file for the mode that we are in.
@@ -1055,10 +1054,9 @@ void mission_campaign_savefile_load( char *cfilename )
 
 	version = cfread_int( fp );
 	if ( version < CAMPAIGN_STATS_FILE_COMPATIBLE_VERSION ) {
-		Warning(LOCATION, "Campaign save file too old -- not compatible.  Deleting file.\nYou can continue from here without trouble\n\n");
+		Warning(LOCATION, "Campaign save file too old -- not compatible.  Not loaded.\nYou can continue from here without trouble\n\n");	// Claude: was "Deleting file." (#23)
 		cfclose( fp );
-		cf_delete( filename, CF_TYPE_SINGLE_PLAYERS );
-		return;
+		return;	// Claude: the file is left as it is; the next campaign save replaces it (#23)
 	}
 
 	num_stats_blocks = cfread_int( fp );
@@ -1324,11 +1322,11 @@ void mission_campaign_store_goals_and_events()
 	// copy the needed info from the Mission_goal struct to our internal structure
 	for (i = 0; i < Num_goals; i++ ) {
 		if ( strlen(Mission_goals[i].name) == 0 ) {
-			char name[NAME_LENGTH];
+			char campaign_name[NAME_LENGTH];	// Claude: was name, which hid the outer local (C4456)
 
-			sprintf(name, NOX("Goal #%d"), i);
+			sprintf(campaign_name, NOX("Goal #%d"), i);
 			//Warning(LOCATION, "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, name);
-			strcpy( mission->goals[i].name, name);
+			strcpy( mission->goals[i].name, campaign_name);
 		} else
 			strcpy( mission->goals[i].name, Mission_goals[i].name );
 		Assert ( Mission_goals[i].satisfied != GOAL_INCOMPLETE );		// should be true or false at this point!!!
@@ -1350,11 +1348,11 @@ void mission_campaign_store_goals_and_events()
 	// copy the needed info from the Mission_goal struct to our internal structure
 	for (i = 0; i < Num_mission_events; i++ ) {
  		if ( strlen(Mission_events[i].name) == 0 ) {
-			char name[NAME_LENGTH];
+			char campaign_name2[NAME_LENGTH];	// Claude: was name, which hid the outer local (C4456)
 
-			sprintf(name, NOX("Event #%d"), i);
-			nprintf(("Warning", "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, name));
-			strcpy( mission->events[i].name, name);
+			sprintf(campaign_name2, NOX("Event #%d"), i);
+			nprintf(("Warning", "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, campaign_name2));
+			strcpy( mission->events[i].name, campaign_name2);
 		} else
 			strcpy( mission->events[i].name, Mission_events[i].name );
 

@@ -321,11 +321,7 @@ BOOL CFREDApp::InitInstance()
 	//  of your final executable, you should remove from the following
 	//  the specific initialization routines you do not need.
 
-#ifdef _AFXDLL
-	Enable3dControls();			// Call this when using MFC in a shared DLL
-#else
-	Enable3dControlsStatic();	// Call this when linking to MFC statically
-#endif
+	// Claude: Enable3dControls / Enable3dControlsStatic removed: no-ops in modern MFC, which deprecates them (C4996)
 
 	LoadStdProfileSettings(9);  // Load standard INI file options (including MRU)
 	User_interface = GetProfileInt("Preferences", "User interface", User_interface);

@@ -10,6 +10,7 @@
 
 #include "pstypes.h"
 #include "Replay.h"
+#include "DataSetInstall.h"
 #include "StateTrace.h"
 #include "FreeSpace.h"
 #include "GameSequence.h"
@@ -979,6 +980,8 @@ void replay_startup()
 
 		// pilot and campaign files come from the recording, in their own directory, so the
 		// player's own pilot is never read or written
+		_mkdir("Data");			// a data set folder extracted on the first start has no players folder yet
+		_mkdir("Data\\Players");
 		_mkdir(REPLAY_PILOT_DIR);
 		sprintf(filename, "%s.plr", Hdr.callsign);
 		replay_write_pilot_blob(filename, Hdr_pilot, Hdr.pilot_size);
@@ -992,6 +995,85 @@ void replay_startup()
 
 void replay_game_init_done()
 {
+}
+
+// the FreeSpace 2 demo's own missions and campaign (its built-in list, FreeSpace.cpp, FS2_DEMO); no retail file has these names
+static char *Replay_demo_missions[] = { "SPDemo-01", "SPDemo-02", "DemoTrain", "Demo", "MPDemo-01", "Demo-DOG-01" };
+
+static int replay_is_demo_mission(char *filename)
+{
+	char base[_MAX_FNAME];
+	int i;
+
+	_splitpath(filename, NULL, NULL, base, NULL);
+	for (i = 0; i < (int)(sizeof(Replay_demo_missions) / sizeof(Replay_demo_missions[0])); i++) {
+		if (!stricmp(base, Replay_demo_missions[i])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// The data set a recording was made on, from what the header already holds (D-20261018-175706: no format
+// change below GodotPrep): its campaign, else its mission.  A DATA_SET_* value, or DATA_SET_UNKNOWN (our
+// own test missions play on either set).  Only the FreeSpace 2 pair is told apart so far.
+static int replay_recorded_data_set(int (*is_volition_mission)(char *filename))
+{
+	char base[_MAX_FNAME];
+
+	if (Hdr.campaign[0]) {
+		_splitpath(Hdr.campaign, NULL, NULL, base, NULL);
+		if (!stricmp(base, "demo")) {
+			return DATA_SET_FS2_DEMO;
+		}
+		if (!stricmp(base, "freespace2")) {
+			return DATA_SET_FS2_RETAIL;
+		}
+	}
+	if (replay_is_demo_mission(Hdr.mission)) {
+		return DATA_SET_FS2_DEMO;
+	}
+	if (is_volition_mission(Hdr.mission)) {	// this build's built-in list: retail's in a retail build
+		return DATA_SET_FS2_RETAIL;
+	}
+	return DATA_SET_UNKNOWN;
+}
+
+void replay_check_data_set(int set, int (*is_volition_mission)(char *filename))
+{
+	int recorded;
+
+	if ((Replay_mode != REPLAY_PLAY) || Replay_auto) {
+		return;
+	}
+	recorded = replay_recorded_data_set(is_volition_mission);
+	replay_logf("data set: %s (recording), %s (this run)\n", data_set_name(recorded), data_set_name(set));
+	if ((recorded != DATA_SET_UNKNOWN) && (recorded != set)) {
+		replay_fatal("'%s' was recorded on the %s data and this game has the %s data", Replay_file, data_set_name(recorded), data_set_name(set));
+	}
+}
+
+// Claude: the data set a recording was made on, read from its header before the game picks its data
+// folder (D-20261018-221704); replay_startup reads the whole file again later
+int replay_peek_data_set(int (*is_volition_mission)(char *filename))
+{
+	FILE *fp;
+	int got;
+
+	if ((Replay_mode != REPLAY_PLAY) || Replay_auto || !Replay_file[0]) {
+		return DATA_SET_UNKNOWN;
+	}
+	fp = fopen(Replay_file, "rb");
+	if (!fp) {
+		return DATA_SET_UNKNOWN;
+	}
+	memset(&Hdr, 0, sizeof(Hdr));
+	got = (int)fread(&Hdr, 1, REPLAY_HEADER_V1_SIZE, fp);
+	fclose(fp);
+	if ((got != (int)REPLAY_HEADER_V1_SIZE) || memcmp(Hdr.magic, "FS2REC", 6)) {
+		return DATA_SET_UNKNOWN;
+	}
+	return replay_recorded_data_set(is_volition_mission);
 }
 
 int replay_load_pilot()

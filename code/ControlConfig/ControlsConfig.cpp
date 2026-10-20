@@ -315,6 +315,7 @@
 #include "AlphaColors.h"
 #include "Replay.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "../Pad/PadGame.h"	// Claude: control pad
 
 #define NUM_SYSTEM_KEYS			14
 #define NUM_BUTTONS				19
@@ -2408,6 +2409,12 @@ int check_control(int id, int key)
 	}
 
 	if (Control_config[id].type == CC_TYPE_CONTINUOUS) {
+		// Claude: control pad
+		if (pad_control_held(id)) {
+			control_used(id);
+			return 1;
+		}
+
 		if (joy_down(Control_config[id].joy_id) || joy_down_count(Control_config[id].joy_id)) {
 			control_used(id);
 			return 1;

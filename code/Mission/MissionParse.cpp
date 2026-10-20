@@ -1679,13 +1679,13 @@ int parse_create_object(p_object *objp)
 		Objects[objnum].shields[0] = (float) objp->initial_shields;
 
 	} else {
-		int max_allowed_sparks, num_sparks, i;
+		int max_allowed_sparks, num_sparks, dock_i;	// Claude: was i, which hid the outer local (C4456)
 		polymodel *pm;
 
 		// Ships[shipnum].hull_hit_points_taken = (float)objp->initial_hull * sip->max_hull_hit_points / 100.0f;
 		Objects[objnum].hull_strength = objp->initial_hull * sip->initial_hull_strength / 100.0f;
-		for (i = 0; i<MAX_SHIELD_SECTIONS; i++)
-			Objects[objnum].shields[i] = (float)(objp->initial_shields * sip->shields / 100.0f) / MAX_SHIELD_SECTIONS;
+		for (dock_i = 0; dock_i<MAX_SHIELD_SECTIONS; dock_i++)
+			Objects[objnum].shields[dock_i] = (float)(objp->initial_shields * sip->shields / 100.0f) / MAX_SHIELD_SECTIONS;
 
 		// initial velocities now do not apply to ships which warp in after mission starts
 		if ( !(Game_mode & GM_IN_MISSION) ) {
@@ -1708,7 +1708,7 @@ int parse_create_object(p_object *objp)
 			num_sparks = max_allowed_sparks;
 		}
 
-		for (i = 0; i < num_sparks; i++ ) {
+		for (dock_i = 0; dock_i < num_sparks; dock_i++ ) {
 			vector v1, v2;
 
 			// DA 10/20/98 - sparks must be chosen on the hull and not any submodel
@@ -2114,20 +2114,20 @@ int parse_object(mission *pm, int flag, p_object *objp)
 		// if the ship is supposed to be destroyed before the mission, then blow up the ship, mark the pieces
 		// as last forever.  Only call this stuff when you are blowing up the ship
 		if ( destroy_before_mission_time >= 0 ) {
-			object *objp;
+			object *wing_objp;	// Claude: was objp, which hid the parameter (C4457)
 
-			objp = &Objects[real_objnum];
+			wing_objp = &Objects[real_objnum];
 			if ( !Fred_running ) {
-				int i;
-				shipfx_blow_up_model( objp, Ships[objp->instance].modelnum, 0, 0, &objp->pos );
-				objp->flags |= OF_SHOULD_BE_DEAD;
+				int wing_i;	// Claude: was i, which hid the outer local (C4456)
+				shipfx_blow_up_model( wing_objp, Ships[wing_objp->instance].modelnum, 0, 0, &wing_objp->pos );
+				wing_objp->flags |= OF_SHOULD_BE_DEAD;
 
 				// once the ship is exploded, find the debris pieces belonging to this object, mark them
 				// as not to expire, and move them forward in time N seconds
-				for (i = 0; i < MAX_DEBRIS_PIECES; i++ ) {
+				for (wing_i = 0; wing_i < MAX_DEBRIS_PIECES; wing_i++ ) {
 					debris *db;
 
-					db = &Debris[i];
+					db = &Debris[wing_i];
 					if ( !db->flags & DEBRIS_USED )				// not used, move onto the next one.
 						continue;
 					if ( db->source_objnum != real_objnum )	// not from this ship, move to next one
@@ -2137,13 +2137,13 @@ int parse_object(mission *pm, int flag, p_object *objp)
 					db->lifeleft = -1.0f;							// be sure that lifeleft == -1.0 so that it really doesn't expire!
 
 					// now move the debris along it's path for N seconds
-					objp = &Objects[db->objnum];
-					physics_sim( &objp->pos, &objp->orient, &objp->phys_info, (float)destroy_before_mission_time );
+					wing_objp = &Objects[db->objnum];
+					physics_sim( &wing_objp->pos, &wing_objp->orient, &wing_objp->phys_info, (float)destroy_before_mission_time );
 				}
 			} else  {
 				// be sure to set the variable in the ships structure for the final death time!!!
-				Ships[objp->instance].final_death_time = destroy_before_mission_time;
-				Ships[objp->instance].flags |= SF_KILL_BEFORE_MISSION;
+				Ships[wing_objp->instance].final_death_time = destroy_before_mission_time;
+				Ships[wing_objp->instance].flags |= SF_KILL_BEFORE_MISSION;
 			}
 		}
 	}
@@ -4415,13 +4415,13 @@ void mission_eval_arrivals()
 
 	// check the support ship arrival list
 	if ( Arriving_support_ship )	{
-		int objnum;
+		int depart_objnum;	// Claude: was objnum, which hid the outer local (C4456)
 
-		objnum = mission_did_ship_arrive( Arriving_support_ship );
+		depart_objnum = mission_did_ship_arrive( Arriving_support_ship );
 
-		if ( objnum != -1 ) {
+		if ( depart_objnum != -1 ) {
 			MONITOR_INC(NumShipArrivals,1);
-			mission_parse_support_arrived( objnum );
+			mission_parse_support_arrived( depart_objnum );
 		}
 	}
 

@@ -683,7 +683,8 @@ struct {
 	int	num_missions;
 } Volition_campaigns[NUM_VOLITION_CAMPAIGNS] = {
 	{
-		BUILTIN_CAMPAIGN,		// the only campaign for now, but this leaves room for a mission pack
+		"FreeSpace2",			// Claude: the campaign the mapping below lists, not the data set's built-in one (a constant table, D-20261020-053500); the demo's "demo" matched none of its missions either
+		// the only campaign for now, but this leaves room for a mission pack
 		35						// make sure this is equal to the  number of missions you gave in the corresponding Debrief_promotion_voice_mapping
 	}
 };

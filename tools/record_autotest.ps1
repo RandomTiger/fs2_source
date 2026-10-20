@@ -2,10 +2,13 @@
 Records missions under autotest into recordings\autotest, then replays each in Release and Debug and
 compares the traces.
 
-  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>] [-Fs1]
+  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>]
+                            [-RecDir <dir>] [-Extra '<more game parameters>'] [-Fs1]
 
--Fs1 records FreeSpace 1 missions into recordings\fs1, in the FS1 install ($env:PATH_FS1 unless -GameDir),
-with the exes found there; the test missions in data\missions are not copied in.
+-RecDir puts the recordings somewhere other than recordings\autotest (the demo suite: recordings\demo).
+-Extra is added to the recording's command line, for example '-at_pilot TomDemo -at_skill 2'.
+-Fs1 records FreeSpace 1 missions into recordings\fs1 (unless -RecDir), in the FS1 install ($env:PATH_FS1 unless
+-GameDir), with the exes found there; the test missions in data\missions are not copied in.
 
 Automatic recordings run with -playernpc: the AI flies the player ship. A mission whose notes say
 "autotest: player stays still" is still played with nobody flying the player (the game checks).
@@ -19,13 +22,15 @@ param(
 	[int]$Time = 120,
 	[switch]$NoPlayerNpc,
 	[string]$GameDir,
+	[string]$RecDir,
+	[string]$Extra = '',
 	[switch]$Fs1
 )
 
 $repo = Split-Path $PSScriptRoot
 if (-not $GameDir) { $GameDir = if ($Fs1) { $env:PATH_FS1 } else { $env:PATH_FS2 } }
 if (-not $GameDir) { throw 'Set PATH_FS2 (PATH_FS1 with -Fs1) or pass -GameDir' }
-$rec = Join-Path $repo $(if ($Fs1) { 'recordings\fs1' } else { 'recordings\autotest' })
+$rec = if ($RecDir) { $RecDir } else { Join-Path $repo $(if ($Fs1) { 'recordings\fs1' } else { 'recordings\autotest' }) }
 $out = Join-Path $repo ("replays\record_" + (Get-Date -Format 'yyyyMMdd_HHmm'))
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $rec, $out | Out-Null
@@ -44,7 +49,7 @@ foreach ($m in $Missions) {
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$npc = if ($NoPlayerNpc) { '' } else { ' -playernpc' }
 	$p = Start-Process (Join-Path $GameDir 'FS2vs2022r.exe') -WorkingDirectory $GameDir -Wait -PassThru `
-		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
+		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc $Extra -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$line = "$m ($t s$npc) record exit=$($p.ExitCode) " + (Get-Content (Join-Path $rec "$m.fs2rec.record.log") -Tail 1)
 	foreach ($c in 'r', 'd') {

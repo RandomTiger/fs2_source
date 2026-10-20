@@ -2017,6 +2017,12 @@ void hud_config_color_load(char *name)
 
 	// write out all gauges
 	for(idx=0; idx<NUM_HUD_GAUGES; idx++){		
+		// Claude: older data (the FreeSpace 2 demo's hud_1.hcf, 37 gauges) can end early.  A file that
+		// ends after a complete entry leaves the rest of the gauges as they were; a cut-off entry still warns.
+		ignore_white_space();	// Claude
+		if (*Mp == EOF_CHAR) {	// Claude
+			break;	// Claude
+		}	// Claude
 		required_string("+Gauge:");
 		stuff_string(str, F_NAME, NULL, 1023);
 

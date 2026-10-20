@@ -172,14 +172,18 @@ extern char *Cmdline_game_password;
 extern char *Cmdline_rank_above;
 extern char *Cmdline_rank_below;
 extern char *Cmdline_connect_addr;
+extern char *Cmdline_dataset;	// Claude: -dataset, see DataSetInstall.h
 extern int Cmdline_multi_log;
 extern int Cmdline_server_firing;
 extern int Cmdline_client_dodamage;
 extern int Cmdline_spew_pof_info;
 extern int Cmdline_force_32bit;
+extern int Cmdline_force_16bit;	// Claude: 32 bit textures
 extern int Cmdline_mouse_coords;
 extern int Cmdline_timeout;
 
 extern int Cmdline_window;
+extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
+extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 
 #endif

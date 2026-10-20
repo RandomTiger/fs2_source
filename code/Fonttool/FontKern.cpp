@@ -514,7 +514,7 @@ void fonttool_edit_kerning(char *fname1)
 			gr_string( 20, 360+th+20, SampleText );
 		}
 
-		int x = 5, y = 200;
+		int list_x = 5, y = 200;	// Claude: was x, which hid the outer local (C4456)
 		int widest = 0;
 
 		 //= ( 330 - 200 ) / KernFont.h;
@@ -550,11 +550,11 @@ void fonttool_edit_kerning(char *fname1)
 				gr_set_color( 255, 0, 0 );
 				//hud_tri( i2fl(x),i2fl(y), i2fl(x+6), i2fl(y+5), i2fl(x), i2fl(y+8) );
 				
-				int x1 = x;
+				int x1 = list_x;
 				int y1 = y;
-				int x2 = x+6;
+				int x2 = list_x+6;
 				int y2 = y+5;
-				int x3 = x;
+				int x3 = list_x;
 				int y3 = y+8;
 	
 				gr_line(x1,y1,x2,y2);
@@ -563,7 +563,7 @@ void fonttool_edit_kerning(char *fname1)
 
 				gr_set_color_fast(&ac);
 			}
-			gr_string( x+8, y, kerntext );
+			gr_string( list_x+8, y, kerntext );
 			n++;
 			gr_get_string_size( &tw, &th, kerntext );
 			tw += 8;
@@ -572,8 +572,8 @@ void fonttool_edit_kerning(char *fname1)
 			y += KernFont.h;
 			if ( y > 330 ) {
 				y = 200;
-				x += widest + 5;
-				if ( x > 150 ) {
+				list_x += widest + 5;
+				if ( list_x > 150 ) {
 					num_items_displayed=n;
 					break;
 				}

@@ -548,14 +548,14 @@ int UI_BUTTON::button_down()
 // set the callback function for when the mouse first goes over
 // a button
 //
-void UI_BUTTON::set_highlight_action( void (*user_function)(void) )
+void UI_BUTTON::set_highlight_action( void (*func)(void) )	// Claude: was user_function, which hid the parameter (C4457)
 {
-	m_just_highlighted_function = user_function;
+	m_just_highlighted_function = func;
 }
 
-void UI_BUTTON::set_disabled_action( void (*user_function)(void) )
+void UI_BUTTON::set_disabled_action( void (*disabled_func)(void) )	// Claude: was user_function, which hid the parameter (C4457)
 {
-	m_disabled_function = user_function;
+	m_disabled_function = disabled_func;
 }
 
 

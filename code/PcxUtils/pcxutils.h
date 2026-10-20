@@ -75,7 +75,7 @@ extern "C" {
 
 extern int pcx_read_header(char *filename, int *w, int *h, ubyte *pal );
 extern int pcx_read_bitmap_8bpp( char * filename, ubyte *org_data, ubyte *palette );
-extern int pcx_read_bitmap_16bpp( char * filename, ubyte *org_data );
+extern int pcx_read_bitmap_16bpp( char * filename, ubyte *org_data, int bytes_per_pixel = 2 );	// Claude: 4 for 32 bit textures
 extern int pcx_read_bitmap_16bpp_aabitmap( char *filename, ubyte *org_data );
 extern int pcx_read_bitmap_16bpp_nondark( char *filename, ubyte *org_data );
 
