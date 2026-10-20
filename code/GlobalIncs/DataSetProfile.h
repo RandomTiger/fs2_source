@@ -32,6 +32,7 @@ typedef struct data_set_profile {
 	int	loadout;							// 0: no ship or weapon selection, their icons and anims not loaded, as FS1's demo build (MissionScreenCommon.cpp)
 	int	brief_fade;							// 0: no BriefMap.ani, so briefing stage cuts draw no static (MissionBrief.cpp, D-20261020-163608)
 	int	smoke2;								// 0: no ParticleSmoke02.ani, so those particles draw nothing (Particle.cpp, D-20261020-163608)
+	int	attackers;							// 0: no attacker.pcx, so the target brackets show no '+' per extra attacker (HUDbrackets.cpp)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;

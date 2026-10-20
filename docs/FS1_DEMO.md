@@ -167,7 +167,11 @@ PASS with no Assert, Int3 or Warning; Debug no Assert or Int3, and only the thre
 (17 to 20 per mission, the same lines repeated). Those warnings are Volition's data and are listed, not
 suppressed (D-20261020-161656).
 
-A fresh ini starts the game at 640x480, in FS1 retail data as in the demo; not changed here.
+A fresh ini on FS1 data, retail or demo, starts the game at 640x480 (`FS1Resolution`, merged from FS1Compat);
+an existing ini keeps its setting. At 1024x768 the Debug exe stopped on the missing `2_*` HUD art.
+
+Started by hand in Debug, the demo also stopped (Int3) on the missing `attacker.pcx` when the target
+brackets loaded it; fixed by `attackers` below.
 
 ### The original `DEMO` blocks
 
@@ -185,6 +189,7 @@ demo, FS1 retail, FS1 demo.
 | `MissionShipChoice.cpp:2823`, `:2864`, `MissionWeaponChoice.cpp:1406`, `:1477`, `:1640` | ship and weapon icons and anims not loaded | goes with the line above | done with `loadout`: the load is skipped, the loops that clear the handles still run (so nothing stale is released). `:1640` held: it has no effect |
 | none (new) | the demo's `BriefMap.ani` is missing; the demo build ignored it as `NDEBUG` | yes: Debug stops at the first briefing stage cut | done: wall, `brief_fade` 1, 1, 1, 0 (D-20261020-163608): not loaded, and the cut plays its static sound and draws nothing. The `#ifndef FS2_DEMO` arm around the same code is left for the FS2 demo work (`FS2Demo` batch 8) |
 | none (new) | the demo's `ParticleSmoke02.ani` is missing; ignored likewise | yes: Debug Asserts on every such particle | done: wall, `smoke2` 1, 1, 1, 0 (D-20261020-163608), at the draw: the particles live and draw nothing; the emitters (`Ship.cpp:3242`, `:3348`, `ShipFX.cpp:2239`) are untouched. Drawing FS1 retail's other smoke instead was considered and not done; it would be a one-value change if Tom prefers it |
+| none (new) | the demo's `attacker.pcx` is missing; ignored likewise | yes: Debug stops (Int3, `HUDbrackets.cpp`) when the target brackets load it | done: wall, `attackers` 1, 1, 1, 0: the brackets show no '+' per extra attacker, as the original demo showed none |
 | `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) | next: data handling |
 | `MissionMessage.cpp:1500` | no talking-head anims for messages | yes: the demo has no head anims | next: wall |
 | `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway | held |
