@@ -86,8 +86,8 @@
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>.\</OutDir>
-    <IntDir>.\x64\Debug\</IntDir>
+    <OutDir>$(PATH_FS2)\</OutDir><!-- Claude: same as Win32, else MSB8012 (2026-10-20) -->
+    <IntDir>.\x64\Debug\Freespace2\</IntDir><!-- Claude: own folder, code.lib used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2vs2022d64</TargetName>
     <TargetExt>.exe</TargetExt>
@@ -100,8 +100,8 @@
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>.\</OutDir>
-    <IntDir>.\x64\Release\</IntDir>
+    <OutDir>$(PATH_FS2)\</OutDir><!-- Claude: same as Win32, else MSB8012 (2026-10-20) -->
+    <IntDir>.\x64\Release\Freespace2\</IntDir><!-- Claude: own folder, code.lib used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2vs2022r64</TargetName>
     <TargetExt>.exe</TargetExt>
@@ -167,11 +167,11 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;_WINDOWS;_DEBUG;NO_CD_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\x64\Debug\</AssemblerListingLocation>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation>
-      <PrecompiledHeaderOutputFile>.\x64\Debug\Freespace2.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\x64\Debug\</ObjectFileName>
-      <ProgramDataBaseFileName>.\x64\Debug\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(IntDir)Freespace2.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <Midl>
@@ -263,10 +263,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\x64\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\x64\Release\Freespace2.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\x64\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\x64\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>$(IntDir)Freespace2.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>

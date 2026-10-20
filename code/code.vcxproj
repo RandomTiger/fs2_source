@@ -82,7 +82,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>.\..\x64\Debug\</OutDir>
-    <IntDir>.\..\x64\Debug\</IntDir>
+    <IntDir>.\..\x64\Debug\code\</IntDir><!-- Claude: own folder, Freespace2 used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -92,7 +92,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>.\..\x64\Release\</OutDir>
-    <IntDir>.\..\x64\Release\</IntDir>
+    <IntDir>.\..\x64\Release\code\</IntDir><!-- Claude: own folder, Freespace2 used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -143,11 +143,11 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\x64\Debug\</AssemblerListingLocation>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation><!-- Claude: no /FR or bscmake, about 18 s per clean Debug build (2026-10-20) -->
-      <PrecompiledHeaderOutputFile>.\..\x64\Debug\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\x64\Debug\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\x64\Debug\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <ResourceCompile>
@@ -161,6 +161,8 @@
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\..\x64\Debug\code.lib</OutputFile>
+      <!-- Claude: LNK4006, the DirectX import libraries packed into code.lib each define __NULL_IMPORT_DESCRIPTOR; harmless (D-20261019-024004) -->
+      <AdditionalOptions>/ignore:4006 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -215,10 +217,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\x64\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\..\x64\Release\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\x64\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\x64\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <Culture>0x0409</Culture>
@@ -231,6 +233,8 @@
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\..\x64\Release\code.lib</OutputFile>
+      <!-- Claude: LNK4006, the DirectX import libraries packed into code.lib each define __NULL_IMPORT_DESCRIPTOR; harmless (D-20261019-024004) -->
+      <AdditionalOptions>/ignore:4006 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
