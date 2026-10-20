@@ -55,3 +55,6 @@ CFileArchiverRelease/
 CryptstringRelease/
 ScrambleRelease/
 HelpEdRelease/
+
+# Claude: per-user Visual Studio settings, kept on disk, not in the repo (Tom, steward review 2026-10-20)
+*.vcxproj.user
