@@ -27,6 +27,9 @@ typedef struct data_set_profile {
 
 	char	*title_screen[GR_NUM_RESOLUTIONS];	// shown once at start-up, NULL for none
 	char	*default_hcf;						// a new pilot's HUD colours
+
+	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
+	int	*builtin_mission_count;
 } data_set_profile;
 
 extern const data_set_profile *Game_profile;
