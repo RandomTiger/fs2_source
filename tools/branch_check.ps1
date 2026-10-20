@@ -42,6 +42,16 @@ for ($i = 1; $i -lt $present.Count; $i++) {
 	if ($down.Count -gt 0) { Out-Error "$lo contains $($down.Count) commit(s) made on ${hi}: a merge went downward" }
 }
 
+# FS1Compat builds the game into PATH_FS1 (docs/FS1_COMPAT.md); that build target must never reach a layer
+$fs1Target = 0
+foreach ($l in $present) {
+	foreach ($ref in @("origin/$l") + @(git for-each-ref --format='%(refname:short)' "refs/heads/$l")) {
+		git grep -q 'PATH_FS1' $ref -- '*.vcxproj' '*.vcxproj.user'
+		if ($LASTEXITCODE -eq 0) { Out-Error "$ref builds into PATH_FS1: revert FS1Compat's build-target commit (docs/FS1_COMPAT.md, Before merging)"; $fs1Target++ }
+	}
+}
+if ($fs1Target -eq 0) { Out-Ok "no layer builds into PATH_FS1" }
+
 if (($remote -contains 'Latest') -and ($present -contains 'Enhanced')) {
 	git merge-base --is-ancestor origin/Latest origin/Enhanced
 	if ($LASTEXITCODE -ne 0) { Out-Error "Latest is not part of Enhanced: Latest must only be moved forward to Enhanced" }

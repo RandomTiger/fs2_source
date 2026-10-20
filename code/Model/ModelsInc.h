@@ -40,6 +40,9 @@
 	#define ID_OHDR '2RDH'	// POF file header
 	#define ID_SOBJ '2JBO'	// Subobject header
 #endif
+// Claude: FS1's header chunk IDs, read as well as FS2's in an FS2-format build (docs/FS1_COMPAT.md)
+#define ID_OHDR_FS1 'RDHO'
+#define ID_SOBJ_FS1 'JBOS'
 #define ID_TXTR 'RTXT'	// Texture filename list
 #define ID_INFO 'FNIP'	// POF file information, like command line, etc
 #define ID_GRID 'DIRG'	// Grid information

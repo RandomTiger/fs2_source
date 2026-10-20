@@ -6,9 +6,10 @@ Replays the checked-in recordings and compares each replay's trace with the reco
   recordings\demo\*.fs2rec       the FreeSpace 2 demo set, replayed with -autotest in the demo folder (-DemoDir,
                                  default $env:FS2DEMO_TEST) in Release and Debug, whose traces must be identical; with no
                                  demo folder they are skipped (SKIP), never failed (D-20261018-221705)
+  recordings\fs1\*.fs2rec        FreeSpace 1 missions, replayed with -autotest in -Fs1Dir ($env:PATH_FS1; skipped when unset)
 
 Usage (PowerShell, from anywhere):
-  tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>]
+  tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>] [-Fs1Dir <dir>]
 
 -Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
 The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
@@ -27,7 +28,8 @@ param(
 	[string[]]$Configs = @('r'),
 	[string[]]$CrossCheck = @('sm1-01'),
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$DemoDir = $env:FS2DEMO_TEST
+	[string]$DemoDir = $env:FS2DEMO_TEST,
+	[string]$Fs1Dir = $env:PATH_FS1
 )
 
 $repo = Split-Path $PSScriptRoot
@@ -41,10 +43,14 @@ $demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir 'FS2vs2022r.exe'))
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
-$recs += Get-ChildItem (Join-Path $repo 'recordings\autotest') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true } }
+$recs += Get-ChildItem (Join-Path $repo 'recordings\autotest') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true; Folder = 'autotest'; Dir = $GameDir } }
 # either folder may be empty, and git does not keep an empty folder
-$recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $false } }
-$demoRecs = @(Get-ChildItem (Join-Path $repo 'recordings\demo') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true; Demo = $true } })
+$recs += Get-ChildItem (Join-Path $repo 'recordings\played') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $false; Folder = 'played'; Dir = $GameDir } }
+# FS1 autotest recordings replay in the FS1 install, with the exes found there (docs/FS1_COMPAT.md)
+if ($Fs1Dir) {
+	$recs += Get-ChildItem (Join-Path $repo 'recordings\fs1') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true; Folder = 'fs1'; Dir = $Fs1Dir } }
+}
+$demoRecs = @(Get-ChildItem (Join-Path $repo 'recordings\demo') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { @{ File = $_; Autotest = $true; Demo = $true; Folder = 'demo'; Dir = $DemoDir } })
 # powershell -File passes "a,b" as one string
 $Missions = $Missions | ForEach-Object { $_ -split ',' }
 $Configs = $Configs | ForEach-Object { $_ -split ',' }
@@ -67,11 +73,11 @@ $nonref = @()	# recordings not made in the reference configuration (D-056)
 foreach ($r in $recs) {
 	$rec = $r.File.FullName
 	$name = $r.File.BaseName
-	$dir = if ($r.Demo) { $DemoDir } else { $GameDir }
+	$dir = $r.Dir
 	Set-Location $dir
 	# the autotest sm1-07 and the hand-played SM1-07 differ only in case, so output names carry the folder (D-033)
-	$folder = if ($r.Demo) { 'demo' } elseif ($r.Autotest) { 'autotest' } else { 'played' }
-	$line = if ($r.Demo) { "$name (demo)" } elseif ($r.Autotest) { $name } else { "$name (played)" }
+	$folder = $r.Folder
+	$line = if ($folder -eq 'autotest') { $name } else { "$name ($folder)" }
 	$ok = $true
 	$cfgs = $Configs
 	if ($r.Demo -or ($r.Autotest -and ($CrossCheck -contains $name))) { $cfgs = @('r', 'd') }

@@ -316,6 +316,7 @@
 #include "Line.h"
 #include "Cfile.h"
 #include "Neb.h"
+#include "Nebula.h"	// Claude: FS1 nebula colour ramp
 #include "3d.h"
 #include "GrD3DGlow.h"		// Claude: ship glow
 
@@ -700,6 +701,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	// Make nebula use the texture mapper... this blends the colors better.
 	if ( flags & TMAP_FLAG_NEBULA ){
+		if ( !Cfile_fs1_data )	// Claude: FS1's nebula draws here (docs/FS1_COMPAT.md)
 		Int3();
 		/*
 		flags |= TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT;
@@ -886,9 +888,10 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 		if ( flags & TMAP_FLAG_NEBULA )	{
 			int pal = (verts[i]->b*(NEBULA_COLORS-1))/255;
-			r = gr_palette[pal*3+0];
-			g = gr_palette[pal*3+1];
-			b = gr_palette[pal*3+2];
+			ubyte *neb_palette = Cfile_fs1_data ? Nebula_fs1_ramp : gr_palette;	// Claude: in FS1 data the next lines read FS1's nebula ramp
+			r = neb_palette[pal*3+0];	// Claude: neb_palette, was gr_palette
+			g = neb_palette[pal*3+1];	// Claude
+			b = neb_palette[pal*3+2];	// Claude
 		} else if ( (flags & TMAP_FLAG_RAMP) && (flags & TMAP_FLAG_GOURAUD) )	{
 			r = Gr_gamma_lookup[verts[i]->b];
 			g = Gr_gamma_lookup[verts[i]->b];

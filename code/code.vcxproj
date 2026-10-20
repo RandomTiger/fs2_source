@@ -411,6 +411,7 @@
     <ClCompile Include="OsApi\OutWnd.cpp" />
     <ClCompile Include="Palman\PalMan.cpp" />
     <ClCompile Include="Parse\Encrypt.cpp" />
+    <ClCompile Include="Parse\Fs1Tables.cpp" />
     <ClCompile Include="Parse\PARSELO.CPP" />
     <ClCompile Include="Parse\SEXP.CPP" />
     <ClCompile Include="Particle\Particle.cpp" />
@@ -671,6 +672,7 @@
     <ClInclude Include="OsApi\OutWnd.h" />
     <ClInclude Include="Palman\PalMan.h" />
     <ClInclude Include="Parse\Encrypt.h" />
+    <ClInclude Include="Parse\Fs1Tables.h" />
     <ClInclude Include="Parse\parselo.h" />
     <ClInclude Include="Parse\SEXP.H" />
     <ClInclude Include="Particle\Particle.h" />
