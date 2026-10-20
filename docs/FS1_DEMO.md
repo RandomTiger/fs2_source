@@ -190,8 +190,8 @@ demo, FS1 retail, FS1 demo.
 | none (new) | the demo's `BriefMap.ani` is missing; the demo build ignored it as `NDEBUG` | yes: Debug stops at the first briefing stage cut | done: wall, `brief_fade` 1, 1, 1, 0 (D-20261020-163608): not loaded, and the cut plays its static sound and draws nothing. The `#ifndef FS2_DEMO` arm around the same code is left for the FS2 demo work (`FS2Demo` batch 8) |
 | none (new) | the demo's `ParticleSmoke02.ani` is missing; ignored likewise | yes: Debug Asserts on every such particle | done: wall, `smoke2` 1, 1, 1, 0 (D-20261020-163608), at the draw: the particles live and draw nothing; the emitters (`Ship.cpp:3242`, `:3348`, `ShipFX.cpp:2239`) are untouched. Drawing FS1 retail's other smoke instead was considered and not done; it would be a one-value change if Tom prefers it |
 | none (new) | the demo's `attacker.pcx` is missing; ignored likewise | yes: Debug stops (Int3, `HUDbrackets.cpp`) when the target brackets load it | done: wall, `attackers` 1, 1, 1, 0: the brackets show no '+' per extra attacker, as the original demo showed none |
-| `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) | next: data handling |
-| `MissionMessage.cpp:1500` | no talking-head anims for messages | yes: the demo has no head anims | next: wall |
+| `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) | done: data handling, `unmarked_entries` 1, 1, 1, 0. No demo ship or mission names `Type One`: the Debug warnings are unchanged |
+| `MissionMessage.cpp:1505` | no talking-head anims for messages | yes: the demo has no head anims | done: wall, `talking_heads` 1, 1, 1, 0: the message's voice and text play, no head anim |
 | `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway | held |
 | `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked | held |
 | `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment | held |
@@ -204,7 +204,8 @@ download, with a pilot made by starting the game once by hand.
 
 ## 6. Not done
 
-- The `@` filter and talking-head blocks (above).
-- Playing the demo through by hand: the screens it must not reach (item 3), the upsell screens (item 4), the
-  campaign's branch to `demo02a` or `demo02b`.
-- `cab_open` reads only what this cabinet uses; other InstallShield versions are refused.
+- Playing the demo through by hand (Tom): the screens it must not reach (item 3), the upsell screens (item 4),
+  the campaign's branch to `demo02a` or `demo02b`.
+
+Not to be done: `cab_open` reads only what this cabinet uses and refuses other InstallShield versions. The only
+demos are FS2's (a zip with loose files, no cabinet reader) and FS1's, so nothing else needs it (Tom, 2026-10-20).

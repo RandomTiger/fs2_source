@@ -33,6 +33,8 @@ typedef struct data_set_profile {
 	int	brief_fade;							// 0: no BriefMap.ani, so briefing stage cuts draw no static (MissionBrief.cpp, D-20261020-163608)
 	int	smoke2;								// 0: no ParticleSmoke02.ani, so those particles draw nothing (Particle.cpp, D-20261020-163608)
 	int	attackers;							// 0: no attacker.pcx, so the target brackets show no '+' per extra attacker (HUDbrackets.cpp)
+	int	unmarked_entries;					// 0: ships.tbl and weapons.tbl entries not marked '@' are skipped, as FS1's demo build (Ship.cpp, Weapons.cpp)
+	int	talking_heads;						// 0: messages play no head anim, as FS1's demo build: the demo has none (MissionMessage.cpp)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
