@@ -590,9 +590,6 @@ void gr_set_palette( char *name, ubyte * palette, int restrict_font_to_128 )
 // Returns cpu type.
 void gr_detect_cpu(int *cpu, int *mmx, int *amd3d, int *katmai )
 {
-	DWORD RegEDX;
-	DWORD RegEAX;
-
 	// Set defaults
 	*cpu = 0;
 	*mmx = 0;
@@ -600,6 +597,8 @@ void gr_detect_cpu(int *cpu, int *mmx, int *amd3d, int *katmai )
 	*katmai = 0;
 
 #ifndef _WIN64	// Claude: x86 assembly. The flags only choose software renderer paths, which x64 does not build (D-057)
+	DWORD RegEDX;	// Claude: moved inside the x86 block, unused on x64 (C4101) (2026-10-20)
+	DWORD RegEAX;
 	char cpu_vender[16];
 	memset( cpu_vender, 0, sizeof(cpu_vender) );
 		
