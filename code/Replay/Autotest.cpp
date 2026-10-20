@@ -31,6 +31,7 @@
 #include "MissionGoals.h"
 #include "2d.h"
 #include "MissionBrief.h"
+#include "DataSetProfile.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -51,8 +52,6 @@
 // cargo in an EMP storm), so the AI does not fly it even with -playernpc.
 #define AUTOTEST_STILL_NOTE			"autotest: player stays still"
 
-extern fs_builtin_mission Game_builtin_mission_list[];
-extern int Game_builtin_mission_count;
 
 int Autotest_harness = 0;
 int Autotest_rules = 0;
@@ -74,7 +73,7 @@ static CRITICAL_SECTION Autotest_log_lock;
 static DWORD Autotest_start_ms;
 
 // the mission being run
-static int Autotest_list_index = -1;		// index into Game_builtin_mission_list
+static int Autotest_list_index = -1;		// index into the data set's built-in mission list (Game_profile)
 static int Autotest_started = 0;			// a mission was started from the main menu
 static int Autotest_in_mission = 0;		// that mission reached gameplay
 static int Autotest_ending = 0;			// the time limit has posted GS_EVENT_END_GAME
@@ -307,10 +306,10 @@ static int autotest_next_mission()
 	}
 
 	// every single-player campaign mission, in campaign list order
-	for (Autotest_list_index++; Autotest_list_index < Game_builtin_mission_count; Autotest_list_index++) {
-		flags = Game_builtin_mission_list[Autotest_list_index].flags;
+	for (Autotest_list_index++; Autotest_list_index < *Game_profile->builtin_mission_count; Autotest_list_index++) {
+		flags = Game_profile->builtin_missions[Autotest_list_index].flags;
 		if ((flags & FSB_CAMPAIGN) && !(flags & (FSB_MULTI | FSB_CAMPAIGN_FILE))) {
-			strcpy(Autotest_current, Game_builtin_mission_list[Autotest_list_index].filename);
+			strcpy(Autotest_current, Game_profile->builtin_missions[Autotest_list_index].filename);
 			return 1;
 		}
 	}

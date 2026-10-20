@@ -159,6 +159,7 @@
     <ClCompile Include="Gamesnd\GameSnd.cpp" />
     <ClCompile Include="GlobalIncs\AlphaColors.cpp" />
     <ClCompile Include="GlobalIncs\crypt.cpp" />
+    <ClCompile Include="GlobalIncs\DataSetProfile.cpp" />
     <ClCompile Include="GlobalIncs\SystemVars.cpp" />
     <ClCompile Include="GlobalIncs\version.cpp" />
     <ClCompile Include="GlobalIncs\WinDebug.cpp" />
@@ -420,6 +421,7 @@
     <ClInclude Include="Gamesnd\GameSnd.h" />
     <ClInclude Include="GlobalIncs\AlphaColors.h" />
     <ClInclude Include="GlobalIncs\crypt.h" />
+    <ClInclude Include="GlobalIncs\DataSetProfile.h" />
     <ClInclude Include="GlobalIncs\LinkList.h" />
     <ClInclude Include="GlobalIncs\PsTypes.h" />
     <ClInclude Include="GlobalIncs\SystemVars.h" />
