@@ -43,6 +43,8 @@ Each branch in use has its own folder (a git worktree, like a second Perforce wo
 
 `PadControl-checkpoint-2026-10-13` marks the pad work, which is not finished; `PadControl` stays a branch.
 
+Exception, pre-rule: `PadControl-done` (a false "done", deleted 2026-10-20 before this rule; its commit is held by `PadControl-checkpoint-2026-10-13`). When the pad work is finished, `PadControl` gets a new `PadControl-done` at its tip. From now on a wrong tag is corrected by adding a tag beside it, never by deleting it (D-20261020-105347).
+
 ## Recordings as the referee
 The recordings check "original game plus `OriginalSourceBugFixes`", because the fixes sit below `RecordPlayback`. A fix that changes gameplay means re-recording the affected missions; its review doc says which.
 
