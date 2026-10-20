@@ -983,13 +983,13 @@ void briefing_editor_dlg::OnMakeIcon()
 	int cargo = 0, cargo_count = 0, freighter_count = 0;
 	object *ptr;
 	vector min, max, pos;
-	brief_icon *iconp;
+	brief_icon *new_iconp;	// Claude: was iconp, which hid the class member (C4458)
 
 	if (Briefing->stages[m_cur_stage].num_icons >= MAX_STAGE_ICONS)
 		return;
 
 	m_cur_icon = Briefing->stages[m_cur_stage].num_icons++;
-	iconp = &Briefing->stages[m_cur_stage].icons[m_cur_icon];
+	new_iconp = &Briefing->stages[m_cur_stage].icons[m_cur_icon];
 	ship = waypoint = jump_node = -1;
 	team = TEAM_FRIENDLY;
 
@@ -1071,100 +1071,100 @@ void briefing_editor_dlg::OnMakeIcon()
 	if (len >= MAX_LABEL_LEN - 1)
 		len = MAX_LABEL_LEN - 1;
 
-	strncpy(iconp->label, name, len);
-	iconp->label[len] = 0;
+	strncpy(new_iconp->label, name, len);
+	new_iconp->label[len] = 0;
 //	iconp->text[0] = 0;
-	iconp->type = 0;
-	iconp->team = team;
-	iconp->pos = pos;
-	iconp->flags = 0;
-	iconp->id = Cur_brief_id++;
+	new_iconp->type = 0;
+	new_iconp->team = team;
+	new_iconp->pos = pos;
+	new_iconp->flags = 0;
+	new_iconp->id = Cur_brief_id++;
 	if (ship >= 0) {
-		iconp->ship_class = Ships[ship].ship_info_index;
+		new_iconp->ship_class = Ships[ship].ship_info_index;
 		switch (Ship_info[Ships[ship].ship_info_index].flags & SIF_ALL_SHIP_TYPES) {
 			case SIF_KNOSSOS_DEVICE:
-				iconp->type = ICON_KNOSSOS_DEVICE;
+				new_iconp->type = ICON_KNOSSOS_DEVICE;
 				break;
 
 			case SIF_CORVETTE:
-				iconp->type = ICON_CORVETTE;
+				new_iconp->type = ICON_CORVETTE;
 				break;
 
 			case SIF_GAS_MINER:
-				iconp->type = ICON_GAS_MINER;
+				new_iconp->type = ICON_GAS_MINER;
 				break;
 
 			case SIF_SUPERCAP:
-				iconp->type = ICON_SUPERCAP;
+				new_iconp->type = ICON_SUPERCAP;
 				break;
 
 			case SIF_SENTRYGUN:
-				iconp->type = ICON_SENTRYGUN;
+				new_iconp->type = ICON_SENTRYGUN;
 				break;
 
 			case SIF_AWACS:
-				iconp->type = ICON_AWACS;
+				new_iconp->type = ICON_AWACS;
 				break;
 
 			case SIF_CARGO:
 				if (cargo)
-					iconp->type = (count == 1) ? ICON_FREIGHTER_WITH_CARGO : ICON_FREIGHTER_WING_WITH_CARGO;
+					new_iconp->type = (count == 1) ? ICON_FREIGHTER_WITH_CARGO : ICON_FREIGHTER_WING_WITH_CARGO;
 				else
-					iconp->type = count ? ICON_CARGO_WING : ICON_CARGO;
+					new_iconp->type = count ? ICON_CARGO_WING : ICON_CARGO;
 
 				break;
 
 			case SIF_SUPPORT:
-				iconp->type = ICON_SUPPORT_SHIP;
+				new_iconp->type = ICON_SUPPORT_SHIP;
 				break;
 
 			case SIF_FIGHTER:
-				iconp->type = count ? ICON_FIGHTER_WING : ICON_FIGHTER;
+				new_iconp->type = count ? ICON_FIGHTER_WING : ICON_FIGHTER;
 				break;
 
 			case SIF_BOMBER:
-				iconp->type = count ? ICON_BOMBER_WING : ICON_BOMBER;
+				new_iconp->type = count ? ICON_BOMBER_WING : ICON_BOMBER;
 				break;
 
 			case SIF_FREIGHTER:
 				if (cargo)
-					iconp->type = (count == 1) ? ICON_FREIGHTER_WITH_CARGO : ICON_FREIGHTER_WING_WITH_CARGO;
+					new_iconp->type = (count == 1) ? ICON_FREIGHTER_WITH_CARGO : ICON_FREIGHTER_WING_WITH_CARGO;
 				else
-					iconp->type = count ? ICON_FREIGHTER_WING_NO_CARGO : ICON_FREIGHTER_NO_CARGO;
+					new_iconp->type = count ? ICON_FREIGHTER_WING_NO_CARGO : ICON_FREIGHTER_NO_CARGO;
 
 				break;
 
 			case SIF_CRUISER:
-				iconp->type = count ? ICON_CRUISER_WING : ICON_CRUISER;
+				new_iconp->type = count ? ICON_CRUISER_WING : ICON_CRUISER;
 				break;
 
 			case SIF_TRANSPORT:
-				iconp->type = count ? ICON_TRANSPORT_WING : ICON_TRANSPORT;
+				new_iconp->type = count ? ICON_TRANSPORT_WING : ICON_TRANSPORT;
 				break;
 
 			case SIF_CAPITAL:			
 			case SIF_DRYDOCK:
-				iconp->type = ICON_CAPITAL;
+				new_iconp->type = ICON_CAPITAL;
 				break;			
 
 			default:
 				if (Ships[ship].ship_info_index == ship_info_lookup(NAVBUOY_NAME))
-					iconp->type = ICON_WAYPOINT;
+					new_iconp->type = ICON_WAYPOINT;
 				else
-					iconp->type = ICON_ASTEROID_FIELD;
+					new_iconp->type = ICON_ASTEROID_FIELD;
 
 				break;
 		}
 	}
 	// jumpnodes
 	else if(jump_node >= 0){
-		iconp->ship_class = ship_info_lookup(NAVBUOY_NAME);
-		iconp->type = ICON_JUMP_NODE;
+		new_iconp->ship_class = ship_info_lookup(NAVBUOY_NAME);
+		new_iconp->type = ICON_JUMP_NODE;
 	} 
 	// everything else
 	else {
-		iconp->ship_class = ship_info_lookup(NAVBUOY_NAME);
-		iconp->type = ICON_WAYPOINT;
+		new_iconp->ship_class = ship_info_lookup(NAVBUOY_NAME);
+		new_iconp->type = ICON_WAYPOINT;
 	}
 
 	if (!m_change_local){

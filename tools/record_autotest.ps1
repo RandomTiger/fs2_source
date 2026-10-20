@@ -7,8 +7,8 @@ compares the traces.
 
 -RecDir puts the recordings somewhere other than recordings\autotest (the demo suite: recordings\demo).
 -Extra is added to the recording's command line, for example '-at_pilot TomDemo -at_skill 2'.
--Fs1 records FreeSpace 1 missions into recordings\fs1, in the FS1 install ($env:PATH_FS1 unless -GameDir),
-with the exes found there; the test missions in data\missions are not copied in.
+-Fs1 records FreeSpace 1 missions into recordings\fs1 (unless -RecDir), in the FS1 install ($env:PATH_FS1 unless
+-GameDir), with the exes found there; the test missions in data\missions are not copied in.
 
 Automatic recordings run with -playernpc: the AI flies the player ship. A mission whose notes say
 "autotest: player stays still" is still played with nobody flying the player (the game checks).

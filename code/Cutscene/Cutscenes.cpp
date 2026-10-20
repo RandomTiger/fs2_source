@@ -539,11 +539,34 @@ int cutscenes_screen_button_pressed(int n)
 	return 0;
 }
 
+// Claude: FS1 data: the cutscenes screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md), its buttons placed
+// by matching FS1's art against it, the list and description inside FS1's boxes
+static void cutscenes_fs1_layout()
+{
+	// tech database, simulator, cutscenes, credits tabs; scroll up, down; play; exit
+	static int Fs1_coords[NUM_BUTTONS][2] = { {0,0}, {0,19}, {0,35}, {0,56}, {570,304}, {600,304}, {573,347}, {566,411} };
+	static int Fs1_list[4] = { 26, 113, 585, 203 };
+	static int Fs1_desc[4] = { 18, 358, 450, 47 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+	for (i=0; i<4; i++) {
+		Cutscene_list_coords[GR_640][i] = Fs1_list[i];
+		Cutscene_desc_coords[GR_640][i] = Fs1_desc[i];
+	}
+}
+
 void cutscenes_screen_init()
 {
 	int i;
 	ui_button_info *b;
 
+	if ( Cfile_fs1_data ) {	// Claude
+		cutscenes_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Cutscene_mask_name[gr_screen.res]);
 

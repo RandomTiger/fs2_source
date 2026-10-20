@@ -384,6 +384,26 @@ void player_select_set_controls(int gray)
 }
 
 // functions for selecting single/multiplayer pilots at the very beginning of Freespace
+// Claude: FS1 data: FS1's 640 layout.  FS1 names the buttons CHP_xx, not CPB_xx; positions found by matching
+// each button's first frame against a retail FS1 screenshot (mean colour error under 4 of 255), hotspots are
+// ChoosePilot-m.pcx's regions.  The pilot list starts where retail draws it.  Overwrites the GR_640 entries.
+static void player_select_fs1_layout()
+{
+	// create, clone, remove, scroll up, scroll down, select, single, multi: file, x, y, hotspot
+	static char *Fs1_names[NUM_PLAYER_SELECT_BUTTONS] = { "CHP_00", "CHP_13", "CHP_11", "CHP_01", "CHP_02", "CHP_12", "CHP_14", "CHP_15" };
+	static int Fs1_coords[NUM_PLAYER_SELECT_BUTTONS][3] = { {126,211,0}, {181,211,13}, {228,211,11}, {423,232,1}, {452,232,2}, {475,213,12}, {438,104,14}, {485,104,15} };
+	int i;
+
+	for (i=0; i<NUM_PLAYER_SELECT_BUTTONS; i++) {
+		Player_select_buttons[GR_640][i].filename = Fs1_names[i];
+		Player_select_buttons[GR_640][i].x = Fs1_coords[i][0];
+		Player_select_buttons[GR_640][i].y = Fs1_coords[i][1];
+		Player_select_buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	Choose_list_coords[GR_640][0] = 128;
+	Choose_list_coords[GR_640][1] = 137;
+}
+
 void player_select_init()
 {			
 	int i;
@@ -410,6 +430,10 @@ void player_select_init()
 	*/
 	Demo_title_active = 0;
 #endif
+
+	if ( Cfile_fs1_data ) {	// Claude
+		player_select_fs1_layout();
+	}
 
 	// create the UI window
 	Player_select_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
@@ -1325,6 +1349,12 @@ void player_select_display_copyright()
 #else
 	sprintf(Copyright_msg2, XSTR("Copyright %c 1999, Volition, Inc.  All rights reserved.", 385), '\x83');
 #endif
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1's own lines, in its colour (retail FS1 screenshot)
+		sprintf(Copyright_msg1, NOX("Conflict: FreeSpace - The Great War, Copyright %c 1998, Volition, Inc."), '\x83');
+		sprintf(Copyright_msg2, NOX("All rights reserved"));
+		gr_set_color_fast(&Color_bright_blue);
+	}
 
 	gr_get_string_size(&w, NULL, Copyright_msg1);
 	sx = fl2i((gr_screen.max_w / 2) - w/2.0f + 0.5f);

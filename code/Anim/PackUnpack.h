@@ -236,6 +236,7 @@ int unpack_frame_from_file(anim_instance *ai, ubyte *frame, int size, ubyte *pal
 
 void	anim_init();
 anim_instance *init_anim_instance(anim *ptr, int bpp);
+int anim_frame_bpp();	// Claude: 32 bit textures
 void	free_anim_instance(anim_instance *inst);
 int	anim_get_next_frame(anim_instance *inst);
 int	anim_get_frame(anim_instance *inst, int frame_num, int xlate_pal=1);

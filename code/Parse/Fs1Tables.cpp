@@ -23,6 +23,7 @@
 extern char *help_overlay_section_names[MAX_HELP_OVERLAYS];	// GameHelp/ContextHelp.cpp
 
 #define FS1_MAX_SHIELD_ICONS		40		// MAX_SHIELD_ICONS in Hud/HUDshield.cpp
+#define FS1_MAX_HUD_ANIS			512		// every .ani in data/hud, FS1's and Silent Threat's
 #define FS1_TABLE_TEXT_LEN			16384
 
 static char Fs1_table_text[FS1_TABLE_TEXT_LEN];
@@ -43,17 +44,22 @@ static void fs1_line(char *format, ...)
 	}
 }
 
-// hud.tbl: the shield icons are the HUD's shield-*.ani files, which is the set FS1's ships.tbl names
+// hud.tbl: the shield icons are the HUD's shield-*.ani files, which is the set FS1's ships.tbl names.  The file list
+// filters by extension only (a "shield-*.ani" wildcard returned every HUD .ani, cut off at 40 before any shield icon,
+// so no ship had one and the player's shield gauge was never drawn), so the names are filtered here.
 static void fs1_hud_tbl()
 {
-	char names[FS1_MAX_SHIELD_ICONS][MAX_FILENAME_LEN];
-	char *list[FS1_MAX_SHIELD_ICONS];
-	int i, count;
+	static char names[FS1_MAX_HUD_ANIS][MAX_FILENAME_LEN];
+	static char *list[FS1_MAX_HUD_ANIS];
+	int i, count, n = 0;
 
-	count = cf_get_file_list_preallocated(FS1_MAX_SHIELD_ICONS, names, list, CF_TYPE_HUD, "shield-*.ani", CF_SORT_NAME);
+	count = cf_get_file_list_preallocated(FS1_MAX_HUD_ANIS, names, list, CF_TYPE_HUD, "*.ani", CF_SORT_NAME);
 	fs1_line("#Shield Icons Begin");
-	for (i = 0; i < count; i++) {
-		fs1_line("$Shield: %s", list[i]);
+	for (i = 0; (i < count) && (n < FS1_MAX_SHIELD_ICONS); i++) {
+		if (!strnicmp(list[i], "shield-", 7)) {
+			fs1_line("$Shield: %s", list[i]);
+			n++;
+		}
 	}
 	fs1_line("#End");
 }
@@ -201,7 +207,7 @@ static void fs1_mainhall_tbl()
 				fs1_line("+Door pan: %.2f", (Fs1_hall_doors[hall][i].cx - 320) / 320.0f);
 			}
 
-			fs1_line("+Tooltip Y: %d", res ? 755 : 469);
+			fs1_line("+Tooltip Y: %d", res ? 755 : 456);	// where retail FS1 draws its tooltips
 		}
 	}
 	fs1_line("#end");
@@ -752,6 +758,25 @@ static void fs1_blank_block_comments(char *text, int len)
 	}
 }
 
+// Some of FS1's missions start with a "//" line FRED wrote ("// Of 1800 total sexp nodes, ..."), before
+// #Mission Info; FS2's parser only knows ';', so its mission-info read (the simulator's list) stopped there.
+// A line starting "//" becomes a ';' comment, in place.
+static void fs1_line_comments(char *text, int len)
+{
+	int i, line_start = 1;
+
+	for (i = 0; i < len; i++) {
+		if (line_start && (i + 1 < len) && (text[i] == '/') && (text[i + 1] == '/')) {
+			text[i] = ';';
+		}
+		if (text[i] == '\n') {
+			line_start = 1;
+		} else if ((text[i] != ' ') && (text[i] != '\t') && (text[i] != '\r')) {
+			line_start = 0;
+		}
+	}
+}
+
 int fs1_table_convert(char *filename, char *text, int len, int max_len)
 {
 	fs1_converter *conv = NULL;
@@ -763,6 +788,9 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	i = strlen(filename);
 	if ((i >= 4) && !stricmp(filename + i - 4, ".tbl")) {
 		fs1_blank_block_comments(text, len);
+	}
+	if ((i >= 4) && (!stricmp(filename + i - 4, ".fs2") || !stricmp(filename + i - 4, ".fsm"))) {
+		fs1_line_comments(text, len);
 	}
 	for (i = 0; i < sizeof(Fs1_converters) / sizeof(Fs1_converters[0]); i++) {
 		char *name = Fs1_converters[i].filename;

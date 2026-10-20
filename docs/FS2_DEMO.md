@@ -208,7 +208,7 @@ demo suite.
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
-| 10 | **Header data-set field (GodotPrep, recording version 6).** When the demo work reaches GodotPrep, the header states the data set (D-056: a recording states what it was made with); the batch 2 check stays as the fallback for headers below 6. | Replay.cpp (GodotPrep) |
+| 10 | **Header data-set field (GodotPrep, recording version 6).** When the demo work reaches GodotPrep, the header states the data set (D-056: a recording states what it was made with); the batch 2 check stays as the fallback for headers below 6. FS1 data skips the batch 2 check until then, logging that it does: FS1's campaign and mission names are FS2's (sm1-01), so a recording below version 6 cannot name FS1 against FS2 (D-20261020-103504). This batch removes that skip. | Replay.cpp (GodotPrep) |
 
 ### Batch 1: old table and pilot loading (done)
 
@@ -220,8 +220,8 @@ the message. The proposal as approved is below. What the runs found besides it:
   a later data-handling item. Batch 1 adds no new fallback (condition 2).
 - **Install path length.** An install in a deep folder (a scratch copy under the session scratchpad,
   about 110 characters) crashed at start-up in both the fixed and the unfixed build, before any table
-  was read. That is the source's 128-character `MAX_PATH_LEN`. Keep the demo install, and any CI copy
-  of it, in a short path.
+  was read. That is the source's 128-character `MAX_PATH_LEN`. Keep the demo install and the test folder
+  in a short path.
 - **Building both variants in one checkout.** `code.lib` is written to a fixed `.\<Config>\code.lib`
   whatever `IntDir` says. A demo build and a retail build share it, and an incremental build can link
   the other variant's library. Defining `FS2_DEMO` through the `CL` environment variable is not tracked
@@ -326,7 +326,7 @@ yet (batches 4 to 8).
 
 - **Sales screens** (D-20261018-221703): autotest and replay leave them at once; a demo run ends with
   exit 0 in 5 to 17 s instead of the watchdog's 2 minutes.
-- **Suite scripts** (D-20261018-221705): `tools/replay_check.ps1 -DemoDir <folder>` (or `DEMO`) replays
+- **Suite scripts** (D-20261018-221705): `tools/replay_check.ps1 -DemoDir <folder>` (or `FS2DEMO_TEST`, section 6) replays
   `recordings/demo` there in Release and Debug; with no demo folder they are SKIP lines.
 - **Data set enumeration** (Tom, 2026-10-18): FS2 retail, FS2 demo, FS1 retail, FS1 demo
   (`CFile/DataSetInstall.h`); logs say "data set: FS2 demo". Only the FS2 pair is detected.
@@ -344,10 +344,18 @@ yet (batches 4 to 8).
 
 The open questions from the first version of this brief, as Tom answered them.
 
-1. **Distributing the demo data: (a).** Only our files are committed: recordings, traces, scripts and
-   ini. Public CI downloads the demo installer and installs it with `tools/demo_install.py`. The demo's
-   `readme.txt` licence (lines 886-901) forbids copying or distributing it, so the VPs never go in the
-   repo.
+1. **Distributing the demo data.** Only our files are committed: recordings, traces, scripts and ini. The
+   demo's `readme.txt` licence (lines 886-901) forbids copying or distributing it, so the VPs never go in
+   the repo. Nothing downloads it either (Tom, 2026-10-19, D-20261019-204553, replacing the CI download of
+   the first answer): each PC keeps a known local copy, named in its machine profile.
+   - `FS2DEMO_PATH`: the demo install, or the folder `tools/demo_install.py` made from the local
+     installer. Only ever read.
+   - `FS2DEMO_TEST`: the test folder, a copy of its VPs made by `tools/make_demo_test.ps1`.
+     `tools/build_demo.ps1` builds the `FS2_DEMO` exe into it and `tools/replay_check.ps1` replays
+     `recordings/demo` there (D-20261019-213450). Unset, the demo lines are SKIP, which no merge-up or
+     branch-done claim may rest on.
+
+   Hosted CI could therefore only build; a self-hosted runner on Tom's PCs is a later decision of his.
 2. **Demo restrictions that change play: kept as shipped.** The disabled shield-management keys, the
    F5-F12 hotkeys and hotkey screen, and the artillery lock stay off in demo mode, as demo experience
    (batch 8).
@@ -360,5 +368,7 @@ The open questions from the first version of this brief, as Tom answered them.
 ## Files
 
 - `tools/demo_install.py`: the installer replacement (section 1).
+- `tools/make_demo_test.ps1`, `tools/build_demo.ps1`, `tools/fs2demo.props`: the demo test folder and the
+  `FS2_DEMO` build into it (section 6, item 1).
 - `docs/DEMO_CODE.md` and `tools/demo_blocks.py` on PrePortCleanup: the block inventory this plan
   classifies.

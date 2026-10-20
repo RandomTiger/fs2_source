@@ -715,15 +715,15 @@ void model_interp_flatpoly(ubyte * p,polymodel * pm)
 	}
 
 	if (Interp_flags & (MR_SHOW_OUTLINE|MR_SHOW_OUTLINE_PRESET))	{
-		int i, j;
+		int ti, j;	// Claude: was i, which hid the outer local (C4456)
 
 		if ( Interp_flags & MR_SHOW_OUTLINE )	{
 			gr_set_color_fast( &Interp_outline_color );
 		}
 
-		for (i=0; i<nv; i++ )	{
-			j = (i + 1) % nv;
-			g3_draw_line(Interp_list[i], Interp_list[j] );
+		for (ti=0; ti<nv; ti++ )	{
+			j = (ti + 1) % nv;
+			g3_draw_line(Interp_list[ti], Interp_list[j] );
 		}
 	}
 }

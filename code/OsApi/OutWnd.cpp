@@ -356,6 +356,7 @@ void mono_init()
 	OSVERSIONINFO ver;
 	
 	ver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+#pragma warning(suppress: 4996)	// Claude: GetVersionEx kept as retail (the debug mono-monitor check)
 	GetVersionEx(&ver);
 	if ( ver.dwPlatformId == VER_PLATFORM_WIN32_NT )	{
 		mono_found = 0;
@@ -1150,13 +1151,13 @@ BOOL outwnd_create(int display_under_freespace_window)
 		client_rect.bottom = 480;
 		AdjustWindowRect(&client_rect,WS_CAPTION | WS_SYSMENU,FALSE);
 
-		int x = (GetSystemMetrics( SM_CXSCREEN )-(client_rect.right - client_rect.left))/2;
+		int line_x = (GetSystemMetrics( SM_CXSCREEN )-(client_rect.right - client_rect.left))/2;	// Claude: was x, which hid the outer local (C4456)
 		int y = 0;
-		if ( x < 0 ) x = 0;
+		if ( line_x < 0 ) line_x = 0;
 
-		rect.left = x;
+		rect.left = line_x;
 		rect.top = y;
-		rect.right = x + client_rect.right - client_rect.left - 1;
+		rect.right = line_x + client_rect.right - client_rect.left - 1;
 		rect.bottom = y + client_rect.bottom - client_rect.top - 1;
 
 		if(!Is_standalone){

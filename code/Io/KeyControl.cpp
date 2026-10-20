@@ -297,6 +297,7 @@
 #include "AnimPlay.h"
 #include "FreeSpace.h"
 #include "Cmeasure.h"
+#include "../Pad/PadGame.h"	// Claude: control pad
 #include "MissionHotKey.h"
 #include "Afterburner.h"
 #include "MissionParse.h"
@@ -1819,6 +1820,8 @@ void game_process_keys()
 				break;
 		} // end switch
 	} while (k);
+
+	pad_frame();	// Claude: control pad sets its button_info bits
 
 	button_info_do(&Player->bi);	// call functions based on status of button_info bit vectors
 }

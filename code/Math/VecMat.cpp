@@ -564,14 +564,14 @@ float vm_vec_mag_quick(vector *v)
 		c = v->z;
 
 	if (a < b) {
-		float t=a; a=b; b=t;
+		float swap_t1=a; a=b; b=swap_t1;	// Claude: was t, which hid the outer local (C4456)
 	}
 
 	if (b < c) {
-		float t=b; b=c; c=t;
+		float swap_t2=b; b=c; c=swap_t2;	// Claude: was t, which hid the outer local (C4456)
 
 		if (a < b) {
-			float t=a; a=b; b=t;
+			float t3=a; a=b; b=t3;	// Claude: was t, which hid the outer local (C4456)
 		}
 	}
 

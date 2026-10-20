@@ -713,14 +713,14 @@ char *ss_tooltip_handler(char *str)
 		return Ship_info[Selected_ss_class].manufacturer_str;
 
 	} else if (!stricmp(str, NOX("@ship_desc"))) {
-		char *str;
+		char *anim_str;	// Claude: was str, which hid the parameter (C4457)
 		int x, y, w, h;
 
-		str = Ship_info[Selected_ss_class].desc;
-		if (!str)
+		anim_str = Ship_info[Selected_ss_class].desc;
+		if (!anim_str)
 			return NULL;
 
-		gr_get_string_size(&w, &h, str);
+		gr_get_string_size(&w, &h, anim_str);
 		x = SHIP_DESC_X - w / 2;
 		y = SHIP_DESC_Y - h / 2;
 
@@ -728,7 +728,7 @@ char *ss_tooltip_handler(char *str)
 		gr_rect(x - 5, y - 5, w + 10, h + 10);
 
 		gr_set_color_fast(&Color_bright_white);
-		gr_string(x, y, str);
+		gr_string(x, y, anim_str);
 		return NULL;
 	}
 
@@ -913,14 +913,14 @@ void ship_select_redraw_pressed_buttons()
 // Claude: FS1 data: FS1's 640 layout.  The ship anim (633x224, with the ship's name, stats and description in it)
 // matched against BRIEF.pcx's background.  The buttons were cut from a background FS1 does not ship, so they are
 // placed by their regions in shipselect-m.pcx: the scroll buttons at the weapon screen's offsets from its regions
-// (FS2's weapon screen positions fit FS1's mask), the reset button with its label above the region (docs/FS1_COMPAT.md).
+// (FS2's weapon screen positions fit FS1's mask), the reset button where retail draws it (docs/FS1_COMPAT.md).
 // Overwrites the GR_640 entries.
 static void ship_select_fs1_layout()
 {
 	Ship_anim_coords[GR_640][0] = 7;		Ship_anim_coords[GR_640][1] = 76;
 	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_UP].x = 0;		Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_UP].y = 303;
 	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_DOWN].x = 0;	Ship_select_buttons[GR_640][SS_BUTTON_SCROLL_DOWN].y = 454;
-	Ship_select_buttons[GR_640][SS_BUTTON_RESET].x = 559;		Ship_select_buttons[GR_640][SS_BUTTON_RESET].y = 316;
+	Ship_select_buttons[GR_640][SS_BUTTON_RESET].x = 556;		Ship_select_buttons[GR_640][SS_BUTTON_RESET].y = 321;
 }
 
 void ship_select_buttons_init()

@@ -116,8 +116,11 @@ int Nebedit_running = 0;
 
 // Claude: game globals the recorder (code/Replay) uses. They live in FreeSpace.cpp, which this tool does not
 // link; FRED has the same stubs in FredStubs.cpp. With a mission count of 0 nothing reads the list.
-struct fs_builtin_mission *Game_builtin_mission_list = 0;
-int Game_builtin_mission_count = 0;
+// Claude: the built-in mission lists the data set profile rows point at (D-20261020-053501)
+struct fs_builtin_mission *Game_builtin_missions_fs2 = 0;
+int Game_builtin_missions_fs2_count = 0;
+struct fs_builtin_mission *Game_builtin_missions_fs2_demo = 0;
+int Game_builtin_missions_fs2_demo_count = 0;
 long Last_time = 0;					// fix
 long Last_delta_time = 0;				// fix
 int saved_timestamp_ticker = -1;

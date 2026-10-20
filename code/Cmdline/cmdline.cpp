@@ -230,7 +230,7 @@ cmdline_parm multilog_arg("-multilog", NULL);
 cmdline_parm server_firing_arg("-oldfire", NULL);
 cmdline_parm client_dodamage("-clientdamage", NULL);
 cmdline_parm pof_spew("-pofspew", NULL);
-cmdline_parm d3d_32bit("-32bit", NULL);
+cmdline_parm force_16bit("-force_16bit", NULL);	// Claude: was -32bit, now that 32 bit is the default
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
@@ -245,7 +245,10 @@ cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
+cmdline_parm no_ship_glow_arg("-noshipglow", NULL);	// Claude: turn off the D3D ship glow
+cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced red ship glow
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
+cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
@@ -272,10 +275,13 @@ int Cmdline_server_firing = 0;
 int Cmdline_client_dodamage = 0;
 int Cmdline_spew_pof_info = 0;
 int Cmdline_force_32bit = 0;
+int Cmdline_force_16bit = 0;	// Claude: 16 bit screen and textures instead of the 32 bit default
 int Cmdline_mouse_coords = 0;
 int Cmdline_timeout = -1;
 
 int Cmdline_window = 0;
+int Cmdline_no_ship_glow = 0;	// Claude: -noshipglow
+int Cmdline_no_force_glow = 0;	// Claude: -noforceglow
 
 static cmdline_parm Parm_list(NULL, NULL);
 static int Parm_list_inited = 0;
@@ -611,9 +617,9 @@ int parse_cmdline(char *cmdline)
 		Cmdline_spew_pof_info = 1;
 	}
 
-	// 32 bit
-	if(d3d_32bit.found()){
-		Cmdline_force_32bit = 1;
+	// Claude: 16 bit screen and textures (32 bit is the default)
+	if(force_16bit.found()){
+		Cmdline_force_16bit = 1;
 	}
 
 	// mouse coords
@@ -658,6 +664,19 @@ int parse_cmdline(char *cmdline)
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
 			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
+		if(autotest_menus_arg.found()){	// Claude: -at_menus
+			autotest_set_menus();
+		}
+	}
+
+	// Claude: -noshipglow turns off the D3D ship glow (Graphics/GrD3DGlow.cpp)
+	if(no_ship_glow_arg.found()){
+		Cmdline_no_ship_glow = 1;
+	}
+
+	// Claude: -noforceglow turns off forced red ship glow (Graphics/GrD3DGlow.cpp)
+	if(no_force_glow_arg.found()){
+		Cmdline_no_force_glow = 1;
 	}
 
 	return 1;

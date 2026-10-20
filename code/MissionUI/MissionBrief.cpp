@@ -884,11 +884,12 @@ static void brief_fs1_layout()
 	Brief_grid_coords[GR_640][0] = 55;			Brief_grid_coords[GR_640][1] = 134;
 	Brief_grid_coords[GR_640][2] = 529;			Brief_grid_coords[GR_640][3] = 237;
 	Brief_static_coords[GR_640][0] = 45;		Brief_static_coords[GR_640][1] = 122;
-	Brief_text_coords[GR_640][0] = 32;			Brief_text_coords[GR_640][1] = 412;
-	Brief_text_coords[GR_640][2] = 395;			Brief_text_coords[GR_640][3] = 60;
+	// Claude: inside the text box's black area (x 27 to 429, y 409 to 471, its left corners bevelled), not on its frame
+	Brief_text_coords[GR_640][0] = 40;			Brief_text_coords[GR_640][1] = 415;
+	Brief_text_coords[GR_640][2] = 385;			Brief_text_coords[GR_640][3] = 56;
 	Brief_bmap_coords[GR_640][0] = 0;			Brief_bmap_coords[GR_640][1] = 98;	// no Briefwin in FS1; Debug's filename line goes 10 above
-	Brief_stage_text_coords[GR_640][0] = 60;	Brief_stage_text_coords[GR_640][1] = 108;
-	Title_coords[GR_640][0] = 582;				Title_coords[GR_640][1] = 108;
+	Brief_stage_text_coords[GR_640][0] = 62;	Brief_stage_text_coords[GR_640][1] = 386;
+	Title_coords[GR_640][0] = 580;				Title_coords[GR_640][1] = 388;
 	Closeup_region[GR_640][0] = 216;			Closeup_region[GR_640][1] = 163;
 	Closeup_region[GR_640][2] = 207;			Closeup_region[GR_640][3] = 151;
 	Closeup_button_coords[GR_640][0] = 368;		Closeup_button_coords[GR_640][1] = 306;
@@ -1479,10 +1480,10 @@ void brief_render(float frametime)
 		// can be scrolled down
 		int more_txt_x = Brief_text_coords[gr_screen.res][0] + (Brief_max_line_width[gr_screen.res]/2) - 10;
 		int more_txt_y = Brief_text_coords[gr_screen.res][1] + Brief_text_coords[gr_screen.res][3] - 2;				// located below brief text, centered
-		int w, h;
-		gr_get_string_size(&w, &h, XSTR("more", 1469), strlen(XSTR("more", 1469)));
+		int map_w, map_h;	// Claude: were h, w, which hid the outer locals (C4456)
+		gr_get_string_size(&map_w, &map_h, XSTR("more", 1469), strlen(XSTR("more", 1469)));
 		gr_set_color_fast(&Color_black);
-		gr_rect(more_txt_x-2, more_txt_y, w+3, h);
+		gr_rect(more_txt_x-2, more_txt_y, map_w+3, map_h);
 		gr_set_color_fast(&Color_red);
 		gr_string(more_txt_x, more_txt_y, XSTR("more", 1469));  // base location on the input x and y?
 	}

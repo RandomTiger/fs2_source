@@ -173,6 +173,7 @@
 #include "ContextHelp.h"
 #include "AlphaColors.h"
 #include "beam.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 static int Key_sets[MAX_KEYED_TARGETS] = {
 	KEY_F5,
@@ -1074,6 +1075,22 @@ void hotkey_button_pressed(int n)
 // Initialize the hotkey assignment screen system.  Called when GS_STATE_HOTKEY_SCREEN
 // is entered.
 //
+// Claude: FS1 data: the hotkey screen's list in FS1's box (retail FS1 screenshot; docs/FS1_COMPAT.md): the values FS2 keeps
+// commented out above (list at 40, 70, 280 high; wing icons at 280; ships at 302; the big key name at 575, 41), with
+// FS1's key columns 30 apart and the list as wide as FS1's box
+static void mission_hotkey_fs1_layout()
+{
+	Hotkey_list_coords[GR_640][0] = 40;
+	Hotkey_list_coords[GR_640][1] = 70;
+	Hotkey_list_coords[GR_640][2] = 545;
+	Hotkey_list_coords[GR_640][3] = 280;
+	Hotkey_function_name_coords[GR_640][0] = 546;	// centred on 575
+	Hotkey_function_name_coords[GR_640][1] = 41;
+	Hotkey_function_field_width[GR_640] = 30;
+	Hotkey_wing_icon_x[GR_640] = 280;
+	Hotkey_ship_x[GR_640] = 302;
+}
+
 void mission_hotkey_init()
 {
 	int i;
@@ -1087,6 +1104,9 @@ void mission_hotkey_init()
 
 	reset_hotkeys();
 	common_set_interface_palette();  // set the interface palette
+	if ( Cfile_fs1_data ) {	// Claude
+		mission_hotkey_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Hotkey_mask_fname[gr_screen.res]);
 

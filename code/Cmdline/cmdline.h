@@ -178,9 +178,12 @@ extern int Cmdline_server_firing;
 extern int Cmdline_client_dodamage;
 extern int Cmdline_spew_pof_info;
 extern int Cmdline_force_32bit;
+extern int Cmdline_force_16bit;	// Claude: 32 bit textures
 extern int Cmdline_mouse_coords;
 extern int Cmdline_timeout;
 
 extern int Cmdline_window;
+extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
+extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 
 #endif
