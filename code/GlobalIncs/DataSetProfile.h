@@ -29,6 +29,7 @@ typedef struct data_set_profile {
 	char	*default_hcf;						// a new pilot's HUD colours, NULL for none (FS1 has no .hcf files)
 	int	thruster_species;					// species whose thruster anims are loaded: FS1's demo build cut the Shivan ones (Ship.cpp)
 	int	shields;							// 0: no shields at all, as FS1's demo build (Shield.cpp, D-20261020-161655)
+	int	loadout;							// 0: no ship or weapon selection, their icons and anims not loaded, as FS1's demo build (MissionScreenCommon.cpp)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
