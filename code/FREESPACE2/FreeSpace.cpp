@@ -933,12 +933,7 @@ static char *Game_loading_ani_fname[GR_NUM_RESOLUTIONS] = {
 	"2_Loading.ani"		// GR_1024
 };
 
-#if defined(FS2_DEMO)
-static char *Game_demo_title_screen_fname[GR_NUM_RESOLUTIONS] = {
-	"PreLoad",
-	"2_PreLoad"
-};
-#elif defined(OEM_BUILD)
+#if defined(OEM_BUILD)	// Claude: the demo's title screen is in the data set profile (D-20261020-053500)
 static char *Game_demo_title_screen_fname[GR_NUM_RESOLUTIONS] = {
 	"OEMPreLoad",
 	"2_OEMPreLoad"
@@ -2285,12 +2280,11 @@ void game_init()
 
 	gr_set_gamma(Freespace_gamma);
 
-#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	// Claude: always; display_title_screen shows the data set's title screen, if it has one (was #if FS2_DEMO || OEM_BUILD)
 	// add title screen
 	if(!Is_standalone){
 		display_title_screen();
 	}
-#endif
 	
 	// attempt to load up master tracker registry info (login and password)
 	Multi_tracker_id = -1;		
@@ -8609,11 +8603,20 @@ int game_hacked_data()
 
 void display_title_screen()
 {
-#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
 	///int title_bitmap;
 
+#if defined(OEM_BUILD)
+	char *title_fname = Game_demo_title_screen_fname[gr_screen.res];
+#else
+	char *title_fname = Game_profile->title_screen[gr_screen.res];	// Claude
+	if (title_fname == NULL) {	// Claude: retail has none
+		return;
+	}
+#endif
+
 	// load bitmap
-	int title_bitmap = bm_load(Game_demo_title_screen_fname[gr_screen.res]);
+	int title_bitmap = bm_load(title_fname);	// Claude: was Game_demo_title_screen_fname[gr_screen.res]
 	if (title_bitmap == -1) {
 		return;
 	}
@@ -8640,7 +8643,6 @@ void display_title_screen()
 	gr_flip();
 
 	bm_unload(title_bitmap);
-#endif  // FS2_DEMO || OEM_BUILD
 }
 
 // return true if the game is running with "low memory", which is less than 48MB
