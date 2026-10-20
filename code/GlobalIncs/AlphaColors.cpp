@@ -9,6 +9,7 @@
 
 #include "2d.h"
 #include "AlphaColors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 // -----------------------------------------------------------------------------------
 // ALPHA DEFINES/VARS
@@ -55,6 +56,9 @@ void alpha_colors_init()
 	gr_init_alphacolor( &Color_grey, 50, 50, 50, 255 );
 	//gr_init_alphacolor( &Color_white, 185, 185, 185, 255 );
 	gr_init_alphacolor( &Color_white, 105, 105, 105, 255 );
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1's normal text is brighter, measured from retail FS1 screenshots (docs/FS1_COMPAT.md)
+		gr_init_alphacolor( &Color_white, 155, 155, 155, 255 );
+	}
 	gr_init_alphacolor( &Color_bright_white, 255, 255, 255, 255 );
 
 	gr_init_alphacolor( &Color_violet_gray, 160, 144, 160, 255 );
