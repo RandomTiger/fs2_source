@@ -50,4 +50,8 @@ void nebula_init( char *filename, angles *pbh = NULL );
 void nebula_close();
 void nebula_render();
 
+// Claude: FS1's nebula colour ramp, black to the mission's nebula colour (docs/FS1_COMPAT.md)
+#define NEBULA_FS1_RAMP_COLORS 20
+extern ubyte Nebula_fs1_ramp[NEBULA_FS1_RAMP_COLORS * 3];
+
 #endif	//_NEBULA_H

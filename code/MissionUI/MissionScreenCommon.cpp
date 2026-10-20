@@ -301,6 +301,7 @@
 #include "multi_endgame.h"
 #include "UIDefs.h"
 #include "AnimPlay.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 //////////////////////////////////////////////////////////////////
 // Game Globals
@@ -397,6 +398,7 @@ brief_common_buttons Common_buttons[3][GR_NUM_RESOLUTIONS][NUM_COMMON_BUTTONS] =
 #define COMMON_OPTIONS_BUTTON						5
 
 int Background_playing;			// Flag to indicate background animation is playing
+static int Fs1_slide_sound_played;	// Claude: FS1 data: the button slide sound has played (common_check_keys)
 static anim *Background_anim;	// Ids for the anim data that is loaded
 
 // value for which Team_data entry to use
@@ -471,10 +473,30 @@ void common_buttons_maybe_reload(UI_WINDOW *ui_window)
 	}
 }
 
+// Claude: FS1 data: FS1's 640 positions for the common buttons, the same on all three screens: each button's
+// frames matched against the last frame of BriefTrans.ani, and checked against the three masks (docs/FS1_COMPAT.md).
+// Overwrites the GR_640 entries.
+static void common_fs1_layout()
+{
+	static int xy[NUM_COMMON_BUTTONS][2] = { {0, 0}, {0, 19}, {0, 33}, {562, 411}, {469, 424}, {447, 452} };
+	int i, j;
+
+	for ( i = 0; i < 3; i++ ) {
+		for ( j = 0; j < NUM_COMMON_BUTTONS; j++ ) {
+			Common_buttons[i][GR_640][j].x = xy[j][0];
+			Common_buttons[i][GR_640][j].y = xy[j][1];
+		}
+	}
+}
+
 void common_buttons_init(UI_WINDOW *ui_window)
 {
 	UI_BUTTON	*b;
 	int			i;
+
+	if ( Cfile_fs1_data ) {	// Claude
+		common_fs1_layout();
+	}
 
 	for ( i = 0; i < NUM_COMMON_BUTTONS; i++ ) {
 		b = &Common_buttons[Current_screen-1][gr_screen.res][i].button;
@@ -486,12 +508,14 @@ void common_buttons_init(UI_WINDOW *ui_window)
 	}	
 
 	// add some text	
+	if ( !Cfile_fs1_data ) {	// Claude: FS1's backgrounds and button art carry these labels
 	ui_window->add_XSTR("Briefing", 1504, Common_buttons[Current_screen-1][gr_screen.res][COMMON_BRIEFING_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_BRIEFING_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_BRIEFING_BUTTON].button, UI_XSTR_COLOR_GREEN);
 	ui_window->add_XSTR("Ship Selection", 1067, Common_buttons[Current_screen-1][gr_screen.res][COMMON_SS_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_SS_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_SS_BUTTON].button, UI_XSTR_COLOR_GREEN);
 	ui_window->add_XSTR("Weapon Loadout", 1068, Common_buttons[Current_screen-1][gr_screen.res][COMMON_WEAPON_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_WEAPON_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_WEAPON_BUTTON].button, UI_XSTR_COLOR_GREEN);
 	ui_window->add_XSTR("Commit", 1062, Common_buttons[Current_screen-1][gr_screen.res][COMMON_COMMIT_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_COMMIT_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_COMMIT_BUTTON].button, UI_XSTR_COLOR_PINK);
 	ui_window->add_XSTR("Help", 928, Common_buttons[Current_screen-1][gr_screen.res][COMMON_HELP_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_HELP_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_HELP_BUTTON].button, UI_XSTR_COLOR_GREEN);
 	ui_window->add_XSTR("Options", 1036, Common_buttons[Current_screen-1][gr_screen.res][COMMON_OPTIONS_BUTTON].xt, Common_buttons[Current_screen-1][gr_screen.res][COMMON_OPTIONS_BUTTON].yt, &Common_buttons[Current_screen-1][gr_screen.res][COMMON_OPTIONS_BUTTON].button, UI_XSTR_COLOR_GREEN);
+	}
 
 	common_reset_buttons();
 
@@ -672,6 +696,25 @@ void common_select_init()
 		Background_playing = 1;		// start playing the Background anim
 	}
 	*/
+	// Claude: FS1 data: FS1's briefing frame and buttons arrive in this transition anim; FS2 dropped it (the block
+	// above).  The last frame stays as the briefing background (brief_fs1_load_background).
+	if ( Cfile_fs1_data ) {
+		anim_play_struct aps;
+
+		if ( Game_mode & GM_MULTIPLAYER )
+			Background_anim = anim_load("BriefTransMulti", 1);	// 1 as last parm means file is mem-mapped
+		else
+			Background_anim = anim_load("BriefTrans", 1);
+
+		if ( Background_anim != NULL ) {
+			anim_play_init(&aps, Background_anim, 0, 0);
+			aps.framerate_independent = 1;
+			aps.skip_frames = 0;
+			Background_anim_instance = anim_play(&aps);
+			Background_playing = 1;
+			Fs1_slide_sound_played = 0;
+		}
+	}
 	Current_screen = Next_screen = ON_BRIEFING_SELECT;
 
 	// load in the icons for the wing slots
@@ -816,6 +859,25 @@ int common_select_do(float frametime)
 		}
 	}
 	*/
+	// Claude: FS1 data: the block above, for the anim common_select_init plays.  The slide sound plays once (frame
+	// BUTTON_SLIDE_IN_FRAME lasts several game frames), and Background_anim is cleared so common_select_close
+	// does not free it again.
+	if ( Cfile_fs1_data && Background_playing ) {
+		if ( (Background_anim_instance->frame_num == BUTTON_SLIDE_IN_FRAME) && !Fs1_slide_sound_played ) {
+			gamesnd_play_iface(SND_BTN_SLIDE);
+			Fs1_slide_sound_played = 1;
+		}
+
+		if ( Background_anim_instance->frame_num == Background_anim_instance->stop_at ) {
+			anim_release_render_instance(Background_anim_instance);
+			anim_free(Background_anim);
+			Background_anim = NULL;
+
+			Background_playing = 0;
+			Current_screen = Next_screen = ON_BRIEFING_SELECT;
+		}
+	}
+
 
 	if ( Current_screen != Next_screen ) {
 		switch( Next_screen ) {

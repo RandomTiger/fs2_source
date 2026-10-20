@@ -71,6 +71,7 @@ Done 2026-10-20: finished branches tagged and their names deleted (32BitRenderin
 - **Loading optimisations.** `stars_page_in` pages in every starfield bitmap and every sun and glow for every level, not just the ones the mission uses. First a survey of what level loading pages in and how long it takes, then the fixes; nothing that changes what a mission plays.
 
 ## Open items
+- **Investigation open: nodraw exit 5 on PrePort64** (D-20261020-132256, D-20261020-133957). AutotestNebMedium, x86 Release `-nodraw`, quick suite during the FS1Compat carry: exit 5 (STUCK) at frame 1680 of 5203, traces identical up to there, 2026-10-20, host busy (other sessions building). Rate 1 in 13 on that exe (the suite run, 2 reruns, 10 serialised reruns on a quiet host, all others exit 0 MATCH; nodraw quick set rerun 23/23). Dump: none; the D-053 dump code is on `GodotPrep` only and no check script below it keeps `autotest.log`. While open, a second exit 5 in any check at any layer stops work; first question: does PrePortCleanup's pre-merge exe stall on the same mission. Closes after the D-053 tooling reaches every layer from `RecordPlayback` (D-20261020-133957 ii).
 
 ## What the port needs from the C++ side
 Both the PrePort backlog and the GodotPrep plan. Background for each is in `docs/PREPORT.md`.

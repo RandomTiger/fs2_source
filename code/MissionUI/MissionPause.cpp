@@ -44,6 +44,7 @@
 #include "font.h"
 #include "Alphacolors.h"
 #include "beam.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 #include "../Pad/PadGame.h"	// Claude: control pad
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -137,6 +138,11 @@ void pause_init(int multi)
 
 			multi_pause_init(&Pause_win);		
 		} else {
+			if ( Cfile_fs1_data ) {	// Claude: FS1's single player pause is its Pause box, "Mission Paused" in the art, where retail draws it
+				Pause_bmp_name[GR_640] = NOX("Pause");
+				Please_wait_coords[GR_640][0] = 80;
+				Please_wait_coords[GR_640][1] = 127;
+			}
 			Pause_background_bitmap = bm_load(Pause_bmp_name[gr_screen.res]);
 		}
 	} else {
@@ -167,11 +173,13 @@ void pause_do(int multi)
 				gr_bitmap(Please_wait_coords[gr_screen.res][0], Please_wait_coords[gr_screen.res][1]);
 
 				// draw "Paused" on it
+				if ( !Cfile_fs1_data ) {	// Claude: FS1's has it in the art
 				gr_set_color_fast(&Color_normal);
 				gr_set_font(FONT2);
 				gr_get_string_size(&str_w, &str_h, pause_str);
 				gr_string((gr_screen.max_w - str_w) / 2, (gr_screen.max_h - str_h) / 2, pause_str);
 				gr_set_font(FONT1);
+				}	// Claude
 			}
 		}
 	

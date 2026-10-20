@@ -1010,18 +1010,35 @@ int game_is_volition_mission(char *filename)	// Claude: the Windows host passes 
 void game_detect_data_set()
 {
 	char line[128];
-	int demo = cf_find_file_location(NOX("demo.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
-	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	// Claude: FS1 data (cfile found FS1's packs, docs/FS1_COMPAT.md): its demo's campaign is demo.fsc, retail's
+	// freespace.fsc.  Looked for by their own names, as FS1 data turns a .fc2 name into .fsc.
+	char *demo_name = Cfile_fs1_data ? NOX("demo.fsc") : NOX("demo.fc2");
+	char *retail_name = Cfile_fs1_data ? NOX("freespace.fsc") : NOX("freespace2.fc2");
+	int demo = cf_find_file_location(demo_name, CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	int retail = cf_find_file_location(retail_name, CF_TYPE_MISSIONS, NULL, NULL, NULL);
 
-	Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;	// only the FreeSpace 2 pair so far
+	if (Cfile_fs1_data) {	// Claude
+		Game_data_set = (demo && !retail) ? DATA_SET_FS1_DEMO : DATA_SET_FS1_RETAIL;
+	} else {
+		Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;
+	}
 	data_set_profile_apply(Game_data_set);	// Claude: its row of the profile table (D-20261020-053500)
-	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", data_set_name(Game_data_set), demo ? "y" : "n", retail ? "y" : "n");
+	sprintf(line, "data set: %s (%s: %s, %s: %s)\n", data_set_name(Game_data_set), demo_name, demo ? "y" : "n", retail_name, retail ? "y" : "n");
 	mprintf(("%s", line));
 	autotest_note(line);
 	if (demo && retail) {
-		Warning(LOCATION, "Both demo.fc2 and freespace2.fc2 are in the data; running as retail\n");
+		Warning(LOCATION, "Both %s and %s are in the data; running as retail\n", demo_name, retail_name);
 	}
-	replay_check_data_set(Game_data_set, game_is_volition_mission);
+	// Claude: a recording names no data set; it is worked out from FS2's campaign and mission names, which FS1's
+	// share (sm1-01), so in FS1 data every FS1 recording would read as FS2 retail.  Not checked in FS1 data, and
+	// logged; the recording's own data-set field (header version 6, GodotPrep) replaces this (D-20261020-103504).
+	if (!Cfile_fs1_data) {
+		replay_check_data_set(Game_data_set, game_is_volition_mission);
+	} else {
+		sprintf(line, "replay data-set check skipped: a recording cannot name FS1 against FS2 below header version 6\n");
+		mprintf(("%s", line));
+		autotest_note(line);
+	}
 }
 
 int game_get_default_skill_level()
