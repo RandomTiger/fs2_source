@@ -141,7 +141,8 @@
     <ClCompile Include="ControlConfig\ControlsConfigCommon.cpp" />
     <ClCompile Include="Cutscene\Cutscenes.cpp" />
     <ClCompile Include="Movie\Movie.cpp">
-      <AdditionalIncludeDirectories>..\lib\xiph\ogg\include;..\lib\xiph\theora\include;..\lib\xiph\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Claude: the Xiph headers are third-party (lib/xiph/THIRD_PARTY.md); /external keeps their warnings out of the warning count, every configuration (D-20261020-222203) -->
+      <AdditionalOptions>/external:I ..\lib\xiph\ogg\include /external:I ..\lib\xiph\theora\include /external:I ..\lib\xiph\vorbis\include /external:W0 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
