@@ -23,6 +23,7 @@
 extern char *help_overlay_section_names[MAX_HELP_OVERLAYS];	// GameHelp/ContextHelp.cpp
 
 #define FS1_MAX_SHIELD_ICONS		40		// MAX_SHIELD_ICONS in Hud/HUDshield.cpp
+#define FS1_MAX_HUD_ANIS			512		// every .ani in data/hud, FS1's and Silent Threat's
 #define FS1_TABLE_TEXT_LEN			16384
 
 static char Fs1_table_text[FS1_TABLE_TEXT_LEN];
@@ -43,17 +44,22 @@ static void fs1_line(char *format, ...)
 	}
 }
 
-// hud.tbl: the shield icons are the HUD's shield-*.ani files, which is the set FS1's ships.tbl names
+// hud.tbl: the shield icons are the HUD's shield-*.ani files, which is the set FS1's ships.tbl names.  The file list
+// filters by extension only (a "shield-*.ani" wildcard returned every HUD .ani, cut off at 40 before any shield icon,
+// so no ship had one and the player's shield gauge was never drawn), so the names are filtered here.
 static void fs1_hud_tbl()
 {
-	char names[FS1_MAX_SHIELD_ICONS][MAX_FILENAME_LEN];
-	char *list[FS1_MAX_SHIELD_ICONS];
-	int i, count;
+	static char names[FS1_MAX_HUD_ANIS][MAX_FILENAME_LEN];
+	static char *list[FS1_MAX_HUD_ANIS];
+	int i, count, n = 0;
 
-	count = cf_get_file_list_preallocated(FS1_MAX_SHIELD_ICONS, names, list, CF_TYPE_HUD, "shield-*.ani", CF_SORT_NAME);
+	count = cf_get_file_list_preallocated(FS1_MAX_HUD_ANIS, names, list, CF_TYPE_HUD, "*.ani", CF_SORT_NAME);
 	fs1_line("#Shield Icons Begin");
-	for (i = 0; i < count; i++) {
-		fs1_line("$Shield: %s", list[i]);
+	for (i = 0; (i < count) && (n < FS1_MAX_SHIELD_ICONS); i++) {
+		if (!strnicmp(list[i], "shield-", 7)) {
+			fs1_line("$Shield: %s", list[i]);
+			n++;
+		}
 	}
 	fs1_line("#End");
 }
