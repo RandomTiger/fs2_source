@@ -887,8 +887,8 @@ static void brief_fs1_layout()
 	Brief_text_coords[GR_640][0] = 32;			Brief_text_coords[GR_640][1] = 412;
 	Brief_text_coords[GR_640][2] = 395;			Brief_text_coords[GR_640][3] = 60;
 	Brief_bmap_coords[GR_640][0] = 0;			Brief_bmap_coords[GR_640][1] = 98;	// no Briefwin in FS1; Debug's filename line goes 10 above
-	Brief_stage_text_coords[GR_640][0] = 60;	Brief_stage_text_coords[GR_640][1] = 108;
-	Title_coords[GR_640][0] = 582;				Title_coords[GR_640][1] = 108;
+	Brief_stage_text_coords[GR_640][0] = 62;	Brief_stage_text_coords[GR_640][1] = 386;
+	Title_coords[GR_640][0] = 580;				Title_coords[GR_640][1] = 388;
 	Closeup_region[GR_640][0] = 216;			Closeup_region[GR_640][1] = 163;
 	Closeup_region[GR_640][2] = 207;			Closeup_region[GR_640][3] = 151;
 	Closeup_button_coords[GR_640][0] = 368;		Closeup_button_coords[GR_640][1] = 306;
