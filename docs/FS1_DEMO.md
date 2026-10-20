@@ -198,8 +198,8 @@ demo, FS1 retail, FS1 demo.
 | `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment | held |
 
 Each conversion is gated on the four FS1 demo missions (btmdemo, demo01, demo02a, demo02b) under autotest in
-Release and Debug with no Error, Assert or Int3; Debug's known demo ships.tbl PARSELO Warnings are allowed
-(D-20261020-211001, Tom: FS1 branches test only their own data). `tools\fs1demo_run.ps1 -Configs r,d` runs it in
+Release and Debug with no Error, Warning, Assert or Int3 (D-20261020-211001, Tom: FS1 branches test only their
+own data; the allowance for the demo's ships.tbl PARSELO Warnings is withdrawn, D-20261020-213146). `tools\fs1demo_run.ps1 -Configs r,d` runs it in
 minutes. FS2 retail and FS2 demo replays are not run here: FS1Compat gates this branch's merge-in on
 `recordings/fs1`, and Enhanced gates FS1Compat's batches on the FS2 suites. `tools\fs1demo_gate.ps1` runs the FS1
 demo missions, `recordings/fs1` and the FS2 suites together (about an hour) and is the merge-in tool, not the

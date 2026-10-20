@@ -8,8 +8,8 @@ beside it; the game extracts the demo into fs1demo\ there on first start. It def
 Build into it with $env:PATH_FS1 set to that folder (FS1 branches link into PATH_FS1).
 -Pilot names an existing pilot in that folder (autotest picks it with -at_pilot); make one by starting the game
 once by hand. Each mission's autotest.log is copied to <Out>\<mission>_<config>.log (default
-%LOCALAPPDATA%\fs1demo_runs). The last line is PASS when every run exits 0 or ends with only the demo's own
-ships.tbl warnings (D-Missile, Interceptor, Hornet#Weak: Volition's data, listed, not suppressed); FAIL otherwise.
+%LOCALAPPDATA%\fs1demo_runs). The last line is PASS when every run exits 0 with no Warning, Error, Assert or Int3
+(D-20261020-213146: the demo's own ships.tbl weapon names are logged, not warned, on its data); FAIL otherwise.
 #>
 param(
 	[string[]]$Missions = @('btmdemo', 'demo01', 'demo02a', 'demo02b'),
@@ -26,7 +26,6 @@ $Missions = @($Missions | ForEach-Object { $_ -split ',' })
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 New-Item -ItemType Directory -Force $Out | Out-Null
 Set-Location $GameDir
-$known = 'Unable to find WEAPON_LIST_TYPE string "(D-Missile|Interceptor|Hornet#Weak)"'
 
 $failed = @()
 foreach ($c in $Configs) {
@@ -41,8 +40,8 @@ foreach ($c in $Configs) {
 		if (-not (Test-Path autotest.log)) { "$m $c exit=$($p.ExitCode) NO LOG"; $failed += "$m $c"; continue }
 		Copy-Item autotest.log $log
 		$counts = (Select-String $log -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' | Select-Object -Last 1).Matches.Value
-		$other = @(Select-String $log -Pattern '^\[[ \d.]+\] (Warning|Error|Assert|Int3)' | Where-Object { $_.Line -notmatch $known })
-		$ok = ($p.ExitCode -eq 0) -or (($counts -match 'Asserts 0, Int3 0') -and $other.Count -eq 0)
+		$other = @(Select-String $log -Pattern '^\[[ \d.]+\] (Warning|Error|Assert|Int3)')
+		$ok = ($p.ExitCode -eq 0) -and ($counts -notmatch 'Asserts [1-9]|Int3 [1-9]|warnings [1-9]') -and $other.Count -eq 0
 		"$m $c exit=$($p.ExitCode) $counts$(if ($other) { ' | ' + $other[0].Line.Trim() })"
 		if (-not $ok) { $failed += "$m $c" }
 	}
