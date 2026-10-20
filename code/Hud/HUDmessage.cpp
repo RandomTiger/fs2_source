@@ -405,6 +405,7 @@
 #include "Player.h"
 #include "LinkList.h"
 #include "MissionLog.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 #include "Ui.h"
 #include "MissionScreenCommon.h"
 #include "BmpMan.h"
@@ -1303,6 +1304,20 @@ void hud_scrollback_button_pressed(int n)
 	}
 }
 
+// Claude: FS1 data: the mission log's buttons where retail FS1 draws them (retail screenshots; docs/FS1_COMPAT.md).  FS1's
+// LB_ art and mask number them as FS2's; the list, legend and time already sit in FS1's boxes.
+static void hud_scrollback_fs1_layout()
+{
+	// scroll up, scroll down; messages, events, objectives; accept
+	static int Fs1_coords[NUM_BUTTONS][2] = { {7,89}, {7,133}, {294,362}, {402,362}, {193,362}, {554,411} };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+}
+
 void hud_scrollback_init()
 {
 	int i;
@@ -1312,6 +1327,9 @@ void hud_scrollback_init()
 	beam_pause_sounds();
 	audiostream_pause_all();
 
+	if ( Cfile_fs1_data ) {	// Claude
+		hud_scrollback_fs1_layout();
+	}
 	common_set_interface_palette("BriefingPalette");  // set the interface palette
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Hud_mission_log_mask_fname[gr_screen.res]);
