@@ -613,6 +613,9 @@ void cmd_brief_ani_wave_init(int index)
 // Claude: FS1 data: the command briefing in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md): the text in the left
 // box, the animation in the right, the stage buttons along the bottom.  FS1's CBB_ art and mask number them differently
 // (pause is CBB_07, in the middle), so each FS2 button takes FS1's art, place and hotspot, found by matching the art.
+// The stage count ends 3 pixels left of the text box's right edge, where retail draws it.
+static int Cmd_fs1_stage_dx = 0;
+
 static void cmd_brief_fs1_layout()
 {
 	// first, prev, pause, next, last stage; help, options, accept
@@ -630,7 +633,8 @@ static void cmd_brief_fs1_layout()
 	for (i=0; i<4; i++) {
 		Cmd_text_wnd_coords[GR_640][i] = Fs1_text[i];
 	}
-	Cmd_stage_y[GR_640] = 148;
+	Cmd_stage_y[GR_640] = 145;
+	Cmd_fs1_stage_dx = -3;
 	Cmd_image_wnd_coords[GR_640][CMD_X_COORD] = 423;
 	Cmd_image_wnd_coords[GR_640][CMD_Y_COORD] = 138;
 }
@@ -833,7 +837,7 @@ void cmd_brief_do_frame(float frametime)
 
 	sprintf(buf, XSTR( "Stage %d of %d", 464), Cur_stage + 1, Cur_cmd_brief->num_stages);
 	gr_get_string_size(&w, NULL, buf);
-	gr_string(Cmd_text_wnd_coords[gr_screen.res][CMD_X_COORD] + Cmd_text_wnd_coords[gr_screen.res][CMD_W_COORD] - w, Cmd_stage_y[gr_screen.res], buf);
+	gr_string(Cmd_text_wnd_coords[gr_screen.res][CMD_X_COORD] + Cmd_text_wnd_coords[gr_screen.res][CMD_W_COORD] - w + Cmd_fs1_stage_dx, Cmd_stage_y[gr_screen.res], buf);	// Claude: + Cmd_fs1_stage_dx
 
 	if (brief_render_text(Scroll_offset, Cmd_text_wnd_coords[gr_screen.res][CMD_X_COORD], Cmd_text_wnd_coords[gr_screen.res][CMD_Y_COORD], Cmd_text_wnd_coords[gr_screen.res][CMD_H_COORD], frametime, 0, 1)){
 		Voice_good_to_go = 1;
