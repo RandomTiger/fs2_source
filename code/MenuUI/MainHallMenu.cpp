@@ -673,6 +673,10 @@ void main_hall_do_multi_ready()
 {
 	int error;
 
+	// Claude: this project does not support multiplayer, so say so instead of the networking checks below (D-20261020-223607)
+	popup(PF_USE_AFFIRMATIVE_ICON|PF_BODY_BIG, 1, POPUP_OK, XSTR( "This project does not currently support multiplayer.", -1));
+	return;
+
 	error = psnet_get_network_status();
 	switch( error ) {
 	case NETWORK_ERROR_NO_TYPE:
