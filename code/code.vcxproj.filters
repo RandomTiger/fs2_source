@@ -585,6 +585,9 @@
     <ClCompile Include="Parse\Encrypt.cpp">
       <Filter>Parse</Filter>
     </ClCompile>
+    <ClCompile Include="Parse\Fs1Tables.cpp">
+      <Filter>Parse</Filter>
+    </ClCompile>
     <ClCompile Include="Parse\PARSELO.CPP">
       <Filter>Parse</Filter>
     </ClCompile>
@@ -1368,6 +1371,9 @@
       <Filter>Palman</Filter>
     </ClInclude>
     <ClInclude Include="Parse\Encrypt.h">
+      <Filter>Parse</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse\Fs1Tables.h">
       <Filter>Parse</Filter>
     </ClInclude>
     <ClInclude Include="Parse\parselo.h">
