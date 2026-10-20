@@ -1063,6 +1063,7 @@ static void techroom_fs1_tab()
 		}
 	}
 	View_window.enable(!data);	// no ship to turn
+	help_overlay_fs1_tech_tab(data);
 }
 
 // the tech anim FS.exe had for weapon name, or NULL
