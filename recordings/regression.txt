@@ -1,0 +1,9 @@
+# Campaign recordings that have broken before. tools\suite_check.ps1 replays them before every commit, with the
+# test missions (recordings\autotest\Autotest*) and the day's guests. One name per line; # starts a comment.
+sm1-01	# Release and Debug traces compared (cross-check); the first mission every change reaches
+sm3-06	# Release and Debug traces compared (cross-check); nebula
+sm1-03	# drawing left shared model state that gameplay read (Debug)
+sm1-04	# Debug desync from the forward-interpolate assert; missile lock in the logic phase
+sm1-07	# forward-interpolate assert every run; guardian on a ship that left; the hiding-variable renames
+sm2-07	# voice timer: the sound device decided when a message ended
+loop2-1	# nebula lightning and poofs moved to the logic phase
