@@ -722,9 +722,9 @@ int Player_died_popup_wait = -1;
 int Player_multi_died_check = -1;
 
 // builtin mission list stuff
-#ifdef FS2_DEMO
-	int Game_builtin_mission_count = 6;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+// Claude: the demo's list, compiled always; each data set profile row points at its list (D-20261020-053501)
+	int Game_builtin_missions_fs2_demo_count = 6;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2_demo[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		{ "SPDemo-01.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
 		{ "SPDemo-02.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
 		{ "DemoTrain.fs2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN),							""		},
@@ -732,17 +732,17 @@ int Player_multi_died_check = -1;
 		{ "MPDemo-01.fs2",				(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 		{ "Demo-DOG-01.fs2",				(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 	};
-#elif defined(PD_BUILD)
-	int Game_builtin_mission_count = 4;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+#if defined(PD_BUILD)	// Claude: the FS2 retail list (and the build variants' lists until batch 9)
+	int Game_builtin_missions_fs2_count = 4;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		{ "sm1-01.fs2",					(FSB_FROM_VOLITION),												""		},
 		{ "sm1-05.fs2",					(FSB_FROM_VOLITION),												""		},		
 		{ "sm1-01",							(FSB_FROM_VOLITION),												""		},
 		{ "sm1-05",							(FSB_FROM_VOLITION),												""		},		
 	};
 #elif defined(MULTIPLAYER_BETA)
-	int Game_builtin_mission_count = 17;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 17;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// multiplayer beta
 		{ "md-01.fs2",						(FSB_FROM_VOLITION | FSB_MULTI),								""		},
 		{ "md-02.fs2",						(FSB_FROM_VOLITION | FSB_MULTI),								""		},
@@ -763,8 +763,8 @@ int Player_multi_died_check = -1;
 		{ "templar.fc2",					(FSB_FROM_VOLITION | FSB_MULTI | FSB_CAMPAIGN_FILE),	""		},	
 	};
 #elif defined(OEM_BUILD)
-	int Game_builtin_mission_count = 17;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 17;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// oem version - act 1 only
 		{ "freespace2oem.fc2",			(FSB_FROM_VOLITION | FSB_CAMPAIGN_FILE),					"" },
 			
@@ -787,8 +787,8 @@ int Player_multi_died_check = -1;
 		{ "tsm-106.fs2",					(FSB_FROM_VOLITION | FSB_CAMPAIGN),							FS_CDROM_VOLUME_1	}
 	};
 #else 
-	int Game_builtin_mission_count = 92;
-	fs_builtin_mission Game_builtin_mission_list[MAX_BUILTIN_MISSIONS] = {
+	int Game_builtin_missions_fs2_count = 92;	// Claude: renamed, the profile row points at it
+	fs_builtin_mission Game_builtin_missions_fs2[MAX_BUILTIN_MISSIONS] = {	// Claude: renamed
 		// single player campaign
 		{ "freespace2.fc2",				(FSB_FROM_VOLITION | FSB_CAMPAIGN_FILE),					"" },
 			
@@ -981,9 +981,9 @@ fs_builtin_mission *game_find_builtin_mission(char *filename)
 	int idx;
 
 	// look through all existing builtin missions
-	for(idx=0; idx<Game_builtin_mission_count; idx++){
-		if(!stricmp(Game_builtin_mission_list[idx].filename, filename)){
-			return &Game_builtin_mission_list[idx];
+	for(idx=0; idx<*Game_profile->builtin_mission_count; idx++){	// Claude: the data set's list (D-20261020-053501)
+		if(!stricmp(Game_profile->builtin_missions[idx].filename, filename)){	// Claude
+			return &Game_profile->builtin_missions[idx];	// Claude
 		}
 	}
 
@@ -997,9 +997,15 @@ int Game_data_set = DATA_SET_FS2_RETAIL;
 
 static int game_is_volition_mission(char *filename)
 {
-	fs_builtin_mission *m = game_find_builtin_mission(filename);
+	int idx;
 
-	return (m != NULL) && (m->flags & FSB_FROM_VOLITION);
+	// the FS2 retail list whatever the data set, so a retail recording is named retail on the demo too (D-20261020-053501)
+	for (idx = 0; idx < Game_builtin_missions_fs2_count; idx++) {
+		if (!stricmp(Game_builtin_missions_fs2[idx].filename, filename)) {
+			return (Game_builtin_missions_fs2[idx].flags & FSB_FROM_VOLITION) != 0;
+		}
+	}
+	return 0;
 }
 
 void game_detect_data_set()
