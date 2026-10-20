@@ -255,6 +255,7 @@
 #include "GameSnd.h"
 #include "AlphaColors.h"
 #include "popup.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -887,6 +888,93 @@ void hud_config_synch_ui()
 }
 
 // Init the UI components
+// Claude: FS1 data: the HUD config screen in FS1's layout (retail FS1 screenshots; docs/FS1_COMPAT.md).  FS1's gauge
+// previews are HG_ bitmaps (some .ani), each exactly the size of its mask region and numbered as it, so it goes at the
+// region's corner; which gauge each is comes from FS.exe's table (its strings are pooled, so checked against FS2's preview
+// layout), all drawn in the one HUD colour FS1 has.  FS1's buttons are amber, blue and green, on, off and popup, reset and accept (HG_27-32, 36, 37); FS2's
+// colour sliders and buttons, hcf files and select all have no FS1 art and are hidden.  FS1's brightness is an old
+// UI_DOT_SLIDER (HG_33-35) over FS2's user range of HUD_color_alpha, 3 to 13, applied to every gauge as FS2's colour
+// buttons apply theirs (the code FS2 keeps commented out for its own brightness slider).
+static UI_DOT_SLIDER Fs1_hc_brightness;
+static int Fs1_hc_brightness_made = 0;
+void hud_config_set_color(int color);
+
+static void hud_config_fs1_layout()
+{
+	// x, y, hotspot (and HG_ number); -1: none in FS1.  FS2's gauge order
+	static int Fs1_gauges[NUM_HUD_GAUGES][3] = { {377,106,7}, {288,153,8}, {312,141,9}, {362,141,11}, {530,364,41}, {0,0,-1},
+		{272,218,14}, {301,307,20}, {126,271,4}, {335,213,12}, {126,246,3}, {224,322,19}, {403,322,21}, {486,315,24}, {523,315,25},
+		{523,332,26}, {467,241,23}, {460,196,22}, {126,175,2}, {331,149,10}, {241,235,13}, {412,235,17}, {396,226,16}, {333,253,15},
+		{405,52,5}, {126,76,1}, {292,78,6}, {126,63,0}, {313,283,18}, {467,291,40}, {0,0,-1}, {504,153,39}, {405,59,38}, {467,303,42},
+		{317,106,45}, {0,0,-1}, {0,0,-1}, {0,0,-1}, {0,0,-1} };
+	// FS2's buttons: on, off, popup; amber, blue, green; reset, accept.  The rest have no FS1 art
+	static int Fs1_buttons[][4] = { {HCB_ON,31,386,30}, {HCB_OFF,31,405,31}, {HCB_POPUP,31,424,32}, {HCB_AMBER,31,92,27},
+		{HCB_BLUE,31,113,28}, {HCB_GREEN,31,133,29}, {HCB_RESET,504,411,36}, {HCB_ACCEPT,561,411,37} };
+	static char Fs1_names[NUM_HUD_GAUGES + NUM_HUD_BUTTONS][8];
+	int i, n;
+
+	for (i=0; i<NUM_HUD_GAUGES; i++) {
+		if (Fs1_gauges[i][2] < 0) {
+			HC_gauge_regions[GR_640][i].filename = NOX("none");
+			continue;
+		}
+		sprintf(Fs1_names[i], NOX("HG_%02d"), Fs1_gauges[i][2]);
+		HC_gauge_regions[GR_640][i].filename = Fs1_names[i];
+		HC_gauge_regions[GR_640][i].x = Fs1_gauges[i][0];
+		HC_gauge_regions[GR_640][i].y = Fs1_gauges[i][1];
+		HC_gauge_regions[GR_640][i].hotspot = Fs1_gauges[i][2];
+	}
+	HC_gauge_regions[GR_640][5].filename = NOX("HG_00a");	// the reticle circle: no mask region, so never selected
+	HC_gauge_regions[GR_640][5].x = 272;
+	HC_gauge_regions[GR_640][5].y = 146;
+	HC_gauge_regions[GR_640][5].hotspot = -1;
+	for (i=0; i<NUM_HUD_BUTTONS; i++) {
+		HC_buttons[GR_640][i].hotspot = -1;
+	}
+	for (i=0; i<(int)(sizeof(Fs1_buttons) / sizeof(Fs1_buttons[0])); i++) {
+		n = Fs1_buttons[i][0];
+		sprintf(Fs1_names[NUM_HUD_GAUGES + n], NOX("HG_%02d"), Fs1_buttons[i][3]);
+		HC_buttons[GR_640][n].filename = Fs1_names[NUM_HUD_GAUGES + n];
+		HC_buttons[GR_640][n].x = Fs1_buttons[i][1];
+		HC_buttons[GR_640][n].y = Fs1_buttons[i][2];
+		HC_buttons[GR_640][n].hotspot = Fs1_buttons[i][3];
+	}
+	// FS1 draws these in the HUD colour; of FS2's IFF-coloured gauges it keeps only the hostile triangle and missile warnings
+	HC_gauge_regions[GR_640][0].use_iff = 0;	// lead indicator
+	HC_gauge_regions[GR_640][1].use_iff = 0;	// orientation tee
+	HC_gauge_regions[GR_640][3].use_iff = 0;	// target triangle
+	HC_gauge_regions[GR_640][24].use_iff = 0;	// offscreen indicator
+	HC_gauge_description_coords[GR_640][0] = 182;
+	HC_gauge_description_coords[GR_640][1] = 412;
+	HC_gauge_description_coords[GR_640][2] = 194;
+}
+
+// hide what has no FS1 art, and make FS1's brightness slider
+static void hud_config_fs1_ui()
+{
+	int i;
+
+	for (i=0; i<NUM_HUD_BUTTONS; i++) {
+		if (HC_buttons[gr_screen.res][i].hotspot < 0) {
+			HC_buttons[gr_screen.res][i].button.hide();
+			HC_buttons[gr_screen.res][i].button.disable();
+		}
+	}
+	HC_fname_input.hide();
+	HC_fname_input.disable();
+
+	HUD_color_alpha = (HUD_config.clr[0].alpha / 16) - 1;	// as hud_config_set_color sets it
+	if (HUD_color_alpha < HUD_COLOR_ALPHA_USER_MIN) {
+		HUD_color_alpha = HUD_COLOR_ALPHA_USER_MIN;
+	} else if (HUD_color_alpha > HUD_COLOR_ALPHA_USER_MAX) {
+		HUD_color_alpha = HUD_COLOR_ALPHA_USER_MAX;
+	}
+	Fs1_hc_brightness.create(&HC_ui_window, 349, 21, NOX("HG_"), 33, 1, HUD_COLOR_ALPHA_USER_MAX - HUD_COLOR_ALPHA_USER_MIN);
+	Fs1_hc_brightness.pos = HUD_color_alpha - HUD_COLOR_ALPHA_USER_MIN;
+	hud_config_set_color(HUD_config.main_color);	// FS1 has one HUD colour; a pilot saved under FS2 data may have one per gauge
+	Fs1_hc_brightness_made = 1;
+}
+
 void hud_config_init_ui()
 {
 	int i;
@@ -894,6 +982,9 @@ void hud_config_init_ui()
 	struct ui_button_info			*hb;
 
 //	common_set_interface_palette("HUDConfigPalette");  // set the interface palette
+	if ( Cfile_fs1_data ) {	// Claude
+		hud_config_fs1_layout();
+	}
 	hud_config_synch_ui();
 	HC_background_bitmap = bm_load(Hud_config_fname[gr_screen.res]);
 
@@ -916,6 +1007,9 @@ void hud_config_init_ui()
 	// 	} else {
 			hg->bitmap = bm_load(hg->filename);
 			hg->nframes = 1;
+			if ( Cfile_fs1_data && (hg->bitmap < 0) ) {	// Claude: some of FS1's are .ani; their first frame
+				hg->bitmap = bm_load_animation(hg->filename, &hg->nframes);
+			}
 		// }
 	}
 
@@ -951,6 +1045,9 @@ void hud_config_init_ui()
 	// config file input name	
 	HC_fname_input.create(&HC_ui_window, HC_fname_coords[gr_screen.res][0], HC_fname_coords[gr_screen.res][1], HC_fname_coords[gr_screen.res][2], MAX_FILENAME_LEN, "", UI_INPUTBOX_FLAG_INVIS | UI_INPUTBOX_FLAG_ESC_FOC);	
 	HC_fname_input.set_text("");
+	if ( Cfile_fs1_data ) {	// Claude
+		hud_config_fs1_ui();
+	}
 
 	/*
 	for (i=0; i<NUM_HC_SPECIAL_BITMAPS; i++) {
@@ -1674,6 +1771,11 @@ void hud_config_do_frame(float frametime)
 	hud_config_check_regions();
 	hud_config_check_buttons();
 	hud_config_update_brightness();
+	if ( Cfile_fs1_data && Fs1_hc_brightness_made && (Fs1_hc_brightness.pos != HUD_color_alpha - HUD_COLOR_ALPHA_USER_MIN) ) {	// Claude: FS1's brightness
+		HUD_color_alpha = Fs1_hc_brightness.pos + HUD_COLOR_ALPHA_USER_MIN;
+		hud_config_set_color(HUD_config.main_color);
+		gamesnd_play_iface(SND_USER_SELECT);
+	}
 
 	// set the background
 	GR_MAYBE_CLEAR_RES(HC_background_bitmap);
