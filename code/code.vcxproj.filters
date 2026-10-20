@@ -207,6 +207,9 @@
     <ClCompile Include="Cutscene\Cutscenes.cpp">
       <Filter>Cutscene</Filter>
     </ClCompile>
+    <ClCompile Include="Movie\Movie.cpp">
+      <Filter>Cutscene</Filter>
+    </ClCompile>
     <ClCompile Include="Debris\Debris.cpp">
       <Filter>Debris</Filter>
     </ClCompile>
@@ -945,6 +948,9 @@
       <Filter>ControlConfig</Filter>
     </ClInclude>
     <ClInclude Include="Cutscene\Cutscenes.h">
+      <Filter>Cutscene</Filter>
+    </ClInclude>
+    <ClInclude Include="Movie\Movie.h">
       <Filter>Cutscene</Filter>
     </ClInclude>
     <ClInclude Include="Debris\Debris.h">

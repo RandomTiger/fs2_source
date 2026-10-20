@@ -145,6 +145,10 @@
     <ClCompile Include="ControlConfig\ControlsConfig.cpp" />
     <ClCompile Include="ControlConfig\ControlsConfigCommon.cpp" />
     <ClCompile Include="Cutscene\Cutscenes.cpp" />
+    <ClCompile Include="Movie\Movie.cpp">
+      <!-- Claude: the Xiph headers are third-party (lib/xiph/THIRD_PARTY.md); /external keeps their warnings out of the warning count, every configuration (D-20261020-222203) -->
+      <AdditionalOptions>/external:I ..\lib\xiph\ogg\include /external:I ..\lib\xiph\theora\include /external:I ..\lib\xiph\vorbis\include /external:W0 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Demo\Demo.cpp" />
@@ -396,6 +400,7 @@
     <ClInclude Include="CMeasure\CMeasure.h" />
     <ClInclude Include="ControlConfig\ControlsConfig.h" />
     <ClInclude Include="Cutscene\Cutscenes.h" />
+    <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Demo\Demo.h" />
     <ClInclude Include="Replay\Autotest.h" />

@@ -185,5 +185,6 @@ extern int Cmdline_timeout;
 extern int Cmdline_window;
 extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
 extern int Cmdline_no_force_glow;	// Claude: -noforceglow
+extern int Cmdline_all_cutscenes;	// Claude: -allcutscenes
 
 #endif
