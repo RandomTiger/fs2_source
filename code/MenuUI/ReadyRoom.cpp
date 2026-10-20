@@ -1663,6 +1663,33 @@ int campaign_room_button_pressed(int n)
 	return 0;
 }
 
+// Claude: FS1 data: the campaign room in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md).  FS1's CAB_ art and
+// mask number restart 7 and select 4, and add help (CAB_05) and options (CAB_06), which FS2 dropped (its code for them is
+// commented out above); each button's place is found by matching its art.  The labels are in FS1's background, so FS2's
+// are not added.  The list and the description sit in FS1's boxes, the description wrapping where retail's does.
+static UI_BUTTON Fs1_cr_help, Fs1_cr_options;
+
+static void campaign_room_fs1_layout()
+{
+	// list up, list down, description up, description down, restart, select: x, y, hotspot
+	static char *Fs1_names[CR_NUM_BUTTONS] = { "CAB_00", "CAB_01", "CAB_02", "CAB_03", "CAB_07", "CAB_04" };
+	static int Fs1_coords[CR_NUM_BUTTONS][3] = { {0,95,0}, {0,142,1}, {17,259,2}, {17,307,3}, {545,323,7}, {561,411,4} };
+	int i;
+
+	for (i=0; i<CR_NUM_BUTTONS; i++) {
+		Cr_buttons[GR_640][i].filename = Fs1_names[i];
+		Cr_buttons[GR_640][i].x = Fs1_coords[i][0];
+		Cr_buttons[GR_640][i].y = Fs1_coords[i][1];
+		Cr_buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	Cr_list_coords[GR_640][1] = 57;
+	Cr_list_coords[GR_640][3] = 188;
+	Cr_info_coords[GR_640][0] = 70;
+	Cr_info_coords[GR_640][1] = 282;
+	Cr_info_coords[GR_640][2] = 370;
+	Cr_info_coords[GR_640][3] = 72;
+}
+
 void campaign_room_init()
 {
 	int i, j, load_failed;
@@ -1672,6 +1699,9 @@ void campaign_room_init()
 	list_h = Mission_list_coords[gr_screen.res][3];
 
 	// common_set_interface_palette("InterfacePalette");  // set the interface palette
+	if ( Cfile_fs1_data ) {	// Claude
+		campaign_room_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Campaign_mask_filename[gr_screen.res]);
 
@@ -1684,6 +1714,16 @@ void campaign_room_init()
 		b->button.set_bmaps(b->filename);
 		b->button.link_hotspot(b->hotspot);
 	}
+	if ( Cfile_fs1_data ) {	// Claude: FS1's help and options buttons
+		Fs1_cr_help.create(&Ui_window, "", 469, 429, 60, 30, 0, 1);
+		Fs1_cr_help.set_highlight_action(common_play_highlight_sound);
+		Fs1_cr_help.set_bmaps(NOX("CAB_05"));
+		Fs1_cr_help.link_hotspot(5);
+		Fs1_cr_options.create(&Ui_window, "", 447, 452, 60, 30, 0, 1);
+		Fs1_cr_options.set_highlight_action(common_play_highlight_sound);
+		Fs1_cr_options.set_bmaps(NOX("CAB_06"));
+		Fs1_cr_options.link_hotspot(6);
+	}
 
 	for (i=0; i<LIST_BUTTONS_MAX; i++) {
 		List_buttons[i].create(&Ui_window, "", 0, 0, 60, 30, 0, 1);
@@ -1692,7 +1732,7 @@ void campaign_room_init()
 	}
 
 	// add xstrs
-	for(i=0; i<CR_NUM_TEXT; i++){
+	for(i=0; i<(Cfile_fs1_data ? 0 : CR_NUM_TEXT); i++){	// Claude: FS1's labels are in its background
 		Ui_window.add_XSTR(&Cr_text[gr_screen.res][i]);
 	}
 
@@ -1846,6 +1886,17 @@ void campaign_room_do_frame(float frametime)
 			if (campaign_room_button_pressed(i)){
 				return;
 			}
+		}
+	}
+	if ( Cfile_fs1_data ) {	// Claude: FS1's help and options buttons, as FS2's commented-out ones
+		if ( Fs1_cr_help.pressed() ) {
+			launch_context_help();
+			gamesnd_play_iface(SND_HELP_PRESSED);
+		}
+		if ( Fs1_cr_options.pressed() ) {
+			gamesnd_play_iface(SND_SWITCH_SCREENS);
+			gameseq_post_event(GS_EVENT_OPTIONS_MENU);
+			return;
 		}
 	}
 
