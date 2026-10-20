@@ -58,10 +58,11 @@ with. The test compares against an independent decoder instead (section 3).
 `exe_dir\fs1demo.partial`, and renames that to `fs1demo` only when every file is whole. An existing `fs1demo`
 is never written to. 0 on success; otherwise non-zero and the reason in `err`.
 
-**For the two hooks in `DataSetInstall.cpp`** (fs2-work-manager's): `use_dataset()` checks `folder_has_vps()`,
-which looks for VPs at the top of the folder. The FS1 demo keeps its only VP in `Data\`, so for
-`DATA_SET_FS1_DEMO` that check should be `dataset_fs1_detect()`, and `zip_extract()` should be
-`dataset_fs1_extract()` (with `can_extract` set to 1).
+**The two hooks in `DataSetInstall.cpp`** (done, Tom's choice of the FS2 demo's start-up extraction,
+2026-10-20): `use_dataset()` checks `folder_has_dataset()`, which for `DATA_SET_FS1_DEMO` is
+`dataset_fs1_detect()` (the demo keeps its only VP in `Data\`) and for the others `folder_has_vps()` as before;
+the FS1 demo's row extracts with `dataset_fs1_extract()` from `fsdemo10.exe` beside the exe on first start,
+as the FS2 demo does from its installer.
 
 ## 3. Test
 
@@ -116,7 +117,6 @@ which this engine does not read (FS1 retail is the same: `FS1Compat` plays with 
 ## 5. Gaps against the engine
 
 What the engine reads that the FS1 demo lacks or has in another form, assuming `FS1Compat`'s FS1 support.
-No game code is changed for these on this branch.
 
 1. **Data set identification.** `cfile` sets `Cfile_fs1_data` from a `Data\freespace.vp` pack, so the demo
    takes FS1's loading paths (table conversion, old decryption, `.fsm`/`.fsc`, missing-table stand-ins). Code
@@ -155,29 +155,49 @@ The demo, extracted by `dataset_fs1_extract` and run by hand with the Debug exe,
   original game skipped them in its `DEMO` build (below). This is the stopper.
 - **Warnings**: the demo's own `ships.tbl` lets three ships carry `D-Missile`, `Interceptor` and `Hornet#Weak`,
   which its `weapons.tbl` does not define (Volition's data; the original demo would have skipped them quietly).
-- **Int3s**, cause not found yet.
+- **Int3s**: in Debug only, from art the demo lacks: the loadout screens' ship and weapon icons, the briefing's
+  `BriefMap.ani` and the particles' `ParticleSmoke02.ani`. The original demo was an `NDEBUG` build, where
+  `Int3` and `Assert` do nothing, so it skipped these quietly, as this engine's Release build does. All three
+  are fixed by the blocks below.
+
+### Now (2026-10-20)
+
+All four missions (`btmdemo`, `demo01`, `demo02a`, `demo02b`) start and fly under `-autotest`, 60 s each: Release
+PASS with no Assert, Int3 or Warning; Debug no Assert or Int3, and only the three `PARSELO` warnings above
+(17 to 20 per mission, the same lines repeated). Those warnings are Volition's data and are listed, not
+suppressed (D-20261020-161656).
+
+A fresh ini starts the game at 640x480, in FS1 retail data as in the demo; not changed here.
 
 ### The original `DEMO` blocks
 
 The FreeSpace 1 demo was a separate build (`#define DEMO`); these are the blocks it compiled differently. FS2's
-own demo blocks are `FS2_DEMO`. Per the work spec they are converted by fs2-work-manager's data-set profile
-table; the FS1 demo rows go in after its first batch is in Enhanced (Tom, 2026-10-19). What the FS1 demo needs
-from each:
+own demo blocks are `FS2_DEMO`. Each is converted to a field of the data-set profile table
+(`GlobalIncs/DataSetProfile.h`), its `#ifdef DEMO` arm removed in the same commit (D-20261020-161656: walls,
+demo experience, data handling and play restrictions become profile fields). Row values are FS2 retail, FS2
+demo, FS1 retail, FS1 demo.
 
-| block | what the demo build did | needed by the FS1 demo data |
-|---|---|---|
-| `Ship.cpp:3527`, `:3544` | loads 4 thruster anims and 4 glows, not 6 (no Shivan thrusters) | yes: `thruster03`, `thruster03a`, `thrusterglow03`, `thrusterglow03a` are absent; start-up stops without it |
-| `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) |
-| `MissionScreenCommon.cpp:532`, `:1043`, `:1064`, `:1081`, `:1117` | ship and weapon selection disabled; their buttons and keys play a fail sound | probably: the demo has 3 of the loadout screens' pictures; not checked |
-| `MissionShipChoice.cpp:2823`, `:2864`, `MissionWeaponChoice.cpp:1406`, `:1477`, `:1640` | ship and weapon icons and anims not loaded | goes with the line above |
-| `MissionMessage.cpp:1500` | no talking-head anims for messages | yes: the demo has no head anims |
-| `Shield.cpp:178`, `:255` | no shield-hit effect | to check: the demo has no `shieldhit` bitmaps |
-| `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway |
-| `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked |
-| `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment |
+| block | what the demo build did | needed by the FS1 demo data | status |
+|---|---|---|---|
+| `Ship.cpp:3527`, `:3544` | loads 4 thruster anims and 4 glows, not 6 (no Shivan thrusters) | yes: `thruster03`, `thruster03a`, `thrusterglow03`, `thrusterglow03a` are absent; start-up stops without it | done: wall, `thruster_species` 3, 3, 3, 2 |
+| `Shield.cpp:178`, `:255` | no shields at all: every shield function stubbed, so no hit effect and damage passes straight through | yes: the demo has no `shieldhit` bitmaps | done: play restriction, `shields` 1, 1, 1, 0 (D-20261020-161655) |
+| `MissionScreenCommon.cpp:532`, `:1043`, `:1064`, `:1081`, `:1117` | ship and weapon selection disabled; their buttons and keys play a fail sound | yes: without it Debug stops on the missing icons | done: wall, `loadout` 1, 1, 1, 0. `:680` held: the block only wraps code that is commented out |
+| `MissionShipChoice.cpp:2823`, `:2864`, `MissionWeaponChoice.cpp:1406`, `:1477`, `:1640` | ship and weapon icons and anims not loaded | goes with the line above | done with `loadout`: the load is skipped, the loops that clear the handles still run (so nothing stale is released). `:1640` held: it has no effect |
+| none (new) | the demo's `BriefMap.ani` is missing; the demo build ignored it as `NDEBUG` | yes: Debug stops at the first briefing stage cut | done: wall, `brief_fade` 1, 1, 1, 0 (D-20261020-163608): not loaded, and the cut plays its static sound and draws nothing. The `#ifndef FS2_DEMO` arm around the same code is left for the FS2 demo work (`FS2Demo` batch 8) |
+| none (new) | the demo's `ParticleSmoke02.ani` is missing; ignored likewise | yes: Debug Asserts on every such particle | done: wall, `smoke2` 1, 1, 1, 0 (D-20261020-163608), at the draw: the particles live and draw nothing; the emitters (`Ship.cpp:3242`, `:3348`, `ShipFX.cpp:2239`) are untouched. Drawing FS1 retail's other smoke instead was considered and not done; it would be a one-value change if Tom prefers it |
+| `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) | next: data handling |
+| `MissionMessage.cpp:1500` | no talking-head anims for messages | yes: the demo has no head anims | next: wall |
+| `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway | held |
+| `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked | held |
+| `FreeSpace.cpp:7606` | version string `Dv1.00` | no: inside a comment | held |
+
+Each conversion is gated on: the FS2 retail recordings identical in Release and Debug, the FS2 demo replays
+identical, `recordings/fs1` identical, and all four demo missions with no Error, Assert or Int3 in Release and
+Debug (D-20261020-161656).
 
 ## 6. Not done
 
-- The hooks in `DataSetInstall.cpp`'s data-set table and `use_dataset()` (fs2-work-manager's).
-- Loading or playing anything from the demo (items 3 to 8 above).
+- The `@` filter and talking-head blocks (above).
+- Playing the demo through by hand: the screens it must not reach (item 3), the upsell screens (item 4), the
+  campaign's branch to `demo02a` or `demo02b`.
 - `cab_open` reads only what this cabinet uses; other InstallShield versions are refused.
