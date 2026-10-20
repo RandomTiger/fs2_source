@@ -2741,6 +2741,9 @@ void debrief_do_frame(float frametime)
 
 	// draw the title of the mission
 	gr_set_color_fast(&Color_bright_white);
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: FS1's title is light blue (retail FS1 screenshot)
+		gr_set_color_fast(&Color_bright_blue);
+	}
 	strcpy(buf, The_mission.name);
 	gr_force_fit_string(buf, 255, Debrief_title_coords[gr_screen.res][2]);
 	gr_string(Debrief_title_coords[gr_screen.res][0], Debrief_title_coords[gr_screen.res][1], buf);	
