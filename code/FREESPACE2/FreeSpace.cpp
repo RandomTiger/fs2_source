@@ -7582,10 +7582,10 @@ if ( FS_VERSION_BUILD == 0 ) {
 	sprintf(str,"v%d.%02d.%02d",FS_VERSION_MAJOR, FS_VERSION_MINOR, FS_VERSION_BUILD );
 }
 
-#if defined (FS2_DEMO)
-	strcat(str, " D");
-#elif defined (OEM_BUILD)
+#if defined (OEM_BUILD)
 	strcat(str, " (OEM)");
+#else
+	strcat(str, Game_profile->version_suffix);	// Claude: " D" for the demo, from the data set profile (D-20261020-053500)
 #endif
 //XSTR:ON
 	/*
