@@ -41,6 +41,8 @@ typedef struct data_set_profile {
 
 	int	loading_ani_coords[GR_NUM_RESOLUTIONS][2];	// where the loading screen draws Loading.ani on LoadingBG, per art mode (FreeSpace.cpp, D-20261020-222222): each data set's art places its bar differently; the FS1 rows' 1024 pair is the 640 pair x 1.6, derived, not measured (FS1 has 640 art only)
 	const char	*help_overlay_brief_main[2];	// F1 overlay names for the briefing and the main hall; NULL = the table's (ContextHelp.cpp, D-20261020-231902): FS1's demo ships Briefing_Help_Overlay_Demo and Main_Help_Overlay_Demo, as its FS.exe names them
+	int	barracks_image_coords[GR_NUM_RESOLUTIONS][2];	// where the barracks draws the pilot picture, per art mode (Barracks.cpp, D-20261020-231901); the FS1 rows' 1024 pair is the 640 pair x 1.6, derived and unreachable (FS1 has 640 art only); the FS1 demo's y 49 is retail's 33 moved down with its window's bottom edge (152 to 168), derived, not measured
+	int	barracks_image_window[2];		// 0, 0: the picture is drawn whole; else the first and last screen rows of FS1's pilot picture window on BARRACKS.PCX, and the picture is clipped to its shape (Barracks.cpp, D-20261020-231901)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
