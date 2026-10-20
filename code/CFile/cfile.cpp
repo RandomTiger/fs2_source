@@ -187,7 +187,7 @@ cf_pathtype Pathtypes[CF_MAX_PATH_TYPES]  = {
 	// What type this is          Path                             Extensions              Parent type
 	{ CF_TYPE_INVALID,				NULL,										NULL,							CF_TYPE_INVALID },
 	// Root must be index 1!!	
-	{ CF_TYPE_ROOT,					"",										".mve",							CF_TYPE_ROOT	},
+	{ CF_TYPE_ROOT,					"",										".mve .ogv",							CF_TYPE_ROOT	},	// Claude: .ogv movies (code/Movie)
 	{ CF_TYPE_DATA,					"Data",									".cfg .log .txt",			CF_TYPE_ROOT	},
 	{ CF_TYPE_MAPS,					"Data\\Maps",							".pcx .ani .tga",			CF_TYPE_DATA	},
 	{ CF_TYPE_TEXT,					"Data\\Text",							".txt .net",				CF_TYPE_DATA	},
@@ -205,7 +205,7 @@ cf_pathtype Pathtypes[CF_MAX_PATH_TYPES]  = {
 	{ CF_TYPE_VOICE_SPECIAL,		"Data\\Voice\\Special",				".wav",						CF_TYPE_VOICE	},
 	{ CF_TYPE_VOICE_TRAINING,		"Data\\Voice\\Training",			".wav",						CF_TYPE_VOICE	},
 	{ CF_TYPE_MUSIC,					"Data\\Music",							".wav",						CF_TYPE_VOICE	},
-	{ CF_TYPE_MOVIES,					"Data\\Movies",						".mve .msb",				CF_TYPE_DATA	},
+	{ CF_TYPE_MOVIES,					"Data\\Movies",						".mve .msb .ogv",				CF_TYPE_DATA	},	// Claude: .ogv movies (code/Movie)
 	{ CF_TYPE_INTERFACE,				"Data\\Interface",					".pcx .ani .tga",			CF_TYPE_DATA	},
 	{ CF_TYPE_FONT,					"Data\\Fonts",							".vf",						CF_TYPE_DATA	},
 	{ CF_TYPE_EFFECTS,				"Data\\Effects",						".ani .pcx .neb .tga",	CF_TYPE_DATA	},
