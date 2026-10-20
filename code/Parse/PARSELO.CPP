@@ -156,7 +156,8 @@ void drop_trailing_white_space(char *str)
 {
 	int	i;
 
-	i = strlen(str) - 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	i = (int)strlen(str) - 1;
 
 	while ((i >= 0) && is_white_space(str[i]))
 		i--;
@@ -169,7 +170,8 @@ void drop_leading_white_space(char *str)
 {
 	int len, i;
 
-	len = strlen(str);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(str);
 	i = 0;
 
 	while ((i < len) && is_white_space(str[i]))
@@ -188,7 +190,8 @@ char *drop_white_space(char *str)
 	while (str[s] && is_white_space(str[s]))
 		s++;
 
-	e = strlen(str) - 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	e = (int)strlen(str) - 1;
 	while (e > s) {
 		if (!is_white_space(str[e]))
 			break;
@@ -356,9 +359,11 @@ int skip_to_string(char *pstr, char *end)
 	int len, len2 = 0;
 
 	ignore_white_space();
-	len = strlen(pstr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(pstr);
 	if (end)
-		len2 = strlen(end);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len2 = (int)strlen(end);
 
 	while ((*Mp != EOF_CHAR) && strnicmp(pstr, Mp, len)) {
 		if (end && *Mp == '#')
@@ -384,8 +389,10 @@ int skip_to_start_of_strings(char *pstr1, char *pstr2)
 	int len1, len2;
 
 	ignore_white_space();
-	len1 = strlen(pstr1);
-	len2 = strlen(pstr2);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len1 = (int)strlen(pstr1);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len2 = (int)strlen(pstr2);
 
 	while ( (*Mp != EOF_CHAR) && strnicmp(pstr1, Mp, len1) && strnicmp(pstr2, Mp, len2) ) {
 		advance_to_eoln(NULL);
@@ -863,7 +870,8 @@ char *stuff_and_malloc_string( int type, char *terminators, int len)
 	stuff_string(tmp_result, type, terminators, len);
 	drop_white_space(tmp_result);
 
-	l = strlen(tmp_result);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	l = (int)strlen(tmp_result);
 	Assert(l < MAX_TMP_STRING_LENGTH);		// Get John!!
 	if (l < 1)
 		return NULL;
@@ -1673,7 +1681,8 @@ char *split_str_once(char *src, int max_pixel_w)
 	if ( w <= max_pixel_w )
 		return NULL;  // string doesn't require a cut
 
-	len = strlen(src);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(src);
 	for (i=0; i<len; i++) {
 		gr_get_string_size(&w, NULL, src, i);
 		if ( w > max_pixel_w )
@@ -1787,7 +1796,8 @@ int split_str(char *src, int max_pixel_w, int *n_chars, char **p_str, int max_li
 
 		// if we have a newline, split the line here
 		if (*src == '\n') {
-			n_chars[line_num] = src - p_str[line_num];  // track length of line
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			n_chars[line_num] = (int)(src - p_str[line_num]);  // track length of line
 			line_num++;
 			p_str[line_num] = NULL;
 			new_line = 1;
@@ -1830,7 +1840,8 @@ int split_str(char *src, int max_pixel_w, int *n_chars, char **p_str, int max_li
 				src--;  // reuse this character in next line
 			}
 
-			n_chars[line_num] = end - p_str[line_num];  // track length of line
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			n_chars[line_num] = (int)(end - p_str[line_num]);  // track length of line
 			Assert(n_chars[line_num]);
 			line_num++;
 			p_str[line_num] = NULL;
@@ -1843,7 +1854,8 @@ int split_str(char *src, int max_pixel_w, int *n_chars, char **p_str, int max_li
 	}	// end for
 
 	if (p_str[line_num]) {
-		n_chars[line_num] = src - p_str[line_num];  // track length of line
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		n_chars[line_num] = (int)(src - p_str[line_num]);  // track length of line
 		Assert(n_chars[line_num]);
 		line_num++;
 	}

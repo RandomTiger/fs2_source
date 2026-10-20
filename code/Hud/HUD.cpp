@@ -2076,7 +2076,8 @@ int hud_anim_render(hud_anim *ha, float frametime, int draw_alpha, int loop, int
 void hud_num_make_mono(char *num_str)
 {
 	int len, i, sc;
-	len = strlen(num_str);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(num_str);
 
 	sc = Lcl_special_chars;
 	for ( i = 0; i < len; i++ ) {

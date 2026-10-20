@@ -143,7 +143,8 @@ CFtpGet::CFtpGet(char *URL,char *localfile,char *Username,char *Password)
 	//when you found it, you have the host and dir
 	char *filestart = NULL;
 	char *dirstart = NULL;
-	for(int i = strlen(pURL);i>=0;i--)
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	for(int i = (int)strlen(pURL);i>=0;i--)
 	{
 		if(pURL[i]== '/')
 		{
@@ -439,7 +440,8 @@ unsigned int CFtpGet::SendFTPCommand(char *command)
 
 	FlushControlChannel();
 	// Send the FTP command
-	if (SOCKET_ERROR ==(send(m_ControlSock,command,strlen(command), 0)))
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	if (SOCKET_ERROR ==(send(m_ControlSock,command,(int)strlen(command), 0)))
 		{
 			// int iWinsockErr = WSAGetLastError();
 		  // Return 999 to indicate an error has occurred

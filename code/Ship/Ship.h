@@ -979,8 +979,9 @@ extern ship_counts	Ship_counts[MAX_SHIP_TYPE_COUNTS];
 
 // Use the below macros when you want to find the index of an array element in the
 // Wings[] or Ships[] arrays.
-#define WING_INDEX(wingp) (wingp-Wings)
-#define SHIP_INDEX(shipp) (shipp-Ships)
+// Claude: x64, the pointer difference is cast to int, its type on Win32 (D-20261020-194406 batch 2)
+#define WING_INDEX(wingp) ((int)(wingp-Wings))
+#define SHIP_INDEX(shipp) ((int)(shipp-Ships))
 
 
 extern void ship_init();				// called once	at game start

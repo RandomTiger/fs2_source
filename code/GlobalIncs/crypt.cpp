@@ -36,7 +36,8 @@ char *jcrypt (char *plainstring)
 	int i,t,len;
 	static char cryptstring[CRYPT_STRING_LENGTH + 1];
 
-	len=strlen (plainstring);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len=(int)strlen (plainstring);
 	if (len > CRYPT_STRING_LENGTH)
 		len = CRYPT_STRING_LENGTH;
    

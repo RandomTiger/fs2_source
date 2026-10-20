@@ -426,13 +426,15 @@ int multi_msg_matches_expr(net_player *player,char *expr)
 
 	// get the completely lowercase callsign
 	memset(callsign,0,CALLSIGN_LEN+1);
-	len = strlen(player->player->callsign);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(player->player->callsign);
 	for(idx=0;idx<len;idx++){
 		callsign[idx] = (char)tolower(player->player->callsign[idx]);
 	}
 
 	// see if this guy's callsign matches the expr
-	len = strlen(expr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(expr);
 	for(idx=0;idx<len;idx++){
 		// look for non-matching characters
 		if(callsign[idx] != expr[idx]){

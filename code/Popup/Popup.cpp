@@ -1128,7 +1128,8 @@ void popup_maybe_assign_keypress(popup_info *pi, int n, char *str)
 	pi->keypress[n]=-1;
 	pi->shortcut_index[n]=-1;
 
-	len=strlen(str)+1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len=(int)strlen(str)+1;
 
 	pi->button_text[n] = (char*)malloc(len);
 	memset(pi->button_text[n], 0, len);

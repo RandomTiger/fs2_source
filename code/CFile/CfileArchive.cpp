@@ -262,7 +262,8 @@ int cfread(void *buf, int elsize, int nelem, CFILE *cfile)
 		//mprintf(( "CFILE: EOF encountered in file\n" ));
 	}
 
-	int bytes_read = fread( buf, 1, size, cb->fp );
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int bytes_read = (int)fread( buf, 1, size, cb->fp );
 	if ( bytes_read > 0 )	{
 		cb->raw_position += bytes_read;
 	}		

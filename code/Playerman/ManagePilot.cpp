@@ -842,7 +842,8 @@ int write_pilot_file_core(player *p)
 		p = &Players[Player_num];
 	}
 
-	i = strlen(p->callsign);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	i = (int)strlen(p->callsign);
 	if (i == 0)
 		return 0;	//	This means there is no player, probably meaning he was deleted and game exited from same screen.
 

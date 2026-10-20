@@ -544,7 +544,8 @@ int PE_Debug::DumpDebugInfo( DumpBuffer& dumpBuffer, const BYTE* caller, HINSTAN
 	if ( fileBase )	{
 		// Put everything into a try/catch in case the file has wrong fields
 		try	{
-			DWORD relativeAddress = caller - (BYTE*)hInstance ;
+			// Claude: x64, cast to DWORD, its width on Win32 (D-20261020-194406 batch 2)
+			DWORD relativeAddress = (DWORD)(caller - (BYTE*)hInstance) ;
 			// Dump symbolic information and line number if available
 			if( COFFSymbolCount != 0 && COFFSymbolTable != NULL )	{
 				DumpSymbolInfo( dumpBuffer, relativeAddress ) ;
@@ -659,7 +660,8 @@ extern void gr_force_windowed();
 
 void dump_text_to_clipboard(char *text)
 {
-	int len = strlen(text)+1024;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(text)+1024;
 
 	HGLOBAL h_text = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, len );
 	if ( !h_text ) return;
@@ -910,7 +912,8 @@ void *vm_malloc( int size )
 char *vm_strdup( const char *ptr )
 {
 	char *dst;
-	int len = strlen(ptr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(ptr);
 	dst = (char *)vm_malloc( len+1 );
 	strcpy( dst, ptr );
 	return dst;

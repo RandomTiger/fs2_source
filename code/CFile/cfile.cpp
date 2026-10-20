@@ -304,7 +304,8 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 		cfile_inited = 1;
 
 		strcpy(buf, exe_dir);
-		i = strlen(buf);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		i = (int)strlen(buf);
 
 		// are we in a root directory?		
 		if(cfile_in_root_dir(buf)){
@@ -512,8 +513,10 @@ char *cf_add_ext(char *filename, char *ext)
 	int flen, elen;
 	static char path[MAX_PATH_LEN];
 
-	flen = strlen(filename);
-	elen = strlen(ext);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	flen = (int)strlen(filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	elen = (int)strlen(ext);
 	Assert(flen < MAX_PATH_LEN);
 	strcpy(path, filename);
 	if ((flen < 4) || stricmp(path + flen - elen, ext)) {
@@ -1215,7 +1218,8 @@ int cfwrite_string(char *buf, CFILE *file)
 	if ( (!buf) || (buf && !buf[0]) ) {
 		return cfwrite_char(0, file);
 	} 
-	int len = strlen(buf);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(buf);
 	if(!cfwrite(buf, len, 1, file)){
 		return 0;
 	}
@@ -1224,7 +1228,8 @@ int cfwrite_string(char *buf, CFILE *file)
 
 int cfwrite_string_len(char *buf, CFILE *file)
 {
-	int len = strlen(buf);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(buf);
 
 	if(!cfwrite_int(len, file)){
 		return 0;
@@ -1276,7 +1281,8 @@ int cfwrite(void *buf, int elsize, int nelem, CFILE *cfile)
 
 	Assert(cb->fp != NULL);
 	Assert(cb->lib_offset == 0 );
-	result = fwrite(buf, elsize, nelem, cb->fp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	result = (int)fwrite(buf, elsize, nelem, cb->fp);
 
 	return result;	
 }

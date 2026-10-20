@@ -487,7 +487,8 @@ int mission_campaign_load( char *filename, int load_savefile )
 		memset( &Campaign, 0, sizeof(Campaign) );
 
 		// copy filename to campaign structure minus the extension
-		len = strlen(filename) - 4;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(filename) - 4;
 		Assert(len < MAX_FILENAME_LEN);
 		strncpy(Campaign.filename, filename, len);
 		Campaign.filename[len] = 0;
@@ -1545,7 +1546,8 @@ void read_mission_goal_list(int num)
 				free(Campaign.missions[num].notes);
 			}
 
-			Campaign.missions[num].notes = (char *) malloc(strlen(notes) + 1);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Campaign.missions[num].notes = (char *) malloc((int)strlen(notes) + 1);
 			strcpy(Campaign.missions[num].notes, notes);
 		}
 	}

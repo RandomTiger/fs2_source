@@ -973,7 +973,8 @@ void message_training_setup(int m, int length)
 		if (length > 0)
 			Training_msg_timestamp = timestamp(length * 1000);
 		else
-			Training_msg_timestamp = timestamp(TRAINING_TIMING_BASE + strlen(Messages[m].message) * TRAINING_TIMING);  // no voice file playing
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Training_msg_timestamp = timestamp(TRAINING_TIMING_BASE + (int)strlen(Messages[m].message) * TRAINING_TIMING);  // no voice file playing
 
 	} else
 		Training_msg_timestamp = 0;

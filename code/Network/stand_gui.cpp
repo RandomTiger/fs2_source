@@ -569,7 +569,8 @@ void std_connect_remove_ip_string(char *string)
 	// NOTE the use of FINDSTRING and _not_ FINDSTRINGEXACT !!
 	// since we've appended the ping to the end of the string, we can only check the 
 	// "prefix" which is the net_players name
-	loc = SendMessage(ctrl, LB_FINDSTRING, (WPARAM)-1, (LPARAM)(LPCTSTR)string);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	loc = (int)SendMessage(ctrl, LB_FINDSTRING, (WPARAM)-1, (LPARAM)(LPCTSTR)string);
 
 	if(loc!=LB_ERR){
 		SendMessage(ctrl, LB_DELETESTRING, (WPARAM)loc, (LPARAM)0);
@@ -588,7 +589,8 @@ void std_connect_set_ip_string(char *lookup,char *string)
 	// NOTE the use of FINDSTRING and _not_ FINDSTRINGEXACT !!
 	// since we've appended the ping to the end of the string, we can only check the 
 	// "prefix" which is the net_players name
-	loc = SendMessage(ctrl,LB_FINDSTRING,(WPARAM)-1,(LPARAM)(LPCTSTR)lookup);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	loc = (int)SendMessage(ctrl,LB_FINDSTRING,(WPARAM)-1,(LPARAM)(LPCTSTR)lookup);
 
 	if(loc!=LB_ERR){
 		SendMessage(ctrl,LB_DELETESTRING,(WPARAM)loc,(LPARAM)0);
@@ -604,7 +606,8 @@ void std_connect_kick_player()
 	// get the control handle
 	ctrl = GetDlgItem(Page_handles[CONNECT_PAGE],(int)MAKEINTRESOURCE(IDC_CONPING));
 
-	sel = SendMessage(ctrl,LB_GETCURSEL,(WPARAM)0,(LPARAM)0);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	sel = (int)SendMessage(ctrl,LB_GETCURSEL,(WPARAM)0,(LPARAM)0);
 	// attempt to get the player index
 	if(sel != CB_ERR){
 		player_num = std_connect_lindex_to_npindex(sel);
@@ -1161,7 +1164,8 @@ void std_multi_handle_framecap_scroll(HWND ctrl)
 	char pos_text[10];
    
 	// determine where the slider now is
-	pos = SendMessage(ctrl,TBM_GETPOS,(WPARAM)0,(LPARAM)0);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	pos = (int)SendMessage(ctrl,TBM_GETPOS,(WPARAM)0,(LPARAM)0);
 
 	// update the text display 
 	sprintf(pos_text,"%d",pos);
@@ -1428,7 +1432,8 @@ void std_pinfo_remove_player_list_item(net_player *p)
 	int loc;
 	
 	// lookup thie player
-	loc = SendMessage(Player_name_list,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)(LPCTSTR)p->player->callsign);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	loc = (int)SendMessage(Player_name_list,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)(LPCTSTR)p->player->callsign);
 
 	// if we found the entry, then delete it
 	if(loc!=CB_ERR){
@@ -1519,7 +1524,8 @@ int std_pinfo_player_is_active(net_player *p)
 	char player[40];
 
 	// get the index of the currently selected item
-	sel = SendMessage(Player_name_list,CB_GETCURSEL,(WPARAM)0,(LPARAM)0);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	sel = (int)SendMessage(Player_name_list,CB_GETCURSEL,(WPARAM)0,(LPARAM)0);
 
 	// if we didn't find the item, return a 0 length string
 	if(sel == LB_ERR){
@@ -1556,7 +1562,8 @@ BOOL CALLBACK player_info_proc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lPara
 		// a listbox selection change message
 		case CBN_SELCHANGE :
 			// get the newly selected item
-			val = SendMessage(Player_name_list,CB_GETCURSEL,(WPARAM)0,(LPARAM)0);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			val = (int)SendMessage(Player_name_list,CB_GETCURSEL,(WPARAM)0,(LPARAM)0);
 			if(val!=CB_ERR){		
 				// get the callsign
 				if(SendMessage(Player_name_list,CB_GETLBTEXT,(WPARAM)val,(LPARAM)callsign) != CB_ERR){				
@@ -1625,7 +1632,8 @@ void std_gs_remove_god_player(net_player *p)
 	int loc;
 	
 	// lookup the player
-	loc = SendMessage(God_player_list,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)(LPCTSTR)p->player->callsign);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	loc = (int)SendMessage(God_player_list,CB_FINDSTRINGEXACT,(WPARAM)-1,(LPARAM)(LPCTSTR)p->player->callsign);
 
 	// if we found him, them delete the item
 	if(loc!=CB_ERR){
@@ -2005,9 +2013,11 @@ void std_add_chat_text(char *text,int player_index,int add_id)
 
 	// insert the text string into the godstuff chat box and scroll it down to the bottom
 	SendMessage(Godstuff_player_messages,LB_INSERTSTRING,(WPARAM)-1,(LPARAM)format);
-	num_items = SendMessage(Godstuff_player_messages,LB_GETCOUNT,(WPARAM)0,(LPARAM)0);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	num_items = (int)SendMessage(Godstuff_player_messages,LB_GETCOUNT,(WPARAM)0,(LPARAM)0);
 	if(num_items > 19){
-		ret_val = SendMessage(Godstuff_player_messages,LB_SETTOPINDEX,(WPARAM)num_items - GODSTUFF_MAX_ITEMS,(LPARAM)0);		
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		ret_val = (int)SendMessage(Godstuff_player_messages,LB_SETTOPINDEX,(WPARAM)num_items - GODSTUFF_MAX_ITEMS,(LPARAM)0);		
 	}
 }
 

@@ -350,7 +350,8 @@ void dc_get_arg(uint type)
 	if ( Dc_arg_type & ARG_STRING )	{
 		int i, num_digits, len;
 
-		len = strlen(Dc_arg);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(Dc_arg);
 		num_digits = 0;
 
 		for (i=0; i<len; i++)
@@ -673,7 +674,8 @@ void debug_console( void (*_func)() )
 		case KEY_F3:
 			if ( last_oldcommand > -1 )	{
 				strcpy( command_line, oldcommand_line[last_oldcommand] );
-				command_line_pos = strlen(command_line);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				command_line_pos = (int)strlen(command_line);
 				command_line[command_line_pos] = 0;
 			}
 			break;
@@ -685,7 +687,8 @@ void debug_console( void (*_func)() )
 
 			if ( command_scroll > -1 )	{
 				strcpy( command_line, oldcommand_line[command_scroll] );
-				command_line_pos = strlen(command_line);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				command_line_pos = (int)strlen(command_line);
 				command_line[command_line_pos] = 0;
 			}
 			break;
@@ -698,7 +701,8 @@ void debug_console( void (*_func)() )
 				command_scroll = -1;
 			if ( command_scroll > -1 )	{
 				strcpy( command_line, oldcommand_line[command_scroll] );
-				command_line_pos = strlen(command_line);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				command_line_pos = (int)strlen(command_line);
 				command_line[command_line_pos] = 0;
 			}
 			break;

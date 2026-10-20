@@ -280,7 +280,8 @@ int multi_lag_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *except
 				item->data_len = ret_val;
 				item->ip_addr = ip_addr;
 				item->ipx_addr = ipx_addr;
-				item->socket = readfds->fd_array[0];
+				// Claude: x64, cast to uint, a Windows socket handle fits in 32 bits, its width on Win32 (D-20261020-194406 batch 2)
+				item->socket = (uint)readfds->fd_array[0];
 				item->stamp = timestamp(multi_lag_get_random_lag());
 			}		
 		}

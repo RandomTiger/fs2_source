@@ -1855,7 +1855,8 @@ int get_string(char *str)
 {
 	int	len;
 
-	len = strcspn(Mp + 1, "\"");
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strcspn(Mp + 1, "\"");
 	strncpy(str, Mp + 1, len);
 	str[len] = 0;
 
@@ -1873,7 +1874,8 @@ void get_sexp_text_for_variable(char *text, char *token)
 	int sexp_var_index;
 	
 	// get variable name (up to '['
-	end_index = strcspn(token, "[");
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	end_index = (int)strcspn(token, "[");
 	Assert( (end_index != 0) && (end_index < TOKEN_LENGTH-1) );
 	strncpy(text, token, end_index);
 	text[end_index] = '\0';
@@ -1913,7 +1915,8 @@ int get_sexp(char *token)
 
 		} else if (*Mp == '\"')	{
 			// Sexp string
-			len = strcspn(Mp + 1, "\"");
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			len = (int)strcspn(Mp + 1, "\"");
 			
 			Assert(Mp[len + 1] == '\"');    // hit EOF first (unterminated string)
 			Assert(len < TOKEN_LENGTH);  // token is too long.
@@ -2120,7 +2123,8 @@ int build_sexp_string(int cur_node, int level, int mode)
 	int len, offset, node;
 
 	Sexp_build_flag = 0;
-	offset = strlen(Sexp_string);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	offset = (int)strlen(Sexp_string);
 	strcat(Sexp_string, "( ");
 	node = cur_node;
 	while (node != -1) {
@@ -2138,7 +2142,8 @@ int build_sexp_string(int cur_node, int level, int mode)
 	}
 
 	strcat(Sexp_string, ") ");
-	len = strlen(Sexp_string) - offset;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(Sexp_string) - offset;
 	if (len > 40) {
 		Sexp_string[offset] = 0;
 		build_extended_sexp_string(cur_node, level, mode);
@@ -9118,7 +9123,8 @@ int verify_vector(char *text)
 	int i, z, len = 0;
 
 	for (i=0; i<Num_waypoint_lists; i++) {
-		len = strlen(str = Waypoint_lists[i].name);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(str = Waypoint_lists[i].name);
 		if (!strnicmp(str, text, len)){
 			if (!text[len] || text[len] == ':'){
 				break;
@@ -9146,7 +9152,8 @@ int verify_vector(char *text)
 		return 0;  // a valid waypoint
 	}
 
-	len = strlen(text);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(text);
 	if (text[0] != '(' || text[len - 1] != ')'){
 		return -1;
 	}

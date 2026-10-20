@@ -117,7 +117,8 @@ static void pad_game_init()
 	fp = fopen(PAD_SETTINGS_FILE, "rb");
 	if (fp) {
 		static char text[8192];
-		int len = fread(text, 1, sizeof(text) - 1, fp);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		int len = (int)fread(text, 1, sizeof(text) - 1, fp);
 		fclose(fp);
 		text[len > 0 ? len : 0] = 0;
 		mprintf(("Pad: read %d settings from %s\n", pad_core_parse_settings(&s, text), PAD_SETTINGS_FILE));

@@ -2430,7 +2430,8 @@ void multi_file_xfer_notify(int handle)
 	}
 
 	// convert the filename to all lowercase
-	len = strlen(filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(filename);
 	for(idx=0;idx<len;idx++){
 		filename[idx] = (char)tolower(filename[idx]);
 	}		
@@ -2556,7 +2557,8 @@ void multi_process_valid_join_request(join_request *jr, net_addr *who_from, int 
 		}
 
 		// set his reliable connect time
-		Net_players[net_player_num].s_info.reliable_connect_time = time(NULL);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		Net_players[net_player_num].s_info.reliable_connect_time = (int)time(NULL);
 
 		// send the accept packet here
 		send_accept_packet(net_player_num, (Net_players[net_player_num].flags & NETINFO_FLAG_INGAME_JOIN) ? ACCEPT_OBSERVER | ACCEPT_INGAME : ACCEPT_OBSERVER);
@@ -2609,7 +2611,8 @@ void multi_process_valid_join_request(join_request *jr, net_addr *who_from, int 
 		}		
 
 		// set his reliable connect time
-		Net_players[net_player_num].s_info.reliable_connect_time = time(NULL);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		Net_players[net_player_num].s_info.reliable_connect_time = (int)time(NULL);
 
 		// if he's joining as a host (on the standalone)
 		if(Net_players[net_player_num].flags & NETINFO_FLAG_GAME_HOST){
@@ -3387,12 +3390,14 @@ int bitbuffer_write_flush( bitbuffer *bitbuf )
 	if ( bitbuf->mask != 0x80 )	{
    	*bitbuf->data++ = (ubyte)bitbuf->rack;
 	}
-	return bitbuf->data-bitbuf->org_data;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	return (int)(bitbuf->data-bitbuf->org_data);
 }
 
 int bitbuffer_read_flush( bitbuffer *bitbuf )
 {
-	return bitbuf->data-bitbuf->org_data;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	return (int)(bitbuf->data-bitbuf->org_data);
 }
 
 void bitbuffer_put( bitbuffer *bitbuf, uint data, int bit_count ) 

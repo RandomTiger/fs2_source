@@ -696,7 +696,8 @@ int beam_fire(beam_fire_info *fire_info)
 	}	
 
 	// create the associated object
-	objnum = obj_create(OBJ_BEAM, -1, new_item - Beams, &vmd_identity_matrix, &vmd_zero_vector, 1.0f, OF_COLLIDES);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	objnum = obj_create(OBJ_BEAM, -1, (int)(new_item - Beams), &vmd_identity_matrix, &vmd_zero_vector, 1.0f, OF_COLLIDES);
 	if(objnum < 0){
 		Int3();
 		beam_delete(new_item);
@@ -808,7 +809,8 @@ int beam_fire_targeting(beam_fire_info *fire_info)
 	// type c is a very special weapon type - binfo has no meaning
 
 	// create the associated object
-	objnum = obj_create(OBJ_BEAM, -1, new_item - Beams, &vmd_identity_matrix, &vmd_zero_vector, 1.0f, OF_COLLIDES);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	objnum = obj_create(OBJ_BEAM, -1, (int)(new_item - Beams), &vmd_identity_matrix, &vmd_zero_vector, 1.0f, OF_COLLIDES);
 	if(objnum < 0){
 		Int3();
 		beam_delete(new_item);

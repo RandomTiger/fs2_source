@@ -788,7 +788,8 @@ void mc_check_shield()
 				// also finds the uv's where the ray hit.
 				if ( fvi_point_face(&hitpoint, 3, points, &tri->norm, NULL,NULL,NULL ) )	{
 					Mc->hit_dist = dist;
-					Mc->shield_hit_tri = tri - Mc_pm->shield.tris;
+					// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+					Mc->shield_hit_tri = (int)(tri - Mc_pm->shield.tris);
 					Mc->hit_point = hitpoint;
 					Mc->hit_normal = tri->norm;
 					Mc->hit_submodel = -1;
@@ -806,7 +807,8 @@ void mc_check_shield()
 					// same behavior whether face or edge
 					// normal, edge_hit, hit_point all updated thru sphereline_face
 					sphere_check_closest_shield_dist = Mc->hit_dist;
-					Mc->shield_hit_tri = tri - Mc_pm->shield.tris;
+					// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+					Mc->shield_hit_tri = (int)(tri - Mc_pm->shield.tris);
 					Mc->hit_submodel = -1;
 					Mc->num_hits++;
 				}

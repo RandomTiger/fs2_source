@@ -382,7 +382,8 @@ struct CFILE;
 //
 
 // netplayer management
-#define NET_PLAYER_INDEX(np)	(np-Net_players)
+// Claude: x64, the pointer difference is cast to int, its type on Win32 (D-20261020-194406 batch 2)
+#define NET_PLAYER_INDEX(np)	((int)(np-Net_players))
 #define NET_PLAYER_NUM(np)		(NET_PLAYER_INDEX(np))
 #define MY_NET_PLAYER_NUM		(NET_PLAYER_INDEX(Net_player))
 

@@ -275,7 +275,8 @@ static void fs1_out(char *format, ...)
 	line[sizeof(line) - 3] = 0;
 	strcat(line, "\r\n");
 
-	len = strlen(line);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(line);
 	if (Fs1_out_len + len < Fs1_out_max) {
 		memcpy(Fs1_out + Fs1_out_len, line, len);
 		Fs1_out_len += len;
@@ -285,7 +286,8 @@ static void fs1_out(char *format, ...)
 // the value after "key" if the line (leading white space skipped) starts with it, else NULL
 static char *fs1_key(char *line, char *key)
 {
-	int len = strlen(key);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(key);
 
 	while ((*line == ' ') || (*line == '\t')) {
 		line++;
@@ -418,7 +420,8 @@ static int fs1_drop_flag(char *line, char *flag)
 	int len;
 
 	sprintf(quoted, "\"%s\"", flag);
-	len = strlen(quoted);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(quoted);
 	for (p = line; *p; p++) {
 		if (!strnicmp(p, quoted, len)) {
 			memmove(p, p + len, strlen(p + len) + 1);
@@ -456,7 +459,8 @@ static void fs1_drop_unknown_weapons(char *line)
 	int i, n, known;
 
 	for (open = strchr(line, '"'); open && ((close = strchr(open + 1, '"')) != NULL); open = strchr(open, '"')) {
-		n = close - open - 1;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		n = (int)(close - open) - 1;
 		if (n > NAME_LENGTH - 1) {
 			n = NAME_LENGTH - 1;
 		}
@@ -782,7 +786,8 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	if (!Cfile_fs1_data || !filename) {
 		return len;
 	}
-	i = strlen(filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	i = (int)strlen(filename);
 	if ((i >= 4) && !stricmp(filename + i - 4, ".tbl")) {
 		fs1_blank_block_comments(text, len);
 	}
@@ -791,7 +796,8 @@ int fs1_table_convert(char *filename, char *text, int len, int max_len)
 	}
 	for (i = 0; i < sizeof(Fs1_converters) / sizeof(Fs1_converters[0]); i++) {
 		char *name = Fs1_converters[i].filename;
-		int flen = strlen(filename), nlen = strlen(name);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		int flen = (int)strlen(filename), nlen = (int)strlen(name);
 
 		if (name[0] == '*') {
 			// "*.ext": any file ending in .ext

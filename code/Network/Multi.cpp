@@ -1322,7 +1322,8 @@ void multi_do_frame()
 		
 		// ping everyone
 		multi_ping_send_all();
-		Next_ping_time = time(NULL);		
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		Next_ping_time = (int)time(NULL);		
 	}	
 	
 	// if I am the master, and we are not yet actually playing the mission, send off netgame
@@ -1333,7 +1334,8 @@ void multi_do_frame()
 			if ( (Netgame_send_time < 0) || ((time(NULL) - Netgame_send_time) > NETGAME_SEND_TIME) ) {
 				send_netgame_update_packet();				
 				
-				Netgame_send_time = time(NULL);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				Netgame_send_time = (int)time(NULL);
 			}		
 		} else {
 			if ( (State_send_time < 0) || ((time(NULL) - State_send_time) > STATE_SEND_TIME) ){
@@ -1342,7 +1344,8 @@ void multi_do_frame()
 					send_netplayer_update_packet();
 				}				
 				
-				State_send_time = time(NULL);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				State_send_time = (int)time(NULL);
 			}
 		}
 	}
@@ -1352,7 +1355,8 @@ void multi_do_frame()
 			if ( (Gameinfo_send_time < 0) || ((time(NULL) - Gameinfo_send_time) > GAMEINFO_SEND_TIME)){
 				send_game_info_packet();
 				
-				Gameinfo_send_time = time(NULL);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				Gameinfo_send_time = (int)time(NULL);
 			}
 			
 			// for any potential respawns
@@ -1408,7 +1412,8 @@ void multi_do_frame()
 				}
 
 				// reset timestamp
-				Next_bytes_time = time(NULL);				
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				Next_bytes_time = (int)time(NULL);				
 			}
 		} else {			
 			// sending new objects from here is dependent on having objects only created after
@@ -1502,7 +1507,8 @@ void multi_pause_do_frame()
 		if ( (Gameinfo_send_time < 0) || ((time(NULL) - Gameinfo_send_time) > GAMEINFO_SEND_TIME) ){
 			send_game_info_packet();
 			
-			Gameinfo_send_time = time(NULL);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Gameinfo_send_time = (int)time(NULL);
 		}				
 	}
 
@@ -1510,7 +1516,8 @@ void multi_pause_do_frame()
 	if((Next_ping_time < 0) || ((time(NULL) - Next_ping_time) > PING_SEND_TIME) ){
 		multi_ping_send_all();
 		
-		Next_ping_time = time(NULL);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		Next_ping_time = (int)time(NULL);
 	}
 
 	// periodically send a client update packet to all clients

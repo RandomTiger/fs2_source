@@ -2382,7 +2382,8 @@ int parse_wing_create_ships( wing *wingp, int num_to_create, int force, int spec
 
 	num_create_save = num_to_create;
 
-	wingnum = wingp - Wings;					// get the wing number
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	wingnum = (int)(wingp - Wings);					// get the wing number
 
 	// if there are no ships to create, then all ships must be player start ships -- do nothing in this case.
 	if ( num_to_create == 0 ){

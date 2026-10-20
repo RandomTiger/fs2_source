@@ -1648,9 +1648,11 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 					} else {
 						cfread_string_len( props, MAX_PROP_LEN, fp );
 						// look for $engine_subsystem=xxx
-						int length = strlen(props);
+						// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+						int length = (int)strlen(props);
 						if (length > 0) {
-							int base_length = strlen("$engine_subsystem=");
+							// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+							int base_length = (int)strlen("$engine_subsystem=");
 							Assert( strstr( (const char *)&props, "$engine_subsystem=") != NULL );
 							Assert( length > base_length );
 							char *engine_subsys_name = props + base_length;
@@ -2121,7 +2123,8 @@ int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 		}
 
 		sm1->num_details = 0;
-		l1 = strlen(sm1->name);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		l1 = (int)strlen(sm1->name);
 
 		for (j=0; j<pm->num_debris_objects;j++ )	{
 			if ( i == pm->debris_objects[j] )	{

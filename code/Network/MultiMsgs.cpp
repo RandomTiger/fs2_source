@@ -2179,7 +2179,8 @@ void send_netgame_descript_packet(net_addr *addr, int code)
 
 	if(code == 1){
 		// add as much of the description as we dare
-		len = strlen(The_mission.mission_desc);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(The_mission.mission_desc);
 		if(len > MAX_PACKET_SIZE - 10){
 			len = MAX_PACKET_SIZE - 10;
 			ADD_DATA(len);

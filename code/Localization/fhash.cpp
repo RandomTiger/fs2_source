@@ -191,7 +191,8 @@ int fhash_get_hash_index(char *str)
 	int ret;
 
 	// add up the string
-	str_len = strlen(str);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	str_len = (int)strlen(str);
 	for(idx=0; idx<str_len; idx++){
 		accum += str[idx];
 	}

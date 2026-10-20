@@ -311,7 +311,8 @@ char *drop_extra_chars(char *str)
 	while (str[s] && is_extra_space(str[s]))
 		s++;
 
-	e = strlen(str) - 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	e = (int)strlen(str) - 1;
 	while (e > s) {
 		if (!is_extra_space(str[e])){
 			break;
@@ -358,7 +359,8 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 		parm->args = NULL;
 	}
 
-	int size = strlen(buffer) + 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int size = (int)strlen(buffer) + 1;
 	if (size > 0) {
 		parm->args = new char[size];
 		memset(parm->args, 0, size);
@@ -371,7 +373,8 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 // parameter ("-cat" in "-catfish") or inside a value or path ("-replay" in "c:\my-replay.fs2rec").
 static char *parm_find(char *cmdline, char *name)
 {
-	int len = strlen(name);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(name);
 	int in_quote = 0;
 	char *p;
 

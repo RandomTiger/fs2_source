@@ -791,7 +791,8 @@ void multi_xfer_fail_entry(xfer_entry *xe)
 
 	// if we should be auto-destroying this entry, do so
 	if(xe->flags & MULTI_XFER_FLAG_AUTODESTROY){
-		multi_xfer_release_handle(xe - Multi_xfer_entry);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		multi_xfer_release_handle((int)(xe - Multi_xfer_entry));
 	}
 
 	// blast the memory clean
@@ -953,7 +954,8 @@ void multi_xfer_process_ack(xfer_entry *xe)
 
 			// if we should be auto-destroying this entry, do so
 			if(xe->flags & MULTI_XFER_FLAG_AUTODESTROY){
-				multi_xfer_release_handle(xe - Multi_xfer_entry);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				multi_xfer_release_handle((int)(xe - Multi_xfer_entry));
 			}
 		} 
 		// otherwise if we're waiting for an ack, we should send the next chunk of data or a "final" packet if we're done
@@ -996,7 +998,8 @@ void multi_xfer_process_final(xfer_entry *xe)
 #endif
 
 		// abort the xfer
-		multi_xfer_abort(xe - Multi_xfer_entry);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		multi_xfer_abort((int)(xe - Multi_xfer_entry));
 		return;
 	}
 	// checksums check out, so rename the file and be done with it
@@ -1027,7 +1030,8 @@ void multi_xfer_process_final(xfer_entry *xe)
 
 		// if we should be auto-destroying this entry, do so
 		if(xe->flags & MULTI_XFER_FLAG_AUTODESTROY){
-			multi_xfer_release_handle(xe - Multi_xfer_entry);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			multi_xfer_release_handle((int)(xe - Multi_xfer_entry));
 		}
 	}
 }
@@ -1178,7 +1182,8 @@ void multi_xfer_send_next(xfer_entry *xe)
 	BUILD_HEADER(XFER_PACKET);	
 
 	// length of the added string
-	flen = strlen(xe->filename) + 4;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	flen = (int)strlen(xe->filename) + 4;
 
 	// determine how much data we are going to send with this packet and add it in
 	if((xe->file_size - xe->file_ptr) >= (MULTI_XFER_MAX_DATA_SIZE - flen)){

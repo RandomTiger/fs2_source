@@ -667,7 +667,8 @@ BOOL SWFF_WriteRegString(
 		return FALSE;
 
 	// save the value into the key
-	nLen = strlen(pszValue);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	nLen = (int)strlen(pszValue);
 	lRet = RegSetValueEx(hKey, NULL, 0, REG_SZ, (PBYTE)pszValue, nLen + 1);
 	if(lRet != ERROR_SUCCESS)
 	{

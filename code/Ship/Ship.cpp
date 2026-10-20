@@ -6918,7 +6918,8 @@ object *ship_find_repair_ship( object *requester_obj )
 				continue;
 
 			dist = vm_vec_dist_quick(&objp->pos, &requester_obj->pos);
-			support_ships[num_support_ships] = objp-Objects;
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			support_ships[num_support_ships] = (int)(objp-Objects);
 
 			if (!(Ai_info[shipp->ai_index].ai_flags & AIF_REPAIRING)) {
 				num_available_support_ships++;
@@ -8366,13 +8367,15 @@ void awacs_maybe_ask_for_help(ship *sp, int multi_team_filter)
 	int message = -1;
 	objp = &Objects[sp->objnum];
 
-	if ( objp->hull_strength < ( (AWACS_HELP_HULL_LOW + 0.01f *(static_rand(objp-Objects) & 5)) * Ship_info[sp->ship_info_index].initial_hull_strength) ) {
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	if ( objp->hull_strength < ( (AWACS_HELP_HULL_LOW + 0.01f *(static_rand((int)(objp-Objects)) & 5)) * Ship_info[sp->ship_info_index].initial_hull_strength) ) {
 		// awacs ship below 25 + (0-4) %
 		if (!(sp->awacs_warning_flag & AWACS_WARN_25)) {
 			message = MESSAGE_AWACS_25;
 			sp->awacs_warning_flag |=  AWACS_WARN_25;
 		}
-	} else if ( objp->hull_strength < ( (AWACS_HELP_HULL_HI + 0.01f*(static_rand(objp-Objects) & 5)) * Ship_info[sp->ship_info_index].initial_hull_strength) ) {
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	} else if ( objp->hull_strength < ( (AWACS_HELP_HULL_HI + 0.01f*(static_rand((int)(objp-Objects)) & 5)) * Ship_info[sp->ship_info_index].initial_hull_strength) ) {
 		// awacs ship below 75 + (0-4) %
 		if (!(sp->awacs_warning_flag & AWACS_WARN_75)) {
 			message = MESSAGE_AWACS_75;

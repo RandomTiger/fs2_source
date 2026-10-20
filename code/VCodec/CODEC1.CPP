@@ -1295,7 +1295,8 @@ static int Encode1(t_Sample* bufIn, t_Sample* bufOut, int size, int sizeOut)
         }
     }
 
-    return out - bufOut; 
+    // Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+    return (int)(out - bufOut); 
 }
 
 /*

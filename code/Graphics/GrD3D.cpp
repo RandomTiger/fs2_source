@@ -3398,5 +3398,6 @@ int tga_compress(char *out, char *in, int bytecount )
 		++flagbyte;
 		flagbyte += tga_copy_data(flagbyte, copyloc, pixcount, pixsize, outsize);
 	}
-	return(flagbyte-out);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	return((int)(flagbyte-out));
 }

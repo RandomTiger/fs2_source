@@ -807,7 +807,8 @@ void HUD_fixed_printf(float duration, char * format, ...)
 	vsprintf(tmp, format, args);
 	va_end(args);
 
-	msg_length = strlen(tmp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	msg_length = (int)strlen(tmp);
 	Assert(msg_length < HUD_MSG_LENGTH_MAX);	//	If greater than this, probably crashed anyway.
 
 	if ( !msg_length ) {
@@ -909,7 +910,8 @@ void HUD_printf(char *format, ...)
 	vsprintf(tmp, format, args);
 	va_end(args);
 
-	len = strlen(tmp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(tmp);
 	Assert(len < HUD_MSG_LENGTH_MAX);	//	If greater than this, probably crashed anyway.
 	hud_sourced_print(HUD_SOURCE_COMPUTER, tmp);
 }
@@ -921,14 +923,16 @@ void HUD_ship_sent_printf(int sh, char *format, ...)
 	int len;
 
 	sprintf(tmp, NOX("%s: "), Ships[sh].ship_name);
-	len = strlen(tmp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(tmp);
 	Assert(len < HUD_MSG_LENGTH_MAX);
 
 	va_start(args, format);
 	vsprintf(tmp + len, format, args);
 	va_end(args);
 
-	len = strlen(tmp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(tmp);
 	Assert(len < HUD_MSG_LENGTH_MAX);	//	If greater than this, probably crashed anyway.
 	hud_sourced_print(HUD_get_team_source(Ships[sh].team), tmp);
 }
@@ -975,7 +979,8 @@ void hud_sourced_print(int source, char *msg)
 
 	ptr = strstr(msg, NOX(": ")) + 2;
 	if (ptr) {
-		gr_get_string_size(&sw, NULL, msg, ptr - msg);			// get width of the speaker field
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		gr_get_string_size(&sw, NULL, msg, (int)(ptr - msg));			// get width of the speaker field
 		//if (sw < MSG_WINDOW_WIDTH - 20)
 		offset = sw;
 	}
@@ -1053,7 +1058,8 @@ void hud_add_line_to_scrollback(char *text, int source, int t, int x, int y, int
 	new_line->underline_width = underline_width;
 	new_line->time = t;
 	new_line->source = source;
-	new_line->text = (char *) malloc( strlen(text) + 1 );
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	new_line->text = (char *) malloc( (int)strlen(text) + 1 );
 	strcpy(new_line->text, text);
 	list_append(&Msg_scrollback_used_list, new_line);
 }
@@ -1064,7 +1070,8 @@ void hud_add_msg_to_scrollback(char *text, int source, int t)
 	int msg_len, w, max_width, x, offset = 0;
 
 	max_width = Hud_mission_log_list2_coords[gr_screen.res][2];
-	msg_len = strlen(text);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	msg_len = (int)strlen(text);
 	if (msg_len == 0)
 		return;
 
@@ -1073,7 +1080,8 @@ void hud_add_msg_to_scrollback(char *text, int source, int t)
 	strcpy(buf, text);
 	ptr = strstr(buf, NOX(": "));
 	if (ptr) {
-		gr_get_string_size(&w, NULL, buf, ptr - buf);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		gr_get_string_size(&w, NULL, buf, (int)(ptr - buf));
 	}
 
 //	if (ptr) {
