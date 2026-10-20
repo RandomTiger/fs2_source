@@ -714,6 +714,7 @@
 #include "MissionShipChoice.h"
 #include "HudArtillery.h"
 #include "Autotest.h"	// Claude
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #ifdef FS2_DEMO
 	#define MAX_SHIP_SUBOBJECTS		360
@@ -3523,10 +3524,7 @@ void ship_init_thrusters()
 		return;
 
 	// AL 29-3-98: Don't want to include Shivan thrusters in the demo build
-	int num_thrust_anims = NUM_THRUST_ANIMS;
-	#ifdef DEMO // N/A FS2_DEMO
-		num_thrust_anims = NUM_THRUST_ANIMS - 2;
-	#endif
+	int num_thrust_anims = Game_profile->thruster_species * 2;	// Claude: was NUM_THRUST_ANIMS, and NUM_THRUST_ANIMS - 2 under #ifdef DEMO
 
 	for ( i = 0; i < num_thrust_anims; i++ ) {
 		ta = &Thrust_anims[i];
@@ -3540,10 +3538,7 @@ void ship_init_thrusters()
 	}
 
 	// AL 29-3-98: Don't want to include Shivan thrusters in the demo build
-	int num_thrust_glow_anims = NUM_THRUST_GLOW_ANIMS;
-	#ifdef DEMO // N/A FS2_DEMO
-		num_thrust_glow_anims = NUM_THRUST_GLOW_ANIMS - 2;
-	#endif
+	int num_thrust_glow_anims = Game_profile->thruster_species * 2;	// Claude: was NUM_THRUST_GLOW_ANIMS, and NUM_THRUST_GLOW_ANIMS - 2 under #ifdef DEMO
 
 	for ( i = 0; i < num_thrust_glow_anims; i++ ) {
 		ta = &Thrust_glow_anims[i];
