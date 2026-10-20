@@ -2082,7 +2082,7 @@ static void weapon_select_fs1_layout()
 	Wl_weapon_ani_coords[GR_640][0] = 383;		Wl_weapon_ani_coords[GR_640][1] = 116;
 	Buttons[GR_640][WL_BUTTON_SCROLL_SECONDARY_UP].filename = NOX("SSB_08");
 	Buttons[GR_640][WL_BUTTON_SCROLL_SECONDARY_DOWN].filename = NOX("SSB_09");
-	Buttons[GR_640][WL_BUTTON_RESET].x = 559;	Buttons[GR_640][WL_BUTTON_RESET].y = 316;
+	Buttons[GR_640][WL_BUTTON_RESET].x = 556;	Buttons[GR_640][WL_BUTTON_RESET].y = 321;
 }
 
 void weapon_select_init()
