@@ -1872,7 +1872,7 @@ void main_hall_blit_version()
 	gr_set_color_fast(&Color_white);
 	if ( Cfile_fs1_data ) {	// Claude: FS1's label, position and colour, as retail FS1 (Tom, 2026-10-19)
 		gr_set_color_fast(&Fs1_main_hall_text);
-		gr_string(gr_screen.max_w - 43, gr_screen.max_h - 13, NOX("v1.06"));
+		gr_string(gr_screen.max_w - 43, gr_screen.max_h - 13, version_string);	// the data set profile's, v1.06 on retail
 		return;
 	}
 	gr_string(gr_screen.max_w - 55, gr_screen.max_h - 12, version_string);
