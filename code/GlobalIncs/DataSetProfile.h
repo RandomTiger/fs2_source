@@ -35,6 +35,7 @@ typedef struct data_set_profile {
 	int	attackers;							// 0: no attacker.pcx, so the target brackets show no '+' per extra attacker (HUDbrackets.cpp)
 	int	unmarked_entries;					// 0: ships.tbl and weapons.tbl entries not marked '@' are skipped, as FS1's demo build (Ship.cpp, Weapons.cpp)
 	int	talking_heads;						// 0: messages play no head anim, as FS1's demo build: the demo has none (MissionMessage.cpp)
+	int	unknown_weapon_warning;				// 0: a ships.tbl weapon missing from weapons.tbl is logged, not a Warning; FS1's demo data names three (PARSELO.CPP, D-20261020-213146)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;

@@ -163,9 +163,9 @@ The demo, extracted by `dataset_fs1_extract` and run by hand with the Debug exe,
 ### Now (2026-10-20)
 
 All four missions (`btmdemo`, `demo01`, `demo02a`, `demo02b`) start and fly under `-autotest`, 60 s each: Release
-PASS with no Assert, Int3 or Warning; Debug no Assert or Int3, and only the three `PARSELO` warnings above
-(17 to 20 per mission, the same lines repeated). Those warnings are Volition's data and are listed, not
-suppressed (D-20261020-161656).
+PASS with no Assert, Int3 or Warning; Debug likewise. The three `PARSELO` warnings above (17 to 20 per mission,
+the same lines repeated) are Volition's data: on FS1 demo data they are now logged, not shown
+(`unknown_weapon_warning` below, D-20261020-213146); on every other data set they stay Warnings.
 
 A fresh ini on FS1 data, retail or demo, starts the game at 640x480 (`FS1Resolution`, merged from FS1Compat);
 an existing ini keeps its setting. At 1024x768 the Debug exe stopped on the missing `2_*` HUD art.
@@ -191,6 +191,7 @@ demo, FS1 retail, FS1 demo.
 | none (new) | the demo's `ParticleSmoke02.ani` is missing; ignored likewise | yes: Debug Asserts on every such particle | done: wall, `smoke2` 1, 1, 1, 0 (D-20261020-163608), at the draw: the particles live and draw nothing; the emitters (`Ship.cpp:3242`, `:3348`, `ShipFX.cpp:2239`) are untouched. Drawing FS1 retail's other smoke instead was considered and not done; it would be a one-value change if Tom prefers it |
 | none (new) | the demo's `attacker.pcx` is missing; ignored likewise | yes: Debug stops (Int3, `HUDbrackets.cpp`) when the target brackets load it | done: wall, `attackers` 1, 1, 1, 0: the brackets show no '+' per extra attacker, as the original demo showed none |
 | `Ship.cpp:1042`, `Weapons.cpp:769` | reads only the ships and weapons whose names start with `@` | the demo's entries all carry `@` (13 ships, 14 of 15 weapons); the `@` itself is stripped outside the block, so the block only drops the un-marked ones (one weapon, `Type One`) | done: data handling, `unmarked_entries` 1, 1, 1, 0. No demo ship or mission names `Type One`: the Debug warnings are unchanged |
+| none (new) | the demo's `ships.tbl` names `D-Missile`, `Interceptor` and `Hornet#Weak`, which its `weapons.tbl` lacks; the demo build was `NDEBUG`, where `Warning` does nothing | yes: Debug shows 17 to 20 Warning dialogs per start (`PARSELO.CPP`, `stuff_int_list`) | done: data handling, `unknown_weapon_warning` 1, 1, 1, 0 (D-20261020-213146): logged, not shown, on FS1 demo data; Warning on every other row. The weapon is dropped either way, as before. The log line is an `mprintf`, which this engine compiles in Debug only, so Release logs nothing, as it showed nothing before |
 | `MissionMessage.cpp:1505` | no talking-head anims for messages | yes: the demo has no head anims | done: wall, `talking_heads` 1, 1, 1, 0: the message's voice and text play, no head anim |
 | `UI/WINDOW.cpp:929` | tooltips not parsed | no: the demo's `tooltips.tbl` starts with `#End` anyway | held |
 | `FreeSpace.cpp:6792`, `:8192` | no intro movie, no CD check | `:6792` no: its movie and CD prompt are inside `RELEASE_REAL`, which this build does not define; `:8192` (finding the CD drive) not checked | held |
