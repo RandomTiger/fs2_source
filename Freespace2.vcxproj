@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -155,16 +155,17 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation><!-- Claude: /MP, every core compiles (2026-10-20) -->
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level4</WarningLevel>
-      <MinimalRebuild>true</MinimalRebuild>
+      <MinimalRebuild>false</MinimalRebuild><!-- Claude: /Gm clashes with /MP (D9030) (2026-10-20) -->
       <AdditionalIncludeDirectories>code\anim;code\asteroid;code\bmpman;code\cfile;code\cmdline;code\cmeasure;code\controlconfig;code\cutscene;code\debris;code\debugconsole;code\directx;code\fireball;code\gamehelp;code\freespace2;code\fs2launch;code\fred;code\gamesequence;code\gamesnd;code\glide;code\globalincs;code\graphics;code\hud;code\io;code\jumpnode;code\lighting;code\math;code\menuui;code\mission;code\missionui;code\model;code\movie;code\network;code\object;code\observer;code\osapi;code\palman;code\parse;code\particle;code\pcxutils;code\physics;code\playerman;code\popup;code\radar;code\render;code\ship;code\sndman;code\sound;code\starfield;code\stats;code\testcode;code\ui;code\vcodec;code\weapon;code\localization;code\nebula;code\demo;code\replay;code\inetfile;code\ExceptionHandler;code\3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;NO_CD_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;_WINDOWS;_DEBUG;NO_CD_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
       <AssemblerListingLocation>.\x64\Debug\</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation>
@@ -248,6 +249,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation><!-- Claude: /MP, every core compiles (2026-10-20) -->
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <FunctionLevelLinking>false</FunctionLevelLinking>
@@ -259,7 +261,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <AdditionalIncludeDirectories>code\anim;code\asteroid;code\bmpman;code\cfile;code\cmdline;code\cmeasure;code\controlconfig;code\cutscene;code\debris;code\debugconsole;code\directx;code\fireball;code\gamehelp;code\freespace2;code\fs2launch;code\fred;code\gamesequence;code\gamesnd;code\glide;code\globalincs;code\graphics;code\hud;code\io;code\jumpnode;code\lighting;code\math;code\menuui;code\mission;code\missionui;code\model;code\movie;code\network;code\object;code\observer;code\osapi;code\palman;code\parse;code\particle;code\pcxutils;code\physics;code\playerman;code\popup;code\radar;code\render;code\ship;code\sndman;code\sound;code\starfield;code\stats;code\testcode;code\ui;code\vcodec;code\weapon;code\localization;code\nebula;code\demo;code\replay;code\inetfile;code\ExceptionHandler;code\3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
       <AssemblerListingLocation>.\x64\Release\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\x64\Release\Freespace2.pch</PrecompiledHeaderOutputFile>
