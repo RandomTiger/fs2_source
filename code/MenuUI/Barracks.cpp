@@ -102,6 +102,7 @@
 #include "OsRegistry.h"
 #include "AlphaColors.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 void delete_pilot_file( char *pilot_name, int single );		// manage_pilot.cpp
 
@@ -1084,6 +1085,10 @@ void barracks_button_pressed(int n)
 			break;
 
 		case B_STATS_MEDAL_BUTTON:
+			if ( !Game_profile->full_version_screens ) {	// Claude: no Medals-m in FS1's demo data (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
 #ifdef FS2_DEMO
 			game_feature_not_in_demo_popup();
 #else

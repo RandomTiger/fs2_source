@@ -230,6 +230,7 @@
 #include "neb.h"
 #include "beam.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 
 // will display a notification warning message
@@ -908,7 +909,11 @@ void options_change_tab(int n)
 {
 	int idx;
 
-#if defined(DEMO) || defined(OEM_BUILD) // not for FS2_DEMO
+	if ( (n == MULTIPLAYER_TAB) && !Game_profile->full_version_screens ) {	// Claude: was the DEMO half of the #if below (D-20261020-214042)
+		game_feature_not_in_demo_popup();
+		return;
+	}
+#if defined(OEM_BUILD) // not for FS2_DEMO	// Claude: was defined(DEMO) || defined(OEM_BUILD)
 	if (n == MULTIPLAYER_TAB) {
 		game_feature_not_in_demo_popup();
 		return;

@@ -4721,7 +4721,11 @@ int game_poll()
 		case KEY_F3:	
 			#ifndef FS2_DEMO
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
-					gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					if ( Game_profile->full_version_screens ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
+						gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					} else {
+						game_feature_not_in_demo_popup();
+					}
 					k = 0;
 				}
 			#endif

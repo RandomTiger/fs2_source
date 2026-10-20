@@ -330,6 +330,7 @@
 #include "MissionMessage.h"
 #include "mainhallmenu.h"
 #include "aigoals.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 // --------------------------------------------------------------
 // Global to file 
@@ -2580,6 +2581,10 @@ int button_function(int n)
 		// show the mission goals screen
 		case SHOW_GOALS:
 			control_used(SHOW_GOALS);
+			if ( !Game_profile->full_version_screens ) {	// Claude: no Objectives-m in FS1's demo data (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
 			gameseq_post_event( GS_EVENT_SHOW_GOALS );
 			break;
 
