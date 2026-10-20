@@ -414,6 +414,9 @@ extern int (*Get_file_list_filter)(char *filename);
 #define CFILE_ROOT_DIRECTORY_LEN			256
 extern char Cfile_root_dir[CFILE_ROOT_DIRECTORY_LEN];
 
+// Claude: 1 when the game data is FreeSpace 1 (docs/FS1_COMPAT.md).  Set when the file index is built.
+extern int Cfile_fs1_data;
+
 //================= LOW-LEVEL FUNCTIONS ==================
 // Call this once at the beginning of the program
 int cfile_init(char *exe_dir,char *cdrom_dir=NULL);

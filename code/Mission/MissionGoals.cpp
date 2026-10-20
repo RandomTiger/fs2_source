@@ -343,6 +343,7 @@
 #include "Sound.h"
 #include "GameSnd.h"
 #include "AlphaColors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 #include "multi_team.h"
 
 // timestamp stuff for evaluating mission goals
@@ -894,6 +895,12 @@ int ML_objectives_init(int x, int y, int w, int h)
 	Primary_goal_list.count = 0;
 	Secondary_goal_list.count = 0;
 	Bonus_goal_list.count = 0;
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: the objectives key's icons 1 and labels 4 pixels lower, as retail FS1 draws them (retail screenshot)
+		for (i=0; i<3; i++) {
+			Objective_key_icon_coords[GR_640][i][1] = 340;
+			Objective_key_text_coords[GR_640][i][1] = 348;
+		}
+	}
 
 	Goal_screen_text_x = x - Goal_screen_icon_xcoord[gr_screen.res] + Goal_screen_text_coords[gr_screen.res][GOAL_SCREEN_X_COORD];
 	Goal_screen_text_y = y;
