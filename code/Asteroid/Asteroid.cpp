@@ -2014,7 +2014,7 @@ void asteroid_parse_tbl()
 	required_string("#End");
 
 	// check all read in
-	Assert(Num_asteroid_types == MAX_DEBRIS_TYPES);
+	Assert((Num_asteroid_types == MAX_DEBRIS_TYPES) || Cfile_fs1_data);	// Claude: FS1 has 3 asteroid types and no debris types (docs/FS1_COMPAT.md)
 
 	Asteroid_impact_explosion_ani = -1;
 	required_string("$Impact Explosion:");

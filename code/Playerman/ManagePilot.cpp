@@ -406,6 +406,9 @@ void pilot_read_techroom_data(CFILE *file)
 		// read all weapons in
 		for (idx=0; idx<weapon_count; idx++) {
 			in = cfread_ubyte(file);
+			if ( Cfile_fs1_data && (idx >= Num_weapon_types) ) {	// Claude: a pilot saved with FS2's longer weapon table: past FS1's there are no weapons, and a flag there put an empty entry in the tech room (crash)
+				continue;
+			}
 			if (in) {
 				Weapon_info[idx].wi_flags |= WIF_IN_TECH_DATABASE;
 			} else {
@@ -1152,7 +1155,9 @@ void init_new_pilot(player *p, int reset)
 		hud_set_default_hud_config(p);		// use a default hud config
 
 		// in the demo, load up the hardcoded hcf file
-		hud_config_color_load(Game_profile->default_hcf);	// Claude: the data set's (hud_3.hcf, the demo's hud_1.hcf), was #ifdef FS2_DEMO (D-20261020-053500)
+		if (Game_profile->default_hcf) {	// Claude: FS1 has none; its pilot keeps the default colour set above
+			hud_config_color_load(Game_profile->default_hcf);	// Claude: the data set's (hud_3.hcf, the demo's hud_1.hcf), was #ifdef FS2_DEMO (D-20261020-053500)
+		}
 
 		control_config_reset_defaults();		// get a default keyboard config
 		player_set_pilot_defaults(p);			// set up any player struct defaults

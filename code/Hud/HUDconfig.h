@@ -212,5 +212,11 @@ void hud_config_record_color(int color);
 // load up the given hcf file
 void hud_config_color_load(char *name);
 
+// Claude: FS1 data: FS1's one HUD colour and brightness
+void hud_config_fs1_color_init(int force);
+void hud_config_fs1_color_save();
+int hud_config_fs1_gauge_color(color *clr);
+void hud_config_fs1_gauge_alpha(color *clr);
+
 #endif
 
