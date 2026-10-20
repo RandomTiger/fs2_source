@@ -1140,6 +1140,7 @@ static void debrief_fs1_layout()
 	Debrief_text_wnd_coords[GR_640][0] = 38;
 	Debrief_text_wnd_coords[GR_640][1] = 156;
 	Debrief_text_wnd_coords[GR_640][3] = 264;
+	Debrief_stage_info_coords[GR_640][1] = 156;	// the statistics page count, in the box's top right
 }
 
 void debrief_ui_init()
