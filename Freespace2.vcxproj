@@ -52,14 +52,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(PATH_FS2)\</OutDir>
+    <OutDir>$(PATH_FS1)\</OutDir>
     <IntDir>.\Debug\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2vs2022d</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(PATH_FS2)\</OutDir>
+    <OutDir>$(PATH_FS1)\</OutDir>
     <IntDir>.\Release\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2vs2022r</TargetName>
