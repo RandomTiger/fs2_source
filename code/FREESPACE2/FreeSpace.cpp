@@ -532,7 +532,7 @@
 #include "multi_endgame.h"
 #include "Cutscenes.h"
 #include "multi_respawn.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "multi_obj.h"
 #include "multi_log.h"
 #include "Emp.h"

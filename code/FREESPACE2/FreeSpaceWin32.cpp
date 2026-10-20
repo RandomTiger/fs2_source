@@ -22,6 +22,7 @@
 #include "Autotest.h"
 #include "ExceptionHandler.h"
 #include "Demo.h"
+#include "Movie.h"		// Claude: the movie player is back (code/Movie)
 
 #define EXE_FNAME			("fs2.exe")
 #define LAUNCHER_FNAME	("freespace2.exe")
@@ -251,13 +252,13 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 
 		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0 );
+		movie_play( NOX("intro.mve"), 0 );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 		// debug version, movie will only play with -showmovies
 		#else if !defined(NDEBUG)
 		
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0);
+		movie_play( NOX("intro.mve"), 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 /*
 #ifndef NDEBUG
 		if ( Cmdline_show_movies )
