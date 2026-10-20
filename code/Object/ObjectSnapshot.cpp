@@ -23,10 +23,12 @@ static int object_snapshot_model(object *objp)
 		return Weapon_info[Weapons[objp->instance].weapon_info_index].model_num;
 	case OBJ_DEBRIS:
 		return Debris[objp->instance].model_num;
+#ifndef FS2_DEMO	// the demo build has no asteroid code
 	case OBJ_ASTEROID: {
 		asteroid *asp = &Asteroids[objp->instance];
 		return Asteroid_info[asp->type].model_num[asp->asteroid_subtype];
 	}
+#endif
 	default:
 		return -1;
 	}
