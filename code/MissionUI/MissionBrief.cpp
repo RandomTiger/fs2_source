@@ -295,6 +295,7 @@
 #include "AlphaColors.h"
 #include "Font.h"
 #include "MissionMessage.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 /*
 #define OBJECTIVES_X	65
@@ -858,6 +859,59 @@ void brief_redraw_pressed_buttons()
 	}
 }
 
+// Claude: FS1 data: FS1's own 640 layout, measured from its art: the button frames matched against the last
+// frame of BriefTrans.ani, the regions from brief-m.pcx and the black areas of that frame and of BriefPop.pcx
+// (docs/FS1_COMPAT.md).  The stage text and title positions are estimates: above the map frame, whose top is
+// at y 121.  Overwrites the GR_640 entries.
+extern int Brief_stage_text_coords[GR_NUM_RESOLUTIONS][2];	// MissionBriefCommon.cpp
+
+static void brief_fs1_layout()
+{
+	static int button_xy[NUM_BRIEF_BUTTONS][2] = {
+		{356, 351}, {331, 351}, {277, 351}, {253, 351},		// last, next, previous, first stage
+		{0, 400}, {0, 442},									// text scroll up, down
+		{562, 0}, {304, 351},								// skip training (FS2's; not in the frame), pause
+		{603, 374}, {562, 0}								// multi lock, exit loop (FS2's)
+	};
+	int i;
+
+	for ( i = 0; i < NUM_BRIEF_BUTTONS; i++ ) {
+		Brief_buttons[GR_640][i].x = button_xy[i][0];
+		Brief_buttons[GR_640][i].y = button_xy[i][1];
+	}
+
+	Brief_infobox_coords[GR_640][0] = 0;		Brief_infobox_coords[GR_640][1] = 397;
+	Brief_grid_coords[GR_640][0] = 55;			Brief_grid_coords[GR_640][1] = 134;
+	Brief_grid_coords[GR_640][2] = 529;			Brief_grid_coords[GR_640][3] = 237;
+	Brief_static_coords[GR_640][0] = 45;		Brief_static_coords[GR_640][1] = 122;
+	Brief_text_coords[GR_640][0] = 32;			Brief_text_coords[GR_640][1] = 412;
+	Brief_text_coords[GR_640][2] = 395;			Brief_text_coords[GR_640][3] = 60;
+	Brief_bmap_coords[GR_640][0] = 0;			Brief_bmap_coords[GR_640][1] = 98;	// no Briefwin in FS1; Debug's filename line goes 10 above
+	Brief_stage_text_coords[GR_640][0] = 62;	Brief_stage_text_coords[GR_640][1] = 386;
+	Title_coords[GR_640][0] = 580;				Title_coords[GR_640][1] = 388;
+	Closeup_region[GR_640][0] = 216;			Closeup_region[GR_640][1] = 163;
+	Closeup_region[GR_640][2] = 207;			Closeup_region[GR_640][3] = 151;
+	Closeup_button_coords[GR_640][0] = 368;		Closeup_button_coords[GR_640][1] = 306;
+}
+
+// Claude: FS1 data: FS1 has no Briefwin; its map window and text box exist only in the last frame of BriefTrans.ani,
+// which becomes the briefing background.  All its frames are loaded; brief_close unloads them.
+static int Brief_fs1_frames = -1;
+static int Brief_fs1_num_frames;
+
+static void brief_fs1_load_background()
+{
+	int first = bm_load_animation((Game_mode & GM_MULTIPLAYER) ? NOX("BriefTransMulti") : NOX("BriefTrans"), &Brief_fs1_num_frames);
+
+	if ( first >= 0 ) {
+		if ( Brief_background_bitmap != -1 ) {
+			bm_unload(Brief_background_bitmap);
+		}
+		Brief_fs1_frames = first;
+		Brief_background_bitmap = first + Brief_fs1_num_frames - 1;
+	}
+}
+
 void brief_buttons_init()
 {
 	UI_BUTTON	*b;
@@ -881,7 +935,7 @@ void brief_buttons_init()
 	}
 
 	// add all xstrs
-	for(i=0; i<BRIEF_SELECT_NUM_TEXT; i++) {
+	for(i=0; (i<BRIEF_SELECT_NUM_TEXT) && !Cfile_fs1_data; i++) {	// Claude: FS1's button art has its labels
 		Brief_ui_window.add_XSTR(&Brief_select_text[gr_screen.res][i]);
 	}
 
@@ -1001,6 +1055,10 @@ void brief_ui_init()
 		Brief_background_bitmap = bm_load(Brief_multi_filename[gr_screen.res]);
 	} else {
 		Brief_background_bitmap = bm_load(Brief_filename[gr_screen.res]);	
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude
+		brief_fs1_load_background();
 	}
 
 	if ( Num_brief_stages <= 0 ){
@@ -1159,6 +1217,10 @@ void brief_init()
 
 	Current_brief_stage = 0;
 	Last_brief_stage = 0;
+
+	if ( Cfile_fs1_data ) {	// Claude
+		brief_fs1_layout();
+	}
 
 	// init the scene-cut data
 	brief_transition_reset();
@@ -1651,7 +1713,12 @@ void brief_check_for_anim()
 
 	// if mouse click is over the VCR controls, don't launch an icon
 	// FIXME - should prolly push these into defines instead of hardcoding this
-	if ( mx >= 0 && mx <= 115 && my >= 136 && my <= 148 ) {
+	if ( !Cfile_fs1_data && mx >= 0 && mx <= 115 && my >= 136 && my <= 148 ) {	// Claude: FS2's controls only
+		return;
+	}
+
+	// Claude: FS1 data: FS1's VCR controls sit in the bottom middle of the map window (brief_fs1_layout)
+	if ( Cfile_fs1_data && (mx >= 253) && (mx <= 389) && (my >= 351) && (my <= 384) ) {
 		return;
 	}
 
@@ -2075,6 +2142,14 @@ void brief_unload_bitmaps()
 		Brief_background_bitmap = -1;
 	}
 
+	// Claude: FS1 data: the rest of BriefTrans's frames (brief_fs1_load_background)
+	if ( Brief_fs1_frames != -1 ) {
+		for ( int i = 0; i < Brief_fs1_num_frames; i++ ) {
+			bm_unload(Brief_fs1_frames + i);
+		}
+		Brief_fs1_frames = -1;
+	}
+
 	help_overlay_unload(BR_OVERLAY);
 }
 
@@ -2150,6 +2225,24 @@ void brief_stop_voices()
 	brief_voice_stop(Current_brief_stage);
 }
 
+// Claude: draws the current scene-cut static frame.  In FS1 data FS1's BriefMap.ani (549x260) is larger than its
+// map window, so it is drawn centred on the window and clipped to it.
+static void brief_blit_static()
+{
+	int w, h, *c;
+
+	if ( !Cfile_fs1_data ) {
+		gr_bitmap(Fade_anim.sx, Fade_anim.sy);
+		return;
+	}
+
+	c = Brief_grid_coords[gr_screen.res];
+	bm_get_info(Fade_anim.first_frame, &w, &h);
+	gr_set_clip(c[0], c[1], c[2], c[3]);
+	gr_bitmap((c[2] - w) / 2, (c[3] - h) / 2);
+	gr_reset_clip();
+}
+
 void brief_maybe_blit_scene_cut(float frametime)
 {
 	if ( Start_fade_up_anim ) {
@@ -2199,7 +2292,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 
 		// Blit the bitmap for this frame
 		gr_set_bitmap(Fade_anim.first_frame + framenum);
-		gr_bitmap(Fade_anim.sx, Fade_anim.sy);
+		brief_blit_static();	// Claude: was gr_bitmap(Fade_anim.sx, Fade_anim.sy)
 #endif
 	}
 
@@ -2234,7 +2327,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 
 		// Blit the bitmap for this frame
 		gr_set_bitmap(Fade_anim.first_frame + (Fade_anim.num_frames-1) - framenum);
-		gr_bitmap(Fade_anim.sx, Fade_anim.sy);
+		brief_blit_static();	// Claude: was gr_bitmap(Fade_anim.sx, Fade_anim.sy)
 
 #endif
 	}

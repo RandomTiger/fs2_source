@@ -51,6 +51,7 @@
 #include "FreeSpace.h"
 #include "bmpman.h"
 #include "timer.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 // captureCallback is called when an item is "selected" by mouse release. That is, the user has clicked, dragged and _released_. 
 // the callback is called when the scrollbar has been released
@@ -77,10 +78,14 @@ void UI_SLIDER2::create(UI_WINDOW *wnd, int _x, int _y, int _w, int _h, int _num
 	set_bmaps(_bitmapSliderControl, 3, 0);
 	
 	// determine possible positions
-	bm_get_info(bmap_ids[S2_NORMAL],&buttonWidth, &buttonHeight, NULL, NULL, NULL);
+	buttonWidth = 0;	// Claude: FS1 data has no slider art (no slider*.pcx or .ani), so such a
+	buttonHeight = 0;	// slider is neither drawn nor clicked
+	if ( !Cfile_fs1_data || (bmap_ids[S2_NORMAL] >= 0) ) {	// Claude
+		bm_get_info(bmap_ids[S2_NORMAL],&buttonWidth, &buttonHeight, NULL, NULL, NULL);
+	}
 	slider_w = buttonWidth;
 	slider_h = buttonHeight;
-	Assert(buttonHeight > 5);
+	Assert((buttonHeight > 5) || (Cfile_fs1_data && (bmap_ids[S2_NORMAL] < 0)));	// Claude
 	slider_half_h = (int)(buttonHeight / 2);
 	numberPositions = _h - buttonHeight;
 	
@@ -98,7 +103,7 @@ void UI_SLIDER2::create(UI_WINDOW *wnd, int _x, int _y, int _w, int _h, int _num
 
 void UI_SLIDER2::draw() {
 	Assert((currentPosition >= 0) && (currentPosition <= numberPositions));
-	if (uses_bmaps & !disabled_flag) {
+	if ((uses_bmaps & !disabled_flag) && !(Cfile_fs1_data && (bmap_ids[S2_NORMAL] < 0))) {	// Claude: an FS1 slider with no art
 		gr_reset_clip();
 		switch (slider_mode) {
 		case S2M_ON_ME:
@@ -120,7 +125,7 @@ void UI_SLIDER2::process(int focus)
 {
 	int OnMe, keyfocus, mouse_lock_move;	
 
-	if (disabled_flag) {
+	if (disabled_flag || (Cfile_fs1_data && (bmap_ids[S2_NORMAL] < 0))) {	// Claude: an FS1 slider with no art
 		return;
 	}
 
