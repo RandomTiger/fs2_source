@@ -261,19 +261,18 @@
 #include "weapon.h"
 #include "scoring.h"
 
+#include "DataSetProfile.h"	// Claude
+
 // name of the builtin campaign.
-#if defined(FS2_DEMO)
-	#define BUILTIN_CAMPAIGN		"demo"
-	#define BUILTIN_CAMPAIGN_NAME	"DEMO Campaign"
-#elif defined(OEM_BUILD)
+#if defined(OEM_BUILD)
 	#define BUILTIN_CAMPAIGN		"FreeSpace2OEM"
 	#define BUILTIN_CAMPAIGN_NAME	"OEM Campaign"
 #elif defined(E3_BUILD)
 	#define BUILTIN_CAMPAIGN		"E3"
 	#define BUILTIN_CAMPAIGN_NAME	"E3 Campaign"
-#else
-	#define BUILTIN_CAMPAIGN		"FreeSpace2"
-	#define BUILTIN_CAMPAIGN_NAME	"The Main Freespace2 Campaign"
+#else	// Claude: the data set's ("FreeSpace2", the demo's "demo"), read where it is used (D-20261020-053500)
+	#define BUILTIN_CAMPAIGN		(Game_profile->builtin_campaign)
+	#define BUILTIN_CAMPAIGN_NAME	(Game_profile->builtin_campaign_name)
 #endif
 
 #define MAX_CAMPAIGN_MISSIONS	100			// maximum number of missions in a campaign
