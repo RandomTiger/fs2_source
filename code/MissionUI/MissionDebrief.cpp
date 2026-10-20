@@ -346,6 +346,7 @@
 #include "localize.h"
 #include "multi_endgame.h"
 #include "osapi.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 #define MAX_TOTAL_DEBRIEF_LINES	200
 
@@ -1114,9 +1115,39 @@ void debrief_buttons_init()
 // --------------------------------------------------------------------------------------
 //	debrief_ui_init()
 //
+// Claude: FS1 data: the debriefing in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md): the title and text in FS1's
+// box, the buttons where retail draws them.  FS1's DB_ art and mask keep FS2's numbers for the tabs, scroll, replay,
+// recommendations and page buttons, but number help, options and accept 10-12 and the multiplayer ones 15-17, 21 and 25
+// (those placed at their mask regions' corners, with no screenshot to match).
+static void debrief_fs1_layout()
+{
+	// FS2's buttons in order: debriefing, statistics tabs; scroll up, down; replay, recommendations; first, prev, next, last
+	// page; pilot info, kick; medals; pilots up, down; help, options, accept
+	static char *Fs1_names[NUM_BUTTONS] = { "DB_00", "DB_01", "DB_02", "DB_03", "DB_04", "DB_05", "DB_06", "DB_07", "DB_08", "DB_09",
+		"DB_21", "DB_25", "DB_15", "DB_16", "DB_17", "DB_10", "DB_11", "DB_12" };
+	static int Fs1_coords[NUM_BUTTONS][3] = { {0,2,0}, {0,20,1}, {0,195,2}, {0,232,3}, {24,424,4}, {30,451,5}, {211,445,6}, {234,445,7},
+		{259,445,8}, {283,445,9}, {412,380,21}, {508,380,25}, {606,227,15}, {616,295,16}, {616,336,17}, {469,428,10}, {447,452,11}, {562,410,12} };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].filename = Fs1_names[i];
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+		Buttons[GR_640][i].hotspot = Fs1_coords[i][2];
+	}
+	Debrief_title_coords[GR_640][0] = 39;
+	Debrief_title_coords[GR_640][1] = 125;
+	Debrief_text_wnd_coords[GR_640][0] = 38;
+	Debrief_text_wnd_coords[GR_640][1] = 156;
+	Debrief_text_wnd_coords[GR_640][3] = 264;
+}
+
 void debrief_ui_init()
 {
 	// init ship selection masks and buttons
+	if ( Cfile_fs1_data ) {	// Claude
+		debrief_fs1_layout();
+	}
 	common_set_interface_palette("DebriefPalette");		// set the interface palette
 	Debrief_ui_window.create( 0, 0, gr_screen.max_w, gr_screen.max_h, 0 );
 	Debrief_ui_window.set_mask_bmap(Debrief_mask_name[gr_screen.res]);
