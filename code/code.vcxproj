@@ -147,7 +147,9 @@
     <ClCompile Include="Cutscene\Cutscenes.cpp" />
     <ClCompile Include="Movie\Movie.cpp">
       <!-- Claude: the Xiph headers are third-party (lib/xiph/THIRD_PARTY.md); /external keeps their warnings out of the warning count, every configuration (D-20261020-222203) -->
-      <AdditionalOptions>/external:I ..\lib\xiph\ogg\include /external:I ..\lib\xiph\theora\include /external:I ..\lib\xiph\vorbis\include /external:W0 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/external:I ..\lib\xiph\ogg\include /external:I ..\lib\xiph\theora\include /external:I ..\lib\xiph\vorbis\include %(AdditionalOptions)</AdditionalOptions>
+      <!-- Claude: the property, not /external:W0 in the options, which clashed with the /external:W4 MSBuild adds for Level4 (D9025) -->
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
