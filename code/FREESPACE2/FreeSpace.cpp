@@ -1026,9 +1026,14 @@ void game_detect_data_set()
 		Warning(LOCATION, "Both %s and %s are in the data; running as retail\n", demo_name, retail_name);
 	}
 	// Claude: a recording names no data set; it is worked out from FS2's campaign and mission names, which FS1's
-	// share (sm1-01), so in FS1 data every FS1 recording would read as FS2 retail.  Not checked in FS1 data.
+	// share (sm1-01), so in FS1 data every FS1 recording would read as FS2 retail.  Not checked in FS1 data, and
+	// logged; the recording's own data-set field (header version 6, GodotPrep) replaces this (D-20261020-103504).
 	if (!Cfile_fs1_data) {
 		replay_check_data_set(Game_data_set, game_is_volition_mission);
+	} else {
+		sprintf(line, "replay data-set check skipped: a recording cannot name FS1 against FS2 below header version 6\n");
+		mprintf(("%s", line));
+		autotest_note(line);
 	}
 }
 
