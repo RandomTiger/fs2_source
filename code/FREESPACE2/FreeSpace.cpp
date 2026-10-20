@@ -556,6 +556,7 @@
 #include "Demo.h"
 #include "Replay.h"
 #include "DataSetInstall.h"	// Claude
+#include "DataSetProfile.h"	// Claude
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -1008,6 +1009,7 @@ void game_detect_data_set()
 	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
 
 	Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;	// only the FreeSpace 2 pair so far
+	data_set_profile_apply(Game_data_set);	// Claude: its row of the profile table (D-20261020-053500)
 	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", data_set_name(Game_data_set), demo ? "y" : "n", retail ? "y" : "n");
 	mprintf(("%s", line));
 	autotest_note(line);
@@ -2075,6 +2077,11 @@ void game_init()
 	e2 = timer_get_milliseconds();	
 	*/
 
+#ifndef OEM_BUILD
+	// Claude: the data set's names; settings are kept under the app name (D-20261020-053500)
+	Osreg_app_name = Game_profile->app_name;
+	Osreg_title = Game_profile->title;
+#endif
 	if (Is_standalone) {
 		std_init_standalone();
 	} else {		

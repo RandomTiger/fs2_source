@@ -24,13 +24,10 @@ static char			szAppVersion[128];
 
 char *Osreg_company_name = "Volition";
 char *Osreg_class_name = "Freespace2Class";
-#if defined(FS2_DEMO)
-char *Osreg_app_name = "FreeSpace2Demo";
-char *Osreg_title = "Freespace 2 Demo";
-#elif defined(OEM_BUILD)
+#if defined(OEM_BUILD)	// Claude: the demo's names are in the data set profile, set in game_init (D-20261020-053500)
 char *Osreg_app_name = "FreeSpace2OEM";
 char *Osreg_title = "Freespace 2 OEM";
-#else
+#else	// Claude: the data set profile's, once game_init sets them; the tools keep these
 char *Osreg_app_name = "FreeSpace2";
 char *Osreg_title = "Freespace 2";
 #endif
