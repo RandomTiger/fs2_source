@@ -555,6 +555,7 @@
 #include "Encrypt.h"
 #include "Demo.h"
 #include "Replay.h"
+#include "../Voice/VoiceGame.h"	// Claude: voice control
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -2104,6 +2105,7 @@ void game_init()
 
 	if (!Is_standalone) {
 		snd_init(use_a3d, use_eax);
+		voice_game_init();	// Claude: voice control
 	}
 /////////////////////////////
 // SOUND INIT END
@@ -6877,6 +6879,7 @@ void game_launch_launcher_on_exit()
 void game_shutdown(void)
 {
 	replay_shutdown();
+	voice_game_close();	// Claude: voice control
 
 	timeEndPeriod(1);
 
