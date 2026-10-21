@@ -313,6 +313,7 @@
 #include "demo.h"
 #include "fishtank.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
 
 // #include "movie.h"
@@ -1079,6 +1080,11 @@ void main_hall_do(float frametime)
 
 		// clicked on the tech room region
 		case TECH_ROOM_REGION:
+			if ( !Game_profile->full_version_screens ) {	// Claude: no art for this screen in FS1's demo data (D-20261020-214042)
+				gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+				game_feature_not_in_demo_popup();
+				break;
+			}
 #if defined(FS2_DEMO)
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			game_feature_not_in_demo_popup();
@@ -1096,6 +1102,11 @@ void main_hall_do(float frametime)
 
 		// clicked on the campaign toom region
 		case CAMPAIGN_ROOM_REGION:
+			if ( !Game_profile->full_version_screens ) {	// Claude: no art for this screen in FS1's demo data (D-20261020-214042)
+				gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+				game_feature_not_in_demo_popup();
+				break;
+			}
 #if !defined(MULTIPLAYER_BETA_BUILD) && !defined(E3_BUILD) && !defined(PRESS_TOUR_BUILD)
 
 #ifdef FS2_DEMO
@@ -1125,7 +1136,11 @@ void main_hall_do(float frametime)
 
 		// clicked on the multiplayer region
 		case MULTIPLAYER_REGION:
-#if defined(DEMO) || defined(OEM_BUILD) // not for FS2_DEMO
+			if ( !Game_profile->full_version_screens ) {	// Claude: was the DEMO half of the #if below (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
+#if defined(OEM_BUILD) // not for FS2_DEMO	// Claude: was defined(DEMO) || defined(OEM_BUILD)
 			game_feature_not_in_demo_popup();
 #else
 			if (Player->flags & PLAYER_FLAGS_IS_MULTI){

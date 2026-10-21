@@ -302,6 +302,7 @@
 #include "UIDefs.h"
 #include "AnimPlay.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 //////////////////////////////////////////////////////////////////
 // Game Globals
@@ -529,10 +530,10 @@ void common_buttons_init(UI_WINDOW *ui_window)
 		Common_buttons[Current_screen-1][gr_screen.res][COMMON_WEAPON_REGION].button.disable();
 	}
 
-	#ifdef DEMO // allow for FS2_DEMO
+	if ( !Game_profile->loadout ) {	// Claude: was #ifdef DEMO (D-20261020-161656)
 		Common_buttons[Current_screen-1][gr_screen.res][COMMON_SS_REGION].button.disable();
 		Common_buttons[Current_screen-1][gr_screen.res][COMMON_WEAPON_REGION].button.disable();
-	#endif
+	}
 }
 
 void set_active_ui(UI_WINDOW *ui_window)
@@ -1040,7 +1041,7 @@ void common_check_keys(int k)
 				break;
 			}
 
-			#ifndef DEMO // not for FS2_DEMO
+			if ( Game_profile->loadout ) {	// Claude: was #ifndef DEMO; the #else arm is the FS1 demo build's (D-20261020-161656)
 				if ( Current_screen != ON_WEAPON_SELECT && !Background_playing ) {
 					if ( !wss_slots_all_empty() ) {
 						Next_screen = ON_WEAPON_SELECT;
@@ -1048,9 +1049,9 @@ void common_check_keys(int k)
 						common_show_no_ship_error();
 					}
 				}
-			#else
+			} else {
 				gamesnd_play_iface(SND_GENERAL_FAIL);
-			#endif
+			}
 
 			break;
 
@@ -1061,13 +1062,13 @@ void common_check_keys(int k)
 				break;
 			}
 
-			#ifndef DEMO // not for FS2_DEMO
+			if ( Game_profile->loadout ) {	// Claude: was #ifndef DEMO; the #else arm is the FS1 demo build's (D-20261020-161656)
 				if ( Current_screen != ON_SHIP_SELECT && !Background_playing ) {
 					Next_screen = ON_SHIP_SELECT;
 				}
-			#else
+			} else {
 				gamesnd_play_iface(SND_GENERAL_FAIL);
-			#endif
+			}
 
 			break;
 
@@ -1078,7 +1079,7 @@ void common_check_keys(int k)
 				break;
 			}
 
-			#ifndef DEMO // not for FS2_DEMO
+			if ( Game_profile->loadout ) {	// Claude: was #ifndef DEMO; the #else arm is the FS1 demo build's (D-20261020-161656)
 				if ( !Background_playing ) {
 					switch ( Current_screen ) {
 						case ON_BRIEFING_SELECT:
@@ -1101,9 +1102,9 @@ void common_check_keys(int k)
 							break;
 					}	// end switch
 				}
-			#else
+			} else {
 				gamesnd_play_iface(SND_GENERAL_FAIL);
-			#endif
+			}
 
 			break;
 
@@ -1114,7 +1115,7 @@ void common_check_keys(int k)
 				break;
 			}
 
-			#ifndef DEMO // not for FS2_DEMO
+			if ( Game_profile->loadout ) {	// Claude: was #ifndef DEMO; the #else arm is the FS1 demo build's (D-20261020-161656)
 				if ( !Background_playing ) {
 					switch ( Current_screen ) {
 						case ON_BRIEFING_SELECT:
@@ -1137,9 +1138,9 @@ void common_check_keys(int k)
 							break;
 					}	// end switch
 				}
-			#else
+			} else {
 				gamesnd_play_iface(SND_GENERAL_FAIL);
-			#endif
+			}
 
 			break;
 

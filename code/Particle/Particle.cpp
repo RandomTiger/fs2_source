@@ -169,6 +169,7 @@
 #include "OsApi.h"
 #include "object.h"
 #include "Timer.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 typedef struct particle {
 	// old style data
@@ -657,6 +658,7 @@ void particle_render_all()
 				}
 
 			case PARTICLE_SMOKE2:	{
+					if ( !Game_profile->smoke2 )	break;	// Claude: the FS1 demo has no ParticleSmoke02.ani; the particles live but draw nothing (D-20261020-163608)
 					int framenum = fl2i(pct_complete * Anim_num_frames_smoke2 + 0.5);
 
 					if ( framenum < 0 ) framenum = 0;
