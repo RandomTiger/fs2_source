@@ -365,3 +365,29 @@ Above `Enhanced`, `recordings/fs1` cannot replay (format 3), so FS1 there is pro
 - Suite results are hard to read while other sessions build on the same PC (steward note for Tom).
 
 **FS1 demo**: branch `FS1Demo`, off `FS1Compat` (with `FS1Compat` merged in), pushed 2026-10-20. Its state is in `docs/FS1_DEMO.md` on that branch: the game extracts the demo from `fsdemo10.exe` beside the exe on first start (none of its files are committed), and all four demo missions run with no Error, Assert or Int3 in Release and Debug. Thrusters, shields, loadout, the briefing fade and smoke2 are data-set profile fields (D-20261020-161655, 161656, 163608); the `@` filter and talking heads are next. `tools\fs1demo_run.ps1` and `tools\fs1demo_gate.ps1` there run the demo missions and the full gate.
+
+## 9. Visual check (on demand, not a gate)
+
+`tools\fs1_visual_check.ps1` compares our screens on FS1 retail data with Tom's retail captures, 45 screens at 640x480 including the F1 help overlays, and lists the static UI differences as a todo list. Nothing is fixed automatically, and no check or merge waits on it (D-20261021-082612). The captures are Volition art and live only in the private repo `fs2_reference` (`fs1_retail\<category>\<screen>.png`, listed in its README). Our shots, the diffs and the report hold the same art, so they never go into this repo: the script refuses an `-Out` inside it.
+
+Run it from PowerShell once the build is in `PATH_FS1`, with no game running (it refuses to start if one is):
+```
+tools\fs1_visual_check.ps1 -Reference U:\Projects\GitHub\fs2_reference
+```
+- `-Reference` defaults to `$env:FS2_REFERENCE`. `-GameDir` defaults to `$env:PATH_FS1`, `-Config` to `r`.
+- It runs the menu tour with screenshots (`-window -autotest -at_menus -at_shots <dir>`, docs/AUTOTEST.md) with `-Mission` (default: the first campaign mission) and, with `-TrainingMission <file>`, again for `briefing_training`. Leave that off for now: the tour does not handle a training mission yet (it logs that briefing as `briefing/briefing`).
+- `-Shots <dir>` compares a shot folder from an earlier run and does not start the game.
+- Output goes to `-Out`, by default `<Reference>\fs1_retail_check\<time>`, which `fs2_reference` ignores:
+  - `report.md`: every reference screen, as same, its number of differences, not captured (with what the tour logged for it), not reached, or a setup error. A shot of another size is a setup error (wrong mode or UI art), not a visual difference.
+  - `TODO.md`: one checkbox per difference, with the screen, a description (shifted by how many pixels, drawn in the reference and missing in ours, extra in ours, or differs; with its place and box), and links to the reference, our shot and the diff.
+  - `diff\<screen>.png`: reference, ours and the difference side by side. Red = differing pixels, blue = ignored, yellow numbered boxes = the TODO entries.
+- The comparison is `tools\visual_compare.cs`, compiled by the script, about 0.1 s a screen.
+
+**Masks.** Some content varies by design and is not compared: the pilot's name, picture and stats, the mission text and briefing map, the 3D ship and weapon models, animations, the in-flight scene, and the mouse cursor (where it sits in each reference). The masks are in `fs2_reference\fs1_retail\masks.json`:
+- `screens.<screen>.ignore`: rectangles `[x, y, w, h]` in 640x480 pixels, each with a `why`. `only`: if given, only these are compared (the in-flight HUD).
+- `<screen>_help` uses its base screen's masks as well as its own.
+- An optional `<screen>.mask.png` next to the reference adds any shape: white = ignore.
+- `ourCursor`: where the tour parks our cursor while it takes shots (client 0,0, the top-left corner), masked on every screen.
+- `threshold` (largest channel difference that still counts as the same), `minPixels` (smallest difference reported) and `maxShift` (largest offset looked for when telling a shift from a change).
+
+To update a mask: open the screen's `diff\<screen>.png`, read the box of the content that should not count from its TODO entry, add a rectangle with a `why` to that screen in `masks.json`, rerun with `-Shots <the run's shots folder>`, and commit the change in `fs2_reference`.
