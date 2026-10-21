@@ -197,7 +197,7 @@
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>x64\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -289,7 +289,7 @@
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>x64\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
