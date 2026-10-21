@@ -329,6 +329,7 @@
 #include "MissionMessage.h"
 #include "mainhallmenu.h"
 #include "aigoals.h"
+#include "DataSetProfile.h"	// Claude
 
 // --------------------------------------------------------------
 // Global to file 
@@ -1348,7 +1349,9 @@ void process_debug_keys(int k)
 void ppsk_hotkeys(int k)
 {
 
-#ifndef FS2_DEMO
+	if (!Game_profile->hotkeys) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
+		return;	// Claude
+	}	// Claude
 
 	// use k to check for keys that can have Shift,Ctrl,Alt,Del status
 	int hotkey_set;
@@ -1433,7 +1436,7 @@ void ppsk_hotkeys(int k)
 			break;
 	}	// end switch
 
-#endif
+// Claude: was #endif (FS2_DEMO)
 
 }
 
