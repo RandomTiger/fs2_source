@@ -127,6 +127,8 @@ static char *Os_ini_defaults[][2] = {
 };
 #define OS_INI_NUM_DEFAULTS	(sizeof(Os_ini_defaults) / sizeof(Os_ini_defaults[0]))
 
+extern int Cfile_fs1_data;	// Claude: cfile.h, not included here (see the includes)
+
 static void os_ini_write_defaults()
 {
 	char buf[1024];
@@ -136,6 +138,11 @@ static void os_ini_write_defaults()
 		if ( !os_ini_get( NULL, Os_ini_defaults[i][0], buf, sizeof(buf) ) ) {
 			// a launcher string kept as Videocard (not in the usual form) still decides the renderer
 			if ( (i < 4) && os_ini_get( NULL, "Videocard", buf, sizeof(buf) ) ) {
+				continue;
+			}
+			// Claude: FS1 data has only 640x480 art (docs/FS1_COMPAT.md), so it starts there
+			if ( Cfile_fs1_data && !stricmp( Os_ini_defaults[i][0], "Resolution" ) ) {
+				WritePrivateProfileString( OS_INI_MAIN_SECTION, Os_ini_defaults[i][0], "640x480", Os_ini_file );
 				continue;
 			}
 			WritePrivateProfileString( OS_INI_MAIN_SECTION, Os_ini_defaults[i][0], Os_ini_defaults[i][1], Os_ini_file );

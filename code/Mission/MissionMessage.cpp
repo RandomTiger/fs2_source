@@ -384,6 +384,7 @@
 #include "Demo.h"
 #include "HUDconfig.h"
 #include "Replay.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 // here is a text list of the builtin message names.  These names are used to match against
 // names read in for builtin message radio bits to see what message to play.  These are
@@ -1528,9 +1529,9 @@ void message_queue_process()
 	message_play_wave(q);
 
 	// play animation for head
-	#ifndef DEMO // do we want this for FS2_DEMO
+	if ( Game_profile->talking_heads ) {	// Claude: was #ifndef DEMO (D-20261020-161656)
 		message_play_anim(q);
-	#endif
+	}
 	
 	// distort the message if comms system is damaged
 	message_maybe_distort_text(buf);

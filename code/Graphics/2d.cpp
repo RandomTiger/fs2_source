@@ -881,7 +881,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 	if (Web_cursor_bitmap < 0)	{
 		int nframes;						// used to pass, not really needed (should be 1)
 		Web_cursor_bitmap = bm_load_animation("cursorweb", &nframes);
-		Assert(Web_cursor_bitmap >= 0);		// if bitmap didnt load, thats not good (this is protected for in release tho)
+		Assert((Web_cursor_bitmap >= 0) || Cfile_fs1_data);		// if bitmap didnt load, thats not good (this is protected for in release tho)	// Claude: the FS1 demo has no cursorweb (docs/FS1_DEMO.md); its users check for it
 	}
 
 	gr_set_color(0,0,0);

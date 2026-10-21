@@ -401,6 +401,7 @@
 #include "AlphaColors.h"
 #include "localize.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 //////////////////////////////////////////////////////
 // Game-wide Globals
@@ -493,11 +494,7 @@ static int Ship_info_coords[GR_NUM_RESOLUTIONS][2] = {
 
 
 // NK: changed from 37 to 51 for new FS2 animations
-#ifdef FS2_DEMO
-#define SHIP_ANIM_LOOP_FRAME	0
-#else
-#define SHIP_ANIM_LOOP_FRAME	51
-#endif
+#define SHIP_ANIM_LOOP_FRAME	(Game_profile->loadout_anim_loop ? 51 : 0)	// Claude: was 0 under #ifdef FS2_DEMO, else 51; data set profile (D-20261021-100301)
 
 #define MAX_ICONS_ON_SCREEN	4
 
@@ -2820,7 +2817,6 @@ void ss_load_icons(int ship_class)
 // load all the icons for ships in the pool
 void ss_load_all_icons()
 {
-	#ifndef DEMO // not for FS2_DEMO
 
 	int i, j;
 
@@ -2833,12 +2829,11 @@ void ss_load_all_icons()
 			Ss_icons[i].icon_bmaps[j] = -1;
 		}
 
-		if ( Ss_pool[i] >= 0 ) {
+		if ( Ss_pool[i] >= 0 && Game_profile->loadout ) {	// Claude: was all under #ifndef DEMO; the FS1 demo build loaded none (D-20261020-161656)
 			ss_load_icons(i);
 		}
 	}
 
-	#endif
 }
 
 // Load in a specific ship animation.  The data is loaded as a memory-mapped file since these animations
@@ -2861,17 +2856,15 @@ void ss_load_anim(int ship_class)
 // Load in any ship animations.  This function assumes that Ss_pool has been inited.
 void ss_load_all_anims()
 {
-	#ifndef DEMO // not for FS2_DEMO
 
 	int i;
 
 	for ( i = 0; i < MAX_SHIP_TYPES; i++ ) {
-		if ( Ss_pool[i] > 0 ) {
+		if ( Ss_pool[i] > 0 && Game_profile->loadout ) {	// Claude: was all under #ifndef DEMO; the FS1 demo build loaded none (D-20261020-161656)
 			ss_load_anim(i);
 		}
 	}
 
-	#endif
 }
 
 // determine if the slot is disabled
