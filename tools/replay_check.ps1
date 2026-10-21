@@ -119,7 +119,7 @@ foreach ($r in $recs) {
 			if ($counts) { $line += " ($($counts.Matches[0].Value))" }
 			if ($p.ExitCode -ne 0) { $ok = $false }
 			# a Debug build must prove its array guards fire (D-20261018-030012)
-			if (($e -eq 'd') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
+			if (($e -eq 'd') -and -not (Select-String (Join-Path $dir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 		}
 	}
 	if ($cfgs.Count -gt 1) {
