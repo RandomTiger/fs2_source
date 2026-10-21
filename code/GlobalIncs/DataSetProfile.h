@@ -29,7 +29,7 @@ typedef struct data_set_profile {
 	char	*default_hcf;						// a new pilot's HUD colours, NULL for none (FS1 has no .hcf files)
 
 	int	loading_ani_coords[GR_NUM_RESOLUTIONS][2];	// where the loading screen draws Loading.ani on LoadingBG, per art mode (FreeSpace.cpp, D-20261020-222222): each data set's art places its bar differently; the FS1 rows' 1024 pair is the 640 pair x 1.6, derived, not measured (FS1 has 640 art only)
-	int	barracks_image_coords[GR_NUM_RESOLUTIONS][2];	// where the barracks draws the pilot picture, per art mode (Barracks.cpp, D-20261020-231901); the FS1 rows' 1024 pair is the 640 pair x 1.6, derived and unreachable (FS1 has 640 art only); the FS1 demo's y 49 is retail's 33 moved down with its window's bottom edge (152 to 168), derived, not measured
+	int	barracks_image_coords[GR_NUM_RESOLUTIONS][2];	// where the barracks draws the pilot picture, per art mode (Barracks.cpp, D-20261020-231901); the FS1 rows' 1024 pair is the 640 pair x 1.6, derived and unreachable (FS1 has 640 art only); the 640 pairs are the gr_bitmap() arguments in each FS.exe: retail 460, 33, demo 460, 32 (its taller window leaves black rows below the 160 x 120 picture, as the original did)
 	int	barracks_image_window[2];		// 0, 0: the picture is drawn whole; else the first and last screen rows of FS1's pilot picture window on BARRACKS.PCX, and the picture is clipped to its shape (Barracks.cpp, D-20261020-231901)
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
