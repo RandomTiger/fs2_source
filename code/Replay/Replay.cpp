@@ -788,7 +788,10 @@ void replay_set_autorecord(char *dir)
 
 	Replay_mode = REPLAY_RECORD;
 	Replay_auto = 1;
-	strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
+	// made absolute now: startup later changes to the data set folder, and a relative folder would then point inside it
+	if (!_fullpath(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN)) {
+		strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
+	}
 	_mkdir(Replay_auto_dir);
 	len = strlen(Replay_auto_dir);
 	if ((len > 0) && ((Replay_auto_dir[len - 1] == '\\') || (Replay_auto_dir[len - 1] == '/'))) {
