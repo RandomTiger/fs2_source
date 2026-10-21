@@ -7526,6 +7526,7 @@ void Do_model_timings_test()
 // enabled in the DEMO version of FreSpace
 void game_feature_not_in_demo_popup()
 {
+	autotest_not_in_demo();	// Claude: the menu tour skips a screen only the full game has
 	popup(PF_USE_AFFIRMATIVE_ICON|PF_BODY_BIG, 1, POPUP_OK, XSTR( "Sorry, this feature is available only in the retail version", 200));
 }
 

@@ -128,6 +128,7 @@
 #include "OsApi.h"
 #include "Replay.h"
 #include "DataSetProfile.h"	// Claude
+#include "Autotest.h"	// Claude: -at_shots parks the cursor, see Autotest.h
 
 #define MOUSE_MODE_DI	0
 #define MOUSE_MODE_WIN	1
@@ -182,6 +183,7 @@ static void mouse_get_cursor_pos(POINT *pnt)
 
 	GetCursorPos(pnt);
 	ScreenToClient((HWND)os_get_window(), pnt);
+	autotest_cursor_pos(&pnt->x, &pnt->y);	// Claude: -at_shots parks the cursor, see Autotest.h
 
 	xy[0] = pnt->x;
 	xy[1] = pnt->y;
