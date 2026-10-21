@@ -274,7 +274,7 @@ static int __cdecl autotest_crt_report(int type, char *message, int *retval)
 	}
 	_snprintf(text, sizeof(text) - 1, "%s", message ? message : "");
 	text[sizeof(text) - 1] = 0;
-	len = strlen(text);
+	len = (int) strlen(text);
 	while ((len > 0) && ((text[len - 1] == '\n') || (text[len - 1] == '\r'))) {
 		text[--len] = 0;
 	}

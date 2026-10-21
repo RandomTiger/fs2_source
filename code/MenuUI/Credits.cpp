@@ -369,7 +369,7 @@ void credits_init()
 	if(fp != NULL){
 		int size;
 		size = cfilelength(fp);
-		Credit_text = (char *) malloc(size + 200 + strlen(CREDITS_SOURCE_PORT));	// Claude: room for our block
+		Credit_text = (char *) malloc(size + 200 + (int) strlen(CREDITS_SOURCE_PORT));	// Claude: room for our block; strlen cast for x64
 		cfclose(fp);
 
 		// open localization and parse
