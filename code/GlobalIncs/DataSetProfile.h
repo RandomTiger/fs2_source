@@ -45,6 +45,16 @@ typedef struct data_set_profile {
 	int	brief_map_window;				// 1 = the briefing draws MapWin01..04 around the map after the background (MissionBrief.cpp, D-20261021-082859): FS1's demo has no BriefTrans.ani, its FS.exe names these four edges instead
 	int	barracks_image_window[2];		// 0, 0: the picture is drawn whole; else the first and last screen rows of FS1's pilot picture window on BARRACKS.PCX, and the picture is clipped to its shape (Barracks.cpp, D-20261020-231901)
 	int	options_gamma_offset[2];		// rigid shift of the whole gamma group (down/up buttons OPa_56/57, gamma preview, gamma number) from retail FS1's positions (OptionsMenu.cpp, D-20261021-083325); FS1 demo measured from its own OptionsMain-m.PCX hotspots 56/57 and a template match of the number and preview boxes in OptionsMain.PCX, both exactly (-66,+25); the demo has no mouse/joystick panel and the group moved down into that space
+	// Offset added once, in barracks_fs1_layout, to the two pilot-picture arrow
+	// buttons (prev/next). FS1 demo measured from its own Barracks-m.pcx: hotspots
+	// at x 579..599 / 603..623, y 155..178 against retail FS1's 575..595 /
+	// 599..619, y 141..164, i.e. (+4,+14); every other hotspot is identical (D-20261021-095912).
+	int	barracks_pic_arrows_offset[2];
+	// Offset added once, in barracks_fs1_layout, to the "N of M" picture-number
+	// print position. FS1 demo derived, not measured (no demo screenshot exists):
+	// the frame strip under the picture window is 16 rows lower in the demo's
+	// BARRACKS.PCX (retail y 165-167, demo y 181-184), so (0,+16) (D-20261021-095912).
+	int	barracks_pic_number_offset[2];
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;

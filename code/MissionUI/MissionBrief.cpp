@@ -886,8 +886,8 @@ static void brief_fs1_layout()
 	Brief_grid_coords[GR_640][2] = 529;			Brief_grid_coords[GR_640][3] = 237;
 	Brief_static_coords[GR_640][0] = 45;		Brief_static_coords[GR_640][1] = 122;
 	// Claude: inside the text box's black area (x 27 to 429, y 409 to 471, its left corners bevelled), not on its frame
-	Brief_text_coords[GR_640][0] = 40;			Brief_text_coords[GR_640][1] = 415;
-	Brief_text_coords[GR_640][2] = 385;			Brief_text_coords[GR_640][3] = 56;
+	Brief_text_coords[GR_640][0] = 50;			Brief_text_coords[GR_640][1] = 415;	// Claude: x 50, as FS1's reference briefing.png (was 40)
+	Brief_text_coords[GR_640][2] = 375;			Brief_text_coords[GR_640][3] = 56;
 	Brief_bmap_coords[GR_640][0] = 0;			Brief_bmap_coords[GR_640][1] = 98;	// no Briefwin in FS1; Debug's filename line goes 10 above
 	Brief_stage_text_coords[GR_640][0] = 62;	Brief_stage_text_coords[GR_640][1] = 386;
 	Title_coords[GR_640][0] = 580;				Title_coords[GR_640][1] = 388;
@@ -1477,6 +1477,10 @@ void brief_render(float frametime)
 	gr_set_bitmap(Brief_grid_bitmap);
 	gr_bitmap(Brief_bmap_coords[gr_screen.res][0], Brief_bmap_coords[gr_screen.res][1]);
 
+	if ( Brief_map_window_bitmaps[0] != -1 ) {	// Claude: FS1 demo: the frame's interior is transparent; FS1 shows the map on black (its reference briefing.png)
+		gr_set_color_fast(&Color_black);
+		gr_rect(51, 131, 531, 242);
+	}
 	for ( int mw = 0; mw < 4; mw++ ) {	// Claude: FS1 demo map window frame (D-20261021-082859)
 		if ( Brief_map_window_bitmaps[mw] != -1 ) {
 			gr_set_bitmap(Brief_map_window_bitmaps[mw]);
