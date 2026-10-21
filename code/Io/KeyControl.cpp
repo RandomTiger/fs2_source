@@ -351,16 +351,16 @@ typedef	struct asteroid_field {
 
 char CheatBuffer[CHEAT_BUFFER_LEN+1];
 
-#ifdef FS2_DEMO
+// Claude: both sets compiled always, chosen by the profile's cheat_code (D-20261021-100301); was #ifdef FS2_DEMO
 	char *Cheat_code_demo = NOX("33BE^(8]C01(:=BHt");
-#else
+// Claude: was #else
 	char *Cheat_code = NOX("33BE^(8]C01(:=BHt");					// www.freespace2.com
 	char *Cheat_code_fish = NOX("bDc9y+$;#AIDRoouM");			// vasudanswuvfishes
 	char *Cheat_code_headz = NOX("!;:::@>F7L?@@2:@A");			// humanheadsinside.
 	char *Cheat_code_tooled = NOX("sipp-^rM@L!U^usjX");		// tooledworkedowned
 	char *Cheat_code_pirate = NOX("MAP4YP[4=-2uC(yJ^");		// arrrrwalktheplank	
 	char *Cheat_code_skip = NOX("7!ICkSI\"(8n3JesBP");			// skipmemymissionyo
-#endif
+// Claude: was #endif
 										  // 666)6=N79+Z45=BE0e
 int Tool_enabled = 0;
 
@@ -1620,7 +1620,7 @@ void game_process_cheats(int k)
 
 	cryptstring=jcrypt(&CheatBuffer[CHEAT_BUFFER_LEN - CRYPT_STRING_LENGTH]);		
 
-#ifdef FS2_DEMO	
+	if (!Game_profile->cheat_code) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO
 	if ( !strcmp(Cheat_code_demo, cryptstring) ) {
 		HUD_printf(XSTR( "Cheats enabled.", 31));
 		Cheats_enabled = 1;
@@ -1629,7 +1629,7 @@ void game_process_cheats(int k)
 		}
 	}
 	
-#else
+	} else {	// Claude
 	if( !strcmp(Cheat_code, cryptstring) && !(Game_mode & GM_MULTIPLAYER)){
 		Cheats_enabled = 1;
 		HUD_printf("Cheats enabled");
@@ -1710,7 +1710,7 @@ void game_process_cheats(int k)
 			}
 		}
 	}
-#endif
+	}	// Claude
 	/*
 //#ifdef INTERPLAYQA
 	if ( !strcmp(Cheat_code_in_game, cryptstring) ) {
