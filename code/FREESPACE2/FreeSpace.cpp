@@ -5280,7 +5280,7 @@ void game_process_event( int current_state, int event )
 			break;
 
 		case GS_EVENT_GAME_INIT:
-	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	#if defined(OEM_BUILD)	// Claude: was defined(FS2_DEMO) || defined(OEM_BUILD); the FS2 demo half is the profile's always_pilot_select below (D-20261021-071013)
 			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
 			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
 				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
@@ -5289,7 +5289,7 @@ void game_process_event( int current_state, int event )
 			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
-			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
+			if( replay_load_pilot() || autotest_load_pilot() || (!Game_profile->always_pilot_select && player_select_get_last_pilot()) ) {	// Claude: added autotest_load_pilot; always_pilot_select: a player always gets the pilot screen, as the FS2 demo build did
 				// always enter the main menu -- do the automatic network startup stuff elsewhere
 				// so that we still have valid checks for networking modes, etc.
 				gameseq_set_state(GS_STATE_MAIN_MENU);
