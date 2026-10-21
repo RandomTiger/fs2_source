@@ -37,6 +37,12 @@ typedef struct data_set_profile {
 	int	demo_campaign_end;				// 1: the campaign's end posts GS_EVENT_END_DEMO and the ready room offers to play it again
 	int	upsell_screens;					// 1: the sales screens at the end of the campaign and on exit
 	int	trailer_timer;					// 1: input resets the trailer timer (the trailer itself is commented out in the shipped source)
+	// mission UI, HUD, controls (batch 8, D-20261021-100301): 1 = the full game, 0 = what the FS2_DEMO build did
+	int	brief_fade;						// the briefing static fade (briefmap.ani) and the ship select button flash; 0: no fade, no flash
+	int	loadout_anim_loop;				// ship and weapon select animations loop from frame 51 / 52; 0: from 0 / 1
+	int	hotkeys;							// F5-F12 target hotkeys and their help lines; 0: ignored and not listed
+	int	artillery_lock;					// ship_update_artillery_lock runs; 0: it returns at once
+	int	cheat_code;						// the full game's cheat codes; 0: the demo's one code, single player and multi alike
 } data_set_profile;
 
 // full_version_screens bits (shared with FS1Demo's field of the same name; the layouts are reconciled at the first common merge)
@@ -47,7 +53,8 @@ typedef struct data_set_profile {
 #define FVS_MEDALS				(1<<4)	// barracks medals button; clear: not-in-demo popup
 #define FVS_HUD_CONFIG			(1<<5)	// options HUD config button; clear: not-in-demo popup
 #define FVS_IPX					(1<<6)	// multi options IPX button; clear: hidden and ignored
-#define FVS_ALL					((1<<7) - 1)
+#define FVS_HOTKEYS				(1<<7)	// F3 hotkey screen and its help line; clear: F3 does nothing (batch 8, D-20261021-100301)
+#define FVS_ALL					((1<<8) - 1)
 
 extern const data_set_profile *Game_profile;
 
