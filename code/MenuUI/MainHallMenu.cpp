@@ -314,6 +314,7 @@
 #include "fishtank.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
 
 // #include "movie.h"
 
@@ -1036,6 +1037,9 @@ void main_hall_do(float frametime)
 #else 
 	}
 #endif
+
+	// Claude: the autotest menu tour clicks a region here, the way the player does (docs/AUTOTEST.md)
+	autotest_main_hall_click(&code, &snazzy_action);
 
 	// do any processing based upon what happened to the snazzy menu
 	switch (snazzy_action) {
