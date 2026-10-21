@@ -1620,14 +1620,7 @@ anim * Game_loading_ani = NULL;
 anim_instance	*Game_loading_ani_instance;
 int Game_loading_frame=-1;
 
-static int Game_loading_ani_coords[GR_NUM_RESOLUTIONS][2] = {
-	{
-		63, 316  // GR_640
-	},
-	{
-		101, 505	// GR_1024
-	}
-};
+// Claude: Game_loading_ani_coords is Game_profile->loading_ani_coords, per data set (D-20261020-222222); FS2's were {63, 316}, {101, 505}
 
 // This gets called 10x per second and count is the number of times 
 // game_busy() has been called since the current callback function
@@ -1661,7 +1654,7 @@ void game_loading_callback(int count)
 
 		//mprintf(( "Showing frame %d/%d [ Bitmap=%d ]\n", Game_loading_frame ,  Game_loading_ani->total_frames, cbitmap ));
 		gr_set_bitmap( cbitmap );
-		gr_bitmap(Game_loading_ani_coords[gr_screen.res][0],Game_loading_ani_coords[gr_screen.res][1]);
+		gr_bitmap(Game_profile->loading_ani_coords[gr_screen.res][0],Game_profile->loading_ani_coords[gr_screen.res][1]);	// Claude: was Game_loading_ani_coords
 
 		bm_release(cbitmap);
 	

@@ -28,6 +28,8 @@ typedef struct data_set_profile {
 	char	*title_screen[GR_NUM_RESOLUTIONS];	// shown once at start-up, NULL for none
 	char	*default_hcf;						// a new pilot's HUD colours, NULL for none (FS1 has no .hcf files)
 
+	int	loading_ani_coords[GR_NUM_RESOLUTIONS][2];	// where the loading screen draws Loading.ani on LoadingBG, per art mode (FreeSpace.cpp, D-20261020-222222): each data set's art places its bar differently; the FS1 rows' 1024 pair is the 640 pair x 1.6, derived, not measured (FS1 has 640 art only)
+
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
 } data_set_profile;
