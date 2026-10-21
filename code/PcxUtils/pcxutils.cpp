@@ -359,7 +359,7 @@ int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data, int bytes_per_
 				bm_set_components((ubyte*)&bit_16, &r, &g, &b, &al);				
 				
 				// stuff the pixel
-				*((ushort*)pixdata) = bit_16;				
+				*((ushort*)pixdata) = (ushort)bit_16;	// Claude: the same 16 bit store as before; bit_16 is a uint now (review 54)
 				// Claude: 32 bit textures are ARGB 8888, with transparent pixels all 0 as in the 1555 path
 				if(bytes_per_pixel == 4){
 					*((uint*)pixdata) = al ? (0xff000000 | (r << 16) | (g << 8) | b) : 0;
