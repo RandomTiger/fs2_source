@@ -103,6 +103,8 @@ foreach ($r in $recs) {
 		if (Test-Path '.\autotest.log') { Copy-Item '.\autotest.log' (Join-Path $Out "${folder}_${name}_$e.autotest.log") }
 		$diff = 'NO TRACE'
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
+		# TraceDiff exits 2 when it cannot read either trace (missing, not a trace, other version): a FAIL, never a pass (D-20261021-125813)
+		if ((Test-Path $trace) -and ($LASTEXITCODE -eq 2)) { $diff = 'TRACE UNREADABLE (TraceDiff exit 2: missing recorded trace, or another trace version)' }
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
 		# an autotest replay exits 0 only with no Assert, Int3 or Warning (D-029, D-077); a hand-played one exits 1 on success (D-033)
