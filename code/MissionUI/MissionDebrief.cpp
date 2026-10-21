@@ -346,6 +346,7 @@
 #include "localize.h"
 #include "multi_endgame.h"
 #include "osapi.h"
+#include "DataSetProfile.h"	// Claude
 
 #define MAX_TOTAL_DEBRIEF_LINES	200
 
@@ -1642,10 +1643,14 @@ void debrief_accept(int ok_to_post_start_game_event)
 
 				// check if campaign is over
 				if ( Campaign.next_mission == -1 ) {
-	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	#if defined(OEM_BUILD)	// Claude: was defined(FS2_DEMO) || defined(OEM_BUILD); the FS2 demo half is the profile's demo_campaign_end (D-20261021-071013)
 					gameseq_post_event(GS_EVENT_END_DEMO);
 	#else
+					if (Game_profile->demo_campaign_end) {	// Claude
+					gameseq_post_event(GS_EVENT_END_DEMO);	// Claude
+					} else {	// Claude
 					gameseq_post_event(GS_EVENT_MAIN_MENU);
+					}	// Claude
 	#endif
 				} else {
 					if ( ok_to_post_start_game_event ) {
