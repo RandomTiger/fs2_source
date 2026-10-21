@@ -295,6 +295,7 @@
 #include "AlphaColors.h"
 #include "Font.h"
 #include "MissionMessage.h"
+#include "DataSetProfile.h"	// Claude
 
 /*
 #define OBJECTIVES_X	65
@@ -624,9 +625,7 @@ void brief_skip_training_pressed()
 	}
 }
 
-#ifdef FS2_DEMO
-	extern void demo_reset_trailer_timer();
-#endif
+	extern void demo_reset_trailer_timer();	// Claude: was under #ifdef FS2_DEMO
 // --------------------------------------------------------------------------------------
 //	brief_do_next_pressed()
 //
@@ -640,9 +639,9 @@ void brief_do_next_pressed(int play_sound)
 		return;
 	}
 
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_reset_trailer_timer();
-#endif
+	}	// Claude
 
 	Current_brief_stage++;
 	if ( Current_brief_stage >= Num_brief_stages ) {
@@ -1105,9 +1104,9 @@ void brief_init()
 {
 	// Since first stage of briefing can take some time to arrive and play, 
 	// reset the trailer timer on briefing init.
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_reset_trailer_timer();
-#endif
+	}	// Claude
 
 	// for multiplayer, change the state in my netplayer structure
 	// and initialize the briefing chat area thingy
