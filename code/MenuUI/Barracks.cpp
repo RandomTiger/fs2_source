@@ -102,6 +102,8 @@
 #include "OsRegistry.h"
 #include "AlphaColors.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
+#include "3d.h"	// Claude: barracks_draw_pilot_pic_row
 
 void delete_pilot_file( char *pilot_name, int single );		// manage_pilot.cpp
 
@@ -1267,6 +1269,40 @@ void barracks_accept_new_pilot_callsign()
 // bottom right; FS1 retail draws none of the picture over that art (its screenshot screen00.tga).  The window is screen
 // rows Game_profile->barracks_image_window[0] to [1] and x 459 to 622 on FS1 retail and demo alike, so one shape
 // serves both; the picture is drawn one row at a time inside it (D-20261020-231901).
+// Claude: one row of the clipped picture, w pixels from bitmap pixel (sx, sy) of a bw by bh picture.  gr_bitmap_ex writes
+// 16 bit pixels straight into the back buffer, so on D3D's 32 bit one the picture came out at half the x and width and
+// wrongly coloured; where gr_bitmap draws a textured poly (D3D, Glide), the row is drawn the same way.
+static void barracks_draw_pilot_pic_row(int x, int y, int w, int sx, int sy, int bw, int bh)
+{
+	vertex v[4];
+	vertex *vertlist[4] = { &v[0], &v[1], &v[2], &v[3] };
+	int saved_zbuffer_mode, i;
+
+	if ( !((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) || !Gr_bitmap_poly ) {
+		gr_bitmap_ex(x, y, w, 1, sx, sy);
+		return;
+	}
+
+	memset(v, 0, sizeof(v));
+	for (i = 0; i < 4; i++) {
+		v[i].sx = i2fl(((i == 1) || (i == 2)) ? (x + w) : x);
+		v[i].sy = i2fl((i >= 2) ? (y + 1) : y);
+		v[i].u = i2fl(((i == 1) || (i == 2)) ? (sx + w) : sx) / i2fl(bw);
+		v[i].v = i2fl((i >= 2) ? (sy + 1) : sy) / i2fl(bh);
+		v[i].flags = PF_PROJECTED;
+	}
+
+	gr_set_bitmap(gr_screen.current_bitmap, gr_screen.current_alphablend_mode, gr_screen.current_bitblt_mode, gr_screen.current_alpha, 0, 0);
+	g3_start_frame(1);
+	saved_zbuffer_mode = gr_zbuffer_get();
+	gr_zbuffer_set(GR_ZBUFF_NONE);
+	gr_filter_set(0);
+	g3_draw_poly_constant_sw(4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_BITMAP_SECTION, 0.1f);
+	g3_end_frame();
+	gr_zbuffer_set(saved_zbuffer_mode);
+	gr_filter_set(1);
+}
+
 static void barracks_draw_pilot_pic_clipped(int px, int py)
 {
 	int top = Game_profile->barracks_image_window[0];
@@ -1283,7 +1319,7 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 		l = max(l, px);
 		r = min(r, px + w - 1);
 		if (l <= r) {
-			gr_bitmap_ex(l, y, r - l + 1, 1, l - px, y - py);
+			barracks_draw_pilot_pic_row(l, y, r - l + 1, l - px, y - py, w, h);
 		}
 	}
 }
