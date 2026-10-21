@@ -1033,9 +1033,6 @@ void autotest_drive_state(int state)
 			break;
 
 		case GS_STATE_RED_ALERT:
-			if (Replay_mode == REPLAY_RECORD) {
-				autotest_logf("Mission '%s' is a red alert mission, which replay does not support yet\n", Autotest_current);
-			}
 			gameseq_post_event(GS_EVENT_ENTER_GAME);
 			break;
 
