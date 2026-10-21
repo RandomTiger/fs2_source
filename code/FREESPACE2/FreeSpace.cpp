@@ -920,6 +920,7 @@ void game_stop_subspace_ambient_sound();
 void verify_ships_tbl();
 void verify_weapons_tbl();
 void display_title_screen();
+void title_screen_hold();	// Claude
 
 // loading background filenames
 static char *Game_loading_bground_fname[GR_NUM_RESOLUTIONS] = {
@@ -2395,6 +2396,8 @@ void game_init()
 
 	// initialize alpha colors
 	alpha_colors_init();	
+
+	title_screen_hold();	// Claude: loading is now too quick to see the title screen
 
 	Viewer_mode = 0;
 //	Game_music_paused = 0;
@@ -8616,6 +8619,9 @@ int game_hacked_data()
 	return 0;
 }
 
+static int Title_screen_bitmap = -1;		// Claude: the title screen, until title_screen_hold
+static DWORD Title_screen_start;			// Claude: when it was drawn
+
 void display_title_screen()
 {
 	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
@@ -8657,7 +8663,40 @@ void display_title_screen()
 	// flip
 	gr_flip();
 
-	bm_unload(title_bitmap);
+	Title_screen_bitmap = title_bitmap;	// Claude: title_screen_hold unloads it (was bm_unload(title_bitmap))
+	Title_screen_start = GetTickCount();	// Claude
+}
+
+// Claude: the title screen was drawn once and stayed up while game_init loaded, which took seconds in 1998
+// and now takes a fraction of one.  Keep it up until TITLE_SCREEN_MS after it was drawn, or until a key or
+// click (read from the keyboard state, so nothing reaches the game's input queue).  Autotest and replays
+// do not wait.
+#define TITLE_SCREEN_MS	3000
+void title_screen_hold()
+{
+	if (Title_screen_bitmap < 0) {
+		return;
+	}
+	while (!Autotest_harness && (Replay_mode != REPLAY_PLAY) && (GetTickCount() - Title_screen_start < TITLE_SCREEN_MS)) {
+		if ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_ESCAPE) | GetAsyncKeyState(VK_SPACE) | GetAsyncKeyState(VK_RETURN)) & 0x8000) {
+			break;
+		}
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_start_frame();
+			d3d_start_frame();
+		}
+		gr_set_bitmap(Title_screen_bitmap);
+		gr_bitmap(0, 0);
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_stop_frame();
+			d3d_stop_frame();
+		}
+		gr_flip();
+		os_poll();
+		Sleep(10);
+	}
+	bm_unload(Title_screen_bitmap);
+	Title_screen_bitmap = -1;
 }
 
 // return true if the game is running with "low memory", which is less than 48MB

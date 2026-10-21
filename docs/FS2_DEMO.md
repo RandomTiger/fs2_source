@@ -365,6 +365,14 @@ The open questions from the first version of this brief, as Tom answered them.
    need DDrawCompat in the demo folder and its registry settings (already present, virtualised).
 5. **The FS1 `DEMO` macro blocks: held** for the FS1 decision (D-064). Batch 9 leaves them alone.
 
+## 7. Open: the demo's second title screen (Tom, 2026-10-21)
+
+The FS2 demo has two title screens. The first is `display_title_screen()` in `FreeSpace.cpp`, drawn
+during `game_init` from the data set profile's `title_screen`. The second is in `PlayerMenu.cpp`
+(`#ifdef FS2_DEMO`): `DemoTitle1` loaded in `player_select_init` and held for 5 seconds by
+`demo_title_blit()`. Volition commented out its only call (`// demo_title_blit();`), so it never shows.
+Still to decide whether to bring it back, and how it relates to the data set profile's title screen.
+
 ## Files
 
 - `tools/demo_install.py`: the installer replacement (section 1).
