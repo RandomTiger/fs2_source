@@ -508,6 +508,16 @@ static void options_fs1_layout()
 	Options_gamma_coords[GR_640][OPTIONS_H_COORD] = 32;
 	Options_gamma_num_coords[GR_640][OPTIONS_X_COORD] = 399;
 	Options_gamma_num_coords[GR_640][OPTIONS_Y_COORD] = 87;
+
+	// Claude: the data set's gamma group shift, to the buttons, preview and number together (D-20261021-083325)
+	for (i=GAMMA_DOWN; i<=GAMMA_UP; i++) {
+		Buttons[GR_640][i].x += Game_profile->options_gamma_offset[0];
+		Buttons[GR_640][i].y += Game_profile->options_gamma_offset[1];
+	}
+	Options_gamma_coords[GR_640][OPTIONS_X_COORD] += Game_profile->options_gamma_offset[0];
+	Options_gamma_coords[GR_640][OPTIONS_Y_COORD] += Game_profile->options_gamma_offset[1];
+	Options_gamma_num_coords[GR_640][OPTIONS_X_COORD] += Game_profile->options_gamma_offset[0];
+	Options_gamma_num_coords[GR_640][OPTIONS_Y_COORD] += Game_profile->options_gamma_offset[1];
 }
 
 static void options_fs1_sliders_create()
