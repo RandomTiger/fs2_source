@@ -32,6 +32,8 @@
 #include "2d.h"
 #include "MissionBrief.h"
 #include "DataSetProfile.h"
+#include "2d.h"
+#include "Popup.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
@@ -109,6 +111,14 @@ static int Autotest_num_sites = 0;
 static volatile int Autotest_state = -1;
 static volatile DWORD Autotest_state_ms = 0;
 static volatile DWORD Autotest_frame_ms = 0;
+static volatile int Autotest_frames = 0;			// Claude: frames seen by autotest_drive_state, for the stuck dump (D-053)
+static volatile DWORD Autotest_poll_ms = 0;		// Claude: when os_poll last finished, for the stuck dump (D-053)
+
+// Claude: os_poll finished (OsApi.cpp). Only the stuck dump reads it.
+void autotest_poll_done()
+{
+	Autotest_poll_ms = GetTickCount();
+}
 
 static void autotest_logf(char *format, ...)
 {
@@ -143,6 +153,15 @@ static void autotest_fatal(int code, char *format, ...)
 	TerminateProcess(GetCurrentProcess(), code);
 }
 
+// Claude: what the game was doing when the watchdog gave up (D-053): read from the watchdog thread, so a
+// diagnostic only
+static void autotest_stuck_dump(DWORD now, char *why)
+{
+	autotest_logf("STUCK (%s): state %d, gameseq state %d, %d frames, %d ms since the last frame, %d ms since the last os_poll, popup %s\n", why,
+		Autotest_state, gameseq_get_state(), Autotest_frames, now - Autotest_frame_ms, Autotest_poll_ms ? (int)(now - Autotest_poll_ms) : -1,
+		popup_active() ? "open" : "none");
+}
+
 // the game is stuck if no frame has run for a while, or a menu has not moved on.  Gameplay is
 // left to the mission time limit, plus a wall clock limit in case mission time stops.
 static DWORD WINAPI autotest_watchdog(LPVOID)
@@ -155,6 +174,7 @@ static DWORD WINAPI autotest_watchdog(LPVOID)
 		// Claude: signed, since the main thread can write a newer time after now was read; unsigned, that wrapped
 		// to about 50 days and stopped healthy runs with exit 5 (D-054)
 		if ((int)(now - Autotest_frame_ms) > AUTOTEST_STUCK_MS) {
+			autotest_stuck_dump(now, "no frame for 120 s");
 			autotest_fatal(AUTOTEST_EXIT_STUCK, "no frame for %d seconds in state %d", (now - Autotest_frame_ms) / 1000, Autotest_state);
 		}
 
@@ -170,6 +190,7 @@ static DWORD WINAPI autotest_watchdog(LPVOID)
 			limit = AUTOTEST_STUCK_MS;
 		}
 		if ((int)(now - Autotest_state_ms) > (int)limit) {	// Claude: signed, as above (D-054)
+			autotest_stuck_dump(now, "the state lasted past its limit");
 			autotest_fatal(AUTOTEST_EXIT_STUCK, "stuck in state %d for %d seconds", Autotest_state, (now - Autotest_state_ms) / 1000);
 		}
 	}
@@ -564,6 +585,7 @@ void autotest_drive_state(int state)
 	}
 
 	Autotest_frame_ms = GetTickCount();
+	Autotest_frames++;
 	if (Autotest_menus && (Replay_mode != REPLAY_PLAY)) {
 		if (state != Autotest_state) {
 			Autotest_state_ms = Autotest_frame_ms;
