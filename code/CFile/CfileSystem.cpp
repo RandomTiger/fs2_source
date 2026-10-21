@@ -528,7 +528,8 @@ void cf_search_root_pack(int root_index)
 
 		if ( find.size == 0 )	{
 			if ( !stricmp( find.filename, ".." ))	{
-				int l = strlen(search_path);
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				int l = (int)strlen(search_path);
 				char *p = &search_path[l-1];
 				while( (p > search_path) && (*p != '\\') )	{
 					p--;
@@ -612,7 +613,8 @@ static char *Cf_fs2_mission_extensions = NULL;
 static int cf_fs1_mission_name( char *src, char *dst )
 {
 	static char *ext[2][2] = { { ".fs2", ".fsm" }, { ".fc2", ".fsc" } };
-	int i, len = strlen(src);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int i, len = (int)strlen(src);
 
 	if ( !Cfile_fs1_data || (len < 4) || (len >= MAX_PATH_LEN) ) {
 		return 0;
@@ -647,12 +649,14 @@ static int cf_fs1_mission_name( char *src, char *dst )
 static void cf_detect_fs1_data()
 {
 	char *suffix = "\\Data\\freespace.vp";
-	int i, len, slen = strlen(suffix);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int i, len, slen = (int)strlen(suffix);
 
 	Cfile_fs1_data = 0;
 	for (i=0; i<Num_roots; i++ )	{
 		cf_root *root = cf_get_root(i);
-		len = strlen(root->path);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(root->path);
 		if ( (root->roottype == CF_ROOTTYPE_PACK) && (len >= slen) && !stricmp(root->path + len - slen, suffix) )	{
 			Cfile_fs1_data = 1;
 			break;
@@ -944,9 +948,11 @@ int cf_get_file_list( int max, char **list, int pathtype, char *filter, int sort
 				if ( !Get_file_list_filter || (*Get_file_list_filter)(find.name) ) {
 					ptr = strrchr(find.name, '.');
 					if (ptr)
-						l = ptr - find.name;
+						// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+						l = (int)(ptr - find.name);
 					else
-						l = strlen(find.name);
+						// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+						l = (int)strlen(find.name);
 
 					list[num_files] = (char *)malloc(l + 1);
 					strncpy(list[num_files], find.name, l);
@@ -991,9 +997,11 @@ int cf_get_file_list( int max, char **list, int pathtype, char *filter, int sort
 
 					ptr = strrchr(f->name_ext, '.');
 					if (ptr)
-						l = ptr - f->name_ext;
+						// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+						l = (int)(ptr - f->name_ext);
 					else
-						l = strlen(f->name_ext);
+						// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+						l = (int)strlen(f->name_ext);
 
 					list[num_files] = (char *)malloc(l + 1);
 					strncpy(list[num_files], f->name_ext, l);

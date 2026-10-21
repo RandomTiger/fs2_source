@@ -306,7 +306,8 @@ void	snd_close();
 int	snd_is_inited();
 
 // Returns a pointer to the direct sound object
-uint	sound_get_ds();
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t	sound_get_ds();
 
 void	snd_update_listener(vector *pos, vector *vel, matrix *orient);
 

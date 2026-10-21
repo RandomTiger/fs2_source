@@ -168,7 +168,8 @@ int trail_create(trail_info info)
 	Num_trails++;
 
 	// get objnum
-	trail_num = trailp-Trails;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	trail_num = (int)(trailp-Trails);
 
 	// Init the trail data
 	trailp->info = info;
@@ -232,7 +233,8 @@ void trail_render( trail * trailp )
 	int n = trailp->tail;
 
 	// if this trail is on the player ship, and he's in any padlock view except rear view, don't draw	
-	if((Player_ship != NULL) && trail_is_on_ship(trailp - Trails, Player_ship) && (Viewer_mode & (VM_PADLOCK_UP | VM_PADLOCK_LEFT | VM_PADLOCK_RIGHT)) ){
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	if((Player_ship != NULL) && trail_is_on_ship((int)(trailp - Trails), Player_ship) && (Viewer_mode & (VM_PADLOCK_UP | VM_PADLOCK_LEFT | VM_PADLOCK_RIGHT)) ){
 		return;
 	}
 

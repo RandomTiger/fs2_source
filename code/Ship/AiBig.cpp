@@ -1154,7 +1154,8 @@ void ai_big_chase()
 	} else if (En_objp->flags & OF_PROTECTED) {	//	If protected and we're not attacking a subsystem, stop attacking!
 		update_aspect_lock_information(aip, &vec_to_enemy, dist_to_enemy - En_objp->radius, En_objp->radius);
 		aip->target_objnum = -1;
-		if (find_enemy(Pl_objp-Objects, MAX_ENEMY_DISTANCE, Skill_level_max_attackers[Game_skill_level]) == -1) {
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		if (find_enemy((int)(Pl_objp-Objects), MAX_ENEMY_DISTANCE, Skill_level_max_attackers[Game_skill_level]) == -1) {
 			ai_do_default_behavior(Pl_objp);
 			return;
 		}

@@ -620,13 +620,16 @@ void gr_string_win(int x, int y, char *s)
 	y += gr_screen.offset_y;
 	//ptr = strchr(s,'\n);
 	while ((ptr = strchr(s, '\n'))!=NULL) {
-		TextOut(hDibDC, x, y, s, ptr - s);
-		GetTextExtentPoint32(hDibDC, s, ptr - s, &size);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		TextOut(hDibDC, x, y, s, (int)(ptr - s));
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		GetTextExtentPoint32(hDibDC, s, (int)(ptr - s), &size);
 		y += size.cy;
 		s = ptr + 1;
 	}
 
-	TextOut(hDibDC, x, y, s, strlen(s));
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	TextOut(hDibDC, x, y, s, (int)strlen(s));
 	SelectClipRgn(hDibDC, NULL);
 	DeleteObject(hclip);
 }
@@ -647,13 +650,15 @@ void gr_get_string_size_win(int *w, int *h, char *text)
 	SelectObject( hDibDC, MyhFont );
 
 	if (!ptr)	{
-		GetTextExtentPoint32( hDibDC, text, strlen(text), &size);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		GetTextExtentPoint32( hDibDC, text, (int)strlen(text), &size);
 		if (w) *w = size.cx;
 		if (h) *h = size.cy;
 		return;
 	}
 
-	GetTextExtentPoint32(hDibDC, text, ptr - text, &size);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	GetTextExtentPoint32(hDibDC, text, (int)(ptr - text), &size);
 	gr_get_string_size_win(w, h, ptr+1);
 	if (w && (size.cx > *w) )
 		*w = size.cx;

@@ -2946,7 +2946,8 @@ void ss_init_wing_info(int wing_num,int starting_wing_num)
 		for ( p_objp = GET_FIRST(&ship_arrival_list); p_objp != END_OF_LIST(&ship_arrival_list); p_objp = GET_NEXT(p_objp) ) {
 			if ( p_objp->wingnum == WING_INDEX(wp) ) {
 				slot = &ss_wing->ss_slots[ss_wing->num_slots++];
-				slot->sa_index = p_objp-ship_arrivals;
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				slot->sa_index = (int)(p_objp-ship_arrivals);
 				slot->original_ship_class = p_objp->ship_class;
 			}
 			ss_wing->is_late = 1;

@@ -672,14 +672,16 @@ void parse_wi_flags(weapon_info *weaponp)
 
 				weaponp->wi_flags |= WIF_SPAWN;
 				weaponp->spawn_type = (short)Num_spawn_types;
-				skip_length = strlen(NOX("Spawn")) + strspn(&temp_string[strlen(NOX("Spawn"))], NOX(" \t"));
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				skip_length = (int)(strlen(NOX("Spawn")) + strspn(&temp_string[strlen(NOX("Spawn"))], NOX(" \t")));
 				char *num_start = strchr(&temp_string[skip_length], ',');
 				if (num_start == NULL) {
 					weaponp->spawn_count = DEFAULT_WEAPON_SPAWN_COUNT;
 					name_length = 999;
 				} else {
 					weaponp->spawn_count = (short)atoi(num_start+1);
-					name_length = num_start - temp_string - skip_length;
+					// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+					name_length = (int)(num_start - temp_string) - skip_length;
 				}
 
 				strncpy(Spawn_names[Num_spawn_types++], &(weapon_strings[i][skip_length]), name_length);
@@ -2040,7 +2042,8 @@ void weapon_home(object *obj, int num, float frame_time)
 			aip = &Ai_info[Ships[hobjp->instance].ai_index];
 
 			if ((aip->nearest_locked_object == -1) || (dist < aip->nearest_locked_distance)) {
-				aip->nearest_locked_object = obj-Objects;
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				aip->nearest_locked_object = (int)(obj-Objects);
 				aip->nearest_locked_distance = dist;
 			}
 		}

@@ -2049,7 +2049,8 @@ void message_maybe_distort_text(char *text)
 		return;
 	}
 
-	len = strlen(text);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(text);
 	if ( Message_wave_duration == 0 ) {
 		next_distort = 5+cosmetic_rand()%5;
 		for ( i = 0; i < len; i++ ) {

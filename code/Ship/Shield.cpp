@@ -1028,7 +1028,8 @@ void create_shield_explosion_all(object *objp)
 	shipp = &Ships[num];
 
 	count = shipp->shield_hits;
-	objnum = objp-Objects;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	objnum = (int)(objp-Objects);
 
 	for (i=0; i<Num_shield_points; i++) {
 		if (Shield_points[i].objnum == objnum) {

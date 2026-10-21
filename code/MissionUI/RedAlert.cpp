@@ -729,7 +729,8 @@ void red_alert_delete_ship(ship *shipp)
 	ship_add_exited_ship( shipp, SEF_PLAYER_DELETED );
 	obj_delete(shipp->objnum);
 	if ( shipp->wingnum >= 0 ) {
-		ship_wing_cleanup( shipp-Ships, &Wings[shipp->wingnum] );
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		ship_wing_cleanup( (int)(shipp-Ships), &Wings[shipp->wingnum] );
 	}
 }
 

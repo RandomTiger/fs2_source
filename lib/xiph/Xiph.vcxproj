@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- libogg 1.3.6, libtheora 1.2.0 (decoder) and libvorbis 1.3.7, as one static library for the .ogv movie player (code/Movie). BSD licences: see each folder's COPYING. -->
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <!-- Claude: x64 configurations for the x64 layers, objects in x64\<cfg>\xiph\ as code.lib (D-20261020-222201) -->
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{428BF313-7B31-4734-AED6-0469F04DE25B}</ProjectGuid>
+    <RootNamespace>Xiph</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Label="UserMacros" />
+  <!-- The game links Debug\xiph.lib / Release\xiph.lib from the repo root, next to code.lib. -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\..\Debug\</OutDir>
+    <IntDir>..\..\Debug\xiph\</IntDir>
+    <TargetName>xiph</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>..\..\x64\Debug\</OutDir>
+    <IntDir>..\..\x64\Debug\xiph\</IntDir>
+    <TargetName>xiph</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>..\..\Release\</OutDir>
+    <IntDir>..\..\Release\xiph\</IntDir>
+    <TargetName>xiph</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>..\..\x64\Release\</OutDir>
+    <IntDir>..\..\x64\Release\xiph\</IntDir>
+    <TargetName>xiph</TargetName>
+  </PropertyGroup>
+  <!-- Optimised in both configurations: the decoders only feed movie frames and never touch game state. -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>ogg\include;theora\include;vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4244;4267;4305;4146;4018;4996;4554;4334;4090;4101;4700;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <!-- theora and vorbis both have info.c, so keep each folder's objects apart -->
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)xiph.pdb</ProgramDataBaseFileName>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)xiph.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <!-- libogg -->
+    <ClCompile Include="ogg\src\bitwise.c" />
+    <ClCompile Include="ogg\src\framing.c" />
+    <!-- libtheora decoder (lib/Makefile.am decoder_sources, plain C, no assembly) -->
+    <ClCompile Include="theora\lib\apiwrapper.c" />
+    <ClCompile Include="theora\lib\bitpack.c" />
+    <ClCompile Include="theora\lib\decapiwrapper.c" />
+    <ClCompile Include="theora\lib\decinfo.c" />
+    <ClCompile Include="theora\lib\decode.c" />
+    <ClCompile Include="theora\lib\dequant.c" />
+    <ClCompile Include="theora\lib\fragment.c" />
+    <ClCompile Include="theora\lib\huffdec.c" />
+    <ClCompile Include="theora\lib\idct.c" />
+    <ClCompile Include="theora\lib\info.c" />
+    <ClCompile Include="theora\lib\internal.c" />
+    <ClCompile Include="theora\lib\quant.c" />
+    <ClCompile Include="theora\lib\state.c" />
+    <!-- libvorbis (lib/Makefile.am libvorbis_la_SOURCES) -->
+    <ClCompile Include="vorbis\lib\analysis.c" />
+    <ClCompile Include="vorbis\lib\bitrate.c" />
+    <ClCompile Include="vorbis\lib\block.c" />
+    <ClCompile Include="vorbis\lib\codebook.c" />
+    <ClCompile Include="vorbis\lib\envelope.c" />
+    <ClCompile Include="vorbis\lib\floor0.c" />
+    <ClCompile Include="vorbis\lib\floor1.c" />
+    <ClCompile Include="vorbis\lib\info.c" />
+    <ClCompile Include="vorbis\lib\lookup.c" />
+    <ClCompile Include="vorbis\lib\lpc.c" />
+    <ClCompile Include="vorbis\lib\lsp.c" />
+    <ClCompile Include="vorbis\lib\mapping0.c" />
+    <ClCompile Include="vorbis\lib\mdct.c" />
+    <ClCompile Include="vorbis\lib\psy.c" />
+    <ClCompile Include="vorbis\lib\registry.c" />
+    <ClCompile Include="vorbis\lib\res0.c" />
+    <ClCompile Include="vorbis\lib\sharedbook.c" />
+    <ClCompile Include="vorbis\lib\smallft.c" />
+    <ClCompile Include="vorbis\lib\synthesis.c" />
+    <ClCompile Include="vorbis\lib\window.c" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

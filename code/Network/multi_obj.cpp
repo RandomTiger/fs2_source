@@ -829,7 +829,8 @@ int multi_oo_unpack_data(net_player *pl, ubyte *data)
 			oo_interp_points[shipp - Ships][0] = oo_interp_points[shipp - Ships][1];
 			oo_interp_points[shipp - Ships][1] = new_pos;			
 
-			multi_oo_calc_interp_splines(shipp - Ships, &pobjp->pos, &pobjp->orient, &pobjp->phys_info, &new_pos, &new_orient, &new_phys_info);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			multi_oo_calc_interp_splines((int)(shipp - Ships), &pobjp->pos, &pobjp->orient, &pobjp->phys_info, &new_pos, &new_orient, &new_phys_info);
 		}
 		
 		pobjp->phys_info.vel = new_phys_info.vel;		
@@ -1096,7 +1097,8 @@ int multi_oo_maybe_update(net_player *pl, object *obj, ubyte *data)
 	// determine what the timestamp is for this object
 	if(obj->type == OBJ_SHIP){
 		stamp = Ships[obj->instance].np_updates[NET_PLAYER_NUM(pl)].update_stamp;
-		ship_index = &Ships[obj->instance] - Ships;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		ship_index = (int)(&Ships[obj->instance] - Ships);
 	} else {
 		return 0;
 	}

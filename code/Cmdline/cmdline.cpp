@@ -238,6 +238,7 @@ cmdline_parm nodraw_arg("-nodraw", NULL);	// Claude: test: skip drawing the miss
 cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
+cmdline_parm all_cutscenes_arg("-allcutscenes", NULL);		// Claude: list every cutscene in the tech room
 cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
@@ -290,6 +291,7 @@ int Cmdline_timeout = -1;
 int Cmdline_window = 0;
 int Cmdline_no_ship_glow = 0;	// Claude: -noshipglow
 int Cmdline_no_force_glow = 0;	// Claude: -noforceglow
+int Cmdline_all_cutscenes = 0;		// Claude
 
 static cmdline_parm Parm_list(NULL, NULL);
 static int Parm_list_inited = 0;
@@ -311,7 +313,8 @@ char *drop_extra_chars(char *str)
 	while (str[s] && is_extra_space(str[s]))
 		s++;
 
-	e = strlen(str) - 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	e = (int)strlen(str) - 1;
 	while (e > s) {
 		if (!is_extra_space(str[e])){
 			break;
@@ -358,7 +361,8 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 		parm->args = NULL;
 	}
 
-	int size = strlen(buffer) + 1;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int size = (int)strlen(buffer) + 1;
 	if (size > 0) {
 		parm->args = new char[size];
 		memset(parm->args, 0, size);
@@ -371,7 +375,8 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 // parameter ("-cat" in "-catfish") or inside a value or path ("-replay" in "c:\my-replay.fs2rec").
 static char *parm_find(char *cmdline, char *name)
 {
-	int len = strlen(name);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(name);
 	int in_quote = 0;
 	char *p;
 
@@ -667,6 +672,11 @@ int parse_cmdline(char *cmdline)
 	// d3d windowed
 	if(d3d_window.found()){
 		Cmdline_window = 1;
+	}
+
+	// Claude: list every cutscene in the tech room, seen or not
+	if(all_cutscenes_arg.found()){
+		Cmdline_all_cutscenes = 1;
 	}
 
 	// gameplay recorder

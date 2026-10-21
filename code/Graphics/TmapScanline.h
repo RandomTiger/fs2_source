@@ -135,14 +135,17 @@ typedef struct tmapper_data {
 	float		fl_dudx_wide;
 	float		fl_dvdx_wide;
 	float		fl_dwdx_wide;
-	uint		dest_row_data;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32; in-memory only, never saved (D-20261020-194406 batch 3)
+	uintptr_t	dest_row_data;
 	int		num_big_steps;
 	uint		uv_delta[2];
 	float		FloatTemp;
 	uint		Subdivisions;
 	uint		WidthModLength;
-	uint		BlendLookup;
-	uint		FadeLookup;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32; in-memory only, never saved (D-20261020-194406 batch 3)
+	uintptr_t	BlendLookup;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32; in-memory only, never saved (D-20261020-194406 batch 3)
+	uintptr_t	FadeLookup;
 	uint		DeltaU;
 	uint		DeltaV;
 	uint		DeltaUFrac, DeltaVFrac;
@@ -151,7 +154,8 @@ typedef struct tmapper_data {
    ushort	FPUCW;
 	ushort	OldFPUCW;
 	int		InnerLooper;
-	uint		pScreenBits;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32; in-memory only, never saved (D-20261020-194406 batch 3)
+	uintptr_t	pScreenBits;
 	int		fx_w;
 	int		fx_dwdx;
 

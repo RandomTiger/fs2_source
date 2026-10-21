@@ -497,7 +497,8 @@ extern object *Player_obj;	// Which object is the player. Has to be valid.
 // Use this instead of "objp - Objects" to get an object number
 // given it's pointer.  This way, we can replace it will a macro
 // to check that the pointer is valid for debugging.
-#define OBJ_INDEX(objp) (objp-Objects)
+// Claude: x64, the pointer difference is cast to int, its type on Win32 (D-20261020-194406 batch 2)
+#define OBJ_INDEX(objp) ((int)(objp-Objects))
 
 /*
  *		FUNCTIONS

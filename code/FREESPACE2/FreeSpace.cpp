@@ -532,7 +532,7 @@
 #include "multi_endgame.h"
 #include "Cutscenes.h"
 #include "multi_respawn.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "multi_obj.h"
 #include "multi_log.h"
 #include "Emp.h"
@@ -1412,7 +1412,8 @@ void game_level_init(int seed)
 		// netgame security flags -- ensures that all players in multiplayer game will have the
 		// same randon number sequence (with static rand functions)
 		if ( Game_mode & GM_NORMAL ) {
-			Game_level_seed = time(NULL);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Game_level_seed = (int)time(NULL);
 		} else {
 			Game_level_seed = Netgame.security;
 		}
@@ -1789,9 +1790,11 @@ int game_start_mission()
 	
 	replay_load_begin();
 
-	load_gl_init = time(NULL);
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_gl_init = (uint)time(NULL);
 	game_level_init();
-	load_gl_init = time(NULL) - load_gl_init;
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_gl_init = (uint)time(NULL) - load_gl_init;
 	
 	if (Game_mode & GM_MULTIPLAYER) {
 		Player->flags |= PLAYER_FLAGS_IS_MULTI;
@@ -1800,7 +1803,8 @@ int game_start_mission()
 		init_multiplayer_stats();
 	}
 
-	load_mission_load = time(NULL);
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_mission_load = (uint)time(NULL);
 	if (mission_load()) {
 		if ( !(Game_mode & GM_MULTIPLAYER) ) {
 			popup(PF_BODY_BIG, 1, POPUP_OK, XSTR( "Attempt to load the mission failed", 169));
@@ -1811,7 +1815,8 @@ int game_start_mission()
 
 		return 0;
 	}
-	load_mission_load = time(NULL) - load_mission_load;
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_mission_load = (uint)time(NULL) - load_mission_load;
 
 	// If this is a red alert mission in campaign mode, bash wingman status
 	if ( (Game_mode & GM_CAMPAIGN_MODE) && red_alert_mission() ) {
@@ -1824,9 +1829,11 @@ int game_start_mission()
 		// game_load_palette();
 	}
 
-	load_post_level_init = time(NULL);
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_post_level_init = (uint)time(NULL);
 	game_post_level_init();
-	load_post_level_init = time(NULL) - load_post_level_init;
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_post_level_init = (uint)time(NULL) - load_post_level_init;
 
 	#ifndef NDEBUG
 	{
@@ -1835,9 +1842,11 @@ int game_start_mission()
 	}
 	#endif
 
-	load_mission_stuff = time(NULL);
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_mission_stuff = (uint)time(NULL);
 	freespace_mission_load_stuff();
-	load_mission_stuff = time(NULL) - load_mission_stuff;
+	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
+	load_mission_stuff = (uint)time(NULL) - load_mission_stuff;
 
 	replay_load_end();
 
@@ -2026,7 +2035,8 @@ void game_init()
 	Game_current_mission_filename[0] = 0;
 
 	// seed the random number generator
-	Game_init_seed = time(NULL);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	Game_init_seed = (int)time(NULL);
 	srand( Game_init_seed );
 
 	Framerate_delay = 0;
@@ -2807,7 +2817,8 @@ void game_tst_frame()
 	
 	// setup tst
 	if(tst == 2){		
-		tst_time = time(NULL);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		tst_time = (int)time(NULL);
 
 		// load the tst bitmap		
 		switch((int)frand_range(0.0f, 3.0)){
@@ -5037,7 +5048,8 @@ void game_process_event( int current_state, int event )
 				// multiplayer clients set their extra check here
 				if(Game_mode & GM_MULTIPLAYER){
 					// set the multi died absolute last chance check					
-					Player_multi_died_check = time(NULL);
+					// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+					Player_multi_died_check = (int)time(NULL);
 				}					
 			} else {
 				mprintf(( "Ignoring GS_EVENT_DEATH_BLEW_UP because we're in state %d\n", current_state ));
@@ -7010,7 +7022,8 @@ void Time_model( int modelnum )
 
 	polymodel *pm = model_get( modelnum );
 
-	int l = strlen(pm->filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int l = (int)strlen(pm->filename);
 	while( (l>0) )	{
 		if ( (l == '/') || (l=='\\') || (l==':'))	{
 			l++;
@@ -7921,13 +7934,13 @@ int game_host_init(char *szCmdLine, char *root_dir)
 
 		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0 );
+		movie_play( NOX("intro.mve"), 0 );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 		// debug version, movie will only play with -showmovies
 		#else if !defined(NDEBUG)
 		
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0);
+		movie_play( NOX("intro.mve"), 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 /*
 #ifndef NDEBUG
 		if ( Cmdline_show_movies )

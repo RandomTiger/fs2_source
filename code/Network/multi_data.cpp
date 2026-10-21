@@ -455,7 +455,8 @@ int multi_data_is_data(char *filename)
 	}
 
 	// convert to lowercase
-	len = strlen(filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(filename);
 	for(idx=0;idx<len;idx++){
 		filename[idx] = (char)tolower(filename[idx]);
 	}

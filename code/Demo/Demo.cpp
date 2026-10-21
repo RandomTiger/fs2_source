@@ -130,7 +130,8 @@ int Demo_error = DEMO_ERROR_NONE;
 #define DEMO_FLOAT(vl)					do { DEMO_DATA(vl, sizeof(float)); } while(0)
 #define DEMO_VECTOR(vl)					do { DEMO_DATA(vl, sizeof(vector)); } while(0)
 #define DEMO_MATRIX(vl)					do { DEMO_DATA(vl, sizeof(matrix)); } while(0)
-#define DEMO_STRING(vl)					do { int stlen; if(Game_mode & GM_DEMO_RECORD){ stlen = strlen(vl); if(stlen <= 0){ break; }	DEMO_DATA(stlen, sizeof(ushort)); DEMO_DATA(*vl, strlen(vl)); } else { ushort len = 0; DEMO_USHORT(len); DEMO_DATA(*vl, len); vl[len] = '\0'; } } while(0)
+// Claude: x64, (int) on the two strlen calls, the lengths are stored as before (D-20261020-194406 batch 2)
+#define DEMO_STRING(vl)					do { int stlen; if(Game_mode & GM_DEMO_RECORD){ stlen = (int)strlen(vl); if(stlen <= 0){ break; }	DEMO_DATA(stlen, sizeof(ushort)); DEMO_DATA(*vl, (int)strlen(vl)); } else { ushort len = 0; DEMO_USHORT(len); DEMO_DATA(*vl, len); vl[len] = '\0'; } } while(0)
 		
 // demo events types
 #define DE_DUMP							1			// standard object dump

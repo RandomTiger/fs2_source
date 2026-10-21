@@ -1714,7 +1714,8 @@ int brief_text_colorize(int index, int instance)
 
 	src = Brief_text[index];
 	dest = &Colored_text[instance][index][0];
-	len = strlen(src);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(src);
 
 	skip_to_next_word = 0;
 	dest_len = 0;

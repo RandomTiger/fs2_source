@@ -86,7 +86,8 @@ BOOL CALLBACK ACM_enum_callback(HACMDRIVERID hadid, DWORD_PTR dwInstance, DWORD 
     BOOL                fDisabled;
     DWORD               dwPriority;
 
-    hlb = (HWND)(UINT)dwInstance;
+    // Claude: x64, dwInstance is already DWORD_PTR; UINT_PTR is UINT on Win32 (D-20261020-194406 batch 3)
+    hlb = (HWND)(UINT_PTR)dwInstance;
 
     add.cbStruct = sizeof(add);
     mmr = acmDriverDetails(hadid, &add, 0L);

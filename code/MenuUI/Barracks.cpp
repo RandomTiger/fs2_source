@@ -529,7 +529,8 @@ void barracks_set_hotkeys(bool pilot_text_enter_mode)
 // strip the possible .pcx extension off a filename
 void barracks_strip_pcx(char *str)
 {
-	int flen = strlen(str);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int flen = (int)strlen(str);
 	int elen = 4;		
 	if ((flen > 4) && !stricmp(str + flen - elen, ".pcx")) {
 		str[flen - elen] = '\0';

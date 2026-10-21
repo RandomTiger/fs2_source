@@ -177,7 +177,7 @@
 #include "cfile.h"
 #include "player.h"
 #include "MissionGoals.h"
-// #include "movie.h"
+#include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "Multi.h"
 #include "TechMenu.h"
 #include "EventMusic.h"
@@ -487,7 +487,8 @@ int mission_campaign_load( char *filename, int load_savefile )
 		memset( &Campaign, 0, sizeof(Campaign) );
 
 		// copy filename to campaign structure minus the extension
-		len = strlen(filename) - 4;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		len = (int)strlen(filename) - 4;
 		Assert(len < MAX_FILENAME_LEN);
 		strncpy(Campaign.filename, filename, len);
 		Campaign.filename[len] = 0;
@@ -1545,7 +1546,8 @@ void read_mission_goal_list(int num)
 				free(Campaign.missions[num].notes);
 			}
 
-			Campaign.missions[num].notes = (char *) malloc(strlen(notes) + 1);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Campaign.missions[num].notes = (char *) malloc((int)strlen(notes) + 1);
 			strcpy(Campaign.missions[num].notes, notes);
 		}
 	}
@@ -1680,7 +1682,7 @@ void mission_campaign_maybe_play_movie(int type)
 		return;
 
 	// no soup for you!
-	// movie_play( filename );
+	movie_play( filename );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 }
 
 // return nonzero if the passed filename is a multiplayer campaign, 0 otherwise
@@ -1757,10 +1759,10 @@ void mission_campaign_end_do()
 	// did the supernova blow?
 	if(Supernova_status == SUPERNOVA_HIT){
 		// no soup for you!
-		// movie_play_two("endpart1.mve", "endprt2b.mve");			// good ending
+		movie_play_two("endpart1.mve", "endprt2b.mve");			// good ending	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	} else {
 		// no soup for you!
-		// movie_play_two("endpart1.mve", "endprt2a.mve");			// good ending
+		movie_play_two("endpart1.mve", "endprt2a.mve");			// good ending	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	}	
 
 #ifdef FS2_DEMO

@@ -75,7 +75,8 @@ InetGetFile::InetGetFile(char *URL,char *localfile)
 	// make sure localfile has \ in it or we'll be here a long time.
 	if (strstr(localfile, "\\")) {
 		strcpy(dir_name, localfile);
-		int len = strlen(localfile);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		int len = (int)strlen(localfile);
 		end = dir_name + len;
 
 		// start from end of localfile and go to first \ to get dirname

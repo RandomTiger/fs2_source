@@ -524,7 +524,8 @@ void lcl_xstr_init()
 
 			stuff_int(&index);
 			stuff_string(buf, F_NAME, NULL, 4096);
-			i = strlen(buf);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			i = (int)strlen(buf);
 			while (i--) {
 				if (!isspace(buf[i])) {
 					break;
@@ -673,7 +674,8 @@ void lcl_add_dir(char *current_path)
 	}
 
 	// get the length of the string so far
-	path_len = strlen(current_path);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	path_len = (int)strlen(current_path);
 	if (path_len <= 0) {
 		return;
 	}
@@ -784,7 +786,8 @@ void lcl_ext_localize(char *in, char *out, int max_len, int *id)
 		*id = -2;
 	}	
 
-	str_len = strlen(in);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	str_len = (int)strlen(in);
 
 	// if the string is < 9 chars, it can't be an XSTR("",) tag, so just copy it
 	if(str_len < 9){
@@ -920,7 +923,8 @@ int lcl_ext_get_text(char *xstr, char *out)
 
 	Assert(xstr != NULL);
 	Assert(out != NULL);
-	str_len = strlen(xstr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	str_len = (int)strlen(xstr);
 	
 	// this is some crazy wack-ass code.
 	// look for the open quote
@@ -930,7 +934,8 @@ int lcl_ext_get_text(char *xstr, char *out)
 		error_display(0, "Error parsing XSTR() tag %s\n", xstr);		
 		return 0;
 	} else {
-		str_start = p - xstr + 1;		
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		str_start = (int)(p - xstr) + 1;		
 	}
 	// make sure we're not about to walk past the end of the string
 	if((p - xstr) >= str_len){
@@ -944,7 +949,8 @@ int lcl_ext_get_text(char *xstr, char *out)
 		error_display(0, "Error parsing XSTR() tag %s\n", xstr);		
 		return 0;
 	} else {
-		str_end = p2 - xstr;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		str_end = (int)(p2 - xstr);
 	}
 
 	// now that we know the boundaries of the actual string in the XSTR() tag. copy it
@@ -963,7 +969,8 @@ int lcl_ext_get_id(char *xstr, int *out)
 	Assert(xstr != NULL);
 	Assert(out != NULL);
 	
-	str_len = strlen(xstr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	str_len = (int)strlen(xstr);
 
 	// find the first quote
 	p = strstr(xstr, "\"");
@@ -1091,7 +1098,8 @@ int lcl_ext_lookup_sub(char *text, char *out, int id)
 {
 	char *front;			// front of the line
 	char *p;					// current ptr
-	int len = strlen(text);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(text);
 	int count;	
 	char text_copy[1024];	
 	char *tok;
@@ -1270,7 +1278,8 @@ void lcl_ext_setup_pointers()
 		// end of language found
 		case 3 :
 			// mark one final pointer
-			Lcl_pointers[Lcl_pointer_count++] = cftell(Lcl_ext_file) - strlen(line) - 1;
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			Lcl_pointers[Lcl_pointer_count++] = cftell(Lcl_ext_file) - (int)strlen(line) - 1;
 			lcl_ext_close();
 			return;
 		}
@@ -1279,7 +1288,8 @@ void lcl_ext_setup_pointers()
 		if(ret & (1<<31)){		
 			if((string_count % LCL_GRANULARITY) == 0){
 				// mark the pointer down
-				Lcl_pointers[Lcl_pointer_count++] = cftell(Lcl_ext_file) - strlen(line) - 1;
+				// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+				Lcl_pointers[Lcl_pointer_count++] = cftell(Lcl_ext_file) - (int)strlen(line) - 1;
 
 				// if we're out of pointer slots
 				if(Lcl_pointer_count >= LCL_MAX_POINTERS){

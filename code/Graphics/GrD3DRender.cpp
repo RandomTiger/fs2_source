@@ -1353,7 +1353,8 @@ void gr_d3d_bitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 		return;
 	}
 
-	dptr = (ushort *)((int)ddsd.lpSurface+ddsd.lPitch*(y+gr_screen.offset_y)+(x+gr_screen.offset_x)*2);
+	// Claude: x64, keeps the whole pointer; intptr_t is int on Win32 (D-20261020-194406 batch 3)
+	dptr = (ushort *)((intptr_t)ddsd.lpSurface+ddsd.lPitch*(y+gr_screen.offset_y)+(x+gr_screen.offset_x)*2);
 
 	bmp = bm_lock( gr_screen.current_bitmap, 16, 0 );
 	sptr = (ushort *)( bmp->data + (sy*bmp->w + sx) );
@@ -1368,7 +1369,8 @@ void gr_d3d_bitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 		}
 		
 		// next row on the screen
-		dptr = (ushort *)((uint)dptr + ddsd.lPitch);
+		// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+		dptr = (ushort *)((uintptr_t)dptr + ddsd.lPitch);
 
 		// next row in the bitmap
 		sptr += bmp->w;
@@ -2235,7 +2237,8 @@ static int tga_compress(char *out, char *in, int bytecount, int pixsize )
 		++flagbyte;
 		flagbyte += tga_copy_data(flagbyte, copyloc, pixcount, pixsize, outsize);
 	}
-	return(flagbyte-out);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	return((int)(flagbyte-out));
 }
 
 void gr_d3d_print_screen(char *filename)

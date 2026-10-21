@@ -479,6 +479,11 @@ static int replay_hook_live()
 	return Replay_active && (Replay_depth == 0) && (GetCurrentThreadId() == Replay_main_thread);
 }
 
+int replay_stream_active()
+{
+	return Replay_active;
+}
+
 // Only the main thread's own nesting counts.  Other threads (the music streamer's timer reads the clock)
 // never touch the stream, and counting their calls made the main thread skip a recorded read (#27)
 void replay_push()
@@ -971,7 +976,8 @@ void replay_set_autorecord(char *dir)
 	Replay_auto = 1;
 	strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
 	_mkdir(Replay_auto_dir);
-	len = strlen(Replay_auto_dir);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(Replay_auto_dir);
 	if ((len > 0) && ((Replay_auto_dir[len - 1] == '\\') || (Replay_auto_dir[len - 1] == '/'))) {
 		Replay_auto_dir[len - 1] = 0;
 	}

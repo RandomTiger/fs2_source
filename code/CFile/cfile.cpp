@@ -188,7 +188,7 @@ cf_pathtype Pathtypes[CF_MAX_PATH_TYPES]  = {
 	// What type this is          Path                             Extensions              Parent type
 	{ CF_TYPE_INVALID,				NULL,										NULL,							CF_TYPE_INVALID },
 	// Root must be index 1!!	
-	{ CF_TYPE_ROOT,					"",										".mve",							CF_TYPE_ROOT	},
+	{ CF_TYPE_ROOT,					"",										".mve .ogv",							CF_TYPE_ROOT	},	// Claude: .ogv movies (code/Movie)
 	{ CF_TYPE_DATA,					"Data",									".cfg .log .txt",			CF_TYPE_ROOT	},
 	{ CF_TYPE_MAPS,					"Data\\Maps",							".pcx .ani .tga",			CF_TYPE_DATA	},
 	{ CF_TYPE_TEXT,					"Data\\Text",							".txt .net",				CF_TYPE_DATA	},
@@ -206,7 +206,7 @@ cf_pathtype Pathtypes[CF_MAX_PATH_TYPES]  = {
 	{ CF_TYPE_VOICE_SPECIAL,		"Data\\Voice\\Special",				".wav",						CF_TYPE_VOICE	},
 	{ CF_TYPE_VOICE_TRAINING,		"Data\\Voice\\Training",			".wav",						CF_TYPE_VOICE	},
 	{ CF_TYPE_MUSIC,					"Data\\Music",							".wav",						CF_TYPE_VOICE	},
-	{ CF_TYPE_MOVIES,					"Data\\Movies",						".mve .msb",				CF_TYPE_DATA	},
+	{ CF_TYPE_MOVIES,					"Data\\Movies",						".mve .msb .ogv",				CF_TYPE_DATA	},	// Claude: .ogv movies (code/Movie)
 	{ CF_TYPE_INTERFACE,				"Data\\Interface",					".pcx .ani .tga",			CF_TYPE_DATA	},
 	{ CF_TYPE_FONT,					"Data\\Fonts",							".vf",						CF_TYPE_DATA	},
 	{ CF_TYPE_EFFECTS,				"Data\\Effects",						".ani .pcx .neb .tga",	CF_TYPE_DATA	},
@@ -305,7 +305,8 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 		cfile_inited = 1;
 
 		strcpy(buf, exe_dir);
-		i = strlen(buf);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		i = (int)strlen(buf);
 
 		// are we in a root directory?		
 		if(cfile_in_root_dir(buf)){
@@ -514,8 +515,10 @@ char *cf_add_ext(char *filename, char *ext)
 	int flen, elen;
 	static char path[MAX_PATH_LEN];
 
-	flen = strlen(filename);
-	elen = strlen(ext);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	flen = (int)strlen(filename);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	elen = (int)strlen(ext);
 	Assert(flen < MAX_PATH_LEN);
 	strcpy(path, filename);
 	if ((flen < 4) || stricmp(path + flen - elen, ext)) {
@@ -1217,7 +1220,8 @@ int cfwrite_string(char *buf, CFILE *file)
 	if ( (!buf) || (buf && !buf[0]) ) {
 		return cfwrite_char(0, file);
 	} 
-	int len = strlen(buf);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(buf);
 	if(!cfwrite(buf, len, 1, file)){
 		return 0;
 	}
@@ -1226,7 +1230,8 @@ int cfwrite_string(char *buf, CFILE *file)
 
 int cfwrite_string_len(char *buf, CFILE *file)
 {
-	int len = strlen(buf);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(buf);
 
 	if(!cfwrite_int(len, file)){
 		return 0;
@@ -1278,7 +1283,8 @@ int cfwrite(void *buf, int elsize, int nelem, CFILE *cfile)
 
 	Assert(cb->fp != NULL);
 	Assert(cb->lib_offset == 0 );
-	result = fwrite(buf, elsize, nelem, cb->fp);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	result = (int)fwrite(buf, elsize, nelem, cb->fp);
 
 	return result;	
 }

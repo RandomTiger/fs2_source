@@ -11,7 +11,8 @@
 // State updates that affect game logic are preserved.
 
 static void gr_dummy_flip() { }
-static void gr_dummy_flip_window(uint /*_hdc*/, int /*x*/, int /*y*/, int /*w*/, int /*h*/) { }
+// Claude: x64, an HDC fits in 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+static void gr_dummy_flip_window(uintptr_t /*_hdc*/, int /*x*/, int /*y*/, int /*w*/, int /*h*/) { }
 static void gr_dummy_set_palette(ubyte * /*new_pal*/, int /*restrict_alphacolor*/) { }
 static void gr_dummy_fade_in(int /*instantaneous*/) { }
 static void gr_dummy_fade_out(int /*instantaneous*/) { }

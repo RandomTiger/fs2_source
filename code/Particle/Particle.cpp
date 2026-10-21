@@ -371,7 +371,8 @@ KillAnother:
 	}
 
 	// get objnum
-	particle_num = p-Particles;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	particle_num = (int)(p-Particles);
 
 	// Init the particle data
 	p->pos = pinfo->pos;

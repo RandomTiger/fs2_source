@@ -2398,21 +2398,27 @@ int ds_using_ds3d()
 // Return the primary buffer interface.  Note that we cast to a uint to avoid
 // having to include dsound.h (and thus windows.h) in ds.h.
 //
-uint ds_get_primary_buffer_interface()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_primary_buffer_interface()
 {
-	return (uint)pPrimaryBuffer;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)pPrimaryBuffer;
 }
 
 // Return the DirectSound Interface.
 //
-uint ds_get_dsound_interface()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_dsound_interface()
 {
-	return (uint)pDirectSound;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)pDirectSound;
 }
 
-uint ds_get_property_set_interface()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t ds_get_property_set_interface()
 {
-	return (uint)pPropertySet;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)pPropertySet;
 }
 
 // --------------------

@@ -672,7 +672,8 @@ void chatbox_autosplit_line()
 		Chat_inputbox.set_text(remainder);
 	} else if((Chat_inputbox.pressed() && (strlen(msg) > 0)) || (strlen(msg) >= CHATBOX_MAX_LEN)) { 
 		// tack on the null terminator in the boundary case
-		int x = strlen(msg);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		int x = (int)strlen(msg);
 		if(x >= CHATBOX_MAX_LEN){
 			msg[CHATBOX_MAX_LEN-1] = '\0';
 		}		

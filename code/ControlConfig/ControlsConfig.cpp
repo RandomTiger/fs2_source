@@ -2262,7 +2262,8 @@ void control_config_do_frame(float frametime)
 
 					gr_printf(x, y, buf);
 
-					len = strlen(buf);
+					// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+					len = (int)strlen(buf);
 					Cc_lines[line].kx = x - Control_list_coords[gr_screen.res][CONTROL_X_COORD];
 					gr_get_string_size(&w, NULL, buf);
 					Cc_lines[line].kw = w;

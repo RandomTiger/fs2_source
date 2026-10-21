@@ -315,7 +315,8 @@ static int sim_room_fs1_from_mdisk(char *filename)
 	if ( !Cfile_fs1_data || !cf_find_file_location(filename, CF_TYPE_MISSIONS, pack, NULL, NULL) ) {
 		return 0;
 	}
-	len = strlen(pack);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	len = (int)strlen(pack);
 	return (len >= 8) && !stricmp(pack + len - 8, "mdisk.vp");
 }
 
@@ -1574,7 +1575,8 @@ int campaign_room_reset_campaign(int n)
 	// z = popup(PF_TITLE_BIG | PF_TITLE_RED, 2, POPUP_CANCEL, POPUP_OK, XSTR( "Warning\nThis will cause all progress in your\ncurrent campaign to be lost", 110), Campaign_names[n]);
 	z = popup(PF_TITLE_BIG | PF_TITLE_RED, 2, POPUP_CANCEL, POPUP_OK, XSTR( "Warning\nThis will cause all progress in your\ncurrent campaign to be lost", 110));
 	if (z == 1) {
-		filename = (char *) malloc(strlen(Campaign_file_names[n]) + 5);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		filename = (char *) malloc((int)strlen(Campaign_file_names[n]) + 5);
 		strcpy(filename, Campaign_file_names[n]);
 		strcat(filename, FS_CAMPAIGN_FILE_EXT);
 

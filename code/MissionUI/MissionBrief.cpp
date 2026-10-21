@@ -1014,9 +1014,11 @@ void brief_buttons_init()
 //	brief_get_closeup_icon()
 //
 //
-uint brief_get_closeup_icon()
+// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+uintptr_t brief_get_closeup_icon()
 {
-	return (uint)Closeup_icon;
+	// Claude: x64, keeps the whole pointer; uintptr_t is uint on Win32 (D-20261020-194406 batch 3)
+	return (uintptr_t)Closeup_icon;
 }
 
 // stop showing the closeup view of an icon
@@ -1480,7 +1482,8 @@ void brief_render(float frametime)
 		int more_txt_x = Brief_text_coords[gr_screen.res][0] + (Brief_max_line_width[gr_screen.res]/2) - 10;
 		int more_txt_y = Brief_text_coords[gr_screen.res][1] + Brief_text_coords[gr_screen.res][3] - 2;				// located below brief text, centered
 		int map_w, map_h;	// Claude: were h, w, which hid the outer locals (C4456)
-		gr_get_string_size(&map_w, &map_h, XSTR("more", 1469), strlen(XSTR("more", 1469)));
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		gr_get_string_size(&map_w, &map_h, XSTR("more", 1469), (int)strlen(XSTR("more", 1469)));
 		gr_set_color_fast(&Color_black);
 		gr_rect(more_txt_x-2, more_txt_y, map_w+3, map_h);
 		gr_set_color_fast(&Color_red);

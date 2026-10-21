@@ -279,7 +279,8 @@ void load_filter_info(void)
 			outwnd_filter[outwnd_filter_count]->state = 0;
 		else continue;  // skip everything else
 
-		z = strlen(inbuf) - 1;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		z = (int)strlen(inbuf) - 1;
 		if (inbuf[z] == '\n')
 			inbuf[z] = 0;
 
@@ -513,13 +514,16 @@ void outwnd_print(char *id, char *tmp)
 	if ( mono_driver != ((HANDLE)-1) ) {
 		DWORD   cbReturned;
 
-		DeviceIoControl (mono_driver, (DWORD)IOCTL_MONO_PRINT, tmp, strlen(tmp), NULL, 0, &cbReturned, 0 );
+		// Claude: x64, cast to DWORD, its width on Win32 (D-20261020-194406 batch 2)
+		DeviceIoControl (mono_driver, (DWORD)IOCTL_MONO_PRINT, tmp, (DWORD)strlen(tmp), NULL, 0, &cbReturned, 0 );
 	} else {
-		mono_print(tmp, strlen(tmp) );
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		mono_print(tmp, (int)strlen(tmp) );
 	}
 
 	sptr = tmp;
-	ccol = strlen(outtext[mprintf_last_line] );
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	ccol = (int)strlen(outtext[mprintf_last_line] );
 	dptr = &outtext[mprintf_last_line][ccol];
 	nrows = 0;
 
@@ -693,7 +697,8 @@ LRESULT CALLBACK outwnd_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM lParam)
 
 			AppendMenu(h_menu, MFT_STRING, ID_COPY, "&Copy\tEnter");
 			AppendMenu(h_menu, MFT_STRING, ID_FIND, "&Find Text");
-			AppendMenu(h_menu, MF_POPUP, (unsigned int) h_sub_menu, "Filter &Messages");
+			// Claude: x64, AppendMenu takes the submenu as UINT_PTR; unsigned int on Win32 (D-20261020-194406 batch 3)
+			AppendMenu(h_menu, MF_POPUP, (UINT_PTR) h_sub_menu, "Filter &Messages");
 			pt.x = LOWORD(lParam);
 			pt.y = HIWORD(lParam);
 			ClientToScreen(hwnd, &pt);
@@ -844,10 +849,12 @@ void outwnd_copy_marked_selection(HWND hwnd)
 
 	} else {
 		i = marked_top;
-		size += strlen(outtext[i++]) - marked_left + 2;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		size += (int)strlen(outtext[i++]) - marked_left + 2;
 
 		while (i < marked_bottom)
-			size += strlen(outtext[i++]) + 2;
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			size += (int)strlen(outtext[i++]) + 2;
 
 		size += marked_right;
 	}
@@ -946,7 +953,8 @@ void outwnd_paint(HWND hwnd)
 	
 		if (n >= 0 && n < SCROLL_BUFFER_SIZE)
 		{
-			len = strlen(outtext[n]);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			len = (int)strlen(outtext[n]);
 			if (marked)
 			{
 				if (n == marked_top && n == marked_bottom)  // special 1 line case
@@ -1091,7 +1099,8 @@ void outwnd_update_marking(LPARAM l_parm, HWND hwnd)
 	}
 
 	if (marked_right > (signed int) strlen(outtext[marked_bottom]))
-		marked_right = strlen(outtext[marked_bottom]);
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		marked_right = (int)strlen(outtext[marked_bottom]);
 
 	if (marked && (marked_top > marked_bottom || (marked_top == marked_bottom &&
 		marked_left >= marked_right)))
@@ -1229,7 +1238,8 @@ void outwnd_init(int display_under_freespace_window)
 #ifndef NMONO
 	if (!outwnd_inited)	{
 		outwnd_inited = TRUE;
- 		hOutputThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)outwnd_thread, (LPVOID)display_under_freespace_window, 0, &OutputThreadID);
+ 		// Claude: x64, the int flag goes through INT_PTR to the thread parameter; int on Win32 (D-20261020-194406 batch 3)
+ 		hOutputThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)outwnd_thread, (LPVOID)(INT_PTR)display_under_freespace_window, 0, &OutputThreadID);
 		//SetThreadPriority(hOutputThread, THREAD_PRIORITY_TIME_CRITICAL);
 
 		// set up the monochrome drivers
@@ -1291,12 +1301,14 @@ void find_text_in_outwindow(int n, int p)
 		{
 			int scroll_pos, pos;
 
-			find_pos = ptr - str;
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			find_pos = (int)(ptr - str);
 			find_line = n;
 			marked = 1;
 			marked_top = marked_bottom = find_line;
 			marked_left = find_pos;
-			marked_right = find_pos + strlen(find_text);
+			// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+			marked_right = find_pos + (int)strlen(find_text);
 
 			scroll_pos = (max_scroll_pos - GetScrollPos(hOutputWnd, SB_VERT));
 			pos = mprintf_last_line - scroll_pos;

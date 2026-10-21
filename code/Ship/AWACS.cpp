@@ -414,7 +414,8 @@ void team_visibility_update()
 			continue;
 		}
 
-		int ship_num = shipp - Ships;
+		// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+		int ship_num = (int)(shipp - Ships);
 		Assert((ship_num >= 0) && (ship_num < MAX_SHIPS));
 
 		switch (shipp->team) {

@@ -355,7 +355,8 @@ int asteroid_obj_list_add(int objnum)
 	int index;
 
 	asteroid *cur_asteroid = &Asteroids[Objects[objnum].instance];
-	index = cur_asteroid - Asteroids;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	index = (int)(cur_asteroid - Asteroids);
 
 	Assert(index >= 0 && index < MAX_ASTEROID_OBJS);
 	Assert(!Asteroid_objs[index].flags & ASTEROID_OBJ_USED);

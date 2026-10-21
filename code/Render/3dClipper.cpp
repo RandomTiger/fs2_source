@@ -289,7 +289,8 @@ int clip_plane(int plane_flag,vertex **src,vertex **dest,int *nv,ccodes *cc,uint
 		}
 	}
 
-	return (dest-save_dest);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	return (int)((dest-save_dest));
 }
 
 

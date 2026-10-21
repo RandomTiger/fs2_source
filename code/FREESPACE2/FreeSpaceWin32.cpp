@@ -158,7 +158,8 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	MEMORYSTATUS ms;
 	ms.dwLength = sizeof(MEMORYSTATUS);
 	GlobalMemoryStatus(&ms);
-	Freespace_total_ram = ms.dwTotalPhys;
+	// Claude: x64, cast to uint, its width on Win32; above 4 GB it truncates, but nothing reads it (game_do_ram_check has no caller) (D-20261020-194406 batch 2)
+	Freespace_total_ram = (uint)ms.dwTotalPhys;
 
 	if ( ms.dwTotalVirtual < 1024 )	{
 		os_message_box(XSTR( "FreeSpace requires virtual memory to run.\r\n", 196), XSTR( "No Virtual Memory", 197), 0);

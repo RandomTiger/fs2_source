@@ -208,7 +208,8 @@ class PE_Debug
 
 // Add an offset to a pointer and cast to a given type; may be
 // implemented as a template function but Visual C++ has some problems.
-#define BasedPtr( type, ptr, ofs ) (type)( (DWORD)(ptr) + (DWORD)(ofs) )
+// Claude: x64, DWORD_PTR keeps the whole pointer; DWORD on Win32 (D-20261020-194406 batch 3)
+#define BasedPtr( type, ptr, ofs ) (type)( (DWORD_PTR)(ptr) + (DWORD)(ofs) )
 
 
 PE_Debug :: PE_Debug()
@@ -432,7 +433,8 @@ PIMAGE_COFF_SYMBOLS_HEADER PE_Debug :: GetDebugHeader()
   PIMAGE_SECTION_HEADER debugHeader = SectionHeaderFromName( ".debug" ) ;
   if( debugHeader && debugHeader->VirtualAddress == debugDirRVA )
     {
-    debugDir = (PIMAGE_DEBUG_DIRECTORY)(debugHeader->PointerToRawData + (DWORD)fileBase) ;
+    // Claude: x64, DWORD_PTR keeps the whole pointer; DWORD on Win32 (D-20261020-194406 batch 3)
+    debugDir = (PIMAGE_DEBUG_DIRECTORY)(debugHeader->PointerToRawData + (DWORD_PTR)fileBase) ;
     size = NT_Header->OptionalHeader.
            DataDirectory[ IMAGE_DIRECTORY_ENTRY_DEBUG ].Size *
            sizeof( IMAGE_DEBUG_DIRECTORY ) ;
@@ -455,7 +457,8 @@ PIMAGE_COFF_SYMBOLS_HEADER PE_Debug :: GetDebugHeader()
   for( DWORD i = 0; i < debugFormats; i++ )
     {
     if( debugDir->Type == IMAGE_DEBUG_TYPE_COFF )
-      return( (PIMAGE_COFF_SYMBOLS_HEADER)((DWORD)fileBase + debugDir->PointerToRawData) ) ;
+      // Claude: x64, DWORD_PTR keeps the whole pointer; DWORD on Win32 (D-20261020-194406 batch 3)
+      return( (PIMAGE_COFF_SYMBOLS_HEADER)((DWORD_PTR)fileBase + debugDir->PointerToRawData) ) ;
     else
       debugDir++ ;
     }
@@ -544,7 +547,8 @@ int PE_Debug::DumpDebugInfo( DumpBuffer& dumpBuffer, const BYTE* caller, HINSTAN
 	if ( fileBase )	{
 		// Put everything into a try/catch in case the file has wrong fields
 		try	{
-			DWORD relativeAddress = caller - (BYTE*)hInstance ;
+			// Claude: x64, cast to DWORD, its width on Win32 (D-20261020-194406 batch 2)
+			DWORD relativeAddress = (DWORD)(caller - (BYTE*)hInstance) ;
 			// Dump symbolic information and line number if available
 			if( COFFSymbolCount != 0 && COFFSymbolTable != NULL )	{
 				DumpSymbolInfo( dumpBuffer, relativeAddress ) ;
@@ -659,7 +663,8 @@ extern void gr_force_windowed();
 
 void dump_text_to_clipboard(char *text)
 {
-	int len = strlen(text)+1024;
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(text)+1024;
 
 	HGLOBAL h_text = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, len );
 	if ( !h_text ) return;
@@ -910,7 +915,8 @@ void *vm_malloc( int size )
 char *vm_strdup( const char *ptr )
 {
 	char *dst;
-	int len = strlen(ptr);
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	int len = (int)strlen(ptr);
 	dst = (char *)vm_malloc( len+1 );
 	strcpy( dst, ptr );
 	return dst;

@@ -704,7 +704,8 @@ int pcx_write_bitmap( char * real_filename, int w, int h, ubyte ** row_ptrs, uby
 //	for (i=0; i<768; i++ )
 //		palette[i] <<= 2;
 
-	retval = fwrite( palette, 768, 1, PCXfile );
+	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
+	retval = (int)fwrite( palette, 768, 1, PCXfile );
 
 //	for (i=0; i<768; i++ )
 //		palette[i] >>= 2;
