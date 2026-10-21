@@ -33,6 +33,8 @@
 #include "Popup.h"
 #include "MissionBrief.h"
 #include "DataSetProfile.h"
+#include "2d.h"
+#include "Popup.h"
 
 #define AUTOTEST_LOG				"autotest.log"
 #define AUTOTEST_DEFAULT_TIME		120		// seconds of mission time
