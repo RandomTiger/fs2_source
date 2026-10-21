@@ -885,8 +885,8 @@ static void brief_fs1_layout()
 	Brief_grid_coords[GR_640][2] = 529;			Brief_grid_coords[GR_640][3] = 237;
 	Brief_static_coords[GR_640][0] = 45;		Brief_static_coords[GR_640][1] = 122;
 	// Claude: inside the text box's black area (x 27 to 429, y 409 to 471, its left corners bevelled), not on its frame
-	Brief_text_coords[GR_640][0] = 40;			Brief_text_coords[GR_640][1] = 415;
-	Brief_text_coords[GR_640][2] = 385;			Brief_text_coords[GR_640][3] = 56;
+	Brief_text_coords[GR_640][0] = 50;			Brief_text_coords[GR_640][1] = 415;	// Claude: x 50, as FS1's reference briefing.png (was 40)
+	Brief_text_coords[GR_640][2] = 375;			Brief_text_coords[GR_640][3] = 56;
 	Brief_bmap_coords[GR_640][0] = 0;			Brief_bmap_coords[GR_640][1] = 98;	// no Briefwin in FS1; Debug's filename line goes 10 above
 	Brief_stage_text_coords[GR_640][0] = 62;	Brief_stage_text_coords[GR_640][1] = 386;
 	Title_coords[GR_640][0] = 580;				Title_coords[GR_640][1] = 388;
