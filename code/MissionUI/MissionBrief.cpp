@@ -1037,8 +1037,21 @@ void brief_turn_off_closeup_icon()
 //	brief_load_bitmaps()
 //
 //
+// Claude: FS1 demo data: the map window's four edges (top, right, bottom with the VCR controls, left), as its FS.exe
+// names them.  Positions matched against the FS1 retail briefing reference screenshot, not read from the demo exe;
+// unverified against the original demo running (D-20261021-082859).
+static int Brief_map_window_bitmaps[4] = { -1, -1, -1, -1 };
+static int Brief_map_window_coords[4][2] = { {63, 122}, {575, 122}, {63, 350}, {42, 122} };
+
 void brief_load_bitmaps()
 {
+	if ( Game_profile->brief_map_window ) {	// Claude: (D-20261021-082859)
+		for ( int i = 0; i < 4; i++ ) {
+			char name[16];
+			sprintf(name, NOX("MapWin%02d"), i + 1);
+			Brief_map_window_bitmaps[i] = bm_load(name);
+		}
+	}
 	Brief_text_bitmap = bm_load(Brief_infobox_filename[gr_screen.res]);
 	Brief_grid_bitmap = bm_load(Brief_win_filename[gr_screen.res]);
 	
@@ -1463,6 +1476,13 @@ void brief_render(float frametime)
 
 	gr_set_bitmap(Brief_grid_bitmap);
 	gr_bitmap(Brief_bmap_coords[gr_screen.res][0], Brief_bmap_coords[gr_screen.res][1]);
+
+	for ( int mw = 0; mw < 4; mw++ ) {	// Claude: FS1 demo map window frame (D-20261021-082859)
+		if ( Brief_map_window_bitmaps[mw] != -1 ) {
+			gr_set_bitmap(Brief_map_window_bitmaps[mw]);
+			gr_bitmap(Brief_map_window_coords[mw][0], Brief_map_window_coords[mw][1]);
+		}
+	}
 
 	brief_render_map(Current_brief_stage, frametime);
 
@@ -2132,6 +2152,13 @@ void brief_unload_bitmaps()
 	if(Brief_grid_bitmap != -1){
 		bm_unload(Brief_grid_bitmap);
 		Brief_grid_bitmap = -1;
+	}
+
+	for ( int mw = 0; mw < 4; mw++ ) {	// Claude: FS1 demo map window frame (D-20261021-082859)
+		if ( Brief_map_window_bitmaps[mw] != -1 ) {
+			bm_unload(Brief_map_window_bitmaps[mw]);
+			Brief_map_window_bitmaps[mw] = -1;
+		}
 	}
 
 	if ( Brief_multitext_bitmap != -1 ) {
