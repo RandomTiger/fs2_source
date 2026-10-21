@@ -68,7 +68,7 @@ void game_maybe_update_launcher(char *exe_dir)
 // Claude: whether the command line has this option, before parse_cmdline runs (it runs in game_host_init)
 static int host_cmdline_has(const char *cmdline, const char *option)
 {
-	int len = strlen(option);
+	int len = (int)strlen(option);
 	const char *p = cmdline;
 	while ( (p = strstr(p, option)) != NULL ) {
 		if ( ((p == cmdline) || (p[-1] == ' ') || (p[-1] == '\t')) && ((p[len] == 0) || (p[len] == ' ') || (p[len] == '\t')) ) {
@@ -83,7 +83,7 @@ static int host_cmdline_has(const char *cmdline, const char *option)
 // included), or NULL
 static char *host_cmdline_find(char *cmdline, const char *option, int *value_len, char **option_start)
 {
-	int len = strlen(option);
+	int len = (int)strlen(option);
 	char *p = cmdline;
 	while ( (p = strstr(p, option)) != NULL ) {
 		if ( ((p == cmdline) || (p[-1] == ' ') || (p[-1] == '\t')) && ((p[len] == ' ') || (p[len] == '\t')) ) {
@@ -101,7 +101,7 @@ static char *host_cmdline_find(char *cmdline, const char *option, int *value_len
 					e++;
 				}
 			}
-			*value_len = e - v;
+			*value_len = (int)(e - v);
 			return v;
 		}
 		p += len;

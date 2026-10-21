@@ -817,9 +817,9 @@ int autotest_report(char *kind, char *text, char *file, int line)
 		void *frames[16];
 		char buf[256];
 		int n = RtlCaptureStackBackTrace(1, 16, frames, NULL), len = 0;
-		uint base = (uint)GetModuleHandle(NULL);
+		uintptr_t base = (uintptr_t)GetModuleHandle(NULL);
 		for (int i = 0; (i < n) && (len < (int)sizeof(buf) - 12); i++) {
-			len += sprintf(buf + len, " %x", (uint)frames[i] - base);
+			len += sprintf(buf + len, " %x", (uint)((uintptr_t)frames[i] - base));
 		}
 		autotest_logf("  stack:%s\n", buf);
 	}
