@@ -62,7 +62,7 @@ if (-not $Shots) {
 			$p = Start-Process ".\FS2vs2022$Config.exe" -ArgumentList $argList -PassThru
 			if (-not $p.WaitForExit(600000)) { Stop-Process $p -Force }
 			if (Test-Path $log) {
-				$copy = Join-Path $Out "$($run.name).autotest.log"
+				$copy = Join-Path $Shots "$($run.name).autotest.log"	# with the shots, so -Shots finds it
 				Copy-Item $log $copy
 				$logs += $copy
 			}
