@@ -4702,12 +4702,12 @@ int game_poll()
 
 			// hotkey selection screen -- only valid from briefing and beyond.
 		case KEY_F3:	
-			#ifndef FS2_DEMO
+			if (Game_profile->full_version_screens & FVS_HOTKEYS) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
 					gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
 					k = 0;
 				}
-			#endif
+			}	// Claude
 			break;
 
 		case KEY_DEBUGGED + KEY_F3:
