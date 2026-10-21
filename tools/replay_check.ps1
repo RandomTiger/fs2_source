@@ -105,6 +105,8 @@ foreach ($r in $recs) {
 			Copy-Item "$rec.replay.log" $log
 			$res = (Select-String $log -Pattern 'REPLAY OK|DESYNC|ERROR' | Select-Object -First 1).Line
 		}
+		# the game's autotest.log, which says where a stuck run hung (D-053)
+		if (Test-Path '.\autotest.log') { Copy-Item '.\autotest.log' (Join-Path $Out "${folder}_${name}_$e.autotest.log") }
 		$diff = 'NO TRACE'
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
