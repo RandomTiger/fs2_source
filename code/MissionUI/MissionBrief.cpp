@@ -626,9 +626,7 @@ void brief_skip_training_pressed()
 	}
 }
 
-#ifdef FS2_DEMO
-	extern void demo_reset_trailer_timer();
-#endif
+	extern void demo_reset_trailer_timer();	// Claude: was under #ifdef FS2_DEMO
 // --------------------------------------------------------------------------------------
 //	brief_do_next_pressed()
 //
@@ -642,9 +640,9 @@ void brief_do_next_pressed(int play_sound)
 		return;
 	}
 
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_reset_trailer_timer();
-#endif
+	}	// Claude
 
 	Current_brief_stage++;
 	if ( Current_brief_stage >= Num_brief_stages ) {
@@ -1178,9 +1176,9 @@ void brief_init()
 {
 	// Since first stage of briefing can take some time to arrive and play, 
 	// reset the trailer timer on briefing init.
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_reset_trailer_timer();
-#endif
+	}	// Claude
 
 	// for multiplayer, change the state in my netplayer structure
 	// and initialize the briefing chat area thingy
@@ -1240,10 +1238,10 @@ void brief_init()
 	// init the scene-cut data
 	brief_transition_reset();
 
-#ifndef FS2_DEMO	
+	if (Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 	hud_anim_init(&Fade_anim, Brief_static_coords[gr_screen.res][0], Brief_static_coords[gr_screen.res][1], Brief_static_name[gr_screen.res]);
-	if ( Game_profile->brief_fade )	hud_anim_load(&Fade_anim);	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
-#endif
+	if ( Game_profile->brief_fade_anim )	hud_anim_load(&Fade_anim);	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608, D-20261021-142002)
+	}	// Claude
 
 	nprintf(("Alan","Entering brief_init()\n"));
 	common_select_init();
@@ -1794,16 +1792,16 @@ void brief_maybe_flash_button()
 		if ( Current_brief_stage == (Num_brief_stages-1) ) {
 
 			// AL 4-4-98: Don't flash ship selection button on briefing in demo build
-#ifdef FS2_DEMO
+			if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO (no ship select button flash)
 				return;
-#else
+			} else {	// Claude
 			// AL 30-3-98: Don't flash ship selection button if in a training mission, 
 			if ( brief_only_allow_briefing() ) {
 				return;
 			}
 
 			b = &Common_buttons[Current_screen-1][gr_screen.res][1].button;		// ship select button
-#endif
+			}	// Claude
 		} else {
 			b = &Brief_buttons[gr_screen.res][1].button;		// next stage button
 		}
@@ -2204,9 +2202,9 @@ void brief_close()
 	// unload the audio streams used for voice playback
 	brief_voice_unload_all();
 
-#ifndef FS2_DEMO
+	if (Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 	hud_anim_release(&Fade_anim);
-#endif
+	}	// Claude
 
 	// done mask bitmap, so unlock it
 	bm_unlock(BriefingMaskBitmap);
@@ -2280,7 +2278,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 {
 	if ( Start_fade_up_anim ) {
 
-#ifdef FS2_DEMO
+		if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO
 		Fade_anim.time_elapsed = 0.0f;
 		Start_fade_up_anim = 0;
 		Start_fade_down_anim = 1;
@@ -2291,7 +2289,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			Current_brief_stage = Last_brief_stage;
 		}
 		goto Fade_down_anim_start;
-#else
+		} else {	// Claude
 		int framenum;
 
 		Fade_anim.time_elapsed += frametime;
@@ -2316,7 +2314,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			goto Fade_down_anim_start;
 		}
 
-		if ( !Game_profile->brief_fade )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
+		if ( !Game_profile->brief_fade_anim )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608, D-20261021-142002)
 		// draw the correct frame of animation
 		framenum = fl2i( (Fade_anim.time_elapsed * Fade_anim.num_frames) / Fade_anim.total_time );
 		if ( framenum < 0 )
@@ -2327,19 +2325,19 @@ void brief_maybe_blit_scene_cut(float frametime)
 		// Blit the bitmap for this frame
 		gr_set_bitmap(Fade_anim.first_frame + framenum);
 		brief_blit_static();	// Claude: was gr_bitmap(Fade_anim.sx, Fade_anim.sy)
-#endif
+		}	// Claude
 	}
 
 
 	Fade_down_anim_start:
 	if ( Start_fade_down_anim ) {
 
-#ifdef FS2_DEMO
+		if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO
 		Fade_anim.time_elapsed = 0.0f;
 		Start_fade_up_anim = 0;
 		Start_fade_down_anim = 0;
 		return;
-#else
+		} else {	// Claude
 
 		int framenum;
 
@@ -2352,7 +2350,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			return;
 		}
 
-		if ( !Game_profile->brief_fade )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608)
+		if ( !Game_profile->brief_fade_anim )	return;	// Claude: the FS1 demo has no BriefMap.ani; the cut keeps its static sound and draws nothing (D-20261020-163608, D-20261021-142002)
 		// draw the correct frame of animation
 		framenum = fl2i( (Fade_anim.time_elapsed * Fade_anim.num_frames) / Fade_anim.total_time );
 		if ( framenum < 0 )
@@ -2364,7 +2362,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 		gr_set_bitmap(Fade_anim.first_frame + (Fade_anim.num_frames-1) - framenum);
 		brief_blit_static();	// Claude: was gr_bitmap(Fade_anim.sx, Fade_anim.sy)
 
-#endif
+		}	// Claude
 	}
 }
 

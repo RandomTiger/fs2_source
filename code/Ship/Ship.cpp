@@ -9282,9 +9282,12 @@ DCF(art, "")
 }
 void ship_update_artillery_lock()
 {
-#if defined(MULTIPLAYER_BETA_BUILD) || defined(FS2_DEMO)
+#if defined(MULTIPLAYER_BETA_BUILD)	// Claude: was defined(MULTIPLAYER_BETA_BUILD) || defined(FS2_DEMO); the demo half is the profile's artillery_lock (D-20261021-100301)
 	return;
 #else
+	if (!Game_profile->artillery_lock) {	// Claude
+		return;	// Claude
+	}	// Claude
 	ai_info *aip = NULL;
 	weapon_info *tlaser = NULL;
 	mc_info *cinfo = NULL;

@@ -27,16 +27,33 @@ typedef struct data_set_profile {
 
 	char	*title_screen[GR_NUM_RESOLUTIONS];	// shown once at start-up, NULL for none
 	char	*default_hcf;						// a new pilot's HUD colours, NULL for none (FS1 has no .hcf files)
+	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
+	int	*builtin_mission_count;
+
+	// menus and flow (batch 7, D-20261021-071013): each reproduces the FS2_DEMO build where that build read it
+	int	full_version_screens;			// FVS_* bits: set = the screen opens as in the full game; clear = what the demo build did there
+	int	always_pilot_select;			// 1: start-up always shows the pilot screen (a replay or autotest still loads its own pilot)
+	int	demo_campaign_end;				// 1: the campaign's end posts GS_EVENT_END_DEMO and the ready room offers to play it again
+	int	upsell_screens;					// 1: the sales screens at the end of the campaign and on exit
+	int	trailer_timer;					// 1: input resets the trailer timer (the trailer itself is commented out in the shipped source)
+	// mission UI, HUD, controls (batch 8, D-20261021-100301): 1 = the full game, 0 = what the FS2_DEMO build did
+	int	brief_fade;						// the briefing static fade (briefmap.ani) and the ship select button flash; 0: no fade, no flash
+	int	loadout_anim_loop;				// ship and weapon select animations loop from frame 51 / 52; 0: from 0 / 1
+	int	hotkeys;							// F5-F12 target hotkeys and their help lines; 0: ignored and not listed
+	int	artillery_lock;					// ship_update_artillery_lock runs; 0: it returns at once
+	int	cheat_code;						// the full game's cheat codes; 0: the demo's one code, single player and multi alike
+	int	breakup_fx;						// ship break-up particles at the full game's sizes; 0: the demo's (range x5, longer life, double scale); affects game logic (D-20261021-110833)
+	int	fs2_demo_walls;					// with an FVS_ bit clear, 1: the site does what the FS2_DEMO build did there (campaign room: offer to restart the campaign; F3: nothing); 0: the not-in-demo popup, as FS1's demo build (D-20261021-142001)
+	// FS1 data sets (FS1Compat), appended after FS2Demo's fields at their merge (D-20261021-142003)
 	int	thruster_species;					// species whose thruster anims are loaded: FS1's demo build cut the Shivan ones (Ship.cpp)
 	int	shields;							// 0: no shields at all, as FS1's demo build (Shield.cpp, D-20261020-161655)
 	int	loadout;							// 0: no ship or weapon selection, their icons and anims not loaded, as FS1's demo build (MissionScreenCommon.cpp)
-	int	brief_fade;							// 0: no BriefMap.ani, so briefing stage cuts draw no static (MissionBrief.cpp, D-20261020-163608)
+	int	brief_fade_anim;						// Claude: was brief_fade, renamed at the FS2Demo merge (D-20261021-142002); read inside brief_fade's blocks.  0: no BriefMap.ani, so briefing stage cuts draw no static (MissionBrief.cpp, D-20261020-163608)
 	int	smoke2;								// 0: no ParticleSmoke02.ani, so those particles draw nothing (Particle.cpp, D-20261020-163608)
 	int	attackers;							// 0: no attacker.pcx, so the target brackets show no '+' per extra attacker (HUDbrackets.cpp)
 	int	unmarked_entries;					// 0: ships.tbl and weapons.tbl entries not marked '@' are skipped, as FS1's demo build (Ship.cpp, Weapons.cpp)
 	int	talking_heads;						// 0: messages play no head anim, as FS1's demo build: the demo has none (MissionMessage.cpp)
 	int	unknown_weapon_warning;				// 0: a ships.tbl weapon missing from weapons.tbl is logged, not a Warning; FS1's demo data names three (PARSELO.CPP, D-20261020-213146)
-	int	full_version_screens;				// 1 = the full-version screens open; 0 = each site answers game_feature_not_in_demo_popup() (FS1 demo: freespace.vp carries no Campaign*, TechShip*, Hotkeys-M, Objectives-m, Medals-m, OptionsMulti*-M or multiplayer screen art; D-20261020-214042)
 	int	options_mouse_sliders;				// 1 = Options creates the mouse on/off buttons (OPa_62, OPa_63) and the three right-hand dot sliders (ids 60, 61, 64); 0 = not created, their settings keep their values (FS1 demo: no OPa_60-64 in freespace.vp, no place for them on OptionsMain.PCX; OptionsMenu.cpp, D-20261020-213842)
 
 	int	loading_ani_coords[GR_NUM_RESOLUTIONS][2];	// where the loading screen draws Loading.ani on LoadingBG, per art mode (FreeSpace.cpp, D-20261020-222222): each data set's art places its bar differently; the FS1 rows' 1024 pair is the 640 pair x 1.6, derived, not measured (FS1 has 640 art only)
@@ -55,10 +72,22 @@ typedef struct data_set_profile {
 	// the frame strip under the picture window is 16 rows lower in the demo's
 	// BARRACKS.PCX (retail y 165-167, demo y 181-184), so (0,+16) (D-20261021-095912).
 	int	barracks_pic_number_offset[2];
-
-	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
-	int	*builtin_mission_count;
 } data_set_profile;
+
+// full_version_screens bits (one field for every data set; FS1Compat's walls joined at the FS2Demo merge, D-20261021-142001)
+#define FVS_TECH_ROOM			(1<<0)	// main hall tech room; clear: not-in-demo popup
+#define FVS_CAMPAIGN_ROOM		(1<<1)	// main hall campaign room; clear: fs2_demo_walls picks the popup
+#define FVS_LOAD_MISSION		(1<<2)	// main hall load mission key; clear: nothing
+#define FVS_QUICK_START			(1<<3)	// main hall quick start (Debug only); clear: nothing
+#define FVS_MEDALS				(1<<4)	// barracks medals button; clear: not-in-demo popup
+#define FVS_HUD_CONFIG			(1<<5)	// options HUD config button; clear: not-in-demo popup
+#define FVS_IPX					(1<<6)	// multi options IPX button; clear: hidden and ignored
+#define FVS_HOTKEYS				(1<<7)	// F3 hotkey screen and its help line; clear: fs2_demo_walls picks nothing or the popup (batch 8, D-20261021-100301)
+#define FVS_MULTIPLAYER			(1<<8)	// main hall multiplayer region; clear: not-in-demo popup (FS1 demo, D-20261021-142001)
+#define FVS_OBJECTIVES			(1<<9)	// in-mission objectives screen; clear: not-in-demo popup (FS1 demo, D-20261021-142001)
+#define FVS_OPTIONS_MULTI		(1<<10)	// options multiplayer tab; clear: not-in-demo popup (FS1 demo, D-20261021-142001)
+#define FVS_DEBRIEF_MEDALS		(1<<11)	// debriefing medals button; clear: not-in-demo popup (FS1 demo; its own bit, the FS2_DEMO build left it open, D-20261021-142001)
+#define FVS_ALL					((1<<12) - 1)
 
 extern const data_set_profile *Game_profile;
 

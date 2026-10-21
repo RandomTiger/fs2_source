@@ -1079,16 +1079,12 @@ void barracks_button_pressed(int n)
 			break;
 
 		case B_STATS_MEDAL_BUTTON:
-			if ( !Game_profile->full_version_screens ) {	// Claude: no Medals-m in FS1's demo data (D-20261020-214042)
-				game_feature_not_in_demo_popup();
-				break;
-			}
-#ifdef FS2_DEMO
+			if (!(Game_profile->full_version_screens & FVS_MEDALS)) {	// Claude: data set profile wall (D-20261021-071013); was #ifdef FS2_DEMO
 			game_feature_not_in_demo_popup();
-#else
+			} else {	// Claude
 			gamesnd_play_iface(SND_SWITCH_SCREENS);
 			gameseq_post_event(GS_EVENT_VIEW_MEDALS);
-#endif
+			}	// Claude
 			break;
 
 		case B_PILOT_DELETE_BUTTON:
