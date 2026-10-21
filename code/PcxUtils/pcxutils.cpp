@@ -269,7 +269,7 @@ int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data, int bytes_per_
 	ubyte *pixdata;
 	char filename[MAX_FILENAME_LEN];
 	ubyte palette[768];	
-	ushort bit_16;	
+	uint bit_16;	// Claude: was ushort; the 32 bit screen format's bm_set_components writes 4 bytes here
 	ubyte r, g, b, al;
 		
 	if ( !pcx_filename_fits( real_filename ) )	// Claude: (#10)
