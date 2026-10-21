@@ -213,6 +213,7 @@
 #include "OsApi.h"
 #include "Replay.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
+#include "DataSetProfile.h"	// Claude
 
 #define PRECALIBRATED 1
 
@@ -377,12 +378,10 @@ DWORD joy_process(DWORD lparam)
 /// I DON'T WANT TO CALL CRITICAL SECTION CODE EACH FRAME TO CHECK ALL THE JOYSTICK BUTTONS.
 /// PLEASE SEE ALAN FOR MORE INFORMATION.
 ////////////////////////////
-#ifdef FS2_DEMO
-					{
+					if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 					extern void demo_reset_trailer_timer();
 					demo_reset_trailer_timer();
-					}
-#endif
+					}	// Claude
 ////////////////////////////
 /// IT'S OVER.  SEE, IT WASN'T SO BAD RIGHT?  IT'S IS VERY UGLY LOOKING, I KNOW.
 ////////////////////////////

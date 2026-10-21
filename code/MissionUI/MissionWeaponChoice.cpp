@@ -464,6 +464,7 @@
 #include "AlphaColors.h"
 #include "localize.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 //#define MAX_PRIMARY_BANKS		3
 //#define MAX_SECONDARY_BANKS	3	//	Lowered from 5 to 3 by MK on 3/25/98.  This needs to be <= MAX_WL_SECONDARY or you'll get stack overwrites.
@@ -504,11 +505,7 @@ typedef struct wl_bitmap_group
 	int num_frames;
 } wl_bitmap_group;
 
-#ifdef FS2_DEMO
-#define WEAPON_ANIM_LOOP_FRAME				1
-#else
-#define WEAPON_ANIM_LOOP_FRAME				52			// frame (from 0) to loop weapon anim
-#endif
+#define WEAPON_ANIM_LOOP_FRAME				(Game_profile->loadout_anim_loop ? 52 : 1)			// frame (from 0) to loop weapon anim	// Claude: was 1 under #ifdef FS2_DEMO, else 52; data set profile (D-20261021-100301)
 
 #define WEAPON_ICON_FRAME_NORMAL				0
 #define WEAPON_ICON_FRAME_HOT					1
@@ -1403,7 +1400,6 @@ void wl_load_anim(int weapon_class)
 // Load in any weapon animations.  This function assumes that Wl_pool has been inited.
 void wl_load_all_anims()
 {
-	#ifndef DEMO // not for FS2_DEMO
 
 	int i;
 
@@ -1421,12 +1417,11 @@ void wl_load_all_anims()
 
 	// load up the animations used for weapons (they are memory-mapped)
 	for ( i = 0; i < MAX_WEAPON_TYPES; i++ ) {
-		if ( Wl_pool[i] > 0 ) {
+		if ( Wl_pool[i] > 0 && Game_profile->loadout ) {	// Claude: was all under #ifndef DEMO; the FS1 demo build loaded none (D-20261020-161656)
 			wl_load_anim(i);
 		}
 	}
 
-	#endif
 }
 
 // release any anim instances
@@ -1474,7 +1469,6 @@ void wl_unload_all_anims()
 // load all the icons for weapons in the pool
 void wl_load_all_icons()
 {
-	#ifndef DEMO // not for FS2_DEMO
 
 	int i, j;
 
@@ -1486,12 +1480,11 @@ void wl_load_all_icons()
 			Wl_icons[i].icon_bmaps[j] = -1;
 		}
 
-		if ( Wl_pool[i] > 0 ) {
+		if ( Wl_pool[i] > 0 && Game_profile->loadout ) {	// Claude: was all under #ifndef DEMO; the FS1 demo build loaded none (D-20261020-161656)
 			wl_load_icons(i);
 		}
 	}
 
-	#endif
 }
 
 //	wl_unload_icons() frees the bitmaps used for weapon icons 

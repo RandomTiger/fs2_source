@@ -920,6 +920,7 @@ void game_stop_subspace_ambient_sound();
 void verify_ships_tbl();
 void verify_weapons_tbl();
 void display_title_screen();
+void title_screen_hold();	// Claude
 
 // loading background filenames
 static char *Game_loading_bground_fname[GR_NUM_RESOLUTIONS] = {
@@ -1590,14 +1591,7 @@ anim * Game_loading_ani = NULL;
 anim_instance	*Game_loading_ani_instance;
 int Game_loading_frame=-1;
 
-static int Game_loading_ani_coords[GR_NUM_RESOLUTIONS][2] = {
-	{
-		63, 316  // GR_640
-	},
-	{
-		101, 505	// GR_1024
-	}
-};
+// Claude: Game_loading_ani_coords is Game_profile->loading_ani_coords, per data set (D-20261020-222222); FS2's were {63, 316}, {101, 505}
 
 // This gets called 10x per second and count is the number of times 
 // game_busy() has been called since the current callback function
@@ -1631,7 +1625,7 @@ void game_loading_callback(int count)
 
 		//mprintf(( "Showing frame %d/%d [ Bitmap=%d ]\n", Game_loading_frame ,  Game_loading_ani->total_frames, cbitmap ));
 		gr_set_bitmap( cbitmap );
-		gr_bitmap(Game_loading_ani_coords[gr_screen.res][0],Game_loading_ani_coords[gr_screen.res][1]);
+		gr_bitmap(Game_profile->loading_ani_coords[gr_screen.res][0],Game_profile->loading_ani_coords[gr_screen.res][1]);	// Claude: was Game_loading_ani_coords
 
 		bm_release(cbitmap);
 	
@@ -1904,9 +1898,8 @@ DCF(show_cpu,"Toggles showing cpu usage")
 
 	// AL 4-8-98: always allow players to display their framerate
 
-	#ifdef FS2_DEMO
+	// Claude: compiled always, so Release can show the frame rate on every data set (D-20261021-100301); was #ifdef FS2_DEMO
 		DCF_BOOL( show_framerate, Show_framerate )
-	#endif
 
 #endif	// NDEBUG
 
@@ -2350,6 +2343,8 @@ void game_init()
 
 	// initialize alpha colors
 	alpha_colors_init();	
+
+	title_screen_hold();	// Claude: loading is now too quick to see the title screen
 
 	Viewer_mode = 0;
 //	Game_music_paused = 0;
@@ -4530,7 +4525,7 @@ int game_check_key()
 	return k;
 }
 
-#ifdef FS2_DEMO
+// Claude: compiled always, called when the profile's trailer_timer is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 #define DEMO_TRAILER_TIMEOUT_MS		45000			// 45 seconds of no input, play trailer
 static int Demo_show_trailer_timestamp = 0;
@@ -4584,7 +4579,7 @@ void demo_maybe_show_trailer(int k)
 	*/
 }
 
-#endif
+// Claude: was #endif
 
 // same as game_check_key(), except this is used while actually in the game.  Since there
 // generally are differences between game control keys and general UI keys, makes sense to
@@ -4610,9 +4605,9 @@ int game_poll()
 
    k = key_inkey();
 
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_maybe_show_trailer(k);
-#endif
+	}	// Claude
 
 	// Move the mouse cursor with the joystick.
 	if (os_foreground() && (!Mouse_hidden) && (Use_joy_mouse) )	{
@@ -4697,12 +4692,16 @@ int game_poll()
 
 			// hotkey selection screen -- only valid from briefing and beyond.
 		case KEY_F3:	
-			#ifndef FS2_DEMO
+			if ((Game_profile->full_version_screens & FVS_HOTKEYS) || !Game_profile->fs2_demo_walls) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO; FS1's demo wall answers the popup below (D-20261021-142001)
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
-					gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					if ( Game_profile->full_version_screens & FVS_HOTKEYS ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
+						gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					} else {
+						game_feature_not_in_demo_popup();
+					}
 					k = 0;
 				}
-			#endif
+			}	// Claude
 			break;
 
 		case KEY_DEBUGGED + KEY_F3:
@@ -4869,10 +4868,12 @@ void camera_move()
 
 void end_demo_campaign_do()
 {
-#if defined(FS2_DEMO)
+#if !defined(OEM_BUILD)	// Claude: was #if defined(FS2_DEMO); the profile's upsell_screens (D-20261021-071013)
+	if (Game_profile->upsell_screens) {	// Claude
 	// show upsell screens
 	demo_upsell_show_screens();
-#elif defined(OEM_BUILD)
+	}	// Claude
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show oem upsell screens
 	oem_upsell_show_screens();
 #endif
@@ -5261,7 +5262,7 @@ void game_process_event( int current_state, int event )
 			break;
 
 		case GS_EVENT_GAME_INIT:
-	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	#if defined(OEM_BUILD)	// Claude: was defined(FS2_DEMO) || defined(OEM_BUILD); the FS2 demo half is the profile's always_pilot_select below (D-20261021-071013)
 			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
 			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
 				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
@@ -5270,7 +5271,7 @@ void game_process_event( int current_state, int event )
 			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
-			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
+			if( replay_load_pilot() || autotest_load_pilot() || (!Game_profile->always_pilot_select && player_select_get_last_pilot()) ) {	// Claude: added autotest_load_pilot; always_pilot_select: a player always gets the pilot screen, as the FS2 demo build did
 				// always enter the main menu -- do the automatic network startup stuff elsewhere
 				// so that we still have valid checks for networking modes, etc.
 				gameseq_set_state(GS_STATE_MAIN_MENU);
@@ -7180,6 +7181,7 @@ void Do_model_timings_test()
 // enabled in the DEMO version of FreSpace
 void game_feature_not_in_demo_popup()
 {
+	autotest_not_in_demo();	// Claude: the menu tour skips a screen only the full game has
 	popup(PF_USE_AFFIRMATIVE_ICON|PF_BODY_BIG, 1, POPUP_OK, XSTR( "Sorry, this feature is available only in the retail version", 200));
 }
 
@@ -7469,7 +7471,7 @@ void oem_upsell_show_screens()
 //
 // ----------------------------------------------------------------
 
-#ifdef FS2_DEMO
+// Claude: compiled always, shown when the profile's upsell_screens is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 //#define NUM_DEMO_UPSELL_SCREENS				4
 
@@ -7612,7 +7614,7 @@ void demo_upsell_show_screens()
 	demo_upsell_unload_bitmaps();
 }
 
-#endif // DEMO
+// Claude: was #endif // DEMO
 
 // ----------------------------------------------------------------
 //
@@ -7807,6 +7809,11 @@ int game_hacked_data()
 	return 0;
 }
 
+static int Title_screen_bitmap = -1;		// Claude: the title screen, until title_screen_hold
+static uint Title_screen_start;			// Claude: when it was drawn
+extern uint game_title_ticks();			// Claude: FreeSpaceWin32.cpp (GetTickCount)
+extern int game_title_skip_pressed();	// Claude: FreeSpaceWin32.cpp (GetAsyncKeyState)
+
 void display_title_screen()
 {
 	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
@@ -7846,7 +7853,40 @@ void display_title_screen()
 	// flip
 	gr_flip();
 
-	bm_unload(title_bitmap);
+	Title_screen_bitmap = title_bitmap;	// Claude: title_screen_hold unloads it (was bm_unload(title_bitmap))
+	Title_screen_start = game_title_ticks();	// Claude
+}
+
+// Claude: the title screen was drawn once and stayed up while game_init loaded, which took seconds in 1998
+// and now takes a fraction of one.  Keep it up until TITLE_SCREEN_MS after it was drawn, or until a key or
+// click (read from the keyboard state, so nothing reaches the game's input queue).  Autotest and replays
+// do not wait.
+#define TITLE_SCREEN_MS	3000
+void title_screen_hold()
+{
+	if (Title_screen_bitmap < 0) {
+		return;
+	}
+	while (!Autotest_harness && (Replay_mode != REPLAY_PLAY) && (game_title_ticks() - Title_screen_start < TITLE_SCREEN_MS)) {
+		if (game_title_skip_pressed()) {
+			break;
+		}
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_start_frame();
+			d3d_start_frame();
+		}
+		gr_set_bitmap(Title_screen_bitmap);
+		gr_bitmap(0, 0);
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_stop_frame();
+			d3d_stop_frame();
+		}
+		gr_flip();
+		os_poll();
+		os_sleep(10);	// Claude: was Sleep(10); PrePort keeps Win32 calls out of FreeSpace.cpp
+	}
+	bm_unload(Title_screen_bitmap);
+	Title_screen_bitmap = -1;
 }
 
 // return true if the game is running with "low memory", which is less than 48MB

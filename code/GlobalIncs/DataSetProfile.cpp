@@ -162,13 +162,21 @@ static const data_set_profile Data_set_profiles[NUM_DATA_SETS] = {
 		1, 20, 0, "", "http://www.pxo.net/files/fs2/version.nfo", "http://www.pxo.net/files/fs2/motd.txt",
 		"FreeSpace2", "The Main Freespace2 Campaign",
 		{ NULL, NULL }, "hud_3.hcf",
-		Game_builtin_missions_fs2, &Game_builtin_missions_fs2_count },
+		Game_builtin_missions_fs2, &Game_builtin_missions_fs2_count,
+		FVS_ALL, 0, 0, 0, 0,
+		1, 1, 1, 1, 1,
+		1, 0,
+		3, 1, 1, 1, 1, 1, 1, 1, 1, 1, { { 63, 316 }, { 101, 505 } }, { NULL, NULL }, { { 461, 23 }, { 782, 58 } }, 0, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
 	{	DATA_SET_FS2_DEMO, 1,
 		"FreeSpace2Demo", "Freespace 2 Demo",
 		1, 10, 0, " D", "http://www.pxo.net/files/fs2demo/version.nfo", "http://www.pxo.net/files/fs2demo/motd.txt",
 		"demo", "DEMO Campaign",
 		{ "PreLoad", "2_PreLoad" }, "hud_1.hcf",
-		Game_builtin_missions_fs2_demo, &Game_builtin_missions_fs2_demo_count },
+		Game_builtin_missions_fs2_demo, &Game_builtin_missions_fs2_demo_count,
+		FVS_MULTIPLAYER | FVS_OBJECTIVES | FVS_OPTIONS_MULTI | FVS_DEBRIEF_MEDALS, 1, 1, 1, 1,	// the FS2_DEMO build walled none of FS1's four (D-20261021-142001)
+		0, 0, 0, 0, 0,
+		0, 1,
+		3, 1, 1, 0, 1, 1, 1, 1, 1, 1, { { 63, 316 }, { 101, 505 } }, { NULL, NULL }, { { 461, 23 }, { 782, 58 } }, 0, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },	// brief_fade_anim 0: unread, brief_fade is 0 (D-20261021-142002)
 	// FS1 rows (docs/FS1_COMPAT.md): the names, campaign and title screen from FS1's FS.exe and data.  Retail is v1.06,
 	// the demo v1.00 (its exe printed "Dv1.00", which a suffix cannot give).  FS1 checked no version or MOTD on the web,
 	// so those URLs are empty, and has no .hcf files: a new pilot keeps the one HUD colour hud_set_default_hud_config gives.
@@ -177,13 +185,21 @@ static const data_set_profile Data_set_profiles[NUM_DATA_SETS] = {
 		1, 6, 0, "", "", "",
 		"freespace", "The Main Freespace Campaign",
 		{ NULL, NULL }, NULL,
-		Game_builtin_missions_fs1, &Game_builtin_missions_fs1_count },
+		Game_builtin_missions_fs1, &Game_builtin_missions_fs1_count,
+		FVS_ALL, 0, 0, 0, 0,
+		1, 1, 1, 1, 1,
+		1, 0,
+		3, 1, 1, 1, 1, 1, 1, 1, 1, 1, { { 117, 317 }, { 187, 507 } }, { NULL, NULL }, { { 460, 33 }, { 736, 53 } }, 0, { 36, 152 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
 	{	DATA_SET_FS1_DEMO, 1,
 		"FreeSpaceDemo", "FreeSpace Demo",
 		1, 0, 0, "", "", "",
 		"demo", "Freespace Demo Campaign",
 		{ "DemoTitle1", NULL }, NULL,
-		Game_builtin_missions_fs1_demo, &Game_builtin_missions_fs1_demo_count },
+		Game_builtin_missions_fs1_demo, &Game_builtin_missions_fs1_demo_count,
+		FVS_LOAD_MISSION | FVS_QUICK_START | FVS_HUD_CONFIG | FVS_IPX, 0, 0, 0, 0,	// FS1's demo walls (D-20261020-214042, D-20261021-142001)
+		1, 1, 1, 1, 1,	// brief_fade 1 with brief_fade_anim 0 below: the cut's static sound plays and nothing is drawn (D-20261021-142002)
+		1, 0,
+		2, 0, 0, 0, 0, 0, 0, 0, 0, 0, { { 133, 337 }, { 213, 539 } }, { "Briefing_Help_Overlay_Demo", "Main_Help_Overlay_Demo" }, { { 452, 37 }, { 723, 59 } }, 1, { 27, 168 }, { -66, 25 }, { 4, 14 }, { 0, 16 } },
 };
 
 const data_set_profile *Game_profile = &Data_set_profiles[DATA_SET_FS2_RETAIL];

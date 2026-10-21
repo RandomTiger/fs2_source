@@ -19,6 +19,7 @@
 #include "localize.h"
 #include "Replay.h"
 #include "DataSetInstall.h"	// Claude
+#include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"
 #include "ExceptionHandler.h"
 #include "Demo.h"
@@ -286,11 +287,11 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 		}
 	} 
 
-#ifdef FS2_DEMO
-	if(!Is_standalone){
+#if !defined(OEM_BUILD)	// Claude: was #ifdef FS2_DEMO; the profile's upsell_screens, read on exit (D-20261021-071013)
+	if(Game_profile->upsell_screens && !Is_standalone){	// Claude: added upsell_screens
 		demo_upsell_show_screens();
 	}
-#elif defined(OEM_BUILD)
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show upsell screens on exit
 	oem_upsell_show_screens();
 #endif
@@ -831,4 +832,16 @@ void game_run_launcher()
 		os_message_box(XSTR("The Launcher could not be restarted.", 1450), XSTR("Error", 1451), OS_MB_OWNED);
 	}
 	exit(1);
+}
+
+// Claude: the Win32 side of the title screen hold in FreeSpace.cpp (Enhanced's title_screen_hold; PrePort keeps
+// Win32 calls out of FreeSpace.cpp)
+uint game_title_ticks()
+{
+	return GetTickCount();
+}
+
+int game_title_skip_pressed()
+{
+	return ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_ESCAPE) | GetAsyncKeyState(VK_SPACE) | GetAsyncKeyState(VK_RETURN)) & 0x8000) ? 1 : 0;
 }
