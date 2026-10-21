@@ -21,7 +21,7 @@ param(
 	[string]$GameDir = $env:PATH_FS1,
 	[string]$Config = 'r',
 	[string]$Mission,
-	[string]$TrainingMission = 'btm-01',
+	[string]$TrainingMission,	# off: the tour does not take a training briefing yet (it logs it as briefing/briefing)
 	[string]$Shots,
 	[string]$Out
 )

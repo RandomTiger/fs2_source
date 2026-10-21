@@ -375,7 +375,7 @@ Run it from PowerShell once the build is in `PATH_FS1`, with no game running (it
 tools\fs1_visual_check.ps1 -Reference U:\Projects\GitHub\fs2_reference
 ```
 - `-Reference` defaults to `$env:FS2_REFERENCE`. `-GameDir` defaults to `$env:PATH_FS1`, `-Config` to `r`.
-- It runs the menu tour twice with screenshots (`-window -autotest -at_menus -at_shots <dir>`, docs/AUTOTEST.md): once with `-Mission` (default: the first campaign mission), once with `-TrainingMission` (default `btm-01`) for `briefing_training`. `-TrainingMission ''` skips the second run.
+- It runs the menu tour with screenshots (`-window -autotest -at_menus -at_shots <dir>`, docs/AUTOTEST.md) with `-Mission` (default: the first campaign mission) and, with `-TrainingMission <file>`, again for `briefing_training`. Leave that off for now: the tour does not handle a training mission yet (it logs that briefing as `briefing/briefing`).
 - `-Shots <dir>` compares a shot folder from an earlier run and does not start the game.
 - Output goes to `-Out`, by default `<Reference>\fs1_retail_check\<time>`, which `fs2_reference` ignores:
   - `report.md`: every reference screen, as same, its number of differences, not captured (with what the tour logged for it), not reached, or a setup error. A shot of another size is a setup error (wrong mode or UI art), not a visual difference.
@@ -387,7 +387,7 @@ tools\fs1_visual_check.ps1 -Reference U:\Projects\GitHub\fs2_reference
 - `screens.<screen>.ignore`: rectangles `[x, y, w, h]` in 640x480 pixels, each with a `why`. `only`: if given, only these are compared (the in-flight HUD).
 - `<screen>_help` uses its base screen's masks as well as its own.
 - An optional `<screen>.mask.png` next to the reference adds any shape: white = ignore.
-- `ourCursor`: where the tour parks our cursor while it takes shots, masked on every screen.
+- `ourCursor`: where the tour parks our cursor while it takes shots (client 0,0, the top-left corner), masked on every screen.
 - `threshold` (largest channel difference that still counts as the same), `minPixels` (smallest difference reported) and `maxShift` (largest offset looked for when telling a shift from a change).
 
 To update a mask: open the screen's `diff\<screen>.png`, read the box of the content that should not count from its TODO entry, add a rectangle with a `why` to that screen in `masks.json`, rerun with `-Shots <the run's shots folder>`, and commit the change in `fs2_reference`.
