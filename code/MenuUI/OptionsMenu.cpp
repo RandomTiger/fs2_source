@@ -1394,8 +1394,12 @@ void options_menu_do_frame(float frametime)
 
 		case KEY_H:
 			if (Tab == OPTIONS_TAB) {
+				if (!(Game_profile->full_version_screens & FVS_HUD_CONFIG)) {	// Claude: the hotkey gets the HUD Config button's data set profile wall (D-20261021-195004)
+				game_feature_not_in_demo_popup();
+				} else {	// Claude
 				gamesnd_play_iface(SND_SWITCH_SCREENS);
 				gameseq_post_event(GS_EVENT_HUD_CONFIG);
+				}	// Claude
 			}
 
 			break;
