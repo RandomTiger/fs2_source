@@ -59,5 +59,6 @@ int  autotest_exit_code(int code);		// the process exit code
 void autotest_main_hall_click(int *code, int *action);	// main_hall_do: the menu tour clicks a region
 void autotest_not_in_demo();				// game_feature_not_in_demo_popup: the menu tour skips the screen
 void autotest_cursor_pos(long *x, long *y);	// mouse_get_cursor_pos: -at_shots parks the cursor at 0,0
+void autotest_poll_done();				// end of os_poll, for the stuck dump
 
 #endif
