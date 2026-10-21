@@ -347,6 +347,7 @@
 #include "multi_endgame.h"
 #include "osapi.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #define MAX_TOTAL_DEBRIEF_LINES	200
 
@@ -1674,10 +1675,14 @@ void debrief_accept(int ok_to_post_start_game_event)
 
 				// check if campaign is over
 				if ( Campaign.next_mission == -1 ) {
-	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	#if defined(OEM_BUILD)	// Claude: was defined(FS2_DEMO) || defined(OEM_BUILD); the FS2 demo half is the profile's demo_campaign_end (D-20261021-071013)
 					gameseq_post_event(GS_EVENT_END_DEMO);
 	#else
+					if (Game_profile->demo_campaign_end) {	// Claude
+					gameseq_post_event(GS_EVENT_END_DEMO);	// Claude
+					} else {	// Claude
 					gameseq_post_event(GS_EVENT_MAIN_MENU);
+					}	// Claude
 	#endif
 				} else {
 					if ( ok_to_post_start_game_event ) {
@@ -2025,6 +2030,10 @@ void debrief_button_pressed(int num)
 			break;
 
 		case MEDALS_BUTTON:
+			if ( !(Game_profile->full_version_screens & FVS_DEBRIEF_MEDALS) ) {	// Claude: no Medals-m in FS1's demo data (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
 			gamesnd_play_iface(SND_SWITCH_SCREENS);
 			gameseq_post_event(GS_EVENT_VIEW_MEDALS);
 			break;

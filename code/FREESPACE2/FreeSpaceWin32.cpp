@@ -837,3 +837,15 @@ void game_run_launcher()
 	}
 	exit(1);
 }
+
+// Claude: the Win32 side of the title screen hold in FreeSpace.cpp (Enhanced's title_screen_hold; PrePort keeps
+// Win32 calls out of FreeSpace.cpp)
+uint game_title_ticks()
+{
+	return GetTickCount();
+}
+
+int game_title_skip_pressed()
+{
+	return ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_ESCAPE) | GetAsyncKeyState(VK_SPACE) | GetAsyncKeyState(VK_RETURN)) & 0x8000) ? 1 : 0;
+}

@@ -117,6 +117,7 @@
 #include "localize.h"
 #include "alphacolors.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 
 ////////////////////////////////////////////////////////////////////
@@ -259,6 +260,11 @@ static void help_overlay_fs1_blit(int overlay_id)
 
 	if ( (overlay_id == TECH_ROOM_OVERLAY) && Fs1_help_tech2 ) {
 		name = NOX("tech_help2");
+	}
+	if ( (overlay_id == BR_OVERLAY) && Game_profile->help_overlay_brief_main[0] ) {	// Claude: the data set's own names (D-20261020-231902)
+		name = (char *)Game_profile->help_overlay_brief_main[0];
+	} else if ( (overlay_id == MH_OVERLAY) && Game_profile->help_overlay_brief_main[1] ) {
+		name = (char *)Game_profile->help_overlay_brief_main[1];
 	}
 	bmp = bm_load(name);	// the same handle each time, once loaded
 	if (bmp >= 0) {

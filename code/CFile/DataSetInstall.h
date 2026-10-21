@@ -25,4 +25,21 @@ char *data_set_name(int set);		// "FS2 retail", "FS2 demo", ...; "unknown" for a
 // the reason in err; the caller stops with it.
 int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *dir, int dir_len, char *err, int err_len);
 
+// The installer readers, shared with the FreeSpace 1 demo's cabinet reader (CFile\CabReader.cpp,
+// CFile\DataSetFs1.cpp).
+//
+// Raw deflate (RFC 1951) of src into dst, up to dst_cap bytes, with the number written in *produced.  The
+// stream ends at its final block, or at the end of src after a whole block (a sync-flushed stream, as in
+// InstallShield's chunks).  progress, if not NULL, is told how many bytes each block wrote.  1 if the stream
+// was whole and fitted, 0 otherwise.
+int dataset_inflate(const unsigned char *src, int src_len, unsigned char *dst, int dst_cap, int *produced, void (*progress)(int done));
+
+// CRC-32 as zip stores it.
+unsigned int dataset_crc32(const unsigned char *p, int len);
+
+// Reads the entry named entry (its path in the zip, matched without case) of the zip appended to installer
+// into memory, checking its CRC.  On success returns 0 and a malloced copy in *data (the caller frees it);
+// otherwise non-zero and the reason in err.
+int dataset_zip_read(char *installer, char *entry, unsigned char **data, int *len, char *err, int err_len);
+
 #endif

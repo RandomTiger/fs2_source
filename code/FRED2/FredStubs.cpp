@@ -651,3 +651,5 @@ int Game_builtin_missions_fs2_demo_count = 0;
 fix Last_time = 0;
 fix Last_delta_time = 0;
 int saved_timestamp_ticker = -1;
+// Claude: the demo trailer timer lives in FreeSpace.cpp, which this tool does not link; code.lib now calls it on every data set (D-20261021-071013)
+void demo_reset_trailer_timer() {}

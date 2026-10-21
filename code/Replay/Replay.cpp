@@ -974,7 +974,10 @@ void replay_set_autorecord(char *dir)
 
 	Replay_mode = REPLAY_RECORD;
 	Replay_auto = 1;
-	strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
+	// made absolute now: startup later changes to the data set folder, and a relative folder would then point inside it
+	if (!_fullpath(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN)) {
+		strncpy(Replay_auto_dir, (dir && dir[0]) ? dir : "Recordings", REPLAY_PATH_LEN - 1);
+	}
 	_mkdir(Replay_auto_dir);
 	// Claude: x64, cast to int, its width on Win32 (D-20261020-194406 batch 2)
 	len = (int)strlen(Replay_auto_dir);

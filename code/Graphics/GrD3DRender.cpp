@@ -1357,7 +1357,7 @@ void gr_d3d_bitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 	dptr = (ushort *)((intptr_t)ddsd.lpSurface+ddsd.lPitch*(y+gr_screen.offset_y)+(x+gr_screen.offset_x)*2);
 
 	bmp = bm_lock( gr_screen.current_bitmap, 16, 0 );
-	sptr = (ushort *)( bmp->data + (sy*bmp->w + sx) );
+	sptr = (ushort *)( bmp->data + (sy*bmp->w + sx)*2 );	// Claude: data is a byte address; was missing the *2, so any sx or sy > 0 read the wrong pixels (Glide's has it)
 
 	// nice and speedy compared to the old way
 	for (i=0; i<h; i++ )	{

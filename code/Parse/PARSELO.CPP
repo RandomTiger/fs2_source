@@ -105,6 +105,7 @@
 #include "localize.h"
 #include "fhash.h"
 #include "Fs1Tables.h"	// Claude: FS1 compatibility
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #define	ERROR_LENGTH	64
 #define	RS_MAX_TRIES	5
@@ -1413,7 +1414,11 @@ int stuff_int_list(int *ilp, int max_ints, int lookup_type)
 					Error(LOCATION, "Unable to find string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
 				} else if (num == -2) {
 					if (strlen(str) > 0) {
-						Warning(LOCATION, "Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
+						if ( !Game_profile->unknown_weapon_warning ) {	// Claude: FS1's demo ships.tbl names three weapons its weapons.tbl lacks; logged, not a popup (D-20261020-213146)
+							mprintf(("Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list; the weapon is dropped\n", str));
+						} else {
+							Warning(LOCATION, "Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
+						}
 					}
 				}
 

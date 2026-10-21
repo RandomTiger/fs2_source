@@ -128,6 +128,8 @@
 #include "OsApi.h"
 #include "HostHooks.h"
 #include "Replay.h"
+#include "Autotest.h"	// Claude: -at_shots parks the cursor, see Autotest.h
+#include "DataSetProfile.h"	// Claude
 
 #define MOUSE_MODE_DI	0
 #define MOUSE_MODE_WIN	1
@@ -183,6 +185,10 @@ static void mouse_get_cursor_pos(POINT *pnt)
 	Host_hooks.mouse_get_pos(&xy[0], &xy[1]);	// Claude: through the host (D-051)
 	pnt->x = xy[0];
 	pnt->y = xy[1];
+	autotest_cursor_pos(&pnt->x, &pnt->y);	// Claude: -at_shots parks the cursor, see Autotest.h
+
+	xy[0] = pnt->x;
+	xy[1] = pnt->y;
 	replay_write_ints(RT_MOUSE_POS, xy, 2);
 }
 
@@ -249,12 +255,10 @@ void mouse_mark_button( uint flags, int set)
 /// I DON'T WANT TO CALL CRITICAL SECTION CODE EACH FRAME TO CHECK THE LEFT MOUSE BUTTON.
 /// PLEASE SEE ALAN FOR MORE INFORMATION.
 ////////////////////////////
-#ifdef FS2_DEMO
-					{
+					if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 					extern void demo_reset_trailer_timer();
 					demo_reset_trailer_timer();
-					}
-#endif
+					}	// Claude
 ////////////////////////////
 /// IT'S OVER.  SEE, IT WASN'T SO BAD RIGHT?  IT'S IS VERY UGLY LOOKING, I KNOW.
 ////////////////////////////
