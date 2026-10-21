@@ -182,7 +182,7 @@ static const data_set_profile Data_set_profiles[NUM_DATA_SETS] = {
 		"FreeSpaceDemo", "FreeSpace Demo",
 		1, 0, 0, "", "", "",
 		"demo", "Freespace Demo Campaign",
-		{ "DemoTitle1", NULL }, NULL, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, { { 133, 337 }, { 213, 539 } }, { "Briefing_Help_Overlay_Demo", "Main_Help_Overlay_Demo" }, { { 445, 27 }, { 712, 43 } }, 1, { 27, 168 }, { -66, 25 }, { 4, 14 }, { 0, 16 },
+		{ "DemoTitle1", NULL }, NULL, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, { { 133, 337 }, { 213, 539 } }, { "Briefing_Help_Overlay_Demo", "Main_Help_Overlay_Demo" }, { { 443, 24 }, { 709, 38 } }, 1, { 27, 168 }, { -66, 25 }, { 4, 14 }, { 0, 16 },
 		Game_builtin_missions_fs1_demo, &Game_builtin_missions_fs1_demo_count },
 };
 

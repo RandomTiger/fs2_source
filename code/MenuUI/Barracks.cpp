@@ -1316,11 +1316,11 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 	float scale = 1.0f;
 
 	bm_get_info(Pilot_images[Pic_number], &w, &h);
-	if ( bottom - top + 1 > h ) {	// Claude: the FS1 demo's window is 142 rows to its pictures' 120: scaled to its height, the sides cropped
-		scale = i2fl(bottom - top + 1) / i2fl(h);
+	if ( bottom - (top - 3) + 1 > h ) {	// Claude: the FS1 demo's window is 145 rows (with its top corners) to its pictures' 120: scaled to its height, the sides cropped
+		scale = i2fl(bottom - (top - 3) + 1) / i2fl(h);
 	}
 	int dw = fl2i(i2fl(w) * scale + 0.5f), dh = fl2i(i2fl(h) * scale + 0.5f);	// Claude: the picture's size on screen
-	for (y = max(top, py); y <= min(bottom, py + dh - 1); y++) {	// Claude: was py + h - 1
+	for (y = max(top - 3, py); y <= min(bottom, py + dh - 1); y++) {	// Claude: was max(top, py), py + h - 1; the window's top corners rise 3 rows above its centre lip
 		l = 459 + max(0, top + 5 - y) + max(0, y - (bottom - 5));	// top left and bottom left bevels
 		r = 622 - max(0, top + 3 - y);							// top right bevel
 		if (y >= bottom - 15) {										// the arrow box
@@ -1328,7 +1328,15 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 		}
 		l = max(l, px);
 		r = min(r, px + dw - 1);	// Claude: was px + w - 1
-		if (l <= r) {
+		if (y < top) {	// Claude: the top corners either side of the lip, which narrows by a pixel a row
+			int ll = min(r, 497 - (top - y) - 1), rr = max(l, 576 + (top - y) + 1);
+			if (l <= ll) {
+				barracks_draw_pilot_pic_row(l, y, ll - l + 1, i2fl(l - px) / scale, i2fl(y - py) / scale, scale, w, h);
+			}
+			if (rr <= r) {
+				barracks_draw_pilot_pic_row(rr, y, r - rr + 1, i2fl(rr - px) / scale, i2fl(y - py) / scale, scale, w, h);
+			}
+		} else if (l <= r) {	// Claude: was if
 			barracks_draw_pilot_pic_row(l, y, r - l + 1, i2fl(l - px) / scale, i2fl(y - py) / scale, scale, w, h);	// Claude: scaled
 		}
 	}
