@@ -387,6 +387,7 @@
 #include "GameView.h"	// Claude: weapon_update_flyby_consider
 #include "Neb.h"			// Claude: weapon_update_flyby_consider
 #include "MissionParse.h"	// Claude: weapon_update_flyby_consider
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #ifndef NDEBUG
 int Weapon_flyby_sound_enabled = 1;
@@ -771,8 +772,7 @@ int parse_weapon()
 
 	// AL 28-3-98: If this is a demo build, we only want to parse weapons that are preceded with
 	//             the '@' symbol
-	#ifdef DEMO // not needed FS2_DEMO (separate table file)
-		if ( wip->name[0] != '@' ) {
+		if ( !Game_profile->unmarked_entries && (wip->name[0] != '@') ) {	// Claude: was #ifdef DEMO; the FS1 demo reads only the entries marked '@' (D-20261020-161656)
 			// advance to next weapon, and return -1
 
 			if ( skip_to_start_of_strings("$Name:", "#End") != 1 ) {
@@ -780,7 +780,6 @@ int parse_weapon()
 			}
 			return -1;
 		}
-	#endif
 
 	if ( wip->name[0] == '@' ) {
 		char old_name[NAME_LENGTH];
