@@ -4535,7 +4535,7 @@ int game_check_key()
 	return k;
 }
 
-#ifdef FS2_DEMO
+// Claude: compiled always, called when the profile's trailer_timer is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 #define DEMO_TRAILER_TIMEOUT_MS		45000			// 45 seconds of no input, play trailer
 static int Demo_show_trailer_timestamp = 0;
@@ -4589,7 +4589,7 @@ void demo_maybe_show_trailer(int k)
 	*/
 }
 
-#endif
+// Claude: was #endif
 
 // same as game_check_key(), except this is used while actually in the game.  Since there
 // generally are differences between game control keys and general UI keys, makes sense to
@@ -4615,9 +4615,9 @@ int game_poll()
 
    k = key_inkey();
 
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_maybe_show_trailer(k);
-#endif
+	}	// Claude
 
 	// Move the mouse cursor with the joystick.
 	if (os_foreground() && (!Mouse_hidden) && (Use_joy_mouse) )	{
@@ -4874,10 +4874,12 @@ void camera_move()
 
 void end_demo_campaign_do()
 {
-#if defined(FS2_DEMO)
+#if !defined(OEM_BUILD)	// Claude: was #if defined(FS2_DEMO); the profile's upsell_screens (D-20261021-071013)
+	if (Game_profile->upsell_screens) {	// Claude
 	// show upsell screens
 	demo_upsell_show_screens();
-#elif defined(OEM_BUILD)
+	}	// Claude
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show oem upsell screens
 	oem_upsell_show_screens();
 #endif
@@ -6851,11 +6853,11 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 		}
 	} 
 
-#ifdef FS2_DEMO
-	if(!Is_standalone){
+#if !defined(OEM_BUILD)	// Claude: was #ifdef FS2_DEMO; the profile's upsell_screens, read on exit (D-20261021-071013)
+	if(Game_profile->upsell_screens && !Is_standalone){	// Claude: added upsell_screens
 		demo_upsell_show_screens();
 	}
-#elif defined(OEM_BUILD)
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show upsell screens on exit
 	oem_upsell_show_screens();
 #endif
@@ -7814,7 +7816,7 @@ void oem_upsell_show_screens()
 //
 // ----------------------------------------------------------------
 
-#ifdef FS2_DEMO
+// Claude: compiled always, shown when the profile's upsell_screens is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 //#define NUM_DEMO_UPSELL_SCREENS				4
 
@@ -7957,7 +7959,7 @@ void demo_upsell_show_screens()
 	demo_upsell_unload_bitmaps();
 }
 
-#endif // DEMO
+// Claude: was #endif // DEMO
 
 // ----------------------------------------------------------------
 //
