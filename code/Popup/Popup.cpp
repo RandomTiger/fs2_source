@@ -195,6 +195,7 @@
 #include "AlphaColors.h"
 #include "OsApi.h"
 #include "Autotest.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 #define POPUP_MAX_CHOICES			3					// max number of buttons allowed on popup
 
@@ -628,6 +629,38 @@ void popup_slider_bogus()
 {
 }
 
+// Claude: FS1 data: FS1's popup art is Pop2a (one or two choices) and Pop3 (three), with its own buttons, Pop2a_00
+// to Pop2a_04; it has no Pop2 and no Pop_ buttons.  The buttons are cut from the panel on the art's right, so their
+// slots are where each matches the art (x 343, y 135, 169 and 199 in the art, error about 1 of 255); the art is
+// drawn where FS2 draws its own.  The text and title sit 24 in from the sides of FS1's black area (x 8 to 364
+// in the art), centred in its height (y 14 to 156 left of the step; the button panel at y 132, x 342 on).
+// Overwrites the GR_640 entries (docs/FS1_COMPAT.md).
+static void popup_fs1_layout()
+{
+	static int button_y[3] = {234, 268, 298};
+	int i;
+
+	Popup_background[GR_640][0].filename = "Pop2a";
+	Popup_background[GR_640][1].filename = "Pop2a";
+	for ( i = 0; i < 2; i++ ) {
+		Popup_button_filenames[GR_640][i][BUTTON_NEGATIVE] = "Pop2a_00";
+		Popup_button_filenames[GR_640][i][BUTTON_POSITIVE] = "Pop2a_01";
+	}
+	Popup_button_filenames[GR_640][0][BUTTON_GENERIC_FIRST] = "Pop2a_02";
+	Popup_button_filenames[GR_640][0][BUTTON_GENERIC_SECOND] = "Pop2a_03";
+	Popup_button_filenames[GR_640][0][BUTTON_GENERIC_THIRD] = "Pop2a_04";
+	for ( i = 0; i < 3; i++ ) {
+		Button_coords[GR_640][i][0] = 472;						Button_coords[GR_640][i][1] = button_y[i];
+		Button_regions[GR_640][i][0] = 462;					Button_regions[GR_640][i][1] = button_y[i] + 8;
+		Button_regions[GR_640][i][2] = 506;					Button_regions[GR_640][i][3] = button_y[i] + 26;
+	}
+	Popup_text_coords[GR_640][0] = 161;				Popup_text_coords[GR_640][1] = 115;
+	Popup_text_coords[GR_640][2] = 308;				Popup_text_coords[GR_640][3] = 138;
+	Title_coords[GR_640][0] = 161;					Title_coords[GR_640][1] = 115;
+	Title_coords[GR_640][2] = 308;
+	Title_coords[GR_640][4] = 161 + Title_coords[GR_640][2] / 2;
+}
+
 // init the Popup window
 int popup_init(popup_info *pi, int flags)
 {
@@ -635,6 +668,10 @@ int popup_init(popup_info *pi, int flags)
 	UI_BUTTON			*b;
 	popup_background	*pbg;
 	char					*fname;
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1's popup art and layout
+		popup_fs1_layout();
+	}
 
 	if(pi->nchoices == 0){
 		pbg = &Popup_background[gr_screen.res][0];

@@ -347,6 +347,7 @@
 #include "multi_endgame.h"
 #include "osapi.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #define MAX_TOTAL_DEBRIEF_LINES	200
 
@@ -2025,6 +2026,10 @@ void debrief_button_pressed(int num)
 			break;
 
 		case MEDALS_BUTTON:
+			if ( !Game_profile->full_version_screens ) {	// Claude: no Medals-m in FS1's demo data (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
 			gamesnd_play_iface(SND_SWITCH_SCREENS);
 			gameseq_post_event(GS_EVENT_VIEW_MEDALS);
 			break;

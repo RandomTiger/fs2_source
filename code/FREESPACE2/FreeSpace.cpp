@@ -920,6 +920,7 @@ void game_stop_subspace_ambient_sound();
 void verify_ships_tbl();
 void verify_weapons_tbl();
 void display_title_screen();
+void title_screen_hold();	// Claude
 
 // loading background filenames
 static char *Game_loading_bground_fname[GR_NUM_RESOLUTIONS] = {
@@ -1620,14 +1621,7 @@ anim * Game_loading_ani = NULL;
 anim_instance	*Game_loading_ani_instance;
 int Game_loading_frame=-1;
 
-static int Game_loading_ani_coords[GR_NUM_RESOLUTIONS][2] = {
-	{
-		63, 316  // GR_640
-	},
-	{
-		101, 505	// GR_1024
-	}
-};
+// Claude: Game_loading_ani_coords is Game_profile->loading_ani_coords, per data set (D-20261020-222222); FS2's were {63, 316}, {101, 505}
 
 // This gets called 10x per second and count is the number of times 
 // game_busy() has been called since the current callback function
@@ -1661,7 +1655,7 @@ void game_loading_callback(int count)
 
 		//mprintf(( "Showing frame %d/%d [ Bitmap=%d ]\n", Game_loading_frame ,  Game_loading_ani->total_frames, cbitmap ));
 		gr_set_bitmap( cbitmap );
-		gr_bitmap(Game_loading_ani_coords[gr_screen.res][0],Game_loading_ani_coords[gr_screen.res][1]);
+		gr_bitmap(Game_profile->loading_ani_coords[gr_screen.res][0],Game_profile->loading_ani_coords[gr_screen.res][1]);	// Claude: was Game_loading_ani_coords
 
 		bm_release(cbitmap);
 	
@@ -2402,6 +2396,8 @@ void game_init()
 
 	// initialize alpha colors
 	alpha_colors_init();	
+
+	title_screen_hold();	// Claude: loading is now too quick to see the title screen
 
 	Viewer_mode = 0;
 //	Game_music_paused = 0;
@@ -4721,7 +4717,11 @@ int game_poll()
 		case KEY_F3:	
 			#ifndef FS2_DEMO
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
-					gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					if ( Game_profile->full_version_screens ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
+						gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					} else {
+						game_feature_not_in_demo_popup();
+					}
 					k = 0;
 				}
 			#endif
@@ -7542,6 +7542,7 @@ void Do_model_timings_test()
 // enabled in the DEMO version of FreSpace
 void game_feature_not_in_demo_popup()
 {
+	autotest_not_in_demo();	// Claude: the menu tour skips a screen only the full game has
 	popup(PF_USE_AFFIRMATIVE_ICON|PF_BODY_BIG, 1, POPUP_OK, XSTR( "Sorry, this feature is available only in the retail version", 200));
 }
 
@@ -8618,6 +8619,9 @@ int game_hacked_data()
 	return 0;
 }
 
+static int Title_screen_bitmap = -1;		// Claude: the title screen, until title_screen_hold
+static DWORD Title_screen_start;			// Claude: when it was drawn
+
 void display_title_screen()
 {
 	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
@@ -8659,7 +8663,40 @@ void display_title_screen()
 	// flip
 	gr_flip();
 
-	bm_unload(title_bitmap);
+	Title_screen_bitmap = title_bitmap;	// Claude: title_screen_hold unloads it (was bm_unload(title_bitmap))
+	Title_screen_start = GetTickCount();	// Claude
+}
+
+// Claude: the title screen was drawn once and stayed up while game_init loaded, which took seconds in 1998
+// and now takes a fraction of one.  Keep it up until TITLE_SCREEN_MS after it was drawn, or until a key or
+// click (read from the keyboard state, so nothing reaches the game's input queue).  Autotest and replays
+// do not wait.
+#define TITLE_SCREEN_MS	3000
+void title_screen_hold()
+{
+	if (Title_screen_bitmap < 0) {
+		return;
+	}
+	while (!Autotest_harness && (Replay_mode != REPLAY_PLAY) && (GetTickCount() - Title_screen_start < TITLE_SCREEN_MS)) {
+		if ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_ESCAPE) | GetAsyncKeyState(VK_SPACE) | GetAsyncKeyState(VK_RETURN)) & 0x8000) {
+			break;
+		}
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_start_frame();
+			d3d_start_frame();
+		}
+		gr_set_bitmap(Title_screen_bitmap);
+		gr_bitmap(0, 0);
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_stop_frame();
+			d3d_stop_frame();
+		}
+		gr_flip();
+		os_poll();
+		Sleep(10);
+	}
+	bm_unload(Title_screen_bitmap);
+	Title_screen_bitmap = -1;
 }
 
 // return true if the game is running with "low memory", which is less than 48MB
