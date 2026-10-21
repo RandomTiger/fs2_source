@@ -465,6 +465,7 @@ static void autotest_main_menu()
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
 #define AUTOTEST_TOUR_PLAY_FRAMES	120		// frames of gameplay before the in-game screens
 #define AUTOTEST_TOUR_CLOSE_FRAMES	2		// frames for a help overlay to go
+#define AUTOTEST_TOUR_SHOT_MS		2500	// with -at_shots, a view also shows this long first, for a screen's intro wipe or fade
 #define AUTOTEST_MAX_VIEWS			9
 // MainHallMenu.cpp's regions
 #define AUTOTEST_REGION_BARRACKS		1
@@ -555,6 +556,7 @@ static int Autotest_tour_phase = AUTOTEST_TOUR_GO;
 static int Autotest_tour_from;				// the state the stop started in
 static int Autotest_tour_frames;
 static DWORD Autotest_tour_ms;
+static DWORD Autotest_tour_view_ms;			// when the view started showing
 static int Autotest_tour_region = -1;		// a main hall region to click on the next main hall frame
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
 static int Autotest_tour_help_seen;			// the view's help overlay showed
@@ -779,6 +781,7 @@ static void autotest_tour_start_view(int key)
 	Autotest_tour_not_in_demo = 0;
 	Autotest_tour_logged = 0;
 	Autotest_tour_frames = 0;
+	Autotest_tour_view_ms = Autotest_frame_ms;
 	if (key) {
 		autotest_press((key == AUTOTEST_TOUR_HELP) ? KEY_F1 : key);
 	}
@@ -911,6 +914,7 @@ static void autotest_tour_frame(int state)
 			autotest_logf("Menu tour: '%s'\n", s->name);
 			Autotest_tour_region = -1;
 			Autotest_tour_frames = 0;
+			Autotest_tour_view_ms = Autotest_frame_ms;
 			Autotest_tour_phase = AUTOTEST_TOUR_LOOK;
 			return;
 
@@ -928,6 +932,9 @@ static void autotest_tour_frame(int state)
 			}
 			frames = ((state == GS_STATE_GAME_PLAY) && (Autotest_tour_view == 0)) ? AUTOTEST_TOUR_PLAY_FRAMES : AUTOTEST_TOUR_FRAMES;
 			if (++Autotest_tour_frames < frames) {
+				return;
+			}
+			if (Autotest_shots[0] && (Autotest_frame_ms - Autotest_tour_view_ms < AUTOTEST_TOUR_SHOT_MS)) {
 				return;
 			}
 			autotest_shot(v->name);
