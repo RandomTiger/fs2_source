@@ -1276,14 +1276,15 @@ void barracks_accept_new_pilot_callsign()
 // Claude: one row of the clipped picture, w pixels from bitmap pixel (sx, sy) of a bw by bh picture.  gr_bitmap_ex writes
 // 16 bit pixels straight into the back buffer, so on D3D's 32 bit one the picture came out at half the x and width and
 // wrongly coloured; where gr_bitmap draws a textured poly (D3D, Glide), the row is drawn the same way.
-static void barracks_draw_pilot_pic_row(int x, int y, int w, int sx, int sy, int bw, int bh)
+// Claude: sx, sy are bitmap pixels and scale the screen pixels per bitmap pixel (the FS1 demo's window is taller than its picture)
+static void barracks_draw_pilot_pic_row(int x, int y, int w, float sx, float sy, float scale, int bw, int bh)
 {
 	vertex v[4];
 	vertex *vertlist[4] = { &v[0], &v[1], &v[2], &v[3] };
 	int saved_zbuffer_mode, i;
 
 	if ( !((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) || !Gr_bitmap_poly ) {
-		gr_bitmap_ex(x, y, w, 1, sx, sy);
+		gr_bitmap_ex(x, y, w, 1, fl2i(sx), fl2i(sy));	// Claude: unscaled; no software path scales
 		return;
 	}
 
@@ -1291,8 +1292,8 @@ static void barracks_draw_pilot_pic_row(int x, int y, int w, int sx, int sy, int
 	for (i = 0; i < 4; i++) {
 		v[i].sx = i2fl(((i == 1) || (i == 2)) ? (x + w) : x);
 		v[i].sy = i2fl((i >= 2) ? (y + 1) : y);
-		v[i].u = i2fl(((i == 1) || (i == 2)) ? (sx + w) : sx) / i2fl(bw);
-		v[i].v = i2fl((i >= 2) ? (sy + 1) : sy) / i2fl(bh);
+		v[i].u = (((i == 1) || (i == 2)) ? (sx + i2fl(w) / scale) : sx) / i2fl(bw);	// Claude: / scale
+		v[i].v = ((i >= 2) ? (sy + 1.0f / scale) : sy) / i2fl(bh);	// Claude: / scale
 		v[i].flags = PF_PROJECTED;
 	}
 
@@ -1300,7 +1301,7 @@ static void barracks_draw_pilot_pic_row(int x, int y, int w, int sx, int sy, int
 	g3_start_frame(1);
 	saved_zbuffer_mode = gr_zbuffer_get();
 	gr_zbuffer_set(GR_ZBUFF_NONE);
-	gr_filter_set(0);
+	gr_filter_set(scale != 1.0f);	// Claude: filtered only when scaled
 	g3_draw_poly_constant_sw(4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_BITMAP_SECTION, 0.1f);
 	g3_end_frame();
 	gr_zbuffer_set(saved_zbuffer_mode);
@@ -1312,18 +1313,23 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 	int top = Game_profile->barracks_image_window[0];
 	int bottom = Game_profile->barracks_image_window[1];
 	int w, h, y, l, r;
+	float scale = 1.0f;
 
 	bm_get_info(Pilot_images[Pic_number], &w, &h);
-	for (y = max(top, py); y <= min(bottom, py + h - 1); y++) {
+	if ( bottom - top + 1 > h ) {	// Claude: the FS1 demo's window is 142 rows to its pictures' 120: scaled to its height, the sides cropped
+		scale = i2fl(bottom - top + 1) / i2fl(h);
+	}
+	int dw = fl2i(i2fl(w) * scale + 0.5f), dh = fl2i(i2fl(h) * scale + 0.5f);	// Claude: the picture's size on screen
+	for (y = max(top, py); y <= min(bottom, py + dh - 1); y++) {	// Claude: was py + h - 1
 		l = 459 + max(0, top + 5 - y) + max(0, y - (bottom - 5));	// top left and bottom left bevels
 		r = 622 - max(0, top + 3 - y);							// top right bevel
 		if (y >= bottom - 15) {										// the arrow box
 			r = max(565, 575 - (y - (bottom - 15)));
 		}
 		l = max(l, px);
-		r = min(r, px + w - 1);
+		r = min(r, px + dw - 1);	// Claude: was px + w - 1
 		if (l <= r) {
-			barracks_draw_pilot_pic_row(l, y, r - l + 1, l - px, y - py, w, h);
+			barracks_draw_pilot_pic_row(l, y, r - l + 1, i2fl(l - px) / scale, i2fl(y - py) / scale, scale, w, h);	// Claude: scaled
 		}
 	}
 }

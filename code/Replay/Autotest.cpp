@@ -848,6 +848,12 @@ static void autotest_tour_frame(int state)
 				autotest_tour_frame(state);
 				return;
 			}
+			// the barracks' Medals button answers the "not in demo" popup on a demo data set (Barracks.cpp)
+			if ((s->arg == GS_EVENT_VIEW_MEDALS) && !Game_profile->full_version_screens) {
+				autotest_tour_skip("not in demo");
+				autotest_tour_next_stop();
+				return;
+			}
 			switch (s->open) {
 				case AUTOTEST_OPEN_EVENT:
 					if (s->arg == GS_EVENT_START_GAME) {
