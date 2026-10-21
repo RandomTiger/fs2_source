@@ -340,6 +340,40 @@ yet (batches 4 to 8).
   the main thread skip a recorded read. Before the fix about 1 demo replay in 10 drifted; after, 60 of 60
   match.
 
+### Batch 7: menus and flow (D-20261021-071013, D-20261021-071014)
+
+Profile fields in `GlobalIncs/DataSetProfile.h`, each read where the `FS2_DEMO` build read it:
+
+| Field | FS2 retail | FS2 demo | FS1 retail | FS1 demo | Sites |
+|---|---|---|---|---|---|
+| `full_version_screens` | `FVS_ALL` | 0 | `FVS_ALL` | `FVS_ALL` (placeholder) | bits below |
+| `always_pilot_select` | 0 | 1 | 0 | 0 | `GS_EVENT_GAME_INIT` (FreeSpace.cpp) |
+| `demo_campaign_end` | 0 | 1 | 0 | 0 | campaign end (MissionCampaign.cpp, MissionDebrief.cpp), ready room replay offer |
+| `upsell_screens` | 0 | 1 | 0 | 0 | end of demo campaign and exit (FreeSpace.cpp) |
+| `trailer_timer` | 0 | 1 | 0 | 0 | timer resets in Joy.cpp, Mouse.cpp, MissionBrief.cpp, game_poll |
+
+`full_version_screens` bits (set: the screen opens as in the full game; clear: what the demo build did):
+
+| Bit | Value | Site | Clear |
+|---|---|---|---|
+| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup |
+| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | restart-campaign popup (FS2 demo) |
+| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing |
+| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing |
+| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup |
+| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup |
+| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored |
+
+The field is FS1Demo's `full_version_screens` (D-20261020-214042), where it is one 1/0 wall over the FS1
+demo's missing screens. The two layouts are reconciled at the first merge of either branch into a common
+ancestor; `docs/FS1_DEMO.md` lists the FS1 sites.
+
+Sites the run-time switcher re-runs (D-20261019-135406), since they are read once: the pilot-screen choice
+at `GS_EVENT_GAME_INIT` and the IPX button hidden when the multi options screen is created. The upsell
+screens are read on exit, after any switch. Kept as they were: the replay and autotest pilot load at start-up
+(D-20261018-184854) and the sales-screen skip (D-20261018-221703). Held: the PlayerMenu demo title, dead in
+both builds, for the D-060 pass; the `OEM_BUILD` and `MULTIPLAYER_BETA_BUILD` arms, for batch 9.
+
 ## 6. Tom's decisions (2026-10-18)
 
 The open questions from the first version of this brief, as Tom answered them.
