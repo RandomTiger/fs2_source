@@ -1310,7 +1310,7 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 	int w, h, y, l, r;
 
 	bm_get_info(Pilot_images[Pic_number], &w, &h);
-	for (y = max(top, py); y <= min(bottom, py + h - 1); y++) {
+	for (y = max(top - 3, py); y <= min(bottom, py + h - 1); y++) {	// Claude: was max(top, py); the window's top corners rise 3 rows above its centre lip
 		l = 459 + max(0, top + 5 - y) + max(0, y - (bottom - 5));	// top left and bottom left bevels
 		r = 622 - max(0, top + 3 - y);							// top right bevel
 		if (y >= bottom - 15) {										// the arrow box
@@ -1318,7 +1318,15 @@ static void barracks_draw_pilot_pic_clipped(int px, int py)
 		}
 		l = max(l, px);
 		r = min(r, px + w - 1);
-		if (l <= r) {
+		if (y < top) {	// Claude: the top corners either side of the lip, which narrows by a pixel a row
+			int ll = min(r, 497 - (top - y) - 1), rr = max(l, 576 + (top - y) + 1);
+			if (l <= ll) {
+				barracks_draw_pilot_pic_row(l, y, ll - l + 1, l - px, y - py, w, h);
+			}
+			if (rr <= r) {
+				barracks_draw_pilot_pic_row(rr, y, r - rr + 1, rr - px, y - py, w, h);
+			}
+		} else if (l <= r) {	// Claude: was if
 			barracks_draw_pilot_pic_row(l, y, r - l + 1, l - px, y - py, w, h);
 		}
 	}
