@@ -359,7 +359,7 @@ int pcx_read_bitmap_16bpp( char * real_filename, ubyte *org_data )
 				bm_set_components((ubyte*)&bit_16, &r, &g, &b, &al);				
 				
 				// stuff the pixel
-				*((ushort*)pixdata) = bit_16;				
+				*((ushort*)pixdata) = (ushort)bit_16;	// Claude: the same 16 bit store as before; bit_16 is a uint now (review 54)
 				pixdata += 2;
 			}
 			count--;
