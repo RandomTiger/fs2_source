@@ -40,7 +40,7 @@ Visits every single-player screen and quits: the main hall, options (general, mu
 - The log has one line per view: `Screen '<category>/<screen>': PASS`, `FAIL <why>` or `SKIP <why>`. A view fails if its screen does not open, closes by itself or does not go back, if its help overlay does not show, or if an `Assert`, `Int3` or `Warning` fires while it is up. After a crash the views not reached are listed as `FAIL not reached`. The log ends with `Menu tour: N screens, N passed, N failed, N skipped`. Any failure gives exit code 2.
 - A screen that shows the "not in demo" popup (`game_feature_not_in_demo_popup`) is skipped: `SKIP not in demo`.
 - In Debug builds a run-time check failure (`/RTC`) or a CRT assert also counts: the screen is logged as `FAIL` and the game exits with code `0x80000003`.
-- `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size. The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
+- `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
 - The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
 - `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build.
 

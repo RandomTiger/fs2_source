@@ -12,7 +12,7 @@
  * line, "Screen '<category>/<screen>': PASS", "FAIL <why>" or "SKIP <why>".  A screen fails if it does not
  * open or close, if its help overlay does not show, or on an Assert, Int3, Warning or crash.  A screen
  * that shows the "not in demo" popup is skipped.  -at_shots saves each screen as
- * <folder>\<category>\<screen>.bmp, logs "Shot: <category>/<screen> <file>", and keeps the cursor at 0,0.
+ * <folder>\<category>\<screen>.bmp, logs "Shot: <category>/<screen> <file>", waits 2.5 s on each view before its shot, and keeps the cursor at 0,0.
  *
  * With no -at_mission, every single-player campaign mission runs in turn.  Each mission runs for
  * -at_time seconds of mission time (default 120) at -at_speed time compression (default 4), with
