@@ -313,6 +313,7 @@
 #include "demo.h"
 #include "fishtank.h"
 #include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
+#include "DataSetProfile.h"	// Claude
 
 // #include "movie.h"
 
@@ -1068,13 +1069,13 @@ void main_hall_do(float frametime)
 
 		// clicked on the tech room region
 		case TECH_ROOM_REGION:
-#if defined(FS2_DEMO)
+			if (!(Game_profile->full_version_screens & FVS_TECH_ROOM)) {	// Claude: data set profile wall (D-20261021-071013); was #if defined(FS2_DEMO)
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			game_feature_not_in_demo_popup();
-#else
+			} else {	// Claude
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			gameseq_post_event( GS_EVENT_TECH_MENU );
-#endif
+			}	// Claude
 			break;
 
 		// clicked on the options region
@@ -1087,7 +1088,7 @@ void main_hall_do(float frametime)
 		case CAMPAIGN_ROOM_REGION:
 #if !defined(MULTIPLAYER_BETA_BUILD) && !defined(E3_BUILD) && !defined(PRESS_TOUR_BUILD)
 
-#ifdef FS2_DEMO
+			if (!(Game_profile->full_version_screens & FVS_CAMPAIGN_ROOM)) {	// Claude: data set profile wall (D-20261021-071013); was #ifdef FS2_DEMO
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			{
 			//game_feature_not_in_demo_popup();
@@ -1099,7 +1100,7 @@ void main_hall_do(float frametime)
 			}
 			}
 
-#else
+			} else {	// Claude
 			if(Player->flags & PLAYER_FLAGS_IS_MULTI){
 				gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 				main_hall_set_notify_string(XSTR( "Campaign Room not valid for multiplayer pilots", 366));
@@ -1107,7 +1108,7 @@ void main_hall_do(float frametime)
 				gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 				gameseq_post_event(GS_EVENT_CAMPAIGN_ROOM);			
 			}
-#endif
+			}	// Claude
 
 #endif
 			break;
@@ -1130,7 +1131,8 @@ void main_hall_do(float frametime)
 		case LOAD_MISSION_REGION:
 #ifdef RELEASE_REAL
 #else
-	#if !(defined(MULTIPLAYER_BETA_BUILD) || defined(FS2_DEMO))
+	#if !defined(MULTIPLAYER_BETA_BUILD)	// Claude: was !(defined(MULTIPLAYER_BETA_BUILD) || defined(FS2_DEMO))
+			if (Game_profile->full_version_screens & FVS_LOAD_MISSION) {	// Claude: data set profile wall (D-20261021-071013)
 	//#if !defined(NDEBUG) || defined(INTERPLAYQA)
 				if (Player->flags & PLAYER_FLAGS_IS_MULTI){
 					gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
@@ -1144,6 +1146,7 @@ void main_hall_do(float frametime)
 					gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 					gameseq_post_event( GS_EVENT_LOAD_MISSION_MENU );
 				}
+			}	// Claude
 	//#endif
 	#endif
 #endif
@@ -1151,7 +1154,8 @@ void main_hall_do(float frametime)
 
 		// quick start a game region
 		case QUICK_START_REGION:
-#if !defined(NDEBUG) && !defined(FS2_DEMO)
+#if !defined(NDEBUG)	// Claude: was !defined(NDEBUG) && !defined(FS2_DEMO)
+			if (Game_profile->full_version_screens & FVS_QUICK_START) {	// Claude: data set profile wall (D-20261021-071013)
 			if (Player->flags & PLAYER_FLAGS_IS_MULTI){
 				main_hall_set_notify_string(XSTR( "Quick Start not valid for multiplayer pilots", 369));
 			} else {
@@ -1166,6 +1170,7 @@ void main_hall_do(float frametime)
 				Campaign.current_mission = -1;
 				gameseq_post_event(GS_EVENT_START_GAME_QUICK);
 			}
+			}	// Claude
 #endif
 			break;
 
