@@ -43,6 +43,7 @@ typedef struct data_set_profile {
 	int	hotkeys;							// F5-F12 target hotkeys and their help lines; 0: ignored and not listed
 	int	artillery_lock;					// ship_update_artillery_lock runs; 0: it returns at once
 	int	cheat_code;						// the full game's cheat codes; 0: the demo's one code, single player and multi alike
+	int	breakup_fx;						// ship break-up particles at the full game's sizes; 0: the demo's (range x5, longer life, double scale); affects game logic (D-20261021-110833)
 } data_set_profile;
 
 // full_version_screens bits (shared with FS1Demo's field of the same name; the layouts are reconciled at the first common merge)
