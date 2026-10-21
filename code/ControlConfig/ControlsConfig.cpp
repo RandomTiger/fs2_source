@@ -683,13 +683,13 @@ int control_config_detect_axis()
 
 int control_config_valid_action(int n)
 {
-#ifdef FS2_DEMO
+// Claude: was #ifdef FS2_DEMO; the shipped demo compiled an empty list (INVALID_DEMO_KEYS_MAX 0), so the shield keys were enabled and there is no profile field (D-20261021-100517)
 	int i;
 
 	for (i=0; i<INVALID_DEMO_KEYS_MAX; i++)
 		if (n == Invalid_demo_keys[i])
 			return 0;
-#endif
+// Claude: was #endif
 
 	return 1;
 }
