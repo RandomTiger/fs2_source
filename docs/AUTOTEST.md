@@ -96,7 +96,6 @@ tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 - The time limit is in mission time, which a replay reproduces exactly. A real-time limit would end the replay on a different frame.
 - `-autotest` on a replay adds only the log, the watchdog and the no-dialog handling. The replay still drives the menus itself.
 - If an `Assert` or `Int3` fired while recording, replay with `-autotest` too, or the replay stops at the same `Assert` dialog.
-- Red alert missions can be run, but replay does not support them yet, so the log warns when one is recorded.
 
 ## Not covered
 - Nobody flies the player ship, so player weapons, collisions and the player's own damage are not tested. AI ships fight as normal.
