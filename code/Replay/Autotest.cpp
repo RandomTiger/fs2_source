@@ -476,6 +476,7 @@ extern int Help_overlay_flags;	// ContextHelp.cpp: the help overlays showing
 typedef struct autotest_view {
 	char *name;		// <category>/<screen>, as the reference captures are named
 	int key;		// pressed first: 0 for none, a key, or AUTOTEST_TOUR_HELP
+	char *training;	// the name instead in a mission with only a briefing (training or scramble), or NULL
 } autotest_view;
 typedef struct autotest_stop {
 	char *name;
@@ -512,7 +513,7 @@ static autotest_stop Autotest_tour[] = {
 	{ "Command briefing",	AUTOTEST_OPEN_EVENT,	GS_EVENT_START_GAME,				GS_STATE_CMD_BRIEF,					AUTOTEST_TOUR_STAY,
 		{ { "briefing/command_briefing", 0 }, { "briefing/command_briefing_help", AUTOTEST_TOUR_HELP } } },
 	{ "Briefing",			AUTOTEST_OPEN_EVENT,	GS_EVENT_START_BRIEFING,			GS_STATE_BRIEFING,					AUTOTEST_TOUR_STAY,
-		{ { "briefing/briefing", 0 }, { "briefing/briefing_help", AUTOTEST_TOUR_HELP } } },
+		{ { "briefing/briefing", 0, "briefing/briefing_training" }, { "briefing/briefing_help", AUTOTEST_TOUR_HELP, "briefing/briefing_training_help" } } },
 	{ "Ship select",		AUTOTEST_OPEN_SCREEN,	0,									GS_STATE_SHIP_SELECT,				AUTOTEST_TOUR_STAY,
 		{ { "briefing/ship_select", 0 }, { "briefing/ship_select_help", AUTOTEST_TOUR_HELP } } },
 	{ "Weapon select",		AUTOTEST_OPEN_SCREEN,	0,									GS_STATE_WEAPON_SELECT,				AUTOTEST_TOUR_STAY,
@@ -596,13 +597,19 @@ void autotest_set_shots(char *dir)
 	autotest_logf("Menu tour: a screenshot of each screen to '%s'\n", Autotest_shots);
 }
 
+// a view's name in this mission
+static char *autotest_view_name(autotest_view *v)
+{
+	return (v->training && brief_only_allow_briefing()) ? v->training : v->name;
+}
+
 // the screen the tour is on, for the crash log, or NULL
 static char *autotest_tour_screen()
 {
 	if (!Autotest_menus || (Autotest_tour_stop >= AUTOTEST_TOUR_STOPS)) {
 		return NULL;
 	}
-	return Autotest_tour[Autotest_tour_stop].views[Autotest_tour_view].name;
+	return autotest_view_name(&Autotest_tour[Autotest_tour_stop].views[Autotest_tour_view]);
 }
 
 void autotest_main_hall_click(int *code, int *action)
@@ -718,7 +725,7 @@ static void autotest_shot(char *name)
 static void autotest_tour_log(char *why)
 {
 	char text[128];
-	char *name = Autotest_tour[Autotest_tour_stop].views[Autotest_tour_view].name;
+	char *name = autotest_view_name(&Autotest_tour[Autotest_tour_stop].views[Autotest_tour_view]);
 
 	if (Autotest_tour_logged) {
 		return;
@@ -745,7 +752,7 @@ static void autotest_tour_skip(char *why)
 
 	for (; (Autotest_tour_view < AUTOTEST_MAX_VIEWS) && v[Autotest_tour_view].name; Autotest_tour_view++) {
 		Autotest_tour_skipped++;
-		autotest_logf("Screen '%s': SKIP %s\n", v[Autotest_tour_view].name, why);
+		autotest_logf("Screen '%s': SKIP %s\n", autotest_view_name(&v[Autotest_tour_view]), why);
 	}
 	Autotest_tour_view = 0;
 }
@@ -760,7 +767,7 @@ static void autotest_tour_end(char *why)
 		for (i = Autotest_tour_stop, j = Autotest_tour_view + 1; i < AUTOTEST_TOUR_STOPS; i++, j = 0) {
 			for (; (j < AUTOTEST_MAX_VIEWS) && Autotest_tour[i].views[j].name; j++) {
 				Autotest_tour_failed++;
-				autotest_logf("Screen '%s': FAIL not reached\n", Autotest_tour[i].views[j].name);
+				autotest_logf("Screen '%s': FAIL not reached\n", autotest_view_name(&Autotest_tour[i].views[j]));
 			}
 		}
 	}
@@ -893,7 +900,8 @@ static void autotest_tour_frame(int state)
 						return;
 					}
 					if (brief_only_allow_briefing()) {
-						autotest_tour_end("the mission has no ship or weapon selection (training or scramble)");
+						autotest_tour_skip("the mission has no ship or weapon selection (training or scramble)");
+						autotest_tour_next_stop();
 						return;
 					}
 					Next_screen = (s->state == GS_STATE_SHIP_SELECT) ? ON_SHIP_SELECT : ON_WEAPON_SELECT;
@@ -945,7 +953,7 @@ static void autotest_tour_frame(int state)
 			}
 			if (Autotest_tour_not_in_demo) {
 				Autotest_tour_skipped++;
-				autotest_logf("Screen '%s': SKIP not in demo\n", v->name);
+				autotest_logf("Screen '%s': SKIP not in demo\n", autotest_view_name(v));
 				Autotest_tour_logged = 1;
 				autotest_tour_view_done(NULL);
 				return;
@@ -957,7 +965,7 @@ static void autotest_tour_frame(int state)
 			if (Autotest_shots[0] && (Autotest_frame_ms - Autotest_tour_view_ms < AUTOTEST_TOUR_SHOT_MS)) {
 				return;
 			}
-			autotest_shot(v->name);
+			autotest_shot(autotest_view_name(v));
 			if (v->key == AUTOTEST_TOUR_HELP) {
 				Autotest_tour_help_seen = (Help_overlay_flags != 0);
 				autotest_press(KEY_F1);
