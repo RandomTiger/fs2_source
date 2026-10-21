@@ -160,14 +160,7 @@ static int Barracks_stats2_coords[GR_NUM_RESOLUTIONS][3] = {
 };
 
 // pilot picture field
-static int Barracks_image_coords[GR_NUM_RESOLUTIONS][4] = {
-	{ // GR_640
-		461, 23, 160, 120
-	},
-	{ // GR_1024
-		782, 58, 160, 120
-	}
-};
+// Claude: Barracks_image_coords is Game_profile->barracks_image_coords, per data set (D-20261020-231901); FS2's were {461, 23}, {782, 58} (with an unused 160 x 120 size)
 
 // pilot picture # of # location
 static int Barracks_image_number_coords[GR_NUM_RESOLUTIONS][2] = {
@@ -1270,6 +1263,31 @@ void barracks_accept_new_pilot_callsign()
 }
 
 
+// Claude: FS1's BARRACKS.PCX frames the pilot picture in a window with bevelled corners and an arrow box cut into its
+// bottom right; FS1 retail draws none of the picture over that art (its screenshot screen00.tga).  The window is screen
+// rows Game_profile->barracks_image_window[0] to [1] and x 459 to 622 on FS1 retail and demo alike, so one shape
+// serves both; the picture is drawn one row at a time inside it (D-20261020-231901).
+static void barracks_draw_pilot_pic_clipped(int px, int py)
+{
+	int top = Game_profile->barracks_image_window[0];
+	int bottom = Game_profile->barracks_image_window[1];
+	int w, h, y, l, r;
+
+	bm_get_info(Pilot_images[Pic_number], &w, &h);
+	for (y = max(top, py); y <= min(bottom, py + h - 1); y++) {
+		l = 459 + max(0, top + 5 - y) + max(0, y - (bottom - 5));	// top left and bottom left bevels
+		r = 622 - max(0, top + 3 - y);							// top right bevel
+		if (y >= bottom - 15) {										// the arrow box
+			r = max(565, 575 - (y - (bottom - 15)));
+		}
+		l = max(l, px);
+		r = min(r, px + w - 1);
+		if (l <= r) {
+			gr_bitmap_ex(l, y, r - l + 1, 1, l - px, y - py);
+		}
+	}
+}
+
 // draw pilot image and clean up afterwards
 void barracks_draw_pilot_pic()
 {
@@ -1280,7 +1298,11 @@ void barracks_draw_pilot_pic()
 			extern int Palman_allow_any_color;
 			Palman_allow_any_color = 1;
 			gr_set_bitmap(Pilot_images[Pic_number]);
-			gr_bitmap(Barracks_image_coords[gr_screen.res][BARRACKS_X_COORD], Barracks_image_coords[gr_screen.res][BARRACKS_Y_COORD]);
+			if ( Game_profile->barracks_image_window[1] ) {	// Claude: FS1's window shape (D-20261020-231901)
+				barracks_draw_pilot_pic_clipped(Game_profile->barracks_image_coords[gr_screen.res][0], Game_profile->barracks_image_coords[gr_screen.res][1]);
+			} else {
+				gr_bitmap(Game_profile->barracks_image_coords[gr_screen.res][0], Game_profile->barracks_image_coords[gr_screen.res][1]);	// Claude: was Barracks_image_coords
+			}
 			Palman_allow_any_color = 0;
 
 			// print number of the current pic
@@ -1340,8 +1362,6 @@ static void barracks_fs1_layout()
 	Buttons[GR_640][B_SQUAD_NEXT_BUTTON].hotspot = -1;
 	Barracks_list_coords[GR_640][BARRACKS_X_COORD] = 58;
 	Barracks_list_coords[GR_640][BARRACKS_Y_COORD] = 37;
-	Barracks_image_coords[GR_640][BARRACKS_X_COORD] = 460;
-	Barracks_image_coords[GR_640][BARRACKS_Y_COORD] = 33;
 	Barracks_image_number_coords[GR_640][BARRACKS_X_COORD] = 489;
 	Barracks_image_number_coords[GR_640][BARRACKS_Y_COORD] = 168;
 }
