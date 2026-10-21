@@ -314,7 +314,7 @@
 #include "fishtank.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 
-// #include "movie.h"
+#include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 // ----------------------------------------------------------------------------
 // MAIN HALL DATA DEFINES
@@ -1016,11 +1016,11 @@ void main_hall_do(float frametime)
 #ifndef NDEBUG	
 	case KEY_1:		
 		// no soup for you!
-		// movie_play("endprt2b.mve", 0);
+		movie_play("endprt2b.mve", 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 		break;
 	case KEY_2:		
 		// no soup for you!
-		// movie_play_two("endprt2a.mve", "endprt2b.mve", 0);
+		movie_play_two("endprt2a.mve", "endprt2b.mve", 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 		break;
 	case KEY_3:		
 		main_hall_campaign_cheat();	
