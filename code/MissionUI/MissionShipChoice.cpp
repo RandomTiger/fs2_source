@@ -400,6 +400,7 @@
 #include "HUDWingmanStatus.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "DataSetProfile.h"	// Claude
 
 //////////////////////////////////////////////////////
 // Game-wide Globals
@@ -492,11 +493,7 @@ static int Ship_info_coords[GR_NUM_RESOLUTIONS][2] = {
 
 
 // NK: changed from 37 to 51 for new FS2 animations
-#ifdef FS2_DEMO
-#define SHIP_ANIM_LOOP_FRAME	0
-#else
-#define SHIP_ANIM_LOOP_FRAME	51
-#endif
+#define SHIP_ANIM_LOOP_FRAME	(Game_profile->loadout_anim_loop ? 51 : 0)	// Claude: was 0 under #ifdef FS2_DEMO, else 51; data set profile (D-20261021-100301)
 
 #define MAX_ICONS_ON_SCREEN	4
 
