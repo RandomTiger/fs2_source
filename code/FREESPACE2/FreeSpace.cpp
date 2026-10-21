@@ -1917,9 +1917,8 @@ DCF(show_cpu,"Toggles showing cpu usage")
 
 	// AL 4-8-98: always allow players to display their framerate
 
-	#ifdef FS2_DEMO
+	// Claude: compiled always, so Release can show the frame rate on every data set (D-20261021-100301); was #ifdef FS2_DEMO
 		DCF_BOOL( show_framerate, Show_framerate )
-	#endif
 
 #endif	// NDEBUG
 
