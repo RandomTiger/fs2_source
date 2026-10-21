@@ -229,6 +229,7 @@
 #include "Timer.h"
 #include "neb.h"
 #include "beam.h"
+#include "DataSetProfile.h"	// Claude
 
 
 // will display a notification warning message
@@ -935,9 +936,9 @@ void options_button_pressed(int n)
 			break;				
 
 		case HUD_CONFIG_BUTTON:
-#ifdef FS2_DEMO
+			if (!(Game_profile->full_version_screens & FVS_HUD_CONFIG)) {	// Claude: data set profile wall (D-20261021-071013); was #ifdef FS2_DEMO
 			game_feature_not_in_demo_popup();
-#else
+			} else {	// Claude
 			// can't go to the hud config screen when a multiplayer observer
 			if((Game_mode & GM_MULTIPLAYER) && (Net_player->flags & NETINFO_FLAG_OBSERVER)){
 				gamesnd_play_iface(SND_GENERAL_FAIL);
@@ -947,7 +948,7 @@ void options_button_pressed(int n)
 
 			gamesnd_play_iface(SND_SWITCH_SCREENS);
 			gameseq_post_event(GS_EVENT_HUD_CONFIG);
-#endif
+			}	// Claude
 			break;
 
 		case ACCEPT_BUTTON:
