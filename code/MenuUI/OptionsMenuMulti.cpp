@@ -213,6 +213,7 @@
 #include "OsRegistry.h"
 #include "AlphaColors.h"
 #include "Timer.h"
+#include "DataSetProfile.h"	// Claude
 
 // general data section ------------------------------------------------
 UI_WINDOW *Om_window = NULL;
@@ -898,10 +899,10 @@ void options_multi_load_protocol_controls()
 	Om_ip_input.disable();
 	
 	// disable IPX button in demo
-#ifdef FS2_DEMO
+	if (!(Game_profile->full_version_screens & FVS_IPX)) {	// Claude: data set profile wall (D-20261021-071013); was #ifdef FS2_DEMO
 	Om_pro_buttons[gr_screen.res][OM_PRO_IPX].button.disable();
 	Om_pro_buttons[gr_screen.res][OM_PRO_IPX].button.hide();
-#endif
+	}	// Claude
 
 	// bogus control
 	Om_pro_bogus.base_create(Om_window, UI_KIND_ICON, 0, 0, 0, 0);
@@ -1304,10 +1305,10 @@ void options_multi_protocol_button_pressed(int n)
 
 	// ipx mode
 	case OM_PRO_IPX:
-#ifndef FS2_DEMO
+		if (Game_profile->full_version_screens & FVS_IPX) {	// Claude: data set profile wall (D-20261021-071013); was #ifndef FS2_DEMO
 		Om_protocol = NET_IPX;
 		gamesnd_play_iface(SND_USER_SELECT);
-#endif
+		}	// Claude
 		break;
 	}
 }
