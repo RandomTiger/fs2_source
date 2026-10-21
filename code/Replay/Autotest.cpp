@@ -446,7 +446,9 @@ static void autotest_main_menu()
 }
 
 // -at_menus: a tour of every single-player screen instead of playing missions.  Each stop opens its screen the way the
-// player does (a click in the main hall, a key, or the event its button posts) and waits for its state.  Then it shows
+// player does (a click in the main hall, a key, or the event its button posts) and waits for its state.  A screen with
+// a demo wall opens through the player's entry, never by posting its state event, so the wall is what the tour meets
+// (D-20261021-201402): HUD config is the H key on the Options screen, which the tour opens first and closes after.  Then it shows
 // each of the screen's views in turn: a key press (a tab, the next page, F1 for the help overlay), then a few frames
 // drawn.  Each view logs one line, "Screen '<name>': PASS", "FAIL <why>" or "SKIP <why>"; a view fails on an Assert,
 // Int3 or Warning, or if its help overlay does not show.  The names are those of the reference captures,
@@ -460,6 +462,7 @@ static void autotest_main_menu()
 #define AUTOTEST_OPEN_KEY			3		// press a key
 #define AUTOTEST_OPEN_COMMIT		4		// commit_pressed(), as the Commit button
 #define AUTOTEST_OPEN_SCREEN		5		// the briefing screens' own buttons, which pick the next screen
+#define AUTOTEST_OPEN_OPTIONS_KEY	6		// press a key on the Options screen, opened first (D-20261021-201402)
 #define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
@@ -493,7 +496,7 @@ static autotest_stop Autotest_tour[] = {
 	{ "Control config",		AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
 		{ { "controls/controls_targeting", 0 }, { "controls/controls_targeting_help", AUTOTEST_TOUR_HELP }, { "controls/controls_ship", KEY_TAB },
 		  { "controls/controls_weapons", KEY_TAB }, { "controls/controls_misc", KEY_TAB } } },
-	{ "HUD config",			AUTOTEST_OPEN_EVENT,	GS_EVENT_HUD_CONFIG,				GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
+	{ "HUD config",			AUTOTEST_OPEN_OPTIONS_KEY,	KEY_H,						GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/hud_config", 0 } } },
 	{ "Medals",				AUTOTEST_OPEN_EVENT,	GS_EVENT_VIEW_MEDALS,				GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/medals", 0 } } },
@@ -535,7 +538,7 @@ static autotest_stop Autotest_tour[] = {
 		{ { "mission/options", 0 } } },
 	{ "In-game controls",	AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
 		{ { "mission/controls", 0 } } },
-	{ "In-game HUD config",	AUTOTEST_OPEN_EVENT,	GS_EVENT_HUD_CONFIG,				GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
+	{ "In-game HUD config",	AUTOTEST_OPEN_OPTIONS_KEY,	KEY_H,						GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
 		{ { "mission/hud_config", 0 } } },
 	{ "Debriefing",			AUTOTEST_OPEN_EVENT,	GS_EVENT_DEBRIEF,					GS_STATE_DEBRIEF,					GS_EVENT_END_GAME,
 		{ { "debrief/debrief", 0 }, { "debrief/debrief_help", AUTOTEST_TOUR_HELP }, { "debrief/debrief_stats", KEY_TAB },
@@ -559,6 +562,8 @@ static int Autotest_tour_frames;
 static DWORD Autotest_tour_ms;
 static DWORD Autotest_tour_view_ms;			// when the view started showing
 static int Autotest_tour_region = -1;		// a main hall region to click on the next main hall frame
+static int Autotest_tour_options = 0;		// AUTOTEST_OPEN_OPTIONS_KEY: 1 opening the Options screen, 2 open, 3 closing it again
+static int Autotest_tour_options_from;		// the state the Options screen was opened from
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
 static int Autotest_tour_help_seen;			// the view's help overlay showed
 static int Autotest_tour_not_in_demo;		// the "not in demo" popup showed during the view
@@ -847,6 +852,39 @@ static void autotest_tour_frame(int state)
 			if ((Autotest_tour_stop == 0) && (state != GS_STATE_MAIN_MENU)) {
 				return;
 			}
+			// the Options screen the stop before opened on its way closes first, back to where it was opened from
+			if (Autotest_tour_options >= 2) {
+				if (state != Autotest_tour_options_from) {
+					if (Autotest_tour_options == 2) {
+						gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
+						Autotest_tour_options = 3;
+						Autotest_tour_ms = Autotest_frame_ms;
+					} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+						autotest_tour_end("the Options screen did not go back");
+					}
+					return;
+				}
+				Autotest_tour_options = 0;
+			}
+			// a key on the Options screen: open it first, as the player does (the main hall's region; in a mission, its event)
+			if ((s->open == AUTOTEST_OPEN_OPTIONS_KEY) && (state != GS_STATE_OPTIONS_MENU)) {
+				if (Autotest_tour_options == 0) {
+					Autotest_tour_options = 1;
+					Autotest_tour_options_from = state;
+					Autotest_tour_ms = Autotest_frame_ms;
+					if (state == GS_STATE_MAIN_MENU) {
+						Autotest_tour_region = AUTOTEST_REGION_OPTIONS;
+					} else {
+						gameseq_post_event(GS_EVENT_OPTIONS_MENU);
+					}
+				} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+					autotest_tour_end("the Options screen did not open");
+				}
+				return;
+			}
+			if (Autotest_tour_options == 1) {
+				Autotest_tour_options = 2;
+			}
 			Autotest_tour_from = state;
 			Autotest_tour_ms = Autotest_frame_ms;
 			Autotest_tour_phase = AUTOTEST_TOUR_ARRIVE;
@@ -875,6 +913,7 @@ static void autotest_tour_frame(int state)
 					break;
 
 				case AUTOTEST_OPEN_KEY:
+				case AUTOTEST_OPEN_OPTIONS_KEY:
 					autotest_press(s->arg);
 					break;
 
