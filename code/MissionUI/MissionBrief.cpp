@@ -1162,10 +1162,10 @@ void brief_init()
 	// init the scene-cut data
 	brief_transition_reset();
 
-#ifndef FS2_DEMO	
+	if (Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 	hud_anim_init(&Fade_anim, Brief_static_coords[gr_screen.res][0], Brief_static_coords[gr_screen.res][1], Brief_static_name[gr_screen.res]);
 	hud_anim_load(&Fade_anim);
-#endif
+	}	// Claude
 
 	nprintf(("Alan","Entering brief_init()\n"));
 	common_select_init();
@@ -1700,16 +1700,16 @@ void brief_maybe_flash_button()
 		if ( Current_brief_stage == (Num_brief_stages-1) ) {
 
 			// AL 4-4-98: Don't flash ship selection button on briefing in demo build
-#ifdef FS2_DEMO
+			if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO (no ship select button flash)
 				return;
-#else
+			} else {	// Claude
 			// AL 30-3-98: Don't flash ship selection button if in a training mission, 
 			if ( brief_only_allow_briefing() ) {
 				return;
 			}
 
 			b = &Common_buttons[Current_screen-1][gr_screen.res][1].button;		// ship select button
-#endif
+			}	// Claude
 		} else {
 			b = &Brief_buttons[gr_screen.res][1].button;		// next stage button
 		}
@@ -2095,9 +2095,9 @@ void brief_close()
 	// unload the audio streams used for voice playback
 	brief_voice_unload_all();
 
-#ifndef FS2_DEMO
+	if (Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 	hud_anim_release(&Fade_anim);
-#endif
+	}	// Claude
 
 	// done mask bitmap, so unlock it
 	bm_unlock(BriefingMaskBitmap);
@@ -2153,7 +2153,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 {
 	if ( Start_fade_up_anim ) {
 
-#ifdef FS2_DEMO
+		if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO
 		Fade_anim.time_elapsed = 0.0f;
 		Start_fade_up_anim = 0;
 		Start_fade_down_anim = 1;
@@ -2164,7 +2164,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 			Current_brief_stage = Last_brief_stage;
 		}
 		goto Fade_down_anim_start;
-#else
+		} else {	// Claude
 		int framenum;
 
 		Fade_anim.time_elapsed += frametime;
@@ -2199,19 +2199,19 @@ void brief_maybe_blit_scene_cut(float frametime)
 		// Blit the bitmap for this frame
 		gr_set_bitmap(Fade_anim.first_frame + framenum);
 		gr_bitmap(Fade_anim.sx, Fade_anim.sy);
-#endif
+		}	// Claude
 	}
 
 
 	Fade_down_anim_start:
 	if ( Start_fade_down_anim ) {
 
-#ifdef FS2_DEMO
+		if (!Game_profile->brief_fade) {	// Claude: data set profile (D-20261021-100301); was #ifdef FS2_DEMO
 		Fade_anim.time_elapsed = 0.0f;
 		Start_fade_up_anim = 0;
 		Start_fade_down_anim = 0;
 		return;
-#else
+		} else {	// Claude
 
 		int framenum;
 
@@ -2235,7 +2235,7 @@ void brief_maybe_blit_scene_cut(float frametime)
 		gr_set_bitmap(Fade_anim.first_frame + (Fade_anim.num_frames-1) - framenum);
 		gr_bitmap(Fade_anim.sx, Fade_anim.sy);
 
-#endif
+		}	// Claude
 	}
 }
 
