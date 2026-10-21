@@ -254,6 +254,9 @@ static float Credits_counter;
 static int Credits_artwork_index;
 static int Credits_bmps[NUM_IMAGES];
 
+// Claude: our names, shown before the original credits on every data set, in credits.tbl's own heading form (Tom; D-20261021-095900, D-20261021-095901)
+#define CREDITS_SOURCE_PORT	"Source Port:\n\nRandomTiger and Claude (Anthropic)\n\n\n"
+
 char *Credit_text = NULL;
 int Credit_text_malloced = 0;			// TRUE if credit_text was malloced
 
@@ -347,7 +350,7 @@ void credits_init()
 	if(fp != NULL){
 		int size;
 		size = cfilelength(fp);
-		Credit_text = (char *) malloc(size + 200);
+		Credit_text = (char *) malloc(size + 200 + strlen(CREDITS_SOURCE_PORT));	// Claude: room for our block
 		cfclose(fp);
 
 		// open localization and parse
@@ -356,7 +359,7 @@ void credits_init()
 		reset_parse();
 
 		// keep reading everything in
-		strcpy(Credit_text,"");		
+		strcpy(Credit_text,CREDITS_SOURCE_PORT);		// Claude: was strcpy(Credit_text,""); our block first
 		while(!check_for_string_raw("#end")){			
 			stuff_string_line(line, 511);
 			linep1 = line;
@@ -372,7 +375,7 @@ void credits_init()
 		// close localization
 		lcl_ext_close();	
 	} else {
-		Credit_text = NOX("No credits available.\n");
+		Credit_text = NOX(CREDITS_SOURCE_PORT "No credits available.\n");	// Claude: our block first
 	}	
 
 	int ch;
