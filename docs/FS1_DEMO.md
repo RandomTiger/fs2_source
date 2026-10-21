@@ -4,6 +4,14 @@ The FS1 demo as a data set (`DATA_SET_FS1_DEMO`, `-dataset fs1demo`): getting it
 installer, recognising them, and what the engine lacks to play them. Branch `FS1Demo`, off `FS1Compat`, with
 `origin/FS2Demo` merged in once for the data-set code (`docs/FS2_DEMO.md`).
 
+**Demo-only over `FS1Compat`** (D-20261021-100828). The FS1 retail fixes first made here (loading animation
+position, barracks pilot picture, briefing text inset) and the two OSBF fixes they needed (PCX 16 bpp overrun,
+`bitmap_ex` source offset) now live on `FS1Compat`, which was merged back in. What remains here touches only the
+FS1 demo: the installer (section 2), and the profile fields whose FS1 retail values keep full behaviour
+(`thruster_species` 3, `shields`, `loadout`, `brief_fade`, `unmarked_entries`, `full_version_screens`,
+`options_mouse_sliders` all 1, help overlays NULL, `brief_map_window` 0, every offset `{ 0, 0 }`). The one change
+FS1 retail also sees is a Debug-only `Assert` in `2d.cpp` loosened for FS1 data.
+
 Nothing from the demo is committed. Its `readme.txt` licence forbids redistributing it, as the FS2 demo's
 does; the test extracts from the installer at run time into a temporary folder.
 
