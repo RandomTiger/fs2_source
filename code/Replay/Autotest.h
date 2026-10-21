@@ -52,5 +52,6 @@ int  autotest_popup(char *text);			// 1 if the popup must be answered with its f
 int  autotest_report(char *kind, char *text, char *file, int line);	// Assert / Error / Warning / Int3: 1 if logged, no dialog
 void autotest_note(char *text);			// a line for autotest.log, when autotest is on
 int  autotest_exit_code(int code);		// the process exit code
+void autotest_poll_done();				// end of os_poll, for the stuck dump
 
 #endif
