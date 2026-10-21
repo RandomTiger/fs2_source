@@ -25,7 +25,11 @@ Checks:
              about 25 minutes, exes to its own folder).
 
 Usage (PowerShell, from anywhere):
-  tools\suite_check.ps1 [-Full] [-Out <dir>] [-GameDir <dir>] [-Guests 2] [-Day <n>]
+  tools\suite_check.ps1 [-Full] [-Out <dir>] [-GameDir <dir>] [-Fs1Dir <dir>] [-Guests 2] [-Day <n>]
+
+-Fs1Dir is the FreeSpace 1 install (default $env:PATH_FS1). The exes just built are copied there and recordings\fs1
+replays against FS1 data (D-20261021-125813). Without the folder the FS1 recordings are a stated SKIP, which no
+merge-up or branch-done claim may rest on.
 
 -Day picks the guests (default: today's day of the year), so a failing run can be repeated with the same set.
 A recording that fails from a code regression joins recordings\regression.txt, with why, when the fix lands
@@ -37,6 +41,7 @@ param(
 	[switch]$Full,
 	[string]$Out,
 	[string]$GameDir = $env:PATH_FS2,
+	[string]$Fs1Dir = $env:PATH_FS1,
 	[int]$Guests = 2,
 	[int]$Day = (Get-Date).DayOfYear
 )
@@ -67,9 +72,10 @@ if (-not $Full) {
 	$campaign = @(Get-Names 'autotest' | Where-Object { ($custom -notcontains $_) -and ($regression -notcontains $_) })
 	$fs2Guests = Get-Guests $campaign
 	$demoGuests = Get-Guests (Get-Names 'demo')
+	$fs1Guests = Get-Guests (Get-Names 'fs1')
 	$retail = $custom + $regression + $fs2Guests
-	$demo = $demoGuests
-	$guestLine = "guests (day $Day): FreeSpace 2 $($fs2Guests -join ', '); FreeSpace 2 demo $($demoGuests -join ', ')"
+	$demo = $demoGuests + $fs1Guests
+	$guestLine = "guests (day $Day): FreeSpace 2 $($fs2Guests -join ', '); FreeSpace 2 demo $($demoGuests -join ', '); FreeSpace 1 $($fs1Guests -join ', ')"
 }
 $m = @(); $mReplay = @()
 if ($retail) {
@@ -120,8 +126,20 @@ if ($env:FS2DEMO_TEST) {
 } else {
 	'demo build: SKIP (FS2DEMO_TEST not set)' | Add-Content $summary
 }
+# FreeSpace 1: the same exes replay recordings\fs1 in the FS1 install, so copy this build there first; a stale exe
+# left from another branch would otherwise be what is tested (D-20261021-125813)
+$fs1Ok = $Fs1Dir -and (Test-Path (Join-Path $Fs1Dir 'data')) -and -not $failed
+if ($fs1Ok) {
+	foreach ($x in 'FS2vs2022r.exe', 'FS2vs2022d.exe') { Copy-Item (Join-Path $GameDir $x) $Fs1Dir -Force }
+	"fs1: this build copied into $Fs1Dir" | Add-Content $summary
+} else {
+	$why = if (-not $Fs1Dir) { 'PATH_FS1 not set' } elseif ($failed) { 'the build failed' } else { "no FS1 data in $Fs1Dir" }
+	"fs1 recordings: SKIP ($why)" | Add-Content $summary
+	$env:PATH_FS1 = ''
+}
 foreach ($c in $checks) {
 	$a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot $c.Script), '-GameDir', $GameDir, '-Out', (Join-Path $Out $c.Name)) + $c.Args
+	if ($fs1Ok -and ($c.Script -eq 'replay_check.ps1')) { $a += @('-Fs1Dir', $Fs1Dir) }
 	$last = & powershell @a | Select-Object -Last 1
 	Add-Result $c.Name $last ((-not $LASTEXITCODE) -and ($last -match 'fail=0'))
 }
