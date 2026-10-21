@@ -30,7 +30,24 @@ typedef struct data_set_profile {
 
 	struct fs_builtin_mission	*builtin_missions;	// the Volition missions and campaign files (FreeSpace.cpp)
 	int	*builtin_mission_count;
+
+	// menus and flow (batch 7, D-20261021-071013): each reproduces the FS2_DEMO build where that build read it
+	int	full_version_screens;			// FVS_* bits: set = the screen opens as in the full game; clear = what the demo build did there
+	int	always_pilot_select;			// 1: start-up always shows the pilot screen (a replay or autotest still loads its own pilot)
+	int	demo_campaign_end;				// 1: the campaign's end posts GS_EVENT_END_DEMO and the ready room offers to play it again
+	int	upsell_screens;					// 1: the sales screens at the end of the campaign and on exit
+	int	trailer_timer;					// 1: input resets the trailer timer (the trailer itself is commented out in the shipped source)
 } data_set_profile;
+
+// full_version_screens bits (shared with FS1Demo's field of the same name; the layouts are reconciled at the first common merge)
+#define FVS_TECH_ROOM			(1<<0)	// main hall tech room; clear: not-in-demo popup
+#define FVS_CAMPAIGN_ROOM		(1<<1)	// main hall campaign room; clear: the FS2 demo's restart-campaign popup
+#define FVS_LOAD_MISSION		(1<<2)	// main hall load mission key; clear: nothing
+#define FVS_QUICK_START			(1<<3)	// main hall quick start (Debug only); clear: nothing
+#define FVS_MEDALS				(1<<4)	// barracks medals button; clear: not-in-demo popup
+#define FVS_HUD_CONFIG			(1<<5)	// options HUD config button; clear: not-in-demo popup
+#define FVS_IPX					(1<<6)	// multi options IPX button; clear: hidden and ignored
+#define FVS_ALL					((1<<7) - 1)
 
 extern const data_set_profile *Game_profile;
 
