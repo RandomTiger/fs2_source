@@ -374,6 +374,28 @@ screens are read on exit, after any switch. Kept as they were: the replay and au
 (D-20261018-184854) and the sales-screen skip (D-20261018-221703). Held: the PlayerMenu demo title, dead in
 both builds, for the D-060 pass; the `OEM_BUILD` and `MULTIPLAYER_BETA_BUILD` arms, for batch 9.
 
+### Batch 8: mission UI, HUD, controls (D-20261021-100301)
+
+Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the `FS2_DEMO` build did):
+
+| Field | FS2 retail | FS2 demo | FS1 retail | FS1 demo | Sites |
+|---|---|---|---|---|---|
+| `brief_fade` | 1 | 0 | 1 | 0 (ruled, not a placeholder) | briefing static fade (`briefmap.ani`) and ship select button flash (MissionBrief.cpp) |
+| `loadout_anim_loop` | 1 | 0 | 1 | 1 | ship and weapon select loop frames 51 / 52, demo 0 / 1 (MissionShipChoice.cpp, MissionWeaponChoice.cpp) |
+| `hotkeys` | 1 | 0 | 1 | 1 | F5-F12 target hotkeys (KeyControl.cpp) and their help lines (GameplayHelp.cpp) |
+| `artillery_lock` | 1 | 0 | 1 | 1 | `ship_update_artillery_lock` (Ship.cpp) |
+| `cheat_code` | 1 | 0 | 1 | 1 | full game's cheat codes, or the demo's one (KeyControl.cpp) |
+| `breakup_fx` | 1 | 0 | 1 | 1 | ship break-up particle range, life and scale (ShipFX.cpp); affects game logic (D-20261021-110833) |
+
+`full_version_screens` gains `FVS_HOTKEYS` (128): the F3 hotkey screen (FreeSpace.cpp) and its help line;
+clear, F3 does nothing. `FVS_ALL` is now `(1<<8) - 1`.
+
+No field: the demo key check in ControlsConfig.cpp is compiled always, as the shipped demo's list was empty
+(D-20261021-100517); the `show_framerate` console command is compiled in Release on every data set.
+
+Each commit passed the per-commit check (`commit_check_demo.ps1`): retail Release and Debug rebuilds, retail
+quick suite 13 of 14 (AutotestAI Debug's known warnings, #78), FS2_DEMO build, 3 demo recordings, tools check.
+
 ## 6. Tom's decisions (2026-10-18)
 
 The open questions from the first version of this brief, as Tom answered them.
