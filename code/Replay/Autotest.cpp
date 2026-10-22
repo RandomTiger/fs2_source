@@ -580,6 +580,7 @@ static int Autotest_tour_options_from;		// the state the host screen was opened 
 static int Autotest_tour_options_leave;		// the event that closes the host screen
 static char *Autotest_tour_walled[AUTOTEST_TOUR_STOPS];	// the screen whose "not in demo" popup kept each stop's screen from opening, or NULL
 static char Autotest_tour_host_why[128];	// a hosted stop's SKIP reason
+static int Autotest_tour_tab_pressed;		// AUTOTEST_OPEN_SIM_ROOM_BUTTON: the Tech room's Mission Simulator tab is pressed, on the way to the Simulator room
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
 static int Autotest_tour_help_seen;			// the view's help overlay showed
 static int Autotest_tour_not_in_demo;		// the "not in demo" popup showed during the view
@@ -945,7 +946,8 @@ static void autotest_tour_frame(int state)
 				}
 				return;
 			}
-			// a Simulator room button: open the Simulator room first, as its own stop does; closed to the main hall after
+			// a Simulator room button: open the Simulator room first, as its own stop does (the Tech room by its main hall region,
+			// then its Mission Simulator tab); closed to the main hall after
 			if ((s->open == AUTOTEST_OPEN_SIM_ROOM_BUTTON) && (state != GS_STATE_SIMULATOR_ROOM)) {
 				if (Autotest_tour_options == 0) {
 					if (state != GS_STATE_MAIN_MENU) {
@@ -956,7 +958,11 @@ static void autotest_tour_frame(int state)
 					Autotest_tour_options_from = state;
 					Autotest_tour_options_leave = GS_EVENT_MAIN_MENU;
 					Autotest_tour_ms = Autotest_frame_ms;
-					gameseq_post_event(GS_EVENT_SIMULATOR_ROOM);
+					Autotest_tour_region = AUTOTEST_REGION_TECH_ROOM;
+					Autotest_tour_tab_pressed = 0;
+				} else if ((state == GS_STATE_TECH_MENU) && !Autotest_tour_tab_pressed) {
+					Autotest_tour_tab_pressed = 1;
+					techroom_button_pressed(AUTOTEST_TECH_ROOM_SIMULATOR_TAB);
 				} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
 					autotest_tour_end("the Simulator room did not open");
 				}
