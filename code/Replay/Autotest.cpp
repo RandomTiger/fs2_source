@@ -463,6 +463,7 @@ static void autotest_main_menu()
 #define AUTOTEST_OPEN_SCREEN		5		// the briefing screens' own buttons, which pick the next screen
 #define AUTOTEST_OPEN_OPTIONS_KEY	6		// press a key on the Options screen, opened first (D-20261021-201402)
 #define AUTOTEST_OPEN_BARRACKS_BUTTON	7	// press a Barracks button, Barracks opened first and closed after (D-20261022-060501)
+#define AUTOTEST_OPEN_SIM_ROOM_BUTTON	8	// press a Simulator room button, the Simulator room opened first and closed after (D-20261022-065951)
 #define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
@@ -477,9 +478,12 @@ static void autotest_main_menu()
 #define AUTOTEST_REGION_CAMPAIGN_ROOM	5
 // Barracks.cpp's buttons
 #define AUTOTEST_BARRACKS_MEDALS_BUTTON	8	// B_STATS_MEDAL_BUTTON
+// ReadyRoom.cpp's Simulator room buttons
+#define AUTOTEST_SIM_ROOM_CUTSCENES_BUTTON	9	// CUTSCENES_BUTTON
 extern int Next_screen;	// MissionScreenCommon.cpp: the briefing screen to go to
 extern int Help_overlay_flags;	// ContextHelp.cpp: the help overlays showing
 void barracks_button_pressed(int n);	// Barracks.cpp: as the player clicks a Barracks button
+int sim_room_button_pressed(int n);	// ReadyRoom.cpp: as the player clicks a Simulator room button
 typedef struct autotest_view {
 	char *name;		// <category>/<screen>, as the reference captures are named
 	int key;		// pressed first: 0 for none, a key, or AUTOTEST_TOUR_HELP
@@ -513,7 +517,7 @@ static autotest_stop Autotest_tour[] = {
 		{ { "campaign_techroom/campaign_room", 0 }, { "campaign_techroom/campaign_room_help", AUTOTEST_TOUR_HELP } } },
 	{ "Simulator room",		AUTOTEST_OPEN_EVENT,	GS_EVENT_SIMULATOR_ROOM,			GS_STATE_SIMULATOR_ROOM,			GS_EVENT_MAIN_MENU,
 		{ { "campaign_techroom/simulator_single", 0 }, { "campaign_techroom/simulator_single_help", AUTOTEST_TOUR_HELP } } },
-	{ "Cutscenes",			AUTOTEST_OPEN_EVENT,	GS_EVENT_GOTO_VIEW_CUTSCENES_SCREEN,	GS_STATE_VIEW_CUTSCENES,		GS_EVENT_MAIN_MENU,
+	{ "Cutscenes",			AUTOTEST_OPEN_SIM_ROOM_BUTTON,	AUTOTEST_SIM_ROOM_CUTSCENES_BUTTON,	GS_STATE_VIEW_CUTSCENES,		GS_EVENT_MAIN_MENU,
 		{ { "campaign_techroom/cutscenes", 0 } } },
 	{ "Credits",			AUTOTEST_OPEN_EVENT,	GS_EVENT_CREDITS,					GS_STATE_CREDITS,					GS_EVENT_MAIN_MENU,
 		{ { "campaign_techroom/credits", 0 } } },
@@ -565,7 +569,7 @@ static int Autotest_tour_frames;
 static DWORD Autotest_tour_ms;
 static DWORD Autotest_tour_view_ms;			// when the view started showing
 static int Autotest_tour_region = -1;		// a main hall region to click on the next main hall frame
-static int Autotest_tour_options = 0;		// AUTOTEST_OPEN_OPTIONS_KEY and _BARRACKS_BUTTON: 1 opening the host screen (Options or Barracks), 2 open, 3 closing it again
+static int Autotest_tour_options = 0;		// AUTOTEST_OPEN_OPTIONS_KEY, _BARRACKS_BUTTON and _SIM_ROOM_BUTTON: 1 opening the host screen (Options, Barracks or the Simulator room), 2 open, 3 closing it again
 static int Autotest_tour_options_from;		// the state the host screen was opened from
 static int Autotest_tour_options_leave;		// the event that closes the host screen
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
@@ -856,7 +860,7 @@ static void autotest_tour_frame(int state)
 			if ((Autotest_tour_stop == 0) && (state != GS_STATE_MAIN_MENU)) {
 				return;
 			}
-			// the host screen (Options or Barracks) the stop before opened on its way closes first, back to where it was opened from
+			// the host screen (Options, Barracks or the Simulator room) the stop before opened on its way closes first, back to where it was opened from
 			if (Autotest_tour_options >= 2) {
 				if (state != Autotest_tour_options_from) {
 					if (Autotest_tour_options == 2) {
@@ -904,6 +908,23 @@ static void autotest_tour_frame(int state)
 				}
 				return;
 			}
+			// a Simulator room button: open the Simulator room first, as its own stop does; closed to the main hall after
+			if ((s->open == AUTOTEST_OPEN_SIM_ROOM_BUTTON) && (state != GS_STATE_SIMULATOR_ROOM)) {
+				if (Autotest_tour_options == 0) {
+					if (state != GS_STATE_MAIN_MENU) {
+						autotest_tour_end("the Simulator room opens only from the main hall");
+						return;
+					}
+					Autotest_tour_options = 1;
+					Autotest_tour_options_from = state;
+					Autotest_tour_options_leave = GS_EVENT_MAIN_MENU;
+					Autotest_tour_ms = Autotest_frame_ms;
+					gameseq_post_event(GS_EVENT_SIMULATOR_ROOM);
+				} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+					autotest_tour_end("the Simulator room did not open");
+				}
+				return;
+			}
 			if (Autotest_tour_options == 1) {
 				Autotest_tour_options = 2;
 			}
@@ -945,6 +966,10 @@ static void autotest_tour_frame(int state)
 
 				case AUTOTEST_OPEN_BARRACKS_BUTTON:
 					barracks_button_pressed(s->arg);
+					break;
+
+				case AUTOTEST_OPEN_SIM_ROOM_BUTTON:
+					sim_room_button_pressed(s->arg);
 					break;
 
 				case AUTOTEST_OPEN_SCREEN:
