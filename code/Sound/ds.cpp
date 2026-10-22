@@ -2219,7 +2219,7 @@ int ds3d_play(int sid, int hid, int snd_id, vector *pos, vector *vel, int min, i
 		Channels[channel].looping = looping;
 
 		// sets the maximum "inner cone" volume
-		Channels[channel].pdsb->SetVolume(max_volume);
+		Channels[channel].pdsb->SetVolume(estimated_vol);	// AUDIOTRIAL was max_volume
 
 		int ds_flags = 0;
 		if ( looping )

@@ -821,7 +821,7 @@ void obj_snd_do_frame()
 			// for DirectSound3D sounds, re-establish the maximum speed based on the
 			//	speed_vol_multiplier
 			if ( sp == NULL || ( (sp != NULL) && (sp->flags & SF_ENGINES_ON) ) ) {
-				snd_set_volume( osp->instance, gs->default_volume*speed_vol_multiplier );
+				snd_set_volume( osp->instance, osp->vol*speed_vol_multiplier );	// AUDIOTRIAL was gs->default_volume
 			}
 			else {
 				// engine sound is disabled

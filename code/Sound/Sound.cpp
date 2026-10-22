@@ -903,7 +903,7 @@ static int snd_play_3d_live(game_snd *gs, vector *source_pos, vector *listen_pos
 	}
 
 	volume *= Master_sound_volume;
-	if ( (volume < MIN_SOUND_VOLUME) && !force) {
+	if ( (volume < MIN_SOUND_VOLUME) && !force && !(looping && ds_using_ds3d())) {	// AUDIOTRIAL a looping 3D sound starts quiet, as on the 2D path
 		return -1;
 	}
 
