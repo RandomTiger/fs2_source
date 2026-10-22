@@ -532,7 +532,7 @@
 #include "multi_endgame.h"
 #include "Cutscenes.h"
 #include "multi_respawn.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "multi_obj.h"
 #include "multi_log.h"
 #include "Emp.h"
@@ -1928,9 +1928,8 @@ DCF(show_cpu,"Toggles showing cpu usage")
 
 	// AL 4-8-98: always allow players to display their framerate
 
-	#ifdef FS2_DEMO
+	// Claude: compiled always, so Release can show the frame rate on every data set (D-20261021-100301); was #ifdef FS2_DEMO
 		DCF_BOOL( show_framerate, Show_framerate )
-	#endif
 
 #endif	// NDEBUG
 
@@ -4548,7 +4547,7 @@ int game_check_key()
 	return k;
 }
 
-#ifdef FS2_DEMO
+// Claude: compiled always, called when the profile's trailer_timer is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 #define DEMO_TRAILER_TIMEOUT_MS		45000			// 45 seconds of no input, play trailer
 static int Demo_show_trailer_timestamp = 0;
@@ -4602,7 +4601,7 @@ void demo_maybe_show_trailer(int k)
 	*/
 }
 
-#endif
+// Claude: was #endif
 
 // same as game_check_key(), except this is used while actually in the game.  Since there
 // generally are differences between game control keys and general UI keys, makes sense to
@@ -4628,9 +4627,9 @@ int game_poll()
 
    k = key_inkey();
 
-#ifdef FS2_DEMO
+	if (Game_profile->trailer_timer) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 	demo_maybe_show_trailer(k);
-#endif
+	}	// Claude
 
 	// Move the mouse cursor with the joystick.
 	if (os_foreground() && (!Mouse_hidden) && (Use_joy_mouse) )	{
@@ -4715,16 +4714,16 @@ int game_poll()
 
 			// hotkey selection screen -- only valid from briefing and beyond.
 		case KEY_F3:	
-			#ifndef FS2_DEMO
+			if ((Game_profile->full_version_screens & FVS_HOTKEYS) || !Game_profile->fs2_demo_walls) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO; FS1's demo wall answers the popup below (D-20261021-142001)
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
-					if ( Game_profile->full_version_screens ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
+					if ( Game_profile->full_version_screens & FVS_HOTKEYS ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
 						gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
 					} else {
 						game_feature_not_in_demo_popup();
 					}
 					k = 0;
 				}
-			#endif
+			}	// Claude
 			break;
 
 		case KEY_DEBUGGED + KEY_F3:
@@ -4891,10 +4890,12 @@ void camera_move()
 
 void end_demo_campaign_do()
 {
-#if defined(FS2_DEMO)
+#if !defined(OEM_BUILD)	// Claude: was #if defined(FS2_DEMO); the profile's upsell_screens (D-20261021-071013)
+	if (Game_profile->upsell_screens) {	// Claude
 	// show upsell screens
 	demo_upsell_show_screens();
-#elif defined(OEM_BUILD)
+	}	// Claude
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show oem upsell screens
 	oem_upsell_show_screens();
 #endif
@@ -5297,7 +5298,7 @@ void game_process_event( int current_state, int event )
 			break;
 
 		case GS_EVENT_GAME_INIT:
-	#if defined(FS2_DEMO) || defined(OEM_BUILD)
+	#if defined(OEM_BUILD)	// Claude: was defined(FS2_DEMO) || defined(OEM_BUILD); the FS2 demo half is the profile's always_pilot_select below (D-20261021-071013)
 			// Claude: a replay or autotest run loads its own pilot; a player still always gets the pilot screen, as shipped (D-20261018-184854)
 			if (replay_load_pilot() || autotest_load_pilot()) {	// Claude
 				gameseq_set_state(GS_STATE_MAIN_MENU);	// Claude
@@ -5306,7 +5307,7 @@ void game_process_event( int current_state, int event )
 			}	// Claude
 	#else			
 			// see if the command line option has been set to use the last pilot, and act acoordingly
-			if( replay_load_pilot() || autotest_load_pilot() || player_select_get_last_pilot() ) {	// Claude: added autotest_load_pilot
+			if( replay_load_pilot() || autotest_load_pilot() || (!Game_profile->always_pilot_select && player_select_get_last_pilot()) ) {	// Claude: added autotest_load_pilot; always_pilot_select: a player always gets the pilot screen, as the FS2 demo build did
 				// always enter the main menu -- do the automatic network startup stuff elsewhere
 				// so that we still have valid checks for networking modes, etc.
 				gameseq_set_state(GS_STATE_MAIN_MENU);
@@ -6834,13 +6835,13 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 
 		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0 );
+		movie_play( NOX("intro.mve"), 0 );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 		// debug version, movie will only play with -showmovies
 		#else if !defined(NDEBUG)
 		
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0);
+		movie_play( NOX("intro.mve"), 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 /*
 #ifndef NDEBUG
 		if ( Cmdline_show_movies )
@@ -6868,11 +6869,11 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 		}
 	} 
 
-#ifdef FS2_DEMO
-	if(!Is_standalone){
+#if !defined(OEM_BUILD)	// Claude: was #ifdef FS2_DEMO; the profile's upsell_screens, read on exit (D-20261021-071013)
+	if(Game_profile->upsell_screens && !Is_standalone){	// Claude: added upsell_screens
 		demo_upsell_show_screens();
 	}
-#elif defined(OEM_BUILD)
+#else	// Claude: was #elif defined(OEM_BUILD)
 	// show upsell screens on exit
 	oem_upsell_show_screens();
 #endif
@@ -7832,7 +7833,7 @@ void oem_upsell_show_screens()
 //
 // ----------------------------------------------------------------
 
-#ifdef FS2_DEMO
+// Claude: compiled always, shown when the profile's upsell_screens is set (D-20261021-071013); was #ifdef FS2_DEMO
 
 //#define NUM_DEMO_UPSELL_SCREENS				4
 
@@ -7975,7 +7976,7 @@ void demo_upsell_show_screens()
 	demo_upsell_unload_bitmaps();
 }
 
-#endif // DEMO
+// Claude: was #endif // DEMO
 
 // ----------------------------------------------------------------
 //

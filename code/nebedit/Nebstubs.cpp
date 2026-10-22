@@ -100,3 +100,7 @@ int Game_builtin_missions_fs2_demo_count = 0;
 long Last_time = 0;					// fix
 long Last_delta_time = 0;				// fix
 int saved_timestamp_ticker = -1;
+// Claude: the demo trailer timer lives in FreeSpace.cpp, which this tool does not link; code.lib now calls it on every data set (D-20261021-071013)
+void demo_reset_trailer_timer() {}
+// Claude: the menus now call this on every data set when a screen is walled off (D-20261021-071013); FreeSpace.cpp, its home, is not linked here
+void game_feature_not_in_demo_popup() {}

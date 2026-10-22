@@ -95,6 +95,7 @@
 #include "freespace.h"
 #include "AlphaColors.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude
 
 #define MAX_MISSIONS	1024
 
@@ -899,7 +900,7 @@ int readyroom_continue_campaign()
 {
 	if (mission_campaign_next_mission()) {  // is campaign and next mission valid?
 
-#ifdef FS2_DEMO
+		if (Game_profile->demo_campaign_end) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
 		int reset_campaign = 0;
 		reset_campaign = popup(PF_BODY_BIG, 2, POPUP_NO, POPUP_YES, XSTR( "Demo Campaign Is Over.  Would you like to play the campaign again?", 111) );
 		if ( reset_campaign == 1 ) {
@@ -909,11 +910,11 @@ int readyroom_continue_campaign()
 		} else {
 			return -1;
 		}
-#else
+		} else {	// Claude
 		gamesnd_play_iface(SND_GENERAL_FAIL);
 		popup(0, 1, POPUP_OK, XSTR( "The campaign is over.  To replay the campaign, either create a new pilot or restart the campaign in the campaign room.", 112) );
 		return -1;
-#endif
+		}	// Claude
 	}
 
 	// CD CHECK

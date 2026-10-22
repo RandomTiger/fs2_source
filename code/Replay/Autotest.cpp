@@ -1001,7 +1001,7 @@ static void autotest_tour_frame(int state)
 			// room, cutscenes and credits open only from the tech and campaign rooms, not in demo, and FS1's demo data
 			// has no LoadMission art
 			if (((s->arg == GS_EVENT_VIEW_MEDALS) || (s->arg == GS_EVENT_SIMULATOR_ROOM) || (s->arg == GS_EVENT_GOTO_VIEW_CUTSCENES_SCREEN) || (s->arg == GS_EVENT_CREDITS))
-				&& (s->open == AUTOTEST_OPEN_EVENT) && !Game_profile->full_version_screens) {
+				&& (s->open == AUTOTEST_OPEN_EVENT) && (!(Game_profile->full_version_screens & FVS_MEDALS) || !(Game_profile->full_version_screens & FVS_TECH_ROOM)) && !Game_profile->fs2_demo_walls) {	// FS1's demo walls; the FS2 demo's tour still opens these by event, as its recordings were made (D-20261021-142001)
 				autotest_tour_skip("not in demo");
 				autotest_tour_next_stop();
 				return;

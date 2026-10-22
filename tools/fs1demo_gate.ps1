@@ -9,8 +9,9 @@ gate is fs1demo_run.ps1 -Configs r,d. In one run:
   tools\fs1demo_gate.ps1 [-Fs2Dir <dir>] [-Fs1Dir <dir>] [-DemoDir <dir>] [-Fs1DemoDir <dir>] [-Out <dir>]
 
 The folders default to $env:PATH_FS2 (FS2 retail), $env:PATH_FS1 (FS1 retail), $env:FS2DEMO_TEST (the FS2 demo
-test folder) and $env:FS1DEMO_PATH (the FS1 demo folder, see fs1demo_run.ps1). FS1 branches link into PATH_FS1,
-so each build here sets PATH_FS1 to the folder it is for; the retail exes are copied into the FS1 retail folder.
+test folder) and $env:FS1DEMO_PATH (the FS1 demo folder, see fs1demo_run.ps1). FS1 branches link into PATH_FS1 and
+Enhanced into PATH_FS2, so each build here sets both to the folder it is for; the retail exes are copied into the
+FS1 retail folder.
 The exes already in the FS2, FS1 and FS2 demo folders are saved first and put back at the end (other branches
 build into them too). Results: <Out>\retail\summary.txt, <Out>\demo\summary.txt and the mission lines; default
 <Out> is %LOCALAPPDATA%\fs1demo_gate. Takes about an hour; build or run nothing else meanwhile.
@@ -41,6 +42,7 @@ foreach ($d in $saved) {
 
 function Build([string]$into) {
 	$env:PATH_FS1 = $into
+	$env:PATH_FS2 = $into	# Enhanced links into PATH_FS2 (D-20261021-151900)
 	foreach ($c in 'Release', 'Debug') {
 		& $msb (Join-Path $repo 'Freespace2.vcxproj') "/p:Configuration=$c" /p:Platform=Win32 /m /v:m /nologo > (Join-Path $Out "build_$c.log") 2>&1
 		if ($LASTEXITCODE) { Write-Host "FAIL $c build into $into (build_$c.log)"; return $false }
