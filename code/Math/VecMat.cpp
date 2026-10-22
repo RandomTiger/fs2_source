@@ -1540,6 +1540,19 @@ void vm_vec_rand_vec_quick(vector *rvec)
 	vm_vec_normalize_quick(rvec);
 }
 
+// Claude: Cosmetic random stream version.
+void vm_vec_rand_vec_quick_cosmetic(vector *rvec)
+{
+	rvec->x = (cosmetic_frand() - 0.5f) * 2;
+	rvec->y = (cosmetic_frand() - 0.5f) * 2;
+	rvec->z = (cosmetic_frand() - 0.5f) * 2;
+
+	if (IS_VEC_NULL(rvec))
+		rvec->x = 1.0f;
+
+	vm_vec_normalize_quick(rvec);
+}
+
 // Given an point "in" rotate it by "angle" around an
 // arbritary line defined by a point on the line "line_point" 
 // and the normalized line direction, "line_dir"
@@ -2780,6 +2793,31 @@ void vm_vec_random_cone(vector *out, vector *in, float max_angle, matrix *orient
 
 	// axis 3
 	vm_rot_point_around_line(out, &t2, fl_radian(frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->uvec);
+}
+
+// Claude: Cosmetic random stream version.
+void vm_vec_random_cone_cosmetic(vector *out, vector *in, float max_angle, matrix *orient)
+{
+	vector t1, t2;
+	matrix *rot;
+	matrix m;
+
+	// get an orientation matrix
+	if(orient != NULL){
+		rot = orient;
+	} else {
+		vm_vector_2_matrix(&m, in, NULL, NULL);
+		rot = &m;
+	}
+	
+	// axis 1
+	vm_rot_point_around_line(&t1, in, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->fvec);
+	
+	// axis 2
+	vm_rot_point_around_line(&t2, &t1, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->rvec);
+
+	// axis 3
+	vm_rot_point_around_line(out, &t2, fl_radian(cosmetic_frand_range(-max_angle, max_angle)), &vmd_zero_vector, &rot->uvec);
 }
 
 // given a start vector, an orientation and a radius, give a point on the plane of the circle

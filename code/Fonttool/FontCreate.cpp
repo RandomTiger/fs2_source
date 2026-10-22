@@ -439,7 +439,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->kern_data_size )	{
 		fnt->kern_data = (font_kernpair *)malloc( fnt->kern_data_size );
 		if (!fnt->kern_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->kern_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->kern_data, fnt->kern_data_size, 1, fp );
@@ -449,7 +449,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->char_data_size )	{
 		fnt->char_data = (font_char *)malloc( fnt->char_data_size );
 		if (!fnt->char_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->char_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->char_data, fnt->char_data_size, 1, fp );
@@ -459,7 +459,7 @@ void fonttool_read( char *filename, font *fnt )
 	if ( fnt->pixel_data_size )	{
 		fnt->pixel_data = (ubyte *)malloc( fnt->pixel_data_size );
 		if (!fnt->pixel_data)	{
-			printf( "Out of memory reading %d bytes of font data from %s\n", tmp_name );
+			printf( "Out of memory reading %d bytes of font data from %s\n", fnt->pixel_data_size, tmp_name );	// Claude: the size was missing (#71)
 			myexit(1);
 		}
 		fread( fnt->pixel_data, fnt->pixel_data_size, 1, fp );
@@ -531,7 +531,7 @@ void fonttool_copy_kern( font *src, font *dst )
 	}
 	dst->kern_data = (font_kernpair *)malloc( src->kern_data_size );
 	if (!dst->kern_data)	{
-		printf( "Out of memory copying %d bytes of font data.\n" );
+		printf( "Out of memory copying %d bytes of font data.\n", src->kern_data_size );	// Claude: the size was missing (#71)
 		myexit(1);
 	}
 	memcpy( dst->kern_data, src->kern_data, src->kern_data_size );

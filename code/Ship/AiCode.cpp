@@ -1611,7 +1611,7 @@ int set_target_objnum(ai_info *aip, int objnum)
 
 		aip->target_objnum = objnum;
 		aip->target_time = 0.0f;
-		aip->target_signature = Objects[objnum].signature;
+		aip->target_signature = (objnum >= 0) ? Objects[objnum].signature : -1;	// Claude: no target reads no object; was Objects[-1] (#2, D-080)
 		// clear targeted subsystem
 		set_targeted_subsys(aip, NULL, -1);
 	}
@@ -3552,6 +3552,10 @@ int maybe_avoid_player(object *objp, vector *goal_pos)
 
 	aip = &Ai_info[Ships[objp->instance].ai_index];
 
+	if (objp == Player_obj) {	// Claude: with -playernpc the player ship runs this too, and must not avoid itself
+		return 0;
+	}
+
 	if (!timestamp_elapsed(aip->avoid_check_timestamp))
 		return 0;
 
@@ -4798,7 +4802,7 @@ void ai_waypoints()
 							Int3();	//	Look at the ship, find out of it's supposed to be flying waypoints. -- MK.
 						}
 
-						type = aip->goals[aip->active_goal].type;
+						type = ((aip->active_goal == AI_GOAL_NONE) || (aip->active_goal == AI_ACTIVE_GOAL_DYNAMIC)) ? -1 : aip->goals[aip->active_goal].type;	// Claude: no goal slot to read (goals[-1] or goals[999]); -1 treats it as a ship
 						if ( (type == AIG_TYPE_EVENT_WING) || (type == AIG_TYPE_PLAYER_WING) ) {
 							treat_as_ship = 0;
 						} else {
@@ -4975,7 +4979,7 @@ int ai_maybe_fire_afterburner(object *objp, ai_info *aip)
 		//	Maybe don't afterburner because of a potential collision with the player.
 		//	If not multiplayer, near player and player in front, probably don't afterburner.
 		if (!(Game_mode & GM_MULTIPLAYER)) {
-			if (Ships[objp->instance].team == Player_ship->team) {
+			if ((objp != Player_obj) && (Ships[objp->instance].team == Player_ship->team)) {	// Claude: with -playernpc the player ship runs this too, and has no direction to itself
 				float	dist;
 
 				dist = vm_vec_dist_quick(&objp->pos, &Player_obj->pos) - Player_obj->radius - objp->radius;
@@ -5493,7 +5497,7 @@ void set_primary_weapon_linkage(object *objp)
 	shipp->flags &= ~SF_PRIMARY_LINKED;
 
 	// AL: ensure target is a ship!
-	if ( Objects[aip->target_objnum].type == OBJ_SHIP ) {
+	if ( (aip->target_objnum >= 0) && (Objects[aip->target_objnum].type == OBJ_SHIP) ) {	// Claude: no target is not a ship; read Objects[-1] (#3, D-080)
 		// If trying to destroy a big ship (i.e., not disable/disarm), always unleash all weapons
 		if ( ship_get_SIF(&Ships[Objects[aip->target_objnum].instance]) & SIF_BIG_SHIP) {
 			if ( aip->targeted_subsys == NULL ) {
@@ -12743,7 +12747,7 @@ void ai_bay_depart()
 	}
 
 	// check if parent ship still exists, if not abort depart 
-	if ( aip->goal_signature != Objects[aip->goal_objnum].signature ) {
+	if ( (aip->goal_objnum < 0) || (aip->goal_signature != Objects[aip->goal_objnum].signature) ) {	// Claude: no parent means it is gone; read Objects[-1] (#4, D-080)
 		aip->mode = AIM_NONE;
 		return;
 	}
@@ -14471,7 +14475,7 @@ int firing_aspect_seeking_bomb(object *objp)
 
 	bank_index = swp->current_secondary_bank;
 
-	if (bank_index != -1)
+	if ((bank_index != -1) && (bank_index < swp->num_secondary_banks))	// Claude: a ship with no secondary banks still has bank 0 selected, with stale ammo and weapon (#16)
 		if (swp->secondary_bank_ammo[bank_index] > 0) {
 			if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_BOMB) {
 				if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_HOMING_ASPECT) {

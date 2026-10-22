@@ -1539,7 +1539,7 @@ void weapon_render(object *obj)
 					//	Add noise to thruster geometry.
 					//ft = obj->phys_info.forward_thrust;					
 					ft = 1.0f;		// Always use 1.0f for missiles					
-					ft *= (1.0f + frand()/5.0f - 1.0f/10.0f);
+					ft *= (1.0f + cosmetic_frand()/5.0f - 1.0f/10.0f);
 					if (ft > 1.0f)
 						ft = 1.0f;
 
@@ -3455,19 +3455,19 @@ void weapon_maybe_spew_particle(object *obj)
 			//	randomly perturb x, y and z
 			
 			// uvec
-			ang = fl_radian(frand_range(-90.0f, 90.0f));
+			ang = fl_radian(cosmetic_frand_range(-90.0f, 90.0f));
 			vm_rot_point_around_line(&direct_temp, &direct, ang, &null_vec, &obj->orient.fvec);			
 			direct = direct_temp;
 			vm_vec_scale(&direct, Weapon_particle_spew_scale);
 
 			// rvec
-			ang = fl_radian(frand_range(-90.0f, 90.0f));
+			ang = fl_radian(cosmetic_frand_range(-90.0f, 90.0f));
 			vm_rot_point_around_line(&direct_temp, &direct, ang, &null_vec, &obj->orient.rvec);			
 			direct = direct_temp;
 			vm_vec_scale(&direct, Weapon_particle_spew_scale);
 
 			// fvec
-			ang = fl_radian(frand_range(-90.0f, 90.0f));
+			ang = fl_radian(cosmetic_frand_range(-90.0f, 90.0f));
 			vm_rot_point_around_line(&direct_temp, &direct, ang, &null_vec, &obj->orient.uvec);			
 			direct = direct_temp;
 			vm_vec_scale(&direct, Weapon_particle_spew_scale);

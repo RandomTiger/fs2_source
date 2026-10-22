@@ -1066,14 +1066,14 @@ int fireball_create( vector * pos, int fireball_type, int parent_obj, float size
 	switch( fb->fireball_info_index )	{
 
 		case FIREBALL_EXPLOSION_MEDIUM:	
-			fb->orient = (myrand()>>8) & 7;							// 0 - 7
+			fb->orient = (cosmetic_rand()>>8) & 7;							// 0 - 7
 			break;
 
 		case FIREBALL_EXPLOSION_LARGE1:
 		case FIREBALL_EXPLOSION_LARGE2:
 		// case FIREBALL_EXPLOSION_LARGE3:
 		case FIREBALL_ASTEROID:
-			fb->orient = (myrand()>>8) % 360;						// 0 - 359
+			fb->orient = (cosmetic_rand()>>8) % 360;						// 0 - 359
 			break;
 
 		case FIREBALL_WARP_EFFECT:

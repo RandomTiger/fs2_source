@@ -104,7 +104,8 @@ void pack_file( char *filespec, char *filename, int filesize, time_t time_write 
 	fwrite( &Total_size, 1, 4, fp_out_hdr );
 	fwrite( &filesize, 1, 4, fp_out_hdr );
 	fwrite( &path, 1, 32, fp_out_hdr );
-	fwrite( &time_write, 1, sizeof(time_t), fp_out_hdr);
+	int time_write32 = (int)time_write;	// Claude: the VP index holds a 4-byte time, as the retail VPs do; time_t is 8 bytes since VS2005 (#9)
+	fwrite( &time_write32, 1, 4, fp_out_hdr);
 
 	Total_size += filesize;
 	Num_files++;

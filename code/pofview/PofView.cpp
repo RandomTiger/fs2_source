@@ -117,8 +117,12 @@ BOOL CPofViewApp::InitInstance()
 	Assert(tok != NULL);	
 	*/
 
+	// Claude: the debug output window exists only in Debug builds, as in FRED
+	#ifndef NDEBUG
 	outwnd_init();
+	#endif
 	timer_init();
+	vm_init(16*1024*1024);	// Claude: code.lib's malloc needs the heap; the game, FRED and Ac set it up, Pofview never did (#11)
 	cfile_init(__argv[0]);
 	palette_load_table( "gamepalette1-01" );
 	gr_init(GR_640, GR_SOFTWARE, 8, 640, 480);
@@ -132,6 +136,10 @@ BOOL CPofViewApp::InitInstance()
 	// Enable DDE Execute open
 	EnableShellOpen();
 	RegisterShellFileTypes(TRUE);
+
+	// Claude: modern MFC adds an opened file to the shell's recent list through COM, which fails fast if COM
+	// is not initialised; File > Open only worked because the file dialog initialises it (#12)
+	CoInitialize(NULL);
 
 	// Parse command line for standard shell commands, DDE, file open
 	CCommandLineInfo cmdInfo;
@@ -411,5 +419,6 @@ int CPofViewApp::ExitInstance()
 {
 	// TODO: Add your specialized code here and/or call the base class
 	
+	CoUninitialize();	// Claude: matches the CoInitialize in InitInstance (#12)
 	return CWinApp::ExitInstance();
 }

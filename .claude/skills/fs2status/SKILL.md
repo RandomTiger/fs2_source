@@ -38,7 +38,7 @@ Decisions include:
 - unpushed commits or uncommitted work
 - TODO items for this branch that are marked due
 - anything the check script or the steward flags as breaking or bending a rule
-- whether the branch is ready to go into `Latest`, if it is a feature that looks finished
+- whether the branch is ready to go into `Enhanced`, if it is a feature that looks finished
 - anything the steward says only Tom can decide
 
 **If there are none**, give a brief summary of the branch instead:

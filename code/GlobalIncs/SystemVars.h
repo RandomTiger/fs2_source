@@ -332,6 +332,10 @@ extern detail_levels Detail;
 // To set the parameters in Detail to some set of defaults
 void detail_level_set(int level);
 
+// Claude: the detail levels are kept in the settings file for every pilot (see SystemVars.cpp)
+void detail_level_load_config();
+void detail_level_save_config();
+
 // Returns the current detail level or -1 if custom.
 int current_detail_level();
 

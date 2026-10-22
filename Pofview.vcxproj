@@ -99,6 +99,7 @@
     <Link>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;libcmtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>.\Pofview.exe</OutputFile>
       <AdditionalLibraryDirectories>release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -141,8 +142,9 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;libcmtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <OutputFile>E:\games\freespace2\Pofview.exe</OutputFile>
+      <OutputFile>$(PATH_FS2)\Pofview.exe</OutputFile>
       <AdditionalLibraryDirectories>debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>winmm.lib;msacm32.lib;comctl32.lib;wsock32.lib;code.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -161,9 +163,13 @@
     <ClCompile Include="code\pofview\ObjectTree.cpp" />
     <ClCompile Include="code\pofview\PofView.cpp" />
     <ClCompile Include="code\pofview\PofViewDoc.cpp" />
-    <ClCompile Include="code\pofview\PofViewStubs.cpp" />
+    <ClCompile Include="code\pofview\PofViewStubs.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="code\pofview\PofViewView.cpp" />
-    <ClCompile Include="code\pofview\StdAfx.cpp" />
+    <ClCompile Include="code\pofview\StdAfx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="code\pofview\ChildFrm.h" />

@@ -914,7 +914,11 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 		//	missile has somehow missed its target.  It gets its lifeleft set to 0.1 and then it detonates.
 		//	Unfortunately, the shockwave damage was cut by 4 above.  So boost it back up here.
 		if ((dist < 10.0f) && (other_obj->type == OBJ_SHOCKWAVE)) {
-			damage_left *= 4.0f * Weapon_info[weapon_info_index].subsystem_factor;;
+			if (weapon_info_index >= 0) {	// Claude: a ship's death shockwave has no weapon (index -1), which read Weapon_info[-1]
+				damage_left *= 4.0f * Weapon_info[weapon_info_index].subsystem_factor;;
+			} else {
+				damage_left *= 4.0f;
+			}
 		}
 
 //		if (damage_left > 100.0f)
@@ -1205,7 +1209,7 @@ void ship_hit_sparks_no_rotate(object *ship_obj, vector *hitpos)
 
 	int n = ship_p->num_hits;
 	if (n >= MAX_SHIP_HITS)	{
-		n = rand() % MAX_SHIP_HITS;
+		n = cosmetic_rand() % MAX_SHIP_HITS;
 	} else {
 		ship_p->num_hits++;
 	}
@@ -1322,8 +1326,8 @@ int choose_next_spark(object *ship_obj, vector *hitpos)
 	}
 
 	// not same location, so maybe do random recyling
-	if (frand() > 0.5f) {
-		return (rand() % num_sparks);
+	if (cosmetic_frand() > 0.5f) {
+		return (cosmetic_rand() % num_sparks);
 	}
 
 	// initialize spark pairs
@@ -1398,7 +1402,7 @@ void ship_hit_create_sparks(object *ship_obj, vector *hitpos, int submodel_num)
 			n = choose_next_spark(ship_obj, hitpos);
 		} else {
 			// otherwise, normal choice
-			n = rand() % max_sparks;
+			n = cosmetic_rand() % max_sparks;
 		}
 	} else {
 		ship_p->num_hits++;

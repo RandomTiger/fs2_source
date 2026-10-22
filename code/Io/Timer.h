@@ -81,6 +81,7 @@ extern void timer_set_function( void * function );
 // 1 hr, respectively.
 
 extern fix timer_get_fixed_seconds();		// Rolls about every 9 hours...
+extern fix timer_get_fixed_seconds_unrecorded();	// Claude: for timing displays only; not recorded
 extern fix timer_get_fixed_secondsX();		// Assume interrupts already disabled
 extern fix timer_get_approx_seconds();		// Returns time since program started... accurate to 1/120th of a second
 extern int timer_get_milliseconds();		//
@@ -134,6 +135,8 @@ int timestamp();
 // gets a timestamp randomly between a and b milliseconds in
 // the future.
 #define timestamp_rand(a,b) timestamp((myrand()%((b)-(a)+1))+(a))
+// Claude: Cosmetic random stream version.
+#define cosmetic_timestamp_rand(a,b) timestamp((cosmetic_rand()%((b)-(a)+1))+(a))
 
 // Example that makes a ship fire in 1/2 second
 

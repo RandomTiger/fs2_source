@@ -801,7 +801,7 @@ void bm_calc_sections(bitmap *be)
 // is called on that bitmap.
 int bm_create( int bpp, int w, int h, void * data, int flags )
 {
-	int i, n, first_slot = MAX_BITMAPS;
+	int i, n, first_slot = -1;	// Claude: was MAX_BITMAPS, but the check below is for -1, so with no free slot it wrote bm_bitmaps[MAX_BITMAPS]
 
 	// Assert((bpp==32)||(bpp==8));
 	if(bpp != 16){
@@ -2044,6 +2044,10 @@ DCF(bmpman,"Shows/changes bitmap caching parameters and usage")
 void bm_page_in_texture( int bitmapnum, int nframes )
 {
 	int i;
+
+	if ( bitmapnum < 0 )	{	// Claude: a bitmap that failed to load (-1) would write bm_bitmaps[-1], whatever lies before the array (#25)
+		return;	// Claude
+	}	// Claude
 	for (i=0; i<nframes;i++ )	{
 		int n = bitmapnum % MAX_BITMAPS;
 
@@ -2062,6 +2066,10 @@ void bm_page_in_texture( int bitmapnum, int nframes )
 void bm_page_in_nondarkening_texture( int bitmapnum, int nframes )
 {
 	int i;
+
+	if ( bitmapnum < 0 )	{	// Claude: a bitmap that failed to load (-1) would write bm_bitmaps[-1], whatever lies before the array (#25)
+		return;	// Claude
+	}	// Claude
 	for (i=0; i<nframes;i++ )	{
 		int n = bitmapnum % MAX_BITMAPS;
 
@@ -2081,6 +2089,10 @@ void bm_page_in_nondarkening_texture( int bitmapnum, int nframes )
 void bm_page_in_xparent_texture( int bitmapnum, int nframes)
 {
 	int i;
+
+	if ( bitmapnum < 0 )	{	// Claude: a bitmap that failed to load (-1) would write bm_bitmaps[-1], whatever lies before the array (#25)
+		return;	// Claude
+	}	// Claude
 	for (i=0; i<nframes;i++ )	{
 		int n = bitmapnum % MAX_BITMAPS;
 
@@ -2099,6 +2111,10 @@ void bm_page_in_xparent_texture( int bitmapnum, int nframes)
 void bm_page_in_aabitmap( int bitmapnum, int nframes )
 {
 	int i;
+
+	if ( bitmapnum < 0 )	{	// Claude: a bitmap that failed to load (-1) would write bm_bitmaps[-1], whatever lies before the array (#25)
+		return;	// Claude
+	}	// Claude
 
 	for (i=0; i<nframes;i++ )	{
 		int n = bitmapnum % MAX_BITMAPS;

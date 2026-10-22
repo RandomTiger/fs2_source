@@ -1190,6 +1190,7 @@ void debrief_choose_badge_voice()
 	if(Campaign.current_mission < 0){
 		// default to petrarch
 		sprintf(Badge_stage.voice, NOX("9_%s"), Badge_info[Player->stats.m_badge_earned].voice_base);
+		return;	// Claude: missing (debrief_choose_promotion_voice has it), so it went on to read Campaign.missions[-1]
 	}
 
 	if ((Campaign.missions[Campaign.current_mission].name) && (Campaign.filename)) {
@@ -2496,8 +2497,8 @@ void debrief_award_text_clear() {
 // this is the nastiest code I have ever written.  if you are modifying this, i feel bad for you.
 void debrief_add_award_text(char *str)
 {
-	Assert(Debrief_award_text_num_lines <= AWARD_TEXT_MAX_LINES);
-	if (Debrief_award_text_num_lines > AWARD_TEXT_MAX_LINES) {
+	Assert(Debrief_award_text_num_lines < AWARD_TEXT_MAX_LINES);	// Claude: was <=
+	if (Debrief_award_text_num_lines >= AWARD_TEXT_MAX_LINES) {	// Claude: was >, which let it write Debrief_award_text[AWARD_TEXT_MAX_LINES]
 		return;
 	}
 

@@ -563,6 +563,8 @@ void vm_project_point_onto_plane(vector *new_point, vector *point, vector *plane
 
 //	Returns fairly random vector, "quick" normalized
 void vm_vec_rand_vec_quick(vector *rvec);
+// Claude: Cosmetic random stream version.
+void vm_vec_rand_vec_quick_cosmetic(vector *rvec);
 
 // Given an point "in" rotate it by "angle" around an
 // arbritary line defined by a point on the line "line_point" 
@@ -633,6 +635,8 @@ void vm_vec_interp_constant(vector *out, vector *v1, vector *v2, float t);
 
 // randomly perturb a vector around a given (normalized vector) or optional orientation matrix
 void vm_vec_random_cone(vector *out, vector *in, float max_angle, matrix *orient = NULL);
+// Claude: Cosmetic random stream version.
+void vm_vec_random_cone_cosmetic(vector *out, vector *in, float max_angle, matrix *orient = NULL);
 
 // given a start vector, an orientation and a radius, give a point on the plane of the circle
 // if on_edge is 1, the point is on the very edge of the circle

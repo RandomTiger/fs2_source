@@ -518,21 +518,21 @@ void debris_process_post(object * obj, float frame_time)
 		// start the next fireball up in the next 50 - 100 ms
 		//db->next_fireball = timestamp_rand(60,80);		
 
-		db->next_fireball = timestamp_rand(db->arc_frequency,db->arc_frequency*2 );
+		db->next_fireball = cosmetic_timestamp_rand(db->arc_frequency,db->arc_frequency*2 );
 		db->arc_frequency += 100;	
 
 		if (db->is_hull)	{
 
-			int n, n_arcs = ((rand()>>5) % 3)+1;		// Create 1-3 sparks
+			int n, n_arcs = ((cosmetic_rand()>>5) % 3)+1;		// Create 1-3 sparks
 
 			vector v1, v2, v3, v4;
-			submodel_get_two_random_points( db->model_num, db->submodel_num, &v1, &v2 );
-			submodel_get_two_random_points( db->model_num, db->submodel_num, &v3, &v4 );
+			submodel_get_two_random_points_cosmetic( db->model_num, db->submodel_num, &v1, &v2 );
+			submodel_get_two_random_points_cosmetic( db->model_num, db->submodel_num, &v3, &v4 );
 
 			n = 0;
 
 			int a = 100, b = 1000;
-			int lifetime = (myrand()%((b)-(a)+1))+(a);
+			int lifetime = (cosmetic_rand()%((b)-(a)+1))+(a);
 
 			// Create the spark effects
 			for (i=0; i<MAX_DEBRIS_ARCS; i++ )	{
@@ -603,10 +603,10 @@ void debris_process_post(object * obj, float frame_time)
 				db->arc_timestamp[i] = timestamp(-1);
 			} else {
 				// Maybe move a vertex....  20% of the time maybe?
-				int mr = myrand();
+				int mr = cosmetic_rand();
 				if ( mr < RAND_MAX/5 )	{
 					vector v1, v2;
-					submodel_get_two_random_points( db->model_num, db->submodel_num, &v1, &v2 );
+					submodel_get_two_random_points_cosmetic( db->model_num, db->submodel_num, &v1, &v2 );
 					db->arc_pts[i][mr % 2] = v1;
 				}
 			}

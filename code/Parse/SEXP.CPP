@@ -2226,9 +2226,10 @@ int add_sexps(int n)
 
 		// be sure to check for the NAN value when doing arithmetic -- this value should
 		// get propagated to the next highest function.
-		if ( Sexp_nodes[CAR(n)].value == SEXP_NAN )
+		// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+		if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) )
 			return SEXP_NAN;
-		else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
+		else if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) )
 			return SEXP_NAN_FOREVER;
 
 		while (CDR(n) != -1) {
@@ -2237,7 +2238,8 @@ int add_sexps(int n)
 			// get propagated to the next highest function.
 			if ( Sexp_nodes[CDR(n)].value == SEXP_NAN )
 				return SEXP_NAN;
-			else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
+			// Claude: CAR(n) (the previous argument) is -1 when it is a plain number
+			else if ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) )
 				return SEXP_NAN_FOREVER;
 			sum += val;
 			n = CDR(n);
@@ -2484,7 +2486,8 @@ int sexp_and_in_sequence(int n)
 		// true.  I did this because of the distance function.  It might become true, then when waiting for
 		// the second evalation, it might become false, rendering this function false.  So, when one becomes
 		// true -- mark it true forever.
-		if ( result )
+		// Claude: a plain number has no node of its own to mark; Sexp_nodes[-1] is outside the array
+		if ( result && (Sexp_nodes[n].first != -1) )
 			Sexp_nodes[Sexp_nodes[n].first].value = SEXP_KNOWN_TRUE;
 
 		while (Sexp_nodes[n].rest != -1) {
@@ -2545,9 +2548,10 @@ int sexp_gt(int n)
 	exp2 = eval_sexp( CDR(n) );
 	
 	// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 > exp2 )
@@ -2563,9 +2567,10 @@ int sexp_lt(int n)
 	exp2 = eval_sexp( CDR(n) );
 
 		// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 < exp2 )
@@ -2581,9 +2586,10 @@ int sexp_equal(int n)
 	exp2 = eval_sexp( CDR(n) );
 
 		// check for the NAN value
-	if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
+	// Claude: CAR(n) is -1 when the first argument is a plain number, which is never NAN; Sexp_nodes[-1] is outside the array
+	if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN ) )
 		return 0;
-	else if ( ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
+	else if ( ( (CAR(n) != -1) && (Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER) ) || ( Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER ) )
 		return SEXP_KNOWN_FALSE;
 
 	if ( exp1 == exp2 )
@@ -5617,6 +5623,20 @@ int sexp_goal_incomplete( int n )
 
 // protects/unprotects a ship.  The flag tells us whether or not the protect bit should be set (flag==1)
 // or cleared (flag==0)
+#ifndef NDEBUG
+// Claude: the "get allender" Int3s below flag a ship name that is neither in the mission nor still to arrive.
+// A ship the mission had and that has since been destroyed, self-destructed or departed is not that case:
+// missions legitimately name such ships (sm3-06 clears the guardian flag of a convoy ship its script has already
+// self-destructed). The ship system's own list of ships that left the mission says so: destroyed (a self-destructed
+// ship too, once it has blown up) or departed. Debug only; Release never had the Int3. Review 42.
+static int sexp_ship_has_left_mission(char *ship_name)
+{
+	int i = ship_find_exited_ship_by_name(ship_name);
+
+	return (i >= 0) && (Ships_exited[i].flags & (SEF_DESTROYED | SEF_DEPARTED));
+}
+#endif
+
 void sexp_protect_ships( int n, int flag )
 {
 	char *ship_name;
@@ -5649,6 +5669,7 @@ void sexp_protect_ships( int n, int flag )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5692,6 +5713,7 @@ void sexp_beam_protect_ships( int n, int flag )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5741,6 +5763,7 @@ void sexp_ships_visible( int n, int visible )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5783,6 +5806,7 @@ void sexp_ships_invulnerable( int n, int invulnerable )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
@@ -5825,6 +5849,7 @@ void sexp_ships_guardian( int n, int guardian )
 				break;
 	#ifndef NDEBUG
 			} else {
+				if (!sexp_ship_has_left_mission(ship_name))	// Claude: not for a ship that has been destroyed or has left (review 42)
 				Int3();	// get allender -- could be a potential problem here
 	#endif
 			}
