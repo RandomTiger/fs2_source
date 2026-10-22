@@ -1,9 +1,10 @@
 Formation ghost viewer (issue #1, throwaway branch FormationGhost; never merged)
 
 WHAT YOU SEE
-Each launcher replays a recording with the game exactly as retail plays it. The green wireframe ships are
+Each launcher replays a recording with the game exactly as retail plays it. The red wireframe ships are
 "ghosts": the wing leaders as they fly with the formation fix, captured from a second run of the same
-recording. The ghosts are drawn only; they do not touch the game (checked: with ghosts drawn, every
+recording. A blue wireframe is drawn over the real ship at the same moment; it should sit exactly on the
+ship's mesh, which shows the wireframe drawing itself is placed right. The ghosts are drawn only; they do not touch the game (checked: with ghosts drawn, every
 replay still matches its recording frame for frame).
 
 The ghost of a ship stops when its captured run stopped. With the fix, the run diverges from the

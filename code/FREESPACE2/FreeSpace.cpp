@@ -3383,6 +3383,36 @@ void game_render_frame_setup(vector *eye_pos, matrix *eye_orient)
 
 	apply_hud_shake(eye_orient);
 
+	// FormationGhost: FS2_GHOST_CAM=<ship name> puts the camera behind and above that ship, looking at the midpoint
+	// of the ship and its ghost, far enough back to keep both in view. Drawing only; the replay is untouched.
+	{
+		static int cam_checked = 0; static char *cam_name = NULL;
+		if (!cam_checked) { cam_checked = 1; cam_name = getenv("FS2_GHOST_CAM"); }
+		int cam_ship = cam_name ? ship_name_lookup(cam_name, 1) : -1;
+		if (cam_ship >= 0 && Ships[cam_ship].objnum >= 0) {
+			object *cobj = &Objects[Ships[cam_ship].objnum];
+			vector target = cobj->pos, gpos, look;
+			float gap = 0.0f;
+			extern int ghost_pos_for(const char *name, vector *pos);
+			if (ghost_pos_for(cam_name, &gpos)) { gap = vm_vec_dist(&cobj->pos, &gpos); vm_vec_avg(&target, &cobj->pos, &gpos); }
+			// Sit just behind the ship on the side away from the ghost, so the ghost lies beyond the ship in the same
+			// line of sight; nebula fog would hide the real ship if the camera pulled back by the whole gap.
+			vector away = cobj->orient.fvec;
+			vm_vec_negate(&away);
+			if (gap > 1.0f) vm_vec_normalized_dir(&away, &cobj->pos, &gpos);
+			float back = 4.0f * cobj->radius + 40.0f;
+			vm_vec_scale_add(eye_pos, &cobj->pos, &away, back);
+			vm_vec_scale_add2(eye_pos, &cobj->orient.uvec, 0.35f * back);
+			vm_vec_sub(&look, &target, eye_pos);
+			vm_vec_normalize(&look);
+			vector up = cobj->orient.uvec;
+			vm_vec_scale_add2(&up, &cobj->orient.rvec, 0.00001f);
+			vm_vector_2_matrix(eye_orient, &look, &up, NULL);
+			Viewer_obj = NULL;
+			HUD_fixed_printf(0.0f, "Ghost cam: %s  (gap %.0f m)\n", cam_name, gap);
+		}
+	}
+
 	// Claude: the nebula background pre-render (neb2_render_setup) moved to game_render_frame: it only draws, and its pixels are read only by the renderer
 }
 

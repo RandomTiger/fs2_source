@@ -4105,9 +4105,27 @@ void ghost_render_all()
 		if (Missiontime - g->t > F1_0) continue;		// that ship's captured path has ended
 		int model = Ship_info[g->sclass].modelnum;
 		if (model < 0) continue;
-		model_set_outline_color(0, 255, 0);
+		// Blue outline on the real ship where the game has it now (a check that the outline drawing lines up with the
+		// mesh); red outline where the fixed run had it.
+		int real = ship_name_lookup(g->name, 1);
+		if (real >= 0 && Ships[real].objnum >= 0) {
+			object *robj = &Objects[Ships[real].objnum];
+			model_set_outline_color(64, 128, 255);
+			model_render(Ship_info[Ships[real].ship_info_index].modelnum, &robj->orient, &robj->pos, MR_SHOW_OUTLINE | MR_NO_POLYS | MR_NO_LIGHTING);
+		}
+		model_set_outline_color(255, 32, 32);
 		model_render(model, &g->orient, &g->pos, MR_SHOW_OUTLINE | MR_NO_POLYS | MR_NO_LIGHTING);
 	}
+}
+// Position of a ship's ghost at the current mission time (0 if it has none now); for the viewer camera only.
+int ghost_pos_for(const char *name, vector *pos)
+{
+	if (!Ghost_checked) ghost_load();
+	int i, found = -1;
+	for (i = 0; i < Ghost_n && Ghost[i].t <= Missiontime; i++) if (!strcmp(Ghost[i].name, name)) found = i;
+	if (found < 0 || Missiontime - Ghost[found].t > F1_0) return 0;
+	*pos = Ghost[found].pos;
+	return 1;
 }
 // ---- end FormationGhost ----
 
