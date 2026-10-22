@@ -375,8 +375,9 @@ screens are read on exit, after any switch. Kept as they were: the replay and au
 both builds, for the D-060 pass; the `OEM_BUILD` and `MULTIPLAYER_BETA_BUILD` arms, for batch 9.
 
 The Options H hotkey reads `FVS_HUD_CONFIG` as the button does (D-20261021-195004). **Open check:** the FS2
-demo menu tour stops at HUD Config, because the tour posts the state event and so bypasses both walls. It stays
-open until the tour opens walled screens through the player's entry (D-20261021-201402).
+demo menu tour now opens HUD Config through the player's entry (D-20261021-201402) and passes it, but stops at
+Medals: that stop still posts the state event, bypasses the Barracks wall and hits a missing-bitmap Error (#85). It
+stays open until every walled screen in the tour opens through the player's entry.
 
 ### Batch 8: mission UI, HUD, controls (D-20261021-100301)
 
