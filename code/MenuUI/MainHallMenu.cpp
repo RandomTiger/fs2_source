@@ -1091,6 +1091,7 @@ void main_hall_do(float frametime)
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			{
 			//game_feature_not_in_demo_popup();
+			autotest_not_in_demo();	// Claude: the Campaign room wall has its own popup; the menu tour skips it (#86, D-20261022-063919)
 			int reset_campaign = popup(PF_USE_AFFIRMATIVE_ICON|PF_BODY_BIG, 2, "Exit", "Restart Campaign", "Campaign Room only available in full version. However, you may restart the campaign.");
 			if (reset_campaign == 1) {
 				mission_campaign_savefile_delete(Campaign.filename);
