@@ -8733,6 +8733,9 @@ int get_max_ammo_count_for_bank(int ship_class, int bank, int ammo_type)
 {
 	float capacity, size;
 
+	if ( ammo_type < 0 ) {	// Claude: an empty bank (weapon -1) read Weapon_info[-1]; its max ammo is 0 (#92, D-20261022-214722)
+		return 0;
+	}	// Claude
 	capacity = (float) Ship_info[ship_class].secondary_bank_ammo_capacity[bank];
 	size = (float) Weapon_info[ammo_type].cargo_size;
 	return (int) (capacity / size);
