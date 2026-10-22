@@ -111,6 +111,28 @@ the files above, then:
 
 Result on 2026-10-19: all 20 checks pass.
 
+### Menu tour on the four data sets
+```
+tools\menu_tour_all.ps1 [-Sets fs2,fs2demo,fs1,fs1demo] [-Configs r,d] [-Shots <dir>] [-Fs2Dir <dir>] [-Fs2DemoDir <dir>] [-Fs1Dir <dir>] [-Fs1DemoDir <dir>] [-NoBuild]
+```
+Builds this branch, runs the autotest menu tour (`docs/AUTOTEST.md`, Menu tour) in Release and Debug on FS2 retail,
+the FS2 demo, FS1 retail and the FS1 demo, and prints one line per screen per build ending `PASS`, `FAIL <why>` or
+`SKIP <why>`, then `DONE pass=N fail=N` (builds). A screen behind the demo's "not in demo" popup is `SKIP`.
+- Each folder needs a single-player pilot. The FS2 demo test folder (`tools\make_demo_test.ps1`) has none until
+  the game is run there once, or a `.plr` is copied into its `Data\Players\Single`.
+- The exes in each folder are saved first and put back at the end. Point the demo folders at copies when someone
+  is playing the demo in its own folder.
+- `-Shots` saves each screen per set and build. Keep it outside the repo: the screenshots show game data.
+
+Result on 2026-10-21 (FS1Demo 4c5c995):
+
+| Set | Release | Debug |
+|---|---|---|
+| FS2 retail | 59 pass | 59 pass |
+| FS2 demo | stops at HUD config: `Error: Could not load in 2_HUDConfig-m!` (`WINDOW.cpp` line 195); 10 screens passed before it | the same |
+| FS1 retail | 59 pass | 59 pass |
+| FS1 demo | 37 pass, 22 `SKIP` (not in demo, or no command briefing) | the same |
+
 ## 4. What the demo contains
 
 One archive, `Data\freespace.vp` (947 entries, 905 files). FS1 retail splits its data over `root.vp` and
