@@ -505,11 +505,7 @@ typedef struct wl_bitmap_group
 	int num_frames;
 } wl_bitmap_group;
 
-#ifdef FS2_DEMO
-#define WEAPON_ANIM_LOOP_FRAME				1
-#else
-#define WEAPON_ANIM_LOOP_FRAME				52			// frame (from 0) to loop weapon anim
-#endif
+#define WEAPON_ANIM_LOOP_FRAME				(Game_profile->loadout_anim_loop ? 52 : 1)			// frame (from 0) to loop weapon anim	// Claude: was 1 under #ifdef FS2_DEMO, else 52; data set profile (D-20261021-100301)
 
 #define WEAPON_ICON_FRAME_NORMAL				0
 #define WEAPON_ICON_FRAME_HOT					1

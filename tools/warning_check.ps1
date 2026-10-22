@@ -7,7 +7,9 @@ any compiler, linker or MSBuild warning (D-20261019-024006: zero warnings from E
 The exes go to a scratch folder (PATH_FS2 is pointed there), so the game folder and its exes are not touched. Each
 project's build log is kept in <Out> (default %LOCALAPPDATA%\fs2_warning_check). A kept warning is silenced at its site with a
 #pragma and a reason; project-wide disables are only the two CRT defines and the linker's /ignore for third-party
-libraries (D-20261019-024004). The last line is PASS or FAIL.
+libraries (D-20261019-024004). Xiph (lib/xiph, third-party, see its THIRD_PARTY.md) is the one exception: Xiph.vcxproj
+turns off the warnings of its own sources and Movie.cpp includes its headers as /external with warnings off, since
+third-party code is never edited (D-20261020-222203). The last line is PASS or FAIL.
 About 25 minutes.
 #>
 param(
