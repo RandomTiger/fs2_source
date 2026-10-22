@@ -195,6 +195,7 @@
 #include "Replay.h"
 #include "OsRegistry.h"	// Claude
 #include <stddef.h>	// Claude: offsetof
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 fix Missiontime;
 fix Frametime;
@@ -625,6 +626,17 @@ detail_levels Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS] = {
 // Global used to access detail levels in game and libs
 detail_levels Detail = Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS-1];
 
+// Claude: FS1 data has no direct control for these (its options screen shows nebulas, engine glow and weapon
+// rendering at their highest, disabled), so there they stay at the best FS2 allows
+static void detail_level_fs1_max(detail_levels *d)
+{
+	if ( Cfile_fs1_data ) {
+		d->nebula_detail = MAX_DETAIL_LEVEL;
+		d->planets_suns = 1;
+		d->weapon_extras = 1;
+	}
+}
+
 // Call this with:
 // 0 - lowest
 // NUM_DETAIL_LEVELS - highest
@@ -639,9 +651,10 @@ void detail_level_set(int level)
 	Assert( level < NUM_DEFAULT_DETAIL_LEVELS );
 
 	Detail = Detail_defaults[level];
+	detail_level_fs1_max(&Detail);	// Claude
 
 	// reset nebula stuff
-	neb2_set_detail_level(level);
+	neb2_set_detail_level(Detail.nebula_detail);	// Claude: was level, the same in FS2 data
 }
 
 // Claude: the detail levels come from the [Detail] section of the settings file (OsRegistry.cpp) for
@@ -671,6 +684,10 @@ void detail_level_save_config()
 	int i;
 
 	for (i = 0; i < NUM_DETAIL_CONFIG_KEYS; i++) {
+		if ( Cfile_fs1_data && ((Detail_config_keys[i].offset == offsetof(detail_levels, nebula_detail)) ||
+			(Detail_config_keys[i].offset == offsetof(detail_levels, planets_suns)) || (Detail_config_keys[i].offset == offsetof(detail_levels, weapon_extras))) ) {
+			continue;	// held at their highest in FS1 data (detail_level_fs1_max): leave the stored values to FS2 data
+		}
 		sprintf(num, "%d", *(int *)((char *)&Detail + Detail_config_keys[i].offset));
 		os_config_write_string(DETAIL_SECTION, Detail_config_keys[i].name, num);
 	}
@@ -682,6 +699,7 @@ void detail_level_load_config()
 
 	if (os_config_read_string(DETAIL_SECTION, "Setting", NULL) == NULL) {
 		Detail = Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS - 1];
+		detail_level_fs1_max(&Detail);
 		detail_level_save_config();
 		return;
 	}
@@ -691,6 +709,7 @@ void detail_level_load_config()
 			*(int *)((char *)&Detail + Detail_config_keys[i].offset) = atoi(value);
 		}
 	}
+	detail_level_fs1_max(&Detail);
 }
 
 // Returns the current detail level or -1 if custom.
@@ -700,7 +719,9 @@ int current_detail_level()
 	int i;
 
 	for (i=0; i<NUM_DEFAULT_DETAIL_LEVELS; i++ )	{
-		if ( memcmp( &Detail, &Detail_defaults[i], sizeof(detail_levels) )==0 )	{
+		detail_levels preset = Detail_defaults[i];	// Claude: the preset as detail_level_set makes it
+		detail_level_fs1_max(&preset);	// Claude
+		if ( memcmp( &Detail, &preset, sizeof(detail_levels) )==0 )	{	// Claude: was &Detail_defaults[i]
 			return i;
 		}
 	}

@@ -60,7 +60,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
       <AdditionalIncludeDirectories>code\anim;code\asteroid;code\bmpman;code\cfile;code\cmdline;code\cmeasure;code\controlconfig;code\cutscene;code\debris;code\debugconsole;code\directx;code\fireball;code\gamehelp;code\freespace2;code\fs2launch;code\fred;code\gamesequence;code\gamesnd;code\glide;code\globalincs;code\graphics;code\hud;code\io;code\jumpnode;code\lighting;code\math;code\menuui;code\mission;code\missionui;code\model;code\movie;code\network;code\object;code\observer;code\osapi;code\palman;code\parse;code\particle;code\pcxutils;code\physics;code\playerman;code\popup;code\radar;code\render;code\ship;code\sndman;code\sound;code\starfield;code\stats;code\testcode;code\ui;code\vcodec;code\weapon;code\localization;code\nebula;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
       <AssemblerListingLocation>.\AcRelease\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\AcRelease\Ac.pch</PrecompiledHeaderOutputFile>
@@ -97,7 +97,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>code\anim;code\asteroid;code\bmpman;code\cfile;code\cmdline;code\cmeasure;code\controlconfig;code\cutscene;code\debris;code\debugconsole;code\directx;code\fireball;code\gamehelp;code\freespace2;code\fs2launch;code\fred;code\gamesequence;code\gamesnd;code\glide;code\globalincs;code\graphics;code\hud;code\io;code\jumpnode;code\lighting;code\math;code\menuui;code\mission;code\missionui;code\model;code\movie;code\network;code\object;code\observer;code\osapi;code\palman;code\parse;code\particle;code\pcxutils;code\physics;code\playerman;code\popup;code\radar;code\render;code\ship;code\sndman;code\sound;code\starfield;code\stats;code\testcode;code\ui;code\vcodec;code\weapon;code\localization;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\AcDebug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\AcDebug\Ac.pch</PrecompiledHeaderOutputFile>
       <ObjectFileName>.\AcDebug\</ObjectFileName>
@@ -138,6 +138,10 @@
   <ItemGroup>
     <ProjectReference Include="code\code.vcxproj">
       <Project>{8af849bb-a250-4834-9c96-38b34b201a33}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="lib\xiph\Xiph.vcxproj">
+      <Project>{428bf313-7b31-4734-aed6-0469f04de25b}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

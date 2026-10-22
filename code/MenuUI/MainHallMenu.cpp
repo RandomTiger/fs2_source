@@ -312,10 +312,11 @@
 #include "AlphaColors.h"
 #include "demo.h"
 #include "fishtank.h"
-#include "DataSetProfile.h"	// Claude
+#include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
 
-// #include "movie.h"
+#include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 // ----------------------------------------------------------------------------
 // MAIN HALL DATA DEFINES
@@ -643,6 +644,7 @@ void main_hall_maybe_blit_tooltips();
 
 // shader for behind tooltips
 shader Main_hall_tooltip_shader;
+static color Fs1_main_hall_text;	// Claude: FS1's tooltip grey (retail FS1 screenshot)
 
 // num pixels shader is above/below tooltip text
 static int Main_hall_tooltip_padding[GR_NUM_RESOLUTIONS] = {
@@ -806,6 +808,16 @@ void main_hall_init(int main_hall_num)
 	Main_hall->region_descript[4] = XSTR( "Options - Change your FreeSpace 2 options", 357);
 	Main_hall->region_descript[5] = XSTR( "Campaign Room - View all available campaigns", 358);
 	Main_hall->region_descript[6] = XSTR( "Multiplayer - Start or join a multiplayer game", 359);
+	if ( Cfile_fs1_data ) {	// Claude: FS1's own tooltips, as retail FS.exe has them
+		Main_hall->region_descript[0] = NOX("Exit Freespace");
+		Main_hall->region_descript[1] = NOX("Barracks - Manage your Freespace pilots");
+		Main_hall->region_descript[2] = NOX("Ready room - Start or continue a campaign");
+		Main_hall->region_descript[3] = NOX("Tech room - View specifications of Freespace ships and weaponry");
+		Main_hall->region_descript[4] = NOX("Options - Change your Freespace options");
+		Main_hall->region_descript[5] = NOX("Campaigns - View all available campaigns");
+		Main_hall->region_descript[6] = NOX("Multiplayer - Start or join a multiplayer game");
+		gr_init_alphacolor(&Fs1_main_hall_text, 160, 160, 160, 255);
+	}
 	
 	// init tooltip shader
 	float gray_intensity = 0.02f;													// nearly black
@@ -1009,11 +1021,11 @@ void main_hall_do(float frametime)
 #ifndef NDEBUG	
 	case KEY_1:		
 		// no soup for you!
-		// movie_play("endprt2b.mve", 0);
+		movie_play("endprt2b.mve", 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 		break;
 	case KEY_2:		
 		// no soup for you!
-		// movie_play_two("endprt2a.mve", "endprt2b.mve", 0);
+		movie_play_two("endprt2a.mve", "endprt2b.mve", 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 		break;
 	case KEY_3:		
 		main_hall_campaign_cheat();	
@@ -1085,6 +1097,11 @@ void main_hall_do(float frametime)
 
 		// clicked on the campaign toom region
 		case CAMPAIGN_ROOM_REGION:
+			if ( !(Game_profile->full_version_screens & FVS_CAMPAIGN_ROOM) && !Game_profile->fs2_demo_walls ) {	// Claude: no art for this screen in FS1's demo data (D-20261020-214042); the FS2 demo's wall is below (D-20261021-142001)
+				gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+				game_feature_not_in_demo_popup();
+				break;
+			}
 #if !defined(MULTIPLAYER_BETA_BUILD) && !defined(E3_BUILD) && !defined(PRESS_TOUR_BUILD)
 
 			if (!(Game_profile->full_version_screens & FVS_CAMPAIGN_ROOM)) {	// Claude: data set profile wall (D-20261021-071013); was #ifdef FS2_DEMO
@@ -1115,7 +1132,11 @@ void main_hall_do(float frametime)
 
 		// clicked on the multiplayer region
 		case MULTIPLAYER_REGION:
-#if defined(DEMO) || defined(OEM_BUILD) // not for FS2_DEMO
+			if ( !(Game_profile->full_version_screens & FVS_MULTIPLAYER) ) {	// Claude: was the DEMO half of the #if below (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
+#if defined(OEM_BUILD) // not for FS2_DEMO	// Claude: was defined(DEMO) || defined(OEM_BUILD)
 			game_feature_not_in_demo_popup();
 #else
 			if (Player->flags & PLAYER_FLAGS_IS_MULTI){
@@ -1700,7 +1721,7 @@ void main_hall_mouse_grab_region(int region)
 	Main_hall_door_sound_handles[region] = snd_play(&Snds_iface[Main_hall->door_sounds[region][0]],Main_hall->door_sound_pan[region]);				
 
 	// start the sound playing at the right spot relative to the completion of the animation		
-	if(Main_hall_door_anim_instance[region]->frame_num != -1){			
+	if((Main_hall_door_anim_instance[region] != NULL) && (Main_hall_door_anim_instance[region]->frame_num != -1)){	// Claude: no instance when the door anim did not load			
 			snd_set_pos(Main_hall_door_sound_handles[region],&Snds_iface[SND_MAIN_HALL_DOOR_OPEN],
 							(float)Main_hall_door_anim_instance[region]->frame_num / (float)Main_hall_door_anim_instance[region]->parent->total_frames,1);
 	}				
@@ -1868,6 +1889,11 @@ void main_hall_blit_version()
 
 	// print the string out in the lower right corner
 	gr_set_color_fast(&Color_white);
+	if ( Cfile_fs1_data ) {	// Claude: FS1's label, position and colour, as retail FS1 (Tom, 2026-10-19)
+		gr_set_color_fast(&Fs1_main_hall_text);
+		gr_string(gr_screen.max_w - 43, gr_screen.max_h - 13, version_string);	// the data set profile's, v1.06 on retail
+		return;
+	}
 	gr_string(gr_screen.max_w - 55, gr_screen.max_h - 12, version_string);
 }
 
@@ -1900,10 +1926,12 @@ void main_hall_maybe_blit_tooltips()
 		// get the width of the string
 		gr_get_string_size(&w, NULL, Main_hall->region_descript[text_index]);
 
+		if ( !Cfile_fs1_data ) {	// Claude: FS1 drew no shading behind its tooltips
 		gr_set_shader(&Main_hall_tooltip_shader);
 		gr_shade(0, shader_y, gr_screen.clip_width, (gr_screen.clip_height - shader_y));
+		}	// Claude
 
-		gr_set_color_fast(&Color_bright_white);
+		gr_set_color_fast(Cfile_fs1_data ? &Fs1_main_hall_text : &Color_bright_white);	// Claude
 		gr_string((gr_screen.max_w - w)/2, Main_hall->region_yval, Main_hall->region_descript[text_index]);
 	}
 }

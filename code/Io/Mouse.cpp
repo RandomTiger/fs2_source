@@ -127,8 +127,8 @@
 #include "2d.h"
 #include "OsApi.h"
 #include "Replay.h"
-#include "DataSetProfile.h"	// Claude
 #include "Autotest.h"	// Claude: -at_shots parks the cursor, see Autotest.h
+#include "DataSetProfile.h"	// Claude
 
 #define MOUSE_MODE_DI	0
 #define MOUSE_MODE_WIN	1

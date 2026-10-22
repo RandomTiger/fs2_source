@@ -316,7 +316,9 @@
 #include "Line.h"
 #include "Cfile.h"
 #include "Neb.h"
+#include "Nebula.h"	// Claude: FS1 nebula colour ramp
 #include "3d.h"
+#include "GrD3DGlow.h"		// Claude: ship glow
 
 typedef enum gr_texture_source {
 	TEXTURE_SOURCE_NONE,
@@ -349,6 +351,8 @@ extern int D3D_fog_mode;
 void gr_d3d_set_state( gr_texture_source ts, gr_alpha_blend ab, gr_zbuffer_type zt )
 {
 	int current_state = 0;
+
+	d3d_glow_draw_queued();	// Claude: ship glow: draw queued glow polys before anything else is drawn
 
 	current_state = current_state | (ts<<0);
 	current_state = current_state | (ab<<5);
@@ -454,8 +458,15 @@ void gr_d3d_set_state( gr_texture_source ts, gr_alpha_blend ab, gr_zbuffer_type 
 }
 
 extern int D3D_zbias;
+// Claude: ship glow: the glow pass state, for the queued glow polys (GrD3DGlow.cpp)
+void gr_d3d_set_glow_state(int zbuffer_type)
+{
+	gr_d3d_set_state( TEXTURE_SOURCE_DECAL, ALPHA_BLEND_ALPHA_BLEND_ALPHA, (gr_zbuffer_type)zbuffer_type );
+}
+
 void d3d_zbias(int bias)
 {
+	d3d_glow_draw_queued();	// Claude: ship glow: queued glow polys keep the z bias of their lit pass
 	if(D3D_zbias){
 		d3d_SetRenderState(D3DRENDERSTATE_ZBIAS, bias);
 	}
@@ -690,6 +701,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	// Make nebula use the texture mapper... this blends the colors better.
 	if ( flags & TMAP_FLAG_NEBULA ){
+		if ( !Cfile_fs1_data )	// Claude: FS1's nebula draws here (docs/FS1_COMPAT.md)
 		Int3();
 		/*
 		flags |= TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT;
@@ -876,9 +888,10 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 		if ( flags & TMAP_FLAG_NEBULA )	{
 			int pal = (verts[i]->b*(NEBULA_COLORS-1))/255;
-			r = gr_palette[pal*3+0];
-			g = gr_palette[pal*3+1];
-			b = gr_palette[pal*3+2];
+			ubyte *neb_palette = Cfile_fs1_data ? Nebula_fs1_ramp : gr_palette;	// Claude: in FS1 data the next lines read FS1's nebula ramp
+			r = neb_palette[pal*3+0];	// Claude: neb_palette, was gr_palette
+			g = neb_palette[pal*3+1];	// Claude
+			b = neb_palette[pal*3+2];	// Claude
 		} else if ( (flags & TMAP_FLAG_RAMP) && (flags & TMAP_FLAG_GOURAUD) )	{
 			r = Gr_gamma_lookup[verts[i]->b];
 			g = Gr_gamma_lookup[verts[i]->b];
@@ -947,16 +960,16 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	// if we're rendering against a fullneb background
 	if(flags & TMAP_FLAG_PIXEL_FOG){	
-		int r, g, b;
+		int fog_r, fog_g, fog_b;	// Claude: was r, which hid the outer local (C4456)	// Claude: was g, which hid the outer local (C4456)	// Claude: was b, which hid the outer local (C4456)
 		int ra, ga, ba;		
 		ra = ga = ba = 0;		
 
 		// get the average pixel color behind the vertices
 		for(i=0; i<nverts; i++){			
-			neb2_get_pixel((int)d3d_verts[i].sx, (int)d3d_verts[i].sy, &r, &g, &b);
-			ra += r;
-			ga += g;
-			ba += b;
+			neb2_get_pixel((int)d3d_verts[i].sx, (int)d3d_verts[i].sy, &fog_r, &fog_g, &fog_b);
+			ra += fog_r;
+			ga += fog_g;
+			ba += fog_b;
 		}				
 		ra /= nverts;
 		ga /= nverts;
@@ -968,6 +981,27 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 	d3d_DrawPrimitive(D3DPT_TRIANGLEFAN, D3DVT_TLVERTEX, (LPVOID)d3d_verts, nverts, NULL);
 
+	// Claude: ship glow, the D3D version of Glide's nondarkening pixels. Redraw the poly
+	// Claude: unlit with its glow mask texture, alpha blended over the lit pass above.
+	// Claude: See GrD3DGlow.cpp and docs/SHIVAN_GLOW.md.
+	if ( (flags & TMAP_FLAG_NONDARKENING) && (flags & TMAP_FLAG_TEXTURED) && (tmap_type == TCACHE_TYPE_NORMAL) && (alpha_blend != ALPHA_BLEND_ALPHA_ADDITIVE) )	{
+		D3DTEXTUREHANDLE glow_handle = d3d_glow_get_texture(gr_screen.current_bitmap);
+		if ( glow_handle && !(flags & TMAP_FLAG_PIXEL_FOG) )	{
+			// Claude: queued and drawn in batches (d3d_glow_draw_queued). Fogged polys are drawn
+			// Claude: straight away below, as the fog colour is set per poly.
+			d3d_glow_queue_poly( glow_handle, (zbuffer_type == ZBUFFER_TYPE_FULL) ? ZBUFFER_TYPE_READ : zbuffer_type, d3d_verts, nverts );
+		} else if ( glow_handle )	{
+			gr_d3d_set_state( TEXTURE_SOURCE_DECAL, ALPHA_BLEND_ALPHA_BLEND_ALPHA, (zbuffer_type == ZBUFFER_TYPE_FULL) ? ZBUFFER_TYPE_READ : zbuffer_type );
+			d3d_SetRenderState(D3DRENDERSTATE_TEXTUREHANDLE, glow_handle );
+			// the base texture is no longer bound, so make the texture cache rebind it next time
+			gr_tcache_set(-1, -1, NULL, NULL );
+			for (i=0; i<nverts; i++ )	{
+				d3d_verts[i].color = RGBA_MAKE(255, 255, 255, RGBA_GETALPHA(d3d_verts[i].color));
+			}
+			d3d_DrawPrimitive(D3DPT_TRIANGLEFAN, D3DVT_TLVERTEX, (LPVOID)d3d_verts, nverts, NULL);
+		}
+	}
+
 	// turn off fog
 	// if(flags & TMAP_FLAG_PIXEL_FOG){
 		// gr_fog_set(GR_FOGMODE_NONE, 0, 0, 0);
@@ -976,7 +1010,9 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 
 void gr_d3d_tmapper( int nverts, vertex **verts, uint flags )	
 {
+	D3D_glow_hold = (flags & TMAP_FLAG_NONDARKENING) ? 1 : 0;	// Claude: ship glow: a ship poly doesn't flush the glow queue
 	gr_d3d_tmapper_internal( nverts, verts, flags, 0 );
+	D3D_glow_hold = 0;	// Claude: ship glow
 }
 
 #define FIND_SCALED_NUM(x,x0,x1,y0,y1) (((((x)-(x0))*((y1)-(y0)))/((x1)-(x0)))+(y0))

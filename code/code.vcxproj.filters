@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Anim">
@@ -60,6 +60,9 @@
     </Filter>
     <Filter Include="Io">
       <UniqueIdentifier>{d3052293-dfbb-43b8-ba80-d0ef27d6417f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pad">
+      <UniqueIdentifier>{6f2a8c41-3d5e-4b7a-9e1c-5a0d7b2f8e64}</UniqueIdentifier>
     </Filter>
     <Filter Include="JumpNode">
       <UniqueIdentifier>{71022486-1f71-4c28-ab0b-f91e8b2f8b7a}</UniqueIdentifier>
@@ -186,6 +189,12 @@
     <ClCompile Include="CFile\CfileSystem.cpp">
       <Filter>CFile</Filter>
     </ClCompile>
+    <ClCompile Include="CFile\CabReader.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
+    <ClCompile Include="CFile\DataSetFs1.cpp">
+      <Filter>CFile</Filter>
+    </ClCompile>
     <ClCompile Include="CFile\DataSetInstall.cpp">
       <Filter>CFile</Filter>
     </ClCompile>
@@ -202,6 +211,9 @@
       <Filter>ControlConfig</Filter>
     </ClCompile>
     <ClCompile Include="Cutscene\Cutscenes.cpp">
+      <Filter>Cutscene</Filter>
+    </ClCompile>
+    <ClCompile Include="Movie\Movie.cpp">
       <Filter>Cutscene</Filter>
     </ClCompile>
     <ClCompile Include="Debris\Debris.cpp">
@@ -277,6 +289,9 @@
       <Filter>Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\GrD3DRender.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\GrD3DGlow.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\GrD3DTexture.cpp">
@@ -383,6 +398,18 @@
     </ClCompile>
     <ClCompile Include="Io\Timer.cpp">
       <Filter>Io</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadCore.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadGame.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadHud.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadXInput.cpp">
+      <Filter>Pad</Filter>
     </ClCompile>
     <ClCompile Include="JumpNode\JumpNode.cpp">
       <Filter>JumpNode</Filter>
@@ -565,6 +592,9 @@
       <Filter>Palman</Filter>
     </ClCompile>
     <ClCompile Include="Parse\Encrypt.cpp">
+      <Filter>Parse</Filter>
+    </ClCompile>
+    <ClCompile Include="Parse\Fs1Tables.cpp">
       <Filter>Parse</Filter>
     </ClCompile>
     <ClCompile Include="Parse\PARSELO.CPP">
@@ -911,6 +941,12 @@
     <ClInclude Include="CFile\CfileSystem.h">
       <Filter>CFile</Filter>
     </ClInclude>
+    <ClInclude Include="CFile\CabReader.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
+    <ClInclude Include="CFile\DataSetFs1.h">
+      <Filter>CFile</Filter>
+    </ClInclude>
     <ClInclude Include="CFile\DataSetInstall.h">
       <Filter>CFile</Filter>
     </ClInclude>
@@ -924,6 +960,9 @@
       <Filter>ControlConfig</Filter>
     </ClInclude>
     <ClInclude Include="Cutscene\Cutscenes.h">
+      <Filter>Cutscene</Filter>
+    </ClInclude>
+    <ClInclude Include="Movie\Movie.h">
       <Filter>Cutscene</Filter>
     </ClInclude>
     <ClInclude Include="Debris\Debris.h">
@@ -1061,6 +1100,9 @@
     <ClInclude Include="Graphics\GrD3D.h">
       <Filter>Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics\GrD3DGlow.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="Graphics\GrD3DInternal.h">
       <Filter>Graphics</Filter>
     </ClInclude>
@@ -1174,6 +1216,18 @@
     </ClInclude>
     <ClInclude Include="Io\Timer.h">
       <Filter>Io</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadCore.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadGame.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadState.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadXInput.h">
+      <Filter>Pad</Filter>
     </ClInclude>
     <ClInclude Include="JumpNode\JumpNode.h">
       <Filter>JumpNode</Filter>
@@ -1335,6 +1389,9 @@
       <Filter>Palman</Filter>
     </ClInclude>
     <ClInclude Include="Parse\Encrypt.h">
+      <Filter>Parse</Filter>
+    </ClInclude>
+    <ClInclude Include="Parse\Fs1Tables.h">
       <Filter>Parse</Filter>
     </ClInclude>
     <ClInclude Include="Parse\parselo.h">

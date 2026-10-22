@@ -104,6 +104,8 @@
 #include "encrypt.h"
 #include "localize.h"
 #include "fhash.h"
+#include "Fs1Tables.h"	// Claude: FS1 compatibility
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 #define	ERROR_LENGTH	64
 #define	RS_MAX_TRIES	5
@@ -1126,14 +1128,19 @@ void read_file_text(char *filename, int mode)
 
 	strcpy(Current_filename, filename);
 	mf = cfopen(filename, "rb", CFILE_NORMAL, mode);
-	if (mf == NULL) {
+	// Claude: FS1 data lacks some tables FS2 reads; data loading supplies their text (docs/FS1_COMPAT.md)
+	char *fs1_text = (mf == NULL) ? fs1_table_default(filename) : NULL;
+	if ((mf == NULL) && (fs1_text == NULL)) {	// Claude: and no FS1 default
 		nprintf(("Error", "Wokka!  Error opening mission.txt!\n"));
 		longjmp(parse_abort, 5);
 	}
 
 	// read the entire file in
-	int file_len = cfilelength(mf);
+	int file_len = fs1_text ? (int)strlen(fs1_text) : cfilelength(mf);	// Claude: FS1 default
 
+	if ( fs1_text ) {	// Claude: built-in text, never encrypted
+		memcpy(Mission_text_raw, fs1_text, file_len);
+	} else {	// Claude
 	// read first 10 bytes to determine if file is encrypted
 	cfread(Mission_text_raw, min(file_len, 10), 1, mf);
 	file_is_encrypted = is_encrpyted(Mission_text_raw);
@@ -1154,6 +1161,10 @@ void read_file_text(char *filename, int mode)
 	}
 
 	cfclose(mf);
+	}	// Claude
+
+	// Claude: FS1 table formats to FS2's (docs/FS1_COMPAT.md)
+	file_len = fs1_table_convert(filename, Mission_text_raw, file_len, MISSION_TEXT_SIZE);
 
 	//	If you hit this assert, it is probably telling you the obvious.  The file
 	//	you are trying to read is truly too large.  Look at *filename to see the file name.
@@ -1435,7 +1446,11 @@ int stuff_int_list(int *ilp, int max_ints, int lookup_type)
 					Error(LOCATION, "Unable to find string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
 				} else if (num == -2) {
 					if (strlen(str) > 0) {
-						Warning(LOCATION, "Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
+						if ( !Game_profile->unknown_weapon_warning ) {	// Claude: FS1's demo ships.tbl names three weapons its weapons.tbl lacks; logged, not a popup (D-20261020-213146)
+							mprintf(("Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list; the weapon is dropped\n", str));
+						} else {
+							Warning(LOCATION, "Unable to find WEAPON_LIST_TYPE string \"%s\" in stuff_int_list\n\nMany possible sources for this error.  Get a programmer!\n", str);
+						}
 					}
 				}
 

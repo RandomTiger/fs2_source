@@ -306,6 +306,7 @@
 #include "MultiUtil.h"
 #include "GameSnd.h"
 #include "HUDsquadmsg.h"
+#include "../Pad/PadGame.h"	// Claude: control pad
 #include "timer.h"
 #include "EventMusic.h"
 #include "HUDlock.h"
@@ -902,6 +903,7 @@ void hud_init_mission_time_gauge()
 //
 void HUD_init()
 {
+	hud_config_fs1_color_init(0);	// Claude: FS1 data: FS1's HUD colour and brightness
 	HUD_init_colors();
 	hud_init_msg_window();
 	hud_init_targeting();
@@ -1621,6 +1623,9 @@ void HUD_render_2d(float frametime)
 
 	// display supernova warning
 	hud_maybe_display_supernova();
+
+	// Claude: control pad tree options
+	pad_hud_render();
 
 	// check to see if we are in messaging mode.  If so, send the key to the code
 	// to deal with the message.  hud_sqaudmsg_do_frame will return 0 if the key
@@ -2629,6 +2634,7 @@ void hud_set_gauge_color(int gauge_index, int bright_index)
 	color use_color;
 	int flash_status = hud_gauge_maybe_flash(gauge_index);
 	use_color = HUD_config.clr[gauge_index];
+	hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one HUD colour
 	int alpha;
 
 	// if we're drawing it as bright
@@ -2688,6 +2694,7 @@ void hud_set_gauge_color(int gauge_index, int bright_index)
 			break;
 		}
 	}
+	hud_config_fs1_gauge_alpha(&use_color);	// Claude: FS1 data: FS1's brighter gauges
 
 	gr_set_color_fast(&use_color);	
 }

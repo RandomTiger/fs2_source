@@ -140,11 +140,12 @@
 #include "FreeSpace.h"
 #include "Key.h"
 #include "BmpMan.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "popup.h"
 #include "MainHallMenu.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "cmdline.h"		// Claude: -allcutscenes
 
 char *Cutscene_bitmap_name[GR_NUM_RESOLUTIONS] = {
 	"ViewFootage",
@@ -422,7 +423,7 @@ void cutscenes_screen_play()
 	full_name = cf_add_ext(name, NOX(".mve"));
 
 	// no soup for you!
-	/*
+	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	int rval = movie_play(full_name);
 	if ( !rval ) {
 		char str[256];
@@ -430,7 +431,6 @@ void cutscenes_screen_play()
 		sprintf(str, XSTR( "Unable to play movie %s.", 204), Cutscenes[which_cutscene].name );
 		popup(0, 1, POPUP_OK, str );
 	}
-	*/
 }
 
 void cutscenes_screen_scroll_line_up()
@@ -539,11 +539,34 @@ int cutscenes_screen_button_pressed(int n)
 	return 0;
 }
 
+// Claude: FS1 data: the cutscenes screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md), its buttons placed
+// by matching FS1's art against it, the list and description inside FS1's boxes
+static void cutscenes_fs1_layout()
+{
+	// tech database, simulator, cutscenes, credits tabs; scroll up, down; play; exit
+	static int Fs1_coords[NUM_BUTTONS][2] = { {0,0}, {0,19}, {0,35}, {0,56}, {570,304}, {600,304}, {573,347}, {566,411} };
+	static int Fs1_list[4] = { 26, 113, 585, 203 };
+	static int Fs1_desc[4] = { 18, 358, 450, 47 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+	for (i=0; i<4; i++) {
+		Cutscene_list_coords[GR_640][i] = Fs1_list[i];
+		Cutscene_desc_coords[GR_640][i] = Fs1_desc[i];
+	}
+}
+
 void cutscenes_screen_init()
 {
 	int i;
 	ui_button_info *b;
 
+	if ( Cfile_fs1_data ) {	// Claude
+		cutscenes_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Cutscene_mask_name[gr_screen.res]);
 
@@ -582,12 +605,12 @@ void cutscenes_screen_init()
 	//Cutscenes_viewable = 0xffffffff;			// makes all cutscenes viewble.
 #endif
 
-	if (All_movies_enabled)
-		Cutscenes_viewable = 0xffffffff;		//	Cheat code enables all movies.
+	// Claude: -allcutscenes lists every movie, as the cheat once did, but without writing that into the pilot, which is saved
+	int viewable = (All_movies_enabled || Cmdline_all_cutscenes) ? 0xffffffff : Cutscenes_viewable;		//	Cheat code enables all movies.
 
 	Num_files = 0;
 	for ( i = 0; i < Num_cutscenes; i++ ) {
-		if ( Cutscenes_viewable & (1<<i) ) {
+		if ( viewable & (1<<i) ) {		// Claude
 			Cutscene_list[Num_files] = i;
 			Num_files++;
 		}

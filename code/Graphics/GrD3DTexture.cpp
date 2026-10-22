@@ -233,6 +233,7 @@
 #include "OsRegistry.h"
 
 #include "multi_log.h"
+#include "GrD3DGlow.h"		// Claude: ship glow
 
 typedef struct tcache_slot_d3d {
 	LPDIRECTDRAWSURFACE		vram_texture_surface;
@@ -492,7 +493,8 @@ void d3d_tcache_get_adjusted_texture_size(int w_in, int h_in, int *w_out, int *h
 // bmap_h == height of source bitmap
 // tex_w == width of final texture
 // tex_h == height of final texture
-int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, int sx, int sy, int src_w, int src_h, int bmap_w, int bmap_h, int tex_w, int tex_h, tcache_slot_d3d *t, int reload, int fail_on_full)
+// Claude: bpp == 32 means data is ARGB 8888 (32 bit textures), uploaded to a TextureFormat_8888 surface
+int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, int sx, int sy, int src_w, int src_h, int bmap_w, int bmap_h, int tex_w, int tex_h, tcache_slot_d3d *t, int reload, int fail_on_full, int bpp)
 {
 	LPDIRECTDRAWSURFACE		sys_texture_surface = NULL;
 	LPDIRECT3DTEXTURE2		sys_texture = NULL;
@@ -542,6 +544,9 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 
 		default:
 			surface_desc = &NonAlphaTextureFormat;
+	}
+	if ( bpp == 32 )	{
+		surface_desc = &TextureFormat_8888;	// Claude: 32 bit textures
 	}	
 
 	// get final texture size
@@ -599,7 +604,7 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 		return 0;
 	}
 
-	Assert( surface_desc->dwRGBBitCount == 16 );
+	Assert( surface_desc->dwRGBBitCount == (DWORD)((bpp == 32) ? 32 : 16) );	// Claude: 32 bit textures
 
 	// Each RGB bit count requires different pointers
 	ushort *lpSP;	
@@ -608,6 +613,24 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 
 	switch( bitmap_type )	{		
 		case TCACHE_TYPE_AABITMAP:			
+			// Claude: 32 bit textures: white, with the gamma corrected alpha kept at 8 bits instead of 4
+			if ( bpp == 32 )	{
+				uint *lpSP32;
+				int v;
+				for (j = 0; j < tex_h; j++) {
+					lpSP32 = (uint*)(((char*)ddsd.lpSurface) + ddsd.lPitch * j);
+					for (i = 0; i < tex_w; i++) {
+						if ( (i < bmap_w) && (j<bmap_h) )	{
+							v = (ubyte)bmp_data_byte[j*bmap_w+i];
+							if ( v == 15 ) v = 1; else if ( v > 15 ) v = 0;	// as xlat below
+							*lpSP32++ = ((uint)Gr_gamma_lookup[(v*255)/15] << 24) | 0x00ffffff;
+						} else {
+							*lpSP32++ = 0;
+						}
+					}
+				}
+				break;
+			}
 			// setup convenient translation table
 			for (i=0; i<16; i++ )	{
 				r = 255;
@@ -640,6 +663,13 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 		break;
 	
 	case TCACHE_TYPE_BITMAP_SECTION:	
+		// Claude: 32 bit textures
+		if ( bpp == 32 )	{
+			for (j = 0; j < src_h; j++) {
+				memcpy( ((char*)ddsd.lpSurface) + ddsd.lPitch * j, ((uint*)data) + ((j+sy) * bmap_w) + sx, src_w * 4 );
+			}
+			break;
+		}
 		for (j = 0; j < src_h; j++) {
 			// the proper line in the temp ram
 			lpSP = (unsigned short*)(((char*)ddsd.lpSurface) +	ddsd.lPitch * j);
@@ -659,6 +689,21 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 
 			du = ( (bmap_w-1)*F1_0 ) / tex_w;
 			dv = ( (bmap_h-1)*F1_0 ) / tex_h;
+
+			// Claude: 32 bit textures, same sampling as the 16 bit loop below
+			if ( bpp == 32 )	{
+				uint *lpSP32;
+				for (j = 0; j < tex_h; j++) {
+					lpSP32 = (uint*)(((char*)ddsd.lpSurface) + ddsd.lPitch * j);
+					utmp = u;
+					for (i = 0; i < tex_w; i++) {
+						*lpSP32++ = ((uint*)data)[f2i(v)*bmap_w+f2i(utmp)];
+						utmp += du;
+					}
+					v += dv;
+				}
+				break;
+			}
 											
 			for (j = 0; j < tex_h; j++) {
 				lpSP = (unsigned short*)(((char*)ddsd.lpSurface) +	ddsd.lPitch * j);
@@ -720,7 +765,7 @@ RetryLoad:
 
 					goto FreeSurfacesAndExit;
 				}
-				if ( d3d_free_some_texture_ram(t,dwHeight*dwWidth*2))	{
+				if ( d3d_free_some_texture_ram(t,dwHeight*dwWidth*((bpp == 32) ? 4 : 2)))	{	// Claude: 32 bit textures
 					goto RetryLoad;
 				}
 			} else {
@@ -789,7 +834,7 @@ RetryLoad:
 	t->bitmap_id = texture_handle;
 	t->time_created = D3D_frame_count;
 	t->used_this_frame = 0;	
-	t->size = tex_w * tex_h * 2;	
+	t->size = tex_w * tex_h * ((bpp == 32) ? 4 : 2);	// Claude: 32 bit textures
 	t->w = (ushort)tex_w;
 	t->h = (ushort)tex_h;
 	D3D_textures_in_frame += t->size;
@@ -845,6 +890,9 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 		return 0;
 	}
 
+	// Claude: 32 bit textures: alpha-only bitmaps (fonts, HUD) are uploaded as ARGB 8888 too
+	int tex_bpp = ((bitmap_type == TCACHE_TYPE_AABITMAP) && D3D_32bit_textures) ? 32 : bmp->bpp;
+
 	int max_w = bmp->w;
 	int max_h = bmp->h; 
 		
@@ -866,7 +914,7 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 	}
 	// different bitmap altogether - determine if the new one can use the old one's slot
 	else if (tslot->bitmap_id != bitmap_handle)	{
-		if((final_w == tslot->w) && (final_h == tslot->h)){
+		if((final_w == tslot->w) && (final_h == tslot->h) && (tslot->size == final_w * final_h * ((tex_bpp == 32) ? 4 : 2))){	// Claude: same pixel size too (32 bit textures)
 			reload = 1;
 
 			ml_printf("Reloading texture %d\n", bitmap_handle);
@@ -876,7 +924,7 @@ int d3d_create_texture(int bitmap_handle, int bitmap_type, tcache_slot_d3d *tslo
 	}
 
 	// call the helper
-	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, 0, 0, bmp->w, bmp->h, bmp->w, bmp->h, max_w, max_h, tslot, reload, fail_on_full);
+	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, 0, 0, bmp->w, bmp->h, bmp->w, bmp->h, max_w, max_h, tslot, reload, fail_on_full, tex_bpp);	// Claude: bpp
 
 	// unlock the bitmap
 	bm_unlock(bitmap_handle);
@@ -918,7 +966,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 	}
 	// different bitmap altogether - determine if the new one can use the old one's slot
 	else if (tslot->bitmap_id != bitmap_handle)	{		
-		if((final_w == tslot->w) && (final_h == tslot->h)){			
+		if((final_w == tslot->w) && (final_h == tslot->h) && (tslot->size == final_w * final_h * ((bmp->bpp == 32) ? 4 : 2))){	// Claude: same pixel size too (32 bit textures)
 			reload = 1;			
 		} else {			
 			reload = 0;
@@ -926,7 +974,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 	}
 
 	// call the helper
-	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, bmp->sections.sx[sx], bmp->sections.sy[sy], section_x, section_y, bmp->w, bmp->h, section_x, section_y, tslot, reload, fail_on_full);
+	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, bmp->sections.sx[sx], bmp->sections.sy[sy], section_x, section_y, bmp->w, bmp->h, section_x, section_y, tslot, reload, fail_on_full, bmp->bpp);	// Claude: bpp
 
 	// unlock the bitmap
 	bm_unlock(bitmap_handle);
@@ -937,6 +985,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 extern int bm_get_cache_slot( int bitmap_id, int separate_ani_frames );
 int d3d_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int fail_on_full, int sx, int sy, int force )
 {
+	d3d_glow_draw_queued();	// Claude: ship glow: draw queued glow polys before the texture changes
 	bitmap *bmp = NULL;
 	int idx, s_idx;	
 	int ret_val = 1;
@@ -1280,6 +1329,8 @@ void d3d_tcache_flush()
 	D3D_last_bitmap_id = -1;
 	D3D_last_section_x = -1;
 	D3D_last_section_y = -1;
+
+	d3d_glow_flush();		// Claude: ship glow textures share the texture cache lifetime
 }
 
 void d3d_tcache_cleanup()
@@ -1332,6 +1383,8 @@ void d3d_tcache_frame()
 		d3d_tcache_flush();
 		vram_full = 0;
 	}
+
+	d3d_glow_frame();		// Claude: rebuild ship glow textures after a flush
 }
 
 

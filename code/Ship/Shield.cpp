@@ -171,11 +171,11 @@
 #include "MissionParse.h"
 #include "MultiMsgs.h"
 #include "Multi.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 int	New_shield_system = 1;
 int	Show_shield_mesh = 0;
 
-#ifndef DEMO // not for FS2_DEMO
 
 //	One unit in 3d means this in the shield hit texture map.
 //#define	SHIELD_HIT_SCALE	0.075f			//	Scale decreased by MK on 12/18/97, made about 1/4x as large. Note, larger constant means smaller effect
@@ -252,7 +252,7 @@ extern void create_shield_from_triangle(int trinum, matrix *orient, shield_info 
 
 void load_shield_hit_bitmap()
 {
-	#ifndef DEMO // not for FS2_DEMO
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 
 	int i;
 	// Check if we've already allocated the shield effect bitmaps
@@ -267,11 +267,11 @@ void load_shield_hit_bitmap()
 			Int3();
 	}
 
-	#endif
 }
 
 void shield_hit_page_in()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int i;
 
 	if ( !Shield_bitmaps_loaded )	{
@@ -287,6 +287,7 @@ void shield_hit_page_in()
 //	Initialize shield hit system.  Called from game_level_init()
 void shield_hit_init()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int	i;
 
 	for (i=0; i<MAX_SHIELD_HITS; i++)
@@ -327,11 +328,13 @@ int	Poly_count = 0;
 //
 void shield_hit_close()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	release_shield_hit_bitmap();
 }
 
 void shield_frame_init()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	//nprintf(("AI", "Frame %i: Number of shield hits: %i, polycount = %i\n", Framecount, Num_shield_points, Poly_count));
 
 	Poly_count = 0;
@@ -648,6 +651,7 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 // occur with the ship, perhaps even internal to the ship.
 void render_shields()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int	i;
 
 	if (Detail.shield_effects == 0){
@@ -810,6 +814,7 @@ void copy_shield_to_globals( int objnum, shield_info *shieldp )
 //	Return absolute amount of damage not applied.
 float apply_damage_to_shield(object *objp, int shield_quadrant, float damage)
 {
+	if ( !Game_profile->shields )	return damage;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	ai_info	*aip;
 
 	// multiplayer clients bail here if nodamage
@@ -953,6 +958,7 @@ MONITOR(NumShieldHits);
 //	Add data for a shield hit.
 void add_shield_point(int objnum, int tri_num, vector *hit_pos)
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	//Assert(Num_shield_points < MAX_SHIELD_POINTS);
 	if (Num_shield_points >= MAX_SHIELD_POINTS)
 		return;
@@ -980,6 +986,7 @@ void add_shield_point(int objnum, int tri_num, vector *hit_pos)
 // the normal count at the correct time.
 void add_shield_point_multi(int objnum, int tri_num, vector *hit_pos)
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	//Assert(Num_multi_shield_points < MAX_SHIELD_POINTS);
 
 	if (Num_multi_shield_points >= MAX_SHIELD_POINTS)
@@ -995,6 +1002,7 @@ void add_shield_point_multi(int objnum, int tri_num, vector *hit_pos)
 // sets up the shield point hit information for multiplayer clients
 void shield_point_multi_setup()
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int i;
 
 	Assert( MULTIPLAYER_CLIENT );
@@ -1014,6 +1022,7 @@ void shield_point_multi_setup()
 //	Create all the shield explosions that occurred on object *objp this frame.
 void create_shield_explosion_all(object *objp)
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int	i;
 	int	num;
 	int	count;
@@ -1057,6 +1066,7 @@ int	Break_value = -1;
 #ifndef NDEBUG
 void ship_draw_shield( object *objp)
 {
+	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int		model_num;
 	matrix	m;
 	int		i;
@@ -1148,6 +1158,7 @@ void ship_draw_shield( object *objp)
 // just one quadrant
 int ship_is_shield_up( object *obj, int quadrant )
 {
+	if ( !Game_profile->shields )	return 0;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	if ( (quadrant>=0) && (quadrant<=3))	{
 		// Just check one quadrant
 		if (obj->shields[quadrant] > max(2.0f, 0.1f * Ship_info[Ships[obj->instance].ship_info_index].shields/4.0f))	{
@@ -1209,23 +1220,6 @@ void bounce_it()
 }
 */
 
-#else 
-
-// stub out shield functions for the demo
-void shield_hit_init() {}
-void create_shield_explosion_all(object *objp) {}
-void shield_frame_init() {}
-void add_shield_point(int objnum, int tri_num, vector *hit_pos) {}
-void add_shield_point_multi(int objnum, int tri_num, vector *hit_pos) {}
-void shield_point_multi_setup() {}
-void shield_hit_close() {}
-void ship_draw_shield( object *objp) {}
-void shield_hit_page_in() {}
-void render_shields() {}
-float apply_damage_to_shield(object *objp, int shield_quadrant, float damage) {return damage;} 
-int ship_is_shield_up( object *obj, int quadrant ) {return 0;}
-
-#endif // DEMO
 
 
 //	return quadrant containing hit_pnt.

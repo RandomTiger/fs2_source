@@ -444,6 +444,7 @@
 #include "GrGlide.h"
 #include "GrOpenGL.h"
 #include "GrDirectDraw.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 screen gr_screen;
 
@@ -927,10 +928,8 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			break;
 		case GR_DIRECT3D:
 			// we only care about possible 32 bit stuff here
-			Cmdline_force_32bit = 0;
-			if(depth == 32){
-				Cmdline_force_32bit = 1;
-			} 
+			// Claude: 32 bit unless -force_16bit, whatever depth the launcher picked
+			Cmdline_force_32bit = Cmdline_force_16bit ? 0 : 1;
 
 			gr_d3d_init();
 
@@ -970,7 +969,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 	if (Web_cursor_bitmap < 0)	{
 		int nframes;						// used to pass, not really needed (should be 1)
 		Web_cursor_bitmap = bm_load_animation("cursorweb", &nframes);
-		Assert(Web_cursor_bitmap >= 0);		// if bitmap didnt load, thats not good (this is protected for in release tho)
+		Assert((Web_cursor_bitmap >= 0) || Cfile_fs1_data);		// if bitmap didnt load, thats not good (this is protected for in release tho)	// Claude: the FS1 demo has no cursorweb (docs/FS1_DEMO.md); its users check for it
 	}
 
 	gr_set_color(0,0,0);
@@ -1118,6 +1117,12 @@ void gr_bitmap(int x, int y)
 	int section_x, section_y;	
 	int x_line, y_line;
 	int w, h;
+
+	// Claude: FS1 data lacks some of FS2's interface overlays (Briefwin, InfoBox...); FS1's screen
+	// backgrounds already hold those frames, so a draw of one that did not load is skipped (docs/FS1_COMPAT.md)
+	if ( Cfile_fs1_data && (gr_screen.current_bitmap < 0) ) {
+		return;
+	}
 
 	// d3d and glide support texture poly shiz
 	if(((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) && Gr_bitmap_poly){		

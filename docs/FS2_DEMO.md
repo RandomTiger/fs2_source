@@ -208,7 +208,7 @@ demo suite.
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
-| 10 | **Header data-set field (GodotPrep, recording version 6).** When the demo work reaches GodotPrep, the header states the data set (D-056: a recording states what it was made with); the batch 2 check stays as the fallback for headers below 6. | Replay.cpp (GodotPrep) |
+| 10 | **Header data-set field (GodotPrep, recording version 6).** When the demo work reaches GodotPrep, the header states the data set (D-056: a recording states what it was made with); the batch 2 check stays as the fallback for headers below 6. FS1 data skips the batch 2 check until then, logging that it does: FS1's campaign and mission names are FS2's (sm1-01), so a recording below version 6 cannot name FS1 against FS2 (D-20261020-103504). This batch removes that skip. | Replay.cpp (GodotPrep) |
 
 ### Batch 1: old table and pilot loading (done)
 
@@ -354,19 +354,31 @@ Profile fields in `GlobalIncs/DataSetProfile.h`, each read where the `FS2_DEMO` 
 
 `full_version_screens` bits (set: the screen opens as in the full game; clear: what the demo build did):
 
-| Bit | Value | Site | Clear |
-|---|---|---|---|
-| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup |
-| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | restart-campaign popup (FS2 demo) |
-| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing |
-| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing |
-| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup |
-| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup |
-| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored |
+| Bit | Value | Site | Clear | FS2 retail | FS2 demo | FS1 retail | FS1 demo |
+|---|---|---|---|---|---|---|---|
+| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | `fs2_demo_walls` 1: restart-campaign popup (FS2 demo); 0: not-in-demo popup (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing | 1 | 0 | 1 | 1 |
+| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing | 1 | 0 | 1 | 1 |
+| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup | 1 | 0 | 1 | 1 |
+| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored | 1 | 0 | 1 | 1 |
+| `FVS_HOTKEYS` | 128 | F3 hotkey screen and its help line | `fs2_demo_walls` 1: nothing, no help line (FS2 demo); 0: not-in-demo popup, help line kept (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_MULTIPLAYER` | 256 | main hall multiplayer region | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OBJECTIVES` | 512 | in-mission objectives key | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OPTIONS_MULTI` | 1024 | options multiplayer tab | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_DEBRIEF_MEDALS` | 2048 | debriefing medals button | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_CUTSCENES` | 4096 | Simulator room, Credits and Tech room Cutscenes buttons | not-in-demo popup (#87) | 1 | 0 | 1 | 1 |
 
-The field is FS1Demo's `full_version_screens` (D-20261020-214042), where it is one 1/0 wall over the FS1
-demo's missing screens. The two layouts are reconciled at the first merge of either branch into a common
-ancestor; `docs/FS1_DEMO.md` lists the FS1 sites.
+`FVS_ALL` is `(1<<13) - 1`. Bits 8-11 are FS1Compat's, numbered at the first Enhanced merge; `FVS_CUTSCENES`
+(FS2Demo, #87) takes bit 12 above them, and a child's new bit takes the first bit above Enhanced's `FVS_ALL`
+(D-20261022-161946). The FS1 demo row sets `FVS_CUTSCENES`: it walls only the FS2 demo, and FS1Compat ran
+retail code at those sites (D-20261021-142001 rule 5). No code, recording, pilot or save stores the numbers.
+
+FS1Demo's `full_version_screens` (D-20261020-214042), one 1/0 wall over the FS1 demo's missing screens, was
+joined into these bits at the FS2Demo merge into Enhanced (D-20261021-142001): FS1 walls with an FS2 bit use it,
+the rest got bits 256 up. A bit means only "walled"; where the two demos' walled branches differ, `fs2_demo_walls`
+picks the branch. `docs/FS1_DEMO.md` lists the FS1 sites.
 
 Sites the run-time switcher re-runs (D-20261019-135406), since they are read once: the pilot-screen choice
 at `GS_EVENT_GAME_INIT` and the IPX button hidden when the multi options screen is created. The upsell
@@ -392,7 +404,7 @@ Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the
 
 | Field | FS2 retail | FS2 demo | FS1 retail | FS1 demo | Sites |
 |---|---|---|---|---|---|
-| `brief_fade` | 1 | 0 | 1 | 0 (ruled, not a placeholder) | briefing static fade (`briefmap.ani`) and ship select button flash (MissionBrief.cpp) |
+| `brief_fade` | 1 | 0 | 1 | 1 | briefing static fade (`briefmap.ani`) and ship select button flash (MissionBrief.cpp); FS1 demo 1 with FS1's `brief_fade_anim` 0, which keeps the static sound and draws nothing (D-20261021-142002) |
 | `loadout_anim_loop` | 1 | 0 | 1 | 1 | ship and weapon select loop frames 51 / 52, demo 0 / 1 (MissionShipChoice.cpp, MissionWeaponChoice.cpp) |
 | `hotkeys` | 1 | 0 | 1 | 1 | F5-F12 target hotkeys (KeyControl.cpp) and their help lines (GameplayHelp.cpp) |
 | `artillery_lock` | 1 | 0 | 1 | 1 | `ship_update_artillery_lock` (Ship.cpp) |
@@ -400,7 +412,7 @@ Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the
 | `breakup_fx` | 1 | 0 | 1 | 1 | ship break-up particle range, life and scale (ShipFX.cpp); affects game logic (D-20261021-110833) |
 
 `full_version_screens` gains `FVS_HOTKEYS` (128): the F3 hotkey screen (FreeSpace.cpp) and its help line;
-clear, F3 does nothing for the player; under the autotest its refusal branch calls `autotest_not_in_demo()` so the menu tour logs the Hotkeys stop and its help view "SKIP not in demo" (#91, D-20261022-144601). `FVS_ALL` is now `(1<<8) - 1`.
+clear, F3 does nothing for the player; under the autotest its refusal branch calls `autotest_not_in_demo()` so the menu tour logs the Hotkeys stop and its help view "SKIP not in demo" (#91, D-20261022-144601). `FVS_ALL` is now `(1<<13) - 1`, with `FVS_CUTSCENES` at bit 12 (D-20261022-161946).
 
 No field: the demo key check in ControlsConfig.cpp is compiled always, as the shipped demo's list was empty
 (D-20261021-100517); the `show_framerate` console command is compiled in Release on every data set.
@@ -432,6 +444,14 @@ The open questions from the first version of this brief, as Tom answered them.
 4. **Original FS2Demo.exe as a reference run: not now.** It may become one later, if needed. It would
    need DDrawCompat in the demo folder and its registry settings (already present, virtualised).
 5. **The FS1 `DEMO` macro blocks: held** for the FS1 decision (D-064). Batch 9 leaves them alone.
+
+## 7. Open: the demo's second title screen (Tom, 2026-10-21)
+
+The FS2 demo has two title screens. The first is `display_title_screen()` in `FreeSpace.cpp`, drawn
+during `game_init` from the data set profile's `title_screen`. The second is in `PlayerMenu.cpp`
+(`#ifdef FS2_DEMO`): `DemoTitle1` loaded in `player_select_init` and held for 5 seconds by
+`demo_title_blit()`. Volition commented out its only call (`// demo_title_blit();`), so it never shows.
+Still to decide whether to bring it back, and how it relates to the data set profile's title screen.
 
 ## Files
 

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -51,12 +51,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\..\Debug\</OutDir>
-    <IntDir>.\..\Debug\</IntDir>
+    <IntDir>.\..\Debug\code\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\..\Release\</OutDir>
-    <IntDir>.\..\Release\</IntDir>
+    <IntDir>.\..\Release\code\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -70,13 +70,13 @@
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;replay;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PreprocessorDefinitions>_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\Debug\</AssemblerListingLocation>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation><!-- Claude: no /FR or bscmake, about 18 s per clean Debug build (2026-10-20) -->
-      <PrecompiledHeaderOutputFile>.\..\Debug\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\Debug\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\Debug\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <ResourceCompile>
@@ -90,6 +90,8 @@
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\..\Debug\code.lib</OutputFile>
+      <!-- Claude: LNK4006, the DirectX import libraries packed into code.lib each define __NULL_IMPORT_DESCRIPTOR; harmless (D-20261019-024004) -->
+      <AdditionalOptions>/ignore:4006 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -106,12 +108,12 @@
       <OmitFramePointers>true</OmitFramePointers>
       <AdditionalIncludeDirectories>..;anim;asteroid;bmpman;cfile;cmdline;cmeasure;controlconfig;cutscene;debris;debugconsole;directx;fireball;fred;freespace2;fs2launch;gamehelp;gamesequence;gamesnd;glide;globalincs;graphics;hud;io;jumpnode;lighting;math;menuui;mission;missionui;model;movie;network;object;observer;osapi;palman;parse;particle;pcxutils;physics;playerman;popup;radar;render;ship;sndman;sound;starfield;stats;ui;vcodec;weapon;localization;fred2;nebula;TgaUtils;demo;replay;inetfile;exceptionhandler;3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PreprocessorDefinitions>_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\..\Release\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <Culture>0x0409</Culture>
@@ -124,6 +126,8 @@
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\..\Release\code.lib</OutputFile>
+      <!-- Claude: LNK4006, the DirectX import libraries packed into code.lib each define __NULL_IMPORT_DESCRIPTOR; harmless (D-20261019-024004) -->
+      <AdditionalOptions>/ignore:4006 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -135,12 +139,20 @@
     <ClCompile Include="CFile\CfileArchive.cpp" />
     <ClCompile Include="CFile\CfileList.cpp" />
     <ClCompile Include="CFile\CfileSystem.cpp" />
+    <ClCompile Include="CFile\CabReader.cpp" />
+    <ClCompile Include="CFile\DataSetFs1.cpp" />
     <ClCompile Include="CFile\DataSetInstall.cpp" />
     <ClCompile Include="Cmdline\cmdline.cpp" />
     <ClCompile Include="CMeasure\CMeasure.cpp" />
     <ClCompile Include="ControlConfig\ControlsConfig.cpp" />
     <ClCompile Include="ControlConfig\ControlsConfigCommon.cpp" />
     <ClCompile Include="Cutscene\Cutscenes.cpp" />
+    <ClCompile Include="Movie\Movie.cpp">
+      <!-- Claude: the Xiph headers are third-party (lib/xiph/THIRD_PARTY.md); /external keeps their warnings out of the warning count, every configuration (D-20261020-222203) -->
+      <AdditionalOptions>/external:I ..\lib\xiph\ogg\include /external:I ..\lib\xiph\theora\include /external:I ..\lib\xiph\vorbis\include %(AdditionalOptions)</AdditionalOptions>
+      <!-- Claude: the property, not /external:W0 in the options, which clashed with the /external:W4 MSBuild adds for Level4 (D9025) -->
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+    </ClCompile>
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Demo\Demo.cpp" />
@@ -171,6 +183,7 @@
     <ClCompile Include="Graphics\Gradient.cpp" />
     <ClCompile Include="Graphics\GrD3D.cpp" />
     <ClCompile Include="Graphics\GrD3DRender.cpp" />
+    <ClCompile Include="Graphics\GrD3DGlow.cpp" />
     <ClCompile Include="Graphics\GrD3DTexture.cpp" />
     <ClCompile Include="Graphics\GrDirectDraw.cpp" />
     <ClCompile Include="Graphics\GrGlide.cpp" />
@@ -209,6 +222,10 @@
     <ClCompile Include="Io\Mouse.cpp" />
     <ClCompile Include="Io\swff_lib.cpp" />
     <ClCompile Include="Io\Timer.cpp" />
+    <ClCompile Include="Pad\PadCore.cpp" />
+    <ClCompile Include="Pad\PadGame.cpp" />
+    <ClCompile Include="Pad\PadHud.cpp" />
+    <ClCompile Include="Pad\PadXInput.cpp" />
     <ClCompile Include="JumpNode\JumpNode.cpp" />
     <ClCompile Include="Lighting\Lighting.cpp" />
     <ClCompile Include="Localization\fhash.cpp" />
@@ -304,6 +321,7 @@
     <ClCompile Include="OsApi\OutWnd.cpp" />
     <ClCompile Include="Palman\PalMan.cpp" />
     <ClCompile Include="Parse\Encrypt.cpp" />
+    <ClCompile Include="Parse\Fs1Tables.cpp" />
     <ClCompile Include="Parse\PARSELO.CPP" />
     <ClCompile Include="Parse\SEXP.CPP" />
     <ClCompile Include="Particle\Particle.cpp" />
@@ -381,11 +399,14 @@
     <ClInclude Include="CFile\cfile.h" />
     <ClInclude Include="CFile\CfileArchive.h" />
     <ClInclude Include="CFile\CfileSystem.h" />
+    <ClInclude Include="CFile\CabReader.h" />
+    <ClInclude Include="CFile\DataSetFs1.h" />
     <ClInclude Include="CFile\DataSetInstall.h" />
     <ClInclude Include="Cmdline\cmdline.h" />
     <ClInclude Include="CMeasure\CMeasure.h" />
     <ClInclude Include="ControlConfig\ControlsConfig.h" />
     <ClInclude Include="Cutscene\Cutscenes.h" />
+    <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Demo\Demo.h" />
     <ClInclude Include="Replay\Autotest.h" />
@@ -437,6 +458,7 @@
     <ClInclude Include="Graphics\Font.h" />
     <ClInclude Include="Graphics\Gradient.h" />
     <ClInclude Include="Graphics\GrD3D.h" />
+    <ClInclude Include="Graphics\GrD3DGlow.h" />
     <ClInclude Include="Graphics\GrD3DInternal.h" />
     <ClInclude Include="Graphics\GrDirectDraw.h" />
     <ClInclude Include="Graphics\GrGlide.h" />
@@ -478,6 +500,10 @@
     <ClInclude Include="Io\sw_force.h" />
     <ClInclude Include="Io\sw_guid.hpp" />
     <ClInclude Include="Io\Timer.h" />
+    <ClInclude Include="Pad\PadCore.h" />
+    <ClInclude Include="Pad\PadGame.h" />
+    <ClInclude Include="Pad\PadState.h" />
+    <ClInclude Include="Pad\PadXInput.h" />
     <ClInclude Include="JumpNode\JumpNode.h" />
     <ClInclude Include="Lighting\Lighting.h" />
     <ClInclude Include="Localization\fhash.h" />
@@ -566,6 +592,7 @@
     <ClInclude Include="OsApi\OutWnd.h" />
     <ClInclude Include="Palman\PalMan.h" />
     <ClInclude Include="Parse\Encrypt.h" />
+    <ClInclude Include="Parse\Fs1Tables.h" />
     <ClInclude Include="Parse\parselo.h" />
     <ClInclude Include="Parse\SEXP.H" />
     <ClInclude Include="Particle\Particle.h" />

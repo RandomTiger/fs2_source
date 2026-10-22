@@ -153,6 +153,7 @@
 #include "DataSetProfile.h"	// Claude
 #include "AlphaColors.h"
 #include "Localize.h"
+#include "parselo.h"	// Claude: Mp, EOF_CHAR
 
 #define CREDITS_MUSIC_DELAY	2000
 #define CREDITS_SCROLL_RATE	15.0f
@@ -255,6 +256,9 @@ static float Credits_counter;
 static int Credits_artwork_index;
 static int Credits_bmps[NUM_IMAGES];
 
+// Claude: our names, shown before the original credits on every data set, in credits.tbl's own heading form (Tom; D-20261021-095900, D-20261021-095901)
+#define CREDITS_SOURCE_PORT	"Source Port:\n\nRandomTiger and Claude (Anthropic)\n\n\n"
+
 char *Credit_text = NULL;
 int Credit_text_malloced = 0;			// TRUE if credit_text was malloced
 
@@ -323,6 +327,24 @@ int credits_screen_button_pressed(int n)
 	return 0;
 }
 
+// Claude: FS1 data: the credits screen in FS1's layout (retail FS1 screenshot; docs/FS1_COMPAT.md), its buttons placed by
+// matching FS1's art against it, the artwork centred in FS1's window
+static void credits_fs1_layout()
+{
+	// tech database, simulator, cutscenes, credits tabs; exit
+	static int Fs1_coords[NUM_BUTTONS][2] = { {0,0}, {0,19}, {0,35}, {0,56}, {561,411} };
+	static int Fs1_image[4] = { 229, 20, 388, 283 };
+	int i;
+
+	for (i=0; i<NUM_BUTTONS; i++) {
+		Buttons[i][GR_640].x = Fs1_coords[i][0];
+		Buttons[i][GR_640].y = Fs1_coords[i][1];
+	}
+	for (i=0; i<4; i++) {
+		Credits_image_coords[GR_640][i] = Fs1_image[i];
+	}
+}
+
 void credits_init()
 {
 	int i, w, h;
@@ -352,7 +374,7 @@ void credits_init()
 	if(fp != NULL){
 		int size;
 		size = cfilelength(fp);
-		Credit_text = (char *) malloc(size + 200);
+		Credit_text = (char *) malloc(size + 200 + strlen(CREDITS_SOURCE_PORT));	// Claude: room for our block
 		cfclose(fp);
 
 		// open localization and parse
@@ -361,8 +383,11 @@ void credits_init()
 		reset_parse();
 
 		// keep reading everything in
-		strcpy(Credit_text,"");		
+		strcpy(Credit_text,CREDITS_SOURCE_PORT);		// Claude: was strcpy(Credit_text,""); our block first
 		while(!check_for_string_raw("#end")){			
+			if ( Cfile_fs1_data && (*Mp == EOF_CHAR) ) {	// Claude: FS1's credits.tbl has no #end; stop at the end of the text
+				break;
+			}
 			stuff_string_line(line, 511);
 			linep1 = line;
 
@@ -372,12 +397,15 @@ void credits_init()
 				strcat(Credit_text, "\n");			
 				linep1 = linep2;
 			} while (linep2 != NULL);
+			if ( Cfile_fs1_data && (Mp[-1] == EOF_CHAR) ) {	// Claude: the last line had no newline, so Mp has stepped past the end
+				break;
+			}
 		}		
 
 		// close localization
 		lcl_ext_close();	
 	} else {
-		Credit_text = NOX("No credits available.\n");
+		Credit_text = NOX(CREDITS_SOURCE_PORT "No credits available.\n");	// Claude: our block first
 	}	
 
 	int ch;
@@ -493,6 +521,9 @@ void credits_init()
 	Credit_stop_pos = -i2fl(h);
 	Credit_position = Credit_start_pos;
 
+	if ( Cfile_fs1_data ) {	// Claude
+		credits_fs1_layout();
+	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Credits_bitmap_mask_fname[gr_screen.res]);
 	common_set_interface_palette("InterfacePalette");  // set the interface palette

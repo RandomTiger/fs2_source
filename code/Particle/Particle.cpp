@@ -169,6 +169,7 @@
 #include "OsApi.h"
 #include "object.h"
 #include "Timer.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 typedef struct particle {
 	// old style data
@@ -576,12 +577,12 @@ void particle_render_all()
 					int framenum = p->optional_data;
 
 					if ( p->nframes > 1 )	{
-						int n = fl2i(pct_complete * p->nframes + 0.5);
+						int pn = fl2i(pct_complete * p->nframes + 0.5);	// Claude: was n, which hid the outer local (C4456)
 
-						if ( n < 0 ) n = 0;
-						else if ( n > p->nframes-1 ) n = p->nframes-1;
+						if ( pn < 0 ) pn = 0;
+						else if ( pn > p->nframes-1 ) pn = p->nframes-1;
 
-						framenum += n;
+						framenum += pn;
 					}
 
 					// set the bitmap
@@ -657,6 +658,7 @@ void particle_render_all()
 				}
 
 			case PARTICLE_SMOKE2:	{
+					if ( !Game_profile->smoke2 )	break;	// Claude: the FS1 demo has no ParticleSmoke02.ani; the particles live but draw nothing (D-20261020-163608)
 					int framenum = fl2i(pct_complete * Anim_num_frames_smoke2 + 0.5);
 
 					if ( framenum < 0 ) framenum = 0;

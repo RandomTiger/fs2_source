@@ -915,9 +915,9 @@ void garbage_collect_path_points()
 
 			if ((aip->path_length > 0) && (aip->path_start > -1)) {
 
-				for (int i=aip->path_start; i<aip->path_start + aip->path_length; i++) {
-					Assert(pp_xlate[i] == 0);	//	If this is not 0, then two paths use this point!
-					pp_xlate[i] = 1;
+				for (int ti=aip->path_start; ti<aip->path_start + aip->path_length; ti++) {	// Claude: was i, which hid the outer local (C4456)
+					Assert(pp_xlate[ti] == 0);	//	If this is not 0, then two paths use this point!
+					pp_xlate[ti] = 1;
 				}
 			}
 		}
@@ -8398,13 +8398,13 @@ void ai_chase()
 
 							if (timestamp_elapsed(swp->next_secondary_fire_stamp[current_bank])) {
 								if (tswp->current_secondary_bank >= 0) {
-									weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[tswp->current_secondary_bank]];
+									weapon_info	*bank_swip = &Weapon_info[tswp->secondary_bank_weapons[tswp->current_secondary_bank]];	// Claude: was swip, which hid the outer local (C4456)
 									float firing_range;
 									
-									if (swip->wi_flags & WIF_BOMB)
-										firing_range = swip->max_speed * swip->lifetime * 0.75f;
+									if (bank_swip->wi_flags & WIF_BOMB)
+										firing_range = bank_swip->max_speed * bank_swip->lifetime * 0.75f;
 									else
-										firing_range = swip->max_speed * swip->lifetime * (Game_skill_level + 1 + aip->ai_class/2)/NUM_SKILL_LEVELS;
+										firing_range = bank_swip->max_speed * bank_swip->lifetime * (Game_skill_level + 1 + aip->ai_class/2)/NUM_SKILL_LEVELS;
 
 									// reduce firing range in nebula
 									extern int Nebula_sec_range;
@@ -8415,7 +8415,7 @@ void ai_chase()
 									//	If firing a spawn weapon, distance doesn't matter.
 									int	spawn_fire = 0;
 
-									if (swip->wi_flags & WIF_SPAWN) {
+									if (bank_swip->wi_flags & WIF_SPAWN) {
 										int	count;
 
 										count = num_nearby_fighters(get_enemy_team_mask(OBJ_INDEX(Pl_objp)), &Pl_objp->pos, 1000.0f);
@@ -8439,9 +8439,9 @@ void ai_chase()
 											float t;
 											
 											if (aip->ai_flags & AIF_UNLOAD_SECONDARIES) {
-												t = swip->fire_wait;
+												t = bank_swip->fire_wait;
 											} else {
-												t = set_secondary_fire_delay(aip, temp_shipp, swip);
+												t = set_secondary_fire_delay(aip, temp_shipp, bank_swip);
 											}
 											//nprintf(("AI", "Next secondary to be fired in %7.3f seconds.\n", t));
 											swp->next_secondary_fire_stamp[current_bank] = timestamp((int) (t*1000.0f));
@@ -10146,9 +10146,9 @@ void ai_dock()
 		float dist = dock_orient_and_approach(Pl_objp, &Objects[aip->goal_objnum], DOA_DOCK);
 		Assert(dist != UNINITIALIZED_VALUE);
 
-		object	*goal_objp = &Objects[aip->goal_objnum];
-		Assert(goal_objp->type == OBJ_SHIP);
-		ship			*goal_shipp = &Ships[goal_objp->instance];		
+		object	*guard_goal_objp = &Objects[aip->goal_objnum];	// Claude: was goal_objp, which hid the outer local (C4456)
+		Assert(guard_goal_objp->type == OBJ_SHIP);
+		ship			*goal_shipp = &Ships[guard_goal_objp->instance];		
 		ai_info		*goal_aip = &Ai_info[goal_shipp->ai_index];
 
 		//nprintf(("AI", "Dock 4: dist = %7.3f\n", dist));
@@ -10156,16 +10156,16 @@ void ai_dock()
 		//	Make sure repair has not broken off.
 		if (dist > 5.0f) {	//	Oops, too far away!
 			if ( goal_aip->ai_flags & AIF_BEING_REPAIRED )
-				ai_do_objects_repairing_stuff( goal_objp, Pl_objp, REPAIR_INFO_BROKEN);
+				ai_do_objects_repairing_stuff( guard_goal_objp, Pl_objp, REPAIR_INFO_BROKEN);
 
-			if (dist > Pl_objp->radius*2 + goal_objp->radius*2) {
+			if (dist > Pl_objp->radius*2 + guard_goal_objp->radius*2) {
 				//	Got real far away from goal, so move back a couple modes and try again.
 				aip->submode = AIS_DOCK_2;
 				aip->submode_start_time = Missiontime;
 			}
 		} else {
 			if ( goal_aip->ai_flags & AIF_AWAITING_REPAIR )
-				ai_do_objects_repairing_stuff( goal_objp, Pl_objp, REPAIR_INFO_BEGIN );
+				ai_do_objects_repairing_stuff( guard_goal_objp, Pl_objp, REPAIR_INFO_BEGIN );
 		}
 
 		break;
@@ -11998,9 +11998,9 @@ void ai_maybe_launch_cmeasure(object *objp, ai_info *aip)
 	
 			aip->nearest_locked_distance = dist;
 			//	Verify that this object is really homing on us.
-			object	*weapon_objp;
+			object	*locked_objp;	// Claude: was weapon_objp, which hid the outer local (C4456)
 
-			weapon_objp = &Objects[aip->nearest_locked_object];
+			locked_objp = &Objects[aip->nearest_locked_object];
 
 			float	fire_chance;
 
@@ -12021,8 +12021,8 @@ void ai_maybe_launch_cmeasure(object *objp, ai_info *aip)
 				return;
 			}
 
-			if (weapon_objp->type == OBJ_WEAPON) {
-				if (weapon_objp->instance >= 0) {
+			if (locked_objp->type == OBJ_WEAPON) {
+				if (locked_objp->instance >= 0) {
 					//nprintf(("AI", "Firing countermeasure at time t=%7.3f\n", f2fl(Missiontime)));
 					ship_launch_countermeasure(objp);
 					shipp->cmeasure_fire_stamp = timestamp(2*CMEASURE_WAIT);
@@ -13061,10 +13061,10 @@ void ai_maybe_warp_out(object *objp)
 		return;
 
 	if (!(shipp->flags & SF_DEPARTING)) {
-		ship_info	*sip;
+		ship_info	*other_sip;	// Claude: was sip, which hid the outer local (C4456)
 
-		sip = &Ship_info[shipp->ship_info_index];
-		if (sip->flags & (SIF_FIGHTER | SIF_BOMBER)) {
+		other_sip = &Ship_info[shipp->ship_info_index];
+		if (other_sip->flags & (SIF_FIGHTER | SIF_BOMBER)) {
 			if (aip->warp_out_timestamp == 0) {
 				//if (ship_get_subsystem_strength(shipp, SUBSYSTEM_WEAPONS) == 0.0f) {
 				//	aip->warp_out_timestamp = timestamp(((myrand() % 10) + 10) * 1000);

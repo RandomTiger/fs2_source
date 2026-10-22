@@ -297,6 +297,7 @@
 #include "AnimPlay.h"
 #include "FreeSpace.h"
 #include "Cmeasure.h"
+#include "../Pad/PadGame.h"	// Claude: control pad
 #include "MissionHotKey.h"
 #include "Afterburner.h"
 #include "MissionParse.h"
@@ -329,7 +330,7 @@
 #include "MissionMessage.h"
 #include "mainhallmenu.h"
 #include "aigoals.h"
-#include "DataSetProfile.h"	// Claude
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 // --------------------------------------------------------------
 // Global to file 
@@ -1823,6 +1824,8 @@ void game_process_keys()
 		} // end switch
 	} while (k);
 
+	pad_frame();	// Claude: control pad sets its button_info bits
+
 	button_info_do(&Player->bi);	// call functions based on status of button_info bit vectors
 }
 
@@ -2580,6 +2583,10 @@ int button_function(int n)
 		// show the mission goals screen
 		case SHOW_GOALS:
 			control_used(SHOW_GOALS);
+			if ( !(Game_profile->full_version_screens & FVS_OBJECTIVES) ) {	// Claude: no Objectives-m in FS1's demo data (D-20261020-214042)
+				game_feature_not_in_demo_popup();
+				break;
+			}
 			gameseq_post_event( GS_EVENT_SHOW_GOALS );
 			break;
 

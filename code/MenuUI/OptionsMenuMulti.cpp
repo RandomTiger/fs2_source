@@ -312,6 +312,7 @@ ui_button_info Om_pro_buttons[GR_NUM_RESOLUTIONS][OM_PRO_NUM_BUTTONS] = {
 };
 
 UI_GADGET Om_pro_bogus;
+static UI_BUTTON Fs1_broadcast_no;	// Claude: FS1 data: local broadcast off (options_multi_fs1_layout)
 
 // test
 #define OM_PRO_NUM_TEXT		12
@@ -943,6 +944,10 @@ void options_multi_disable_protocol_controls()
 	// bogus control
 	Om_pro_bogus.hide();
 	Om_pro_bogus.disable();
+	if ( Cfile_fs1_data ) {	// Claude
+		Fs1_broadcast_no.hide();
+		Fs1_broadcast_no.disable();
+	}
 }
 
 // enable/unhide all the controls for the protocol section
@@ -968,6 +973,16 @@ void options_multi_enable_protocol_controls()
 	Om_tracker_login.unhide();
 	Om_tracker_passwd.unhide();
 	Om_tracker_squad_name.unhide();
+	if ( Cfile_fs1_data ) {	// Claude: FS1 has no TCP/IPX choice or squadron name; its own local broadcast off button
+		Om_pro_buttons[gr_screen.res][OM_PRO_TCP].button.hide();
+		Om_pro_buttons[gr_screen.res][OM_PRO_TCP].button.disable();
+		Om_pro_buttons[gr_screen.res][OM_PRO_IPX].button.hide();
+		Om_pro_buttons[gr_screen.res][OM_PRO_IPX].button.disable();
+		Om_tracker_squad_name.hide();
+		Om_tracker_squad_name.disable();
+		Fs1_broadcast_no.enable();
+		Fs1_broadcast_no.unhide();
+	}
 
 	// enable the click detection button
 	Om_ip_button.enable();	
@@ -1005,6 +1020,16 @@ void options_multi_protocol_do(int key)
 	// force draw the correct "local broadcast" button	
 	if(Om_local_broadcast){
 		Om_pro_buttons[gr_screen.res][OM_PRO_LOCAL_BROADCAST].button.draw_forced(2);
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1's local broadcast off button
+		if ( Fs1_broadcast_no.pressed() && !Om_input_mode ) {
+			Om_local_broadcast = 0;
+			gamesnd_play_iface(SND_USER_SELECT);
+		}
+		if ( !Om_local_broadcast ) {
+			Fs1_broadcast_no.draw_forced(2);
+		}
 	}
 
 	// draw the "vmt" button if it is selected
@@ -1062,6 +1087,8 @@ void options_multi_protocol_do(int key)
 		// tab through the tracker input controls
 		if(Om_tracker_login.has_focus()){
 			Om_tracker_passwd.set_focus();
+		} else if(Om_tracker_passwd.has_focus() && Cfile_fs1_data){	// Claude: FS1 has no squadron name
+			Om_tracker_login.set_focus();
 		} else if(Om_tracker_passwd.has_focus()){
 			Om_tracker_squad_name.set_focus();
 		} else if(Om_tracker_squad_name.has_focus()){
@@ -1197,7 +1224,7 @@ void options_multi_protocol_button_pressed(int n)
 
 		if(!Om_local_broadcast){			
 			Om_local_broadcast = 1;
-		} else {
+		} else if ( !Cfile_fs1_data ) {	// Claude: in FS1 data this is the yes button; FS1's no button clears it
 			Om_local_broadcast = 0;
 		}
 
@@ -1590,6 +1617,11 @@ void options_multi_enable_gen_controls()
 	for(idx=0;idx<OM_GEN_NUM_BUTTONS;idx++){		
 		Om_gen_buttons[gr_screen.res][idx].button.enable();
 		Om_gen_buttons[gr_screen.res][idx].button.unhide();
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude: FS1 has no LAN object update
+		Om_gen_buttons[gr_screen.res][OM_GEN_OBJ_LAN].button.hide();
+		Om_gen_buttons[gr_screen.res][OM_GEN_OBJ_LAN].button.disable();
 	}
 
 	// bogus control
@@ -2336,16 +2368,91 @@ void options_multi_vox_plist_scroll_up()
 // extern functions -----------------------------------------------------
 
 // called when the options screen is initialized, pass in the UI window
+// Claude: FS1 data: the multiplayer tab in FS1's layout (docs/FS1_COMPAT.md): the general sub-tab placed by matching
+// FS1's OPb_ art against a retail screenshot, the voice sub-tab, with no screenshot, against FS1's own background.
+// FS1's mask numbers differ from FS2's.  FS1 has no TCP/IPX choice, LAN object update or squadron name, so those are
+// hidden; its local broadcast is a yes/no pair where FS2 has one toggle, so its no button is Fs1_broadcast_no.
+static void options_multi_fs1_button(ui_button_info *b, int *coords, char *name)
+{
+	if (coords[2] >= 0) {
+		sprintf(name, "OPb_%d", coords[2]);
+		b->filename = name;
+	}
+	b->x = coords[0];
+	b->y = coords[1];
+	b->hotspot = coords[2];
+}
+
+static void options_multi_fs1_layout()
+{
+	// x, y, hotspot (-1: none in FS1, hidden).  TCP, IPX, scroll up, scroll down, add, delete, local broadcast on, PXO,
+	// voice tab, general tab
+	static int Fs1_pro[OM_PRO_NUM_BUTTONS][3] = { {0,0,-1}, {0,0,-1}, {252,129,87}, {252,166,88}, {26,131,85}, {26,166,86}, {26,221,89}, {26,243,91}, {402,72,92}, {487,72,93} };
+	// object update low, medium, high, LAN; pilot pix yes, no; missions to /multidata, to /missions; flush cache never, before game
+	static int Fs1_gen[OM_GEN_NUM_BUTTONS][3] = { {410,121,94}, {410,143,95}, {410,165,96}, {0,0,-1}, {410,199,97}, {496,199,98}, {410,233,99}, {410,256,100}, {410,290,101}, {410,313,102} };
+	// mic test, voice transmission on, off, player list up, down, mute
+	static int Fs1_vox[OM_VOX_NUM_BUTTONS][3] = { {413,110,103}, {413,186,105}, {491,186,106}, {413,253,108}, {413,291,109}, {413,229,107} };
+	static char Fs1_names[OM_PRO_NUM_BUTTONS + OM_GEN_NUM_BUTTONS + OM_VOX_NUM_BUTTONS][16];
+	int i;
+
+	for (i=0; i<OM_PRO_NUM_BUTTONS; i++) {
+		options_multi_fs1_button(&Om_pro_buttons[GR_640][i], Fs1_pro[i], Fs1_names[i]);
+	}
+	for (i=0; i<OM_GEN_NUM_BUTTONS; i++) {
+		options_multi_fs1_button(&Om_gen_buttons[GR_640][i], Fs1_gen[i], Fs1_names[OM_PRO_NUM_BUTTONS + i]);
+	}
+	for (i=0; i<OM_VOX_NUM_BUTTONS; i++) {
+		options_multi_fs1_button(&Om_vox_buttons[GR_640][i], Fs1_vox[i], Fs1_names[OM_PRO_NUM_BUTTONS + OM_GEN_NUM_BUTTONS + i]);
+	}
+	Om_vox_sliders[GR_640][OM_VOX_QOS_SLIDER].filename = "OPb_104";
+	Om_vox_sliders[GR_640][OM_VOX_QOS_SLIDER].x = 412;
+	Om_vox_sliders[GR_640][OM_VOX_QOS_SLIDER].y = 151;
+	Om_vox_sliders[GR_640][OM_VOX_QOS_SLIDER].hotspot = 104;
+
+	// inside FS1's boxes: the IP address list with the new address line under it, PXO login and password, player list
+	Ip_list_coords[GR_640][0] = 106;
+	Ip_list_coords[GR_640][1] = 135;
+	Ip_list_coords[GR_640][2] = 140;
+	Ip_list_coords[GR_640][3] = 50;
+	Ip_input_coords[GR_640][0] = 106;
+	Ip_input_coords[GR_640][1] = 187;
+	Ip_input_coords[GR_640][2] = 140;
+	Om_tracker_login_coords[GR_640][0] = 62;
+	Om_tracker_login_coords[GR_640][1] = 288;
+	Om_tracker_login_coords[GR_640][2] = 176;
+	Om_tracker_passwd_coords[GR_640][0] = 62;
+	Om_tracker_passwd_coords[GR_640][1] = 331;
+	Om_tracker_passwd_coords[GR_640][2] = 176;
+	Om_vox_plist_coords[GR_640][0] = 446;
+	Om_vox_plist_coords[GR_640][1] = 260;
+	Om_vox_plist_coords[GR_640][2] = 140;
+	Om_vox_plist_coords[GR_640][3] = 62;
+}
+
+static void options_multi_fs1_create()
+{
+	Fs1_broadcast_no.create(Om_window, "", 102, 221, 1, 1, 0, 1);
+	Fs1_broadcast_no.set_highlight_action(common_play_highlight_sound);
+	Fs1_broadcast_no.set_bmaps("OPb_90");
+	Fs1_broadcast_no.link_hotspot(90);
+}
+
 void options_multi_init(UI_WINDOW *options_window)
 {
 	// assign the options window
 	Om_window = options_window;
+	if ( Cfile_fs1_data ) {	// Claude
+		options_multi_fs1_layout();
+	}
 
 	// load the background bitmaps
 	options_multi_load_bmaps();	
 
 	// load the controls for the protocol area
 	options_multi_load_protocol_controls();
+	if ( Cfile_fs1_data ) {	// Claude
+		options_multi_fs1_create();
+	}
 
 	// load the controls for the general tab
 	options_multi_load_gen_controls();

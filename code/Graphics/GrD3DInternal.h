@@ -160,6 +160,8 @@ extern DDCAPS DD_hel_caps;
 extern int D3D_texture_divider;
 
 extern int D3D_32bit;
+extern int D3D_32bit_textures;			// Claude: 32 bit textures
+extern DDPIXELFORMAT			TextureFormat_8888;	// Claude: 32 bit textures
 
 extern char* d3d_error_string(HRESULT error);
 

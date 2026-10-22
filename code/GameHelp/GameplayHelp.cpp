@@ -128,6 +128,7 @@
 #include "AlphaColors.h"
 #include "beam.h"
 #include "AudioStr.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude
 
 // text positioning constats
@@ -304,6 +305,17 @@ void gameplay_help_set_title(char *title)
 }
 
 // called once when the gameplay help state is entered
+// Claude: FS1 data: the page buttons where retail FS1 draws them, and its continue button, which FS1's F1 art and mask
+// number 3 (FS1's 2 is an options button) (retail FS1 screenshot; docs/FS1_COMPAT.md)
+static void gameplay_help_fs1_layout()
+{
+	Buttons[GR_640][PREVIOUS_PAGE_BUTTON].x = 71;	Buttons[GR_640][PREVIOUS_PAGE_BUTTON].y = 373;
+	Buttons[GR_640][NEXT_PAGE_BUTTON].x = 121;		Buttons[GR_640][NEXT_PAGE_BUTTON].y = 373;
+	Buttons[GR_640][CONTINUE_BUTTON].filename = "F1B_03";
+	Buttons[GR_640][CONTINUE_BUTTON].x = 554;		Buttons[GR_640][CONTINUE_BUTTON].y = 411;
+	Buttons[GR_640][CONTINUE_BUTTON].hotspot = 3;
+}
+
 void gameplay_help_init()
 {
 	int i;
@@ -313,6 +325,9 @@ void gameplay_help_init()
 		return;
 	}
 
+	if ( Cfile_fs1_data ) {	// Claude
+		gameplay_help_fs1_layout();
+	}
 	common_set_interface_palette("InterfacePalette");  // set the interface palette
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Game_help_mask_filename[gr_screen.res]);
@@ -478,12 +493,12 @@ void gameplay_help_draw_text()
 			y_offset += separation;
 			y_offset += separation;
 
-			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "F1", 135), XSTR( "context-sensitive help", 136));
+			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "F1", 135), (Cfile_fs1_data ? "context sensitive help" : XSTR( "context-sensitive help", 136)));	// Claude: FS1's wording
 
 			y_offset += separation;
 			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "F2", 137), XSTR( "options screen (available anywhere in game)", 138));
 
-			if (Game_profile->full_version_screens & FVS_HOTKEYS) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
+			if ((Game_profile->full_version_screens & FVS_HOTKEYS) || !Game_profile->fs2_demo_walls) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO; FS1's demo keeps the line (D-20261021-142001)
 			y_offset += separation;
 			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "F3", 139), XSTR( "hotkey assignment", 140));
 			}	// Claude
@@ -493,11 +508,11 @@ void gameplay_help_draw_text()
 
 			if (Game_profile->hotkeys) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
 			y_offset += separation;
-			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "F5...F12", 143), XSTR( "hotkeys", 144));
+			gameplay_help_blit_control_line_raw(x_offset,y_offset, (Cfile_fs1_data ? "F5..F12" : XSTR( "F5...F12", 143)), XSTR( "hotkeys", 144));	// Claude: FS1's wording
 			}	// Claude
 
 			y_offset += separation;
-			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "Shift-Esc", 145), XSTR( "quit FreeSpace 2 immediately", 146));
+			gameplay_help_blit_control_line_raw(x_offset,y_offset, XSTR( "Shift-Esc", 145), (Cfile_fs1_data ? "quit FreeSpace immediately" : XSTR( "quit FreeSpace 2 immediately", 146)));	// Claude: FS1's wording
 
 			break;
 

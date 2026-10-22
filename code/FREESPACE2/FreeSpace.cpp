@@ -532,7 +532,7 @@
 #include "multi_endgame.h"
 #include "Cutscenes.h"
 #include "multi_respawn.h"
-// #include "Movie.h"
+#include "Movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "multi_obj.h"
 #include "multi_log.h"
 #include "Emp.h"
@@ -920,6 +920,7 @@ void game_stop_subspace_ambient_sound();
 void verify_ships_tbl();
 void verify_weapons_tbl();
 void display_title_screen();
+void title_screen_hold();	// Claude
 
 // loading background filenames
 static char *Game_loading_bground_fname[GR_NUM_RESOLUTIONS] = {
@@ -1006,18 +1007,35 @@ static int game_is_volition_mission(char *filename)
 void game_detect_data_set()
 {
 	char line[128];
-	int demo = cf_find_file_location(NOX("demo.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
-	int retail = cf_find_file_location(NOX("freespace2.fc2"), CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	// Claude: FS1 data (cfile found FS1's packs, docs/FS1_COMPAT.md): its demo's campaign is demo.fsc, retail's
+	// freespace.fsc.  Looked for by their own names, as FS1 data turns a .fc2 name into .fsc.
+	char *demo_name = Cfile_fs1_data ? NOX("demo.fsc") : NOX("demo.fc2");
+	char *retail_name = Cfile_fs1_data ? NOX("freespace.fsc") : NOX("freespace2.fc2");
+	int demo = cf_find_file_location(demo_name, CF_TYPE_MISSIONS, NULL, NULL, NULL);
+	int retail = cf_find_file_location(retail_name, CF_TYPE_MISSIONS, NULL, NULL, NULL);
 
-	Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;	// only the FreeSpace 2 pair so far
+	if (Cfile_fs1_data) {	// Claude
+		Game_data_set = (demo && !retail) ? DATA_SET_FS1_DEMO : DATA_SET_FS1_RETAIL;
+	} else {
+		Game_data_set = (demo && !retail) ? DATA_SET_FS2_DEMO : DATA_SET_FS2_RETAIL;
+	}
 	data_set_profile_apply(Game_data_set);	// Claude: its row of the profile table (D-20261020-053500)
-	sprintf(line, "data set: %s (demo.fc2: %s, freespace2.fc2: %s)\n", data_set_name(Game_data_set), demo ? "y" : "n", retail ? "y" : "n");
+	sprintf(line, "data set: %s (%s: %s, %s: %s)\n", data_set_name(Game_data_set), demo_name, demo ? "y" : "n", retail_name, retail ? "y" : "n");
 	mprintf(("%s", line));
 	autotest_note(line);
 	if (demo && retail) {
-		Warning(LOCATION, "Both demo.fc2 and freespace2.fc2 are in the data; running as retail\n");
+		Warning(LOCATION, "Both %s and %s are in the data; running as retail\n", demo_name, retail_name);
 	}
-	replay_check_data_set(Game_data_set, game_is_volition_mission);
+	// Claude: a recording names no data set; it is worked out from FS2's campaign and mission names, which FS1's
+	// share (sm1-01), so in FS1 data every FS1 recording would read as FS2 retail.  Not checked in FS1 data, and
+	// logged; the recording's own data-set field (header version 6, GodotPrep) replaces this (D-20261020-103504).
+	if (!Cfile_fs1_data) {
+		replay_check_data_set(Game_data_set, game_is_volition_mission);
+	} else {
+		sprintf(line, "replay data-set check skipped: a recording cannot name FS1 against FS2 below header version 6\n");
+		mprintf(("%s", line));
+		autotest_note(line);
+	}
 }
 
 int game_get_default_skill_level()
@@ -1603,14 +1621,7 @@ anim * Game_loading_ani = NULL;
 anim_instance	*Game_loading_ani_instance;
 int Game_loading_frame=-1;
 
-static int Game_loading_ani_coords[GR_NUM_RESOLUTIONS][2] = {
-	{
-		63, 316  // GR_640
-	},
-	{
-		101, 505	// GR_1024
-	}
-};
+// Claude: Game_loading_ani_coords is Game_profile->loading_ani_coords, per data set (D-20261020-222222); FS2's were {63, 316}, {101, 505}
 
 // This gets called 10x per second and count is the number of times 
 // game_busy() has been called since the current callback function
@@ -1644,7 +1655,7 @@ void game_loading_callback(int count)
 
 		//mprintf(( "Showing frame %d/%d [ Bitmap=%d ]\n", Game_loading_frame ,  Game_loading_ani->total_frames, cbitmap ));
 		gr_set_bitmap( cbitmap );
-		gr_bitmap(Game_loading_ani_coords[gr_screen.res][0],Game_loading_ani_coords[gr_screen.res][1]);
+		gr_bitmap(Game_profile->loading_ani_coords[gr_screen.res][0],Game_profile->loading_ani_coords[gr_screen.res][1]);	// Claude: was Game_loading_ani_coords
 
 		bm_release(cbitmap);
 	
@@ -1662,7 +1673,7 @@ void game_loading_callback_init()
 
 	Game_loading_ani = anim_load( Game_loading_ani_fname[gr_screen.res]);
 	Assert( Game_loading_ani != NULL );
-	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, 16);
+	Game_loading_ani_instance = init_anim_instance(Game_loading_ani, anim_frame_bpp());	// Claude: was 16
 	Assert( Game_loading_ani_instance != NULL );
 	Game_loading_frame = -1;
 
@@ -2385,6 +2396,8 @@ void game_init()
 	// initialize alpha colors
 	alpha_colors_init();	
 
+	title_screen_hold();	// Claude: loading is now too quick to see the title screen
+
 	Viewer_mode = 0;
 //	Game_music_paused = 0;
 	Game_paused = 0;
@@ -3008,7 +3021,7 @@ void player_repair_frame(float frametime)
 #ifndef NDEBUG
 #define NUM_FRAMES_TEST		300
 #define NUM_MIXED_SOUNDS	16
-void do_timing_test(float flFrametime)
+void do_timing_test(float frame_time)	// Claude: was flFrametime, which hid the global (C4459)
 {
 	static int framecount = 0;
 	static int test_running = 0;
@@ -3019,7 +3032,7 @@ void do_timing_test(float flFrametime)
 
 	if ( test_running ) {
 		framecount++;
-		test_time += flFrametime;
+		test_time += frame_time;
 		if ( framecount >= NUM_FRAMES_TEST ) {
 			test_running = 0;
 			nprintf(("General", "%d frames took %.3f seconds\n", NUM_FRAMES_TEST, test_time));
@@ -4701,9 +4714,13 @@ int game_poll()
 
 			// hotkey selection screen -- only valid from briefing and beyond.
 		case KEY_F3:	
-			if (Game_profile->full_version_screens & FVS_HOTKEYS) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO
+			if ((Game_profile->full_version_screens & FVS_HOTKEYS) || !Game_profile->fs2_demo_walls) {	// Claude: data set profile (D-20261021-100301); was #ifndef FS2_DEMO; FS1's demo wall answers the popup below (D-20261021-142001)
 				if ( (state == GS_STATE_TEAM_SELECT) || (state == GS_STATE_BRIEFING) || (state == GS_STATE_SHIP_SELECT) || (state == GS_STATE_WEAPON_SELECT) || (state == GS_STATE_GAME_PLAY) || (state == GS_STATE_GAME_PAUSED) ) {
-					gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					if ( Game_profile->full_version_screens & FVS_HOTKEYS ) {	// Claude: no Hotkeys-M in FS1's demo data (D-20261020-214042)
+						gameseq_post_event( GS_EVENT_HOTKEY_SCREEN );
+					} else {
+						game_feature_not_in_demo_popup();
+					}
 					k = 0;
 				}
 			} else {	// Claude
@@ -6540,7 +6557,7 @@ void game_spew_pof_info_sub(int model_num, polymodel *pm, int sm, CFILE *out, in
 	*out_destroyed_total += sub_total_destroyed;
 }
 
-#define BAIL()			do { int idx; for(idx=0; idx<num_files; idx++){ if(pof_list[idx] != NULL){free(pof_list[idx]); pof_list[idx] = NULL;}} return;} while(0);
+#define BAIL()			do { int bail_idx; for(bail_idx=0; bail_idx<num_files; bail_idx++){ if(pof_list[bail_idx] != NULL){free(pof_list[bail_idx]); pof_list[bail_idx] = NULL;}} return;} while(0);	// Claude: was idx, which hid the caller's idx (C4456)
 void game_spew_pof_info()
 {
 	char *pof_list[1000];
@@ -6820,13 +6837,13 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 
 		// in RELEASE_REAL builds make the user stick in CD2 if there are no pilots on disk so that we guarantee he plays the movie
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0 );
+		movie_play( NOX("intro.mve"), 0 );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
 		// debug version, movie will only play with -showmovies
 		#else if !defined(NDEBUG)
 		
 		// no soup for you!
-		// movie_play( NOX("intro.mve"), 0);
+		movie_play( NOX("intro.mve"), 0);		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 /*
 #ifndef NDEBUG
 		if ( Cmdline_show_movies )
@@ -8605,6 +8622,9 @@ int game_hacked_data()
 	return 0;
 }
 
+static int Title_screen_bitmap = -1;		// Claude: the title screen, until title_screen_hold
+static DWORD Title_screen_start;			// Claude: when it was drawn
+
 void display_title_screen()
 {
 	// Claude: compiled always, shown when the data set profile names a title screen (D-20261020-053500); was FS2_DEMO || OEM_BUILD
@@ -8646,7 +8666,40 @@ void display_title_screen()
 	// flip
 	gr_flip();
 
-	bm_unload(title_bitmap);
+	Title_screen_bitmap = title_bitmap;	// Claude: title_screen_hold unloads it (was bm_unload(title_bitmap))
+	Title_screen_start = GetTickCount();	// Claude
+}
+
+// Claude: the title screen was drawn once and stayed up while game_init loaded, which took seconds in 1998
+// and now takes a fraction of one.  Keep it up until TITLE_SCREEN_MS after it was drawn, or until a key or
+// click (read from the keyboard state, so nothing reaches the game's input queue).  Autotest and replays
+// do not wait.
+#define TITLE_SCREEN_MS	3000
+void title_screen_hold()
+{
+	if (Title_screen_bitmap < 0) {
+		return;
+	}
+	while (!Autotest_harness && (Replay_mode != REPLAY_PLAY) && (GetTickCount() - Title_screen_start < TITLE_SCREEN_MS)) {
+		if ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_ESCAPE) | GetAsyncKeyState(VK_SPACE) | GetAsyncKeyState(VK_RETURN)) & 0x8000) {
+			break;
+		}
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_start_frame();
+			d3d_start_frame();
+		}
+		gr_set_bitmap(Title_screen_bitmap);
+		gr_bitmap(0, 0);
+		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
+			extern void d3d_stop_frame();
+			d3d_stop_frame();
+		}
+		gr_flip();
+		os_poll();
+		Sleep(10);
+	}
+	bm_unload(Title_screen_bitmap);
+	Title_screen_bitmap = -1;
 }
 
 // return true if the game is running with "low memory", which is less than 48MB

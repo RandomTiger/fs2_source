@@ -1278,7 +1278,7 @@ void multi_unpack_orient_matrix(ubyte *data,matrix *m)
 	m->fvec.y *= (data[16] & (1<<4)) ? -1.0f : 1.0f;
 }
 	                      
-void multi_do_client_warp(float flFrametime)
+void multi_do_client_warp(float frame_time)	// Claude: was flFrametime, which hid the global (C4459)
 {
    ship_obj *moveup;
 	
@@ -1286,7 +1286,7 @@ void multi_do_client_warp(float flFrametime)
 	while(moveup!=END_OF_LIST(&Ship_obj_list)){
 		// do all _necessary_ ship warp in (arrival) processing
 		if ( Ships[Objects[moveup->objnum].instance].flags & SF_ARRIVING )	
-			shipfx_warpin_frame( &Objects[moveup->objnum], flFrametime );
+			shipfx_warpin_frame( &Objects[moveup->objnum], frame_time );
 		moveup = GET_NEXT(moveup);
 	}	
 }	
@@ -3807,19 +3807,19 @@ int multi_pack_unpack_vel( int write, ubyte *data, matrix *orient, vector *pos, 
 		return bitbuffer_write_flush(&buf);
 	} else {
 		// unpack velocity
-		float r, u, f;
+		float vr, vu, vf;	// Claude: were r, u, f, which hid the outer locals (C4456)
 		a = bitbuffer_get_signed(&buf,10);
 		b = bitbuffer_get_signed(&buf,10);
 		c = bitbuffer_get_signed(&buf,10);
-		r = i2fl(a)/0.5f;
-		u = i2fl(b)/0.5f;
-		f = i2fl(c)/0.5f;
+		vr = i2fl(a)/0.5f;
+		vu = i2fl(b)/0.5f;
+		vf = i2fl(c)/0.5f;
 
 		// Convert into world coordinates
 		vm_vec_zero(&pi->vel);
-		vm_vec_scale_add2( &pi->vel, &orient->rvec, r );
-		vm_vec_scale_add2( &pi->vel, &orient->uvec, u );
-		vm_vec_scale_add2( &pi->vel, &orient->fvec, f );
+		vm_vec_scale_add2( &pi->vel, &orient->rvec, vr );
+		vm_vec_scale_add2( &pi->vel, &orient->uvec, vu );
+		vm_vec_scale_add2( &pi->vel, &orient->fvec, vf );
 
 		return bitbuffer_read_flush(&buf);
 	}

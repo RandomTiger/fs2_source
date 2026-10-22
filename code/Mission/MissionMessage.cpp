@@ -384,6 +384,7 @@
 #include "Demo.h"
 #include "HUDconfig.h"
 #include "Replay.h"
+#include "DataSetProfile.h"	// Claude: Game_profile
 
 // here is a text list of the builtin message names.  These names are used to match against
 // names read in for builtin message radio bits to see what message to play.  These are
@@ -1236,6 +1237,11 @@ void message_play_anim( message_q *q )
 			
 			// aps.color = &HUD_color_defaults[HUD_color_alpha];
 			aps.color = &HUD_config.clr[HUD_TALKING_HEAD];
+			static color Fs1_head_color;	// Claude: FS1 data: FS1's one HUD colour
+			Fs1_head_color = HUD_config.clr[HUD_TALKING_HEAD];
+			if ( hud_config_fs1_gauge_color(&Fs1_head_color) ) {
+				aps.color = &Fs1_head_color;
+			}
 
 			Playing_messages[Num_messages_playing].anim = anim_play(&aps);
 		}
@@ -1497,9 +1503,9 @@ void message_queue_process()
 	message_play_wave(q);
 
 	// play animation for head
-	#ifndef DEMO // do we want this for FS2_DEMO
+	if ( Game_profile->talking_heads ) {	// Claude: was #ifndef DEMO (D-20261020-161656)
 		message_play_anim(q);
-	#endif
+	}
 	
 	// distort the message if comms system is damaged
 	message_maybe_distort_text(buf);

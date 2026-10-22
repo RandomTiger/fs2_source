@@ -502,7 +502,7 @@ BOOL CShipEditorDlg::Create()
 
 	for ( i = 0; i < Num_personas; i++ ) {
 		if ( Personas[i].flags & PERSONA_FLAG_WINGMAN ) {
-			int index;
+			int listed_index;	// Claude: was index, which hid the outer local (C4456)
 
 			// don't bother putting any vasudan personas on the list -- done automatically by code
 //			if ( Personas[i].flags & PERSONA_FLAG_VASUDAN ){
@@ -514,9 +514,9 @@ BOOL CShipEditorDlg::Create()
 				persona_name += " -Vas";
 			}
 
-			index = ptr->AddString(persona_name);
-			if ( index >= 0 ){
-				ptr->SetItemData(index, i);
+			listed_index = ptr->AddString(persona_name);
+			if ( listed_index >= 0 ){
+				ptr->SetItemData(listed_index, i);
 			}
 		}
 	}

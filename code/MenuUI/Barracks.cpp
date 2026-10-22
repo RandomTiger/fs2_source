@@ -101,7 +101,9 @@
 #include "Mouse.h"
 #include "OsRegistry.h"
 #include "AlphaColors.h"
-#include "DataSetProfile.h"	// Claude
+#include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile
+#include "3d.h"	// Claude: barracks_draw_pilot_pic_row
 
 void delete_pilot_file( char *pilot_name, int single );		// manage_pilot.cpp
 
@@ -160,14 +162,7 @@ static int Barracks_stats2_coords[GR_NUM_RESOLUTIONS][3] = {
 };
 
 // pilot picture field
-static int Barracks_image_coords[GR_NUM_RESOLUTIONS][4] = {
-	{ // GR_640
-		461, 23, 160, 120
-	},
-	{ // GR_1024
-		782, 58, 160, 120
-	}
-};
+// Claude: Barracks_image_coords is Game_profile->barracks_image_coords, per data set (D-20261020-231901); FS2's were {461, 23}, {782, 58} (with an unused 160 x 120 size)
 
 // pilot picture # of # location
 static int Barracks_image_number_coords[GR_NUM_RESOLUTIONS][2] = {
@@ -914,10 +909,12 @@ void barracks_init_player_stuff(int mode)
 		Num_pilots = cf_get_file_list_preallocated(MAX_PILOTS, Pilots_arr, Pilots, CF_TYPE_MULTI_PLAYERS, NOX("*.plr"), CF_SORT_TIME);
 
 		// enable squad logo switching
+		if ( !Cfile_fs1_data ) {	// Claude: FS1 has no squad logos
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.enable();
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.unhide();
 		Buttons[gr_screen.res][B_SQUAD_NEXT_BUTTON].button.enable();
 		Buttons[gr_screen.res][B_SQUAD_NEXT_BUTTON].button.unhide();			
+		}	// Claude
 	}
 
 	int ranks[MAX_PILOTS];
@@ -1268,6 +1265,79 @@ void barracks_accept_new_pilot_callsign()
 }
 
 
+// Claude: FS1's BARRACKS.PCX frames the pilot picture in a window with bevelled corners and an arrow box cut into its
+// bottom right; FS1 retail draws none of the picture over that art (its screenshot screen00.tga).  The window is screen
+// rows Game_profile->barracks_image_window[0] to [1] and x 459 to 622 on FS1 retail and demo alike, so one shape
+// serves both; the picture is drawn one row at a time inside it (D-20261020-231901).
+// Claude: one row of the clipped picture, w pixels from bitmap pixel (sx, sy) of a bw by bh picture.  gr_bitmap_ex writes
+// 16 bit pixels straight into the back buffer, so on D3D's 32 bit one the picture came out at half the x and width and
+// wrongly coloured; where gr_bitmap draws a textured poly (D3D, Glide), the row is drawn the same way.
+// Claude: sx, sy are bitmap pixels and scale the screen pixels per bitmap pixel (the FS1 demo's window is taller than its picture)
+static void barracks_draw_pilot_pic_row(int x, int y, int w, float sx, float sy, float scale, int bw, int bh)
+{
+	vertex v[4];
+	vertex *vertlist[4] = { &v[0], &v[1], &v[2], &v[3] };
+	int saved_zbuffer_mode, i;
+
+	if ( !((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) || !Gr_bitmap_poly ) {
+		gr_bitmap_ex(x, y, w, 1, fl2i(sx), fl2i(sy));	// Claude: unscaled; no software path scales
+		return;
+	}
+
+	memset(v, 0, sizeof(v));
+	for (i = 0; i < 4; i++) {
+		v[i].sx = i2fl(((i == 1) || (i == 2)) ? (x + w) : x);
+		v[i].sy = i2fl((i >= 2) ? (y + 1) : y);
+		v[i].u = (((i == 1) || (i == 2)) ? (sx + i2fl(w) / scale) : sx) / i2fl(bw);	// Claude: / scale
+		v[i].v = ((i >= 2) ? (sy + 1.0f / scale) : sy) / i2fl(bh);	// Claude: / scale
+		v[i].flags = PF_PROJECTED;
+	}
+
+	gr_set_bitmap(gr_screen.current_bitmap, gr_screen.current_alphablend_mode, gr_screen.current_bitblt_mode, gr_screen.current_alpha, 0, 0);
+	g3_start_frame(1);
+	saved_zbuffer_mode = gr_zbuffer_get();
+	gr_zbuffer_set(GR_ZBUFF_NONE);
+	gr_filter_set(scale != 1.0f);	// Claude: filtered only when scaled
+	g3_draw_poly_constant_sw(4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_BITMAP_SECTION, 0.1f);
+	g3_end_frame();
+	gr_zbuffer_set(saved_zbuffer_mode);
+	gr_filter_set(1);
+}
+
+static void barracks_draw_pilot_pic_clipped(int px, int py)
+{
+	int top = Game_profile->barracks_image_window[0];
+	int bottom = Game_profile->barracks_image_window[1];
+	int w, h, y, l, r;
+	float scale = 1.0f;
+
+	bm_get_info(Pilot_images[Pic_number], &w, &h);
+	if ( bottom - (top - 3) + 1 > h ) {	// Claude: the FS1 demo's window is 145 rows (with its top corners) to its pictures' 120: scaled up by half of that, bottom aligned, the sides cropped and its top row repeated above it
+		scale = 1.0f + (i2fl(bottom - (top - 3) + 1) / i2fl(h) - 1.0f) / 2.0f;
+	}
+	int dw = fl2i(i2fl(w) * scale + 0.5f), dh = fl2i(i2fl(h) * scale + 0.5f);	// Claude: the picture's size on screen
+	for (y = (scale != 1.0f) ? (top - 3) : max(top - 3, py); y <= min(bottom, py + dh - 1); y++) {	// Claude: was max(top, py), py + h - 1; the window's top corners rise 3 rows above its centre lip; a scaled picture fills the rows above it
+		l = 459 + max(0, top + 5 - y) + max(0, y - (bottom - 5));	// top left and bottom left bevels
+		r = 622 - max(0, top + 3 - y);							// top right bevel
+		if (y >= bottom - 15) {										// the arrow box
+			r = max(565, 575 - (y - (bottom - 15)));
+		}
+		l = max(l, px);
+		r = min(r, px + dw - 1);	// Claude: was px + w - 1
+		if (y < top) {	// Claude: the top corners either side of the lip, which narrows by a pixel a row
+			int ll = min(r, 497 - (top - y) - 1), rr = max(l, 576 + (top - y) + 1);
+			if (l <= ll) {
+				barracks_draw_pilot_pic_row(l, y, ll - l + 1, i2fl(l - px) / scale, i2fl(max(0, y - py)) / scale, scale, w, h);
+			}
+			if (rr <= r) {
+				barracks_draw_pilot_pic_row(rr, y, r - rr + 1, i2fl(rr - px) / scale, i2fl(max(0, y - py)) / scale, scale, w, h);
+			}
+		} else if (l <= r) {	// Claude: was if
+			barracks_draw_pilot_pic_row(l, y, r - l + 1, i2fl(l - px) / scale, i2fl(max(0, y - py)) / scale, scale, w, h);	// Claude: scaled
+		}
+	}
+}
+
 // draw pilot image and clean up afterwards
 void barracks_draw_pilot_pic()
 {
@@ -1278,7 +1348,11 @@ void barracks_draw_pilot_pic()
 			extern int Palman_allow_any_color;
 			Palman_allow_any_color = 1;
 			gr_set_bitmap(Pilot_images[Pic_number]);
-			gr_bitmap(Barracks_image_coords[gr_screen.res][BARRACKS_X_COORD], Barracks_image_coords[gr_screen.res][BARRACKS_Y_COORD]);
+			if ( Game_profile->barracks_image_window[1] ) {	// Claude: FS1's window shape (D-20261020-231901)
+				barracks_draw_pilot_pic_clipped(Game_profile->barracks_image_coords[gr_screen.res][0], Game_profile->barracks_image_coords[gr_screen.res][1]);
+			} else {
+				gr_bitmap(Game_profile->barracks_image_coords[gr_screen.res][0], Game_profile->barracks_image_coords[gr_screen.res][1]);	// Claude: was Barracks_image_coords
+			}
 			Palman_allow_any_color = 0;
 
 			// print number of the current pic
@@ -1318,6 +1392,37 @@ void barracks_draw_squad_pic()
 }
 
 // -----------------------------------------------------------------------------
+// Claude: FS1 data: FS1's 640 layout.  Button positions found by matching each BAB_xx's first frame against a
+// retail FS1 screenshot (mean colour error under 4 of 255); the pilot list, pilot picture (Ter0007 matched) and
+// its "n of m" where retail draws them.  FS1 has no squad logos and no BAB_17/18, so those two buttons get no
+// hotspot and stay hidden.  Overwrites the GR_640 entries.
+static void barracks_fs1_layout()
+{
+	static int Fs1_coords[BARRACKS_NUM_BUTTONS][2] = {
+		{12,121}, {322,137}, {346,137}, {570,140}, {591,140}, {562,410}, {469,427}, {447,452}, {365,415}, {0,225},
+		{0,185}, {124,121}, {374,127}, {70,121}, {329,13}, {380,13}, {183,121}, {0,0}, {0,0}
+	};
+	int i;
+
+	for (i=0; i<BARRACKS_NUM_BUTTONS; i++) {
+		Buttons[GR_640][i].x = Fs1_coords[i][0];
+		Buttons[GR_640][i].y = Fs1_coords[i][1];
+	}
+	Buttons[GR_640][B_SQUAD_PREV_BUTTON].hotspot = -1;
+	Buttons[GR_640][B_SQUAD_NEXT_BUTTON].hotspot = -1;
+	Barracks_list_coords[GR_640][BARRACKS_X_COORD] = 58;
+	Barracks_list_coords[GR_640][BARRACKS_Y_COORD] = 37;
+	Barracks_image_number_coords[GR_640][BARRACKS_X_COORD] = 489;
+	Barracks_image_number_coords[GR_640][BARRACKS_Y_COORD] = 168;
+	// Claude: the FS1 demo's picture arrows and number sit lower on its art (D-20261021-095912)
+	for (i = B_PIC_PREV_PILOT_BUTTON; i <= B_PIC_NEXT_PILOT_BUTTON; i++) {
+		Buttons[GR_640][i].x += Game_profile->barracks_pic_arrows_offset[0];
+		Buttons[GR_640][i].y += Game_profile->barracks_pic_arrows_offset[1];
+	}
+	Barracks_image_number_coords[GR_640][BARRACKS_X_COORD] += Game_profile->barracks_pic_number_offset[0];
+	Barracks_image_number_coords[GR_640][BARRACKS_Y_COORD] += Game_profile->barracks_pic_number_offset[1];
+}
+
 void barracks_init()
 {
 	UI_WINDOW *w = &Ui_window;
@@ -1334,6 +1439,10 @@ void barracks_init()
 	if(Background_bitmap < 0){
 		// we failed to load the bitmap - this is very bad
 		Int3();
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude
+		barracks_fs1_layout();
 	}
 
 	// create buttons
@@ -1387,7 +1496,7 @@ void barracks_init()
 	Cur_pilot = &Players[Player_num];
 
 	// disable squad logo selection buttons in single player
-	if(!(Cur_pilot->flags & PLAYER_FLAGS_IS_MULTI)){
+	if(!(Cur_pilot->flags & PLAYER_FLAGS_IS_MULTI) || Cfile_fs1_data){	// Claude: FS1 has no squad logos
 		// squad logo picture buttons		
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.hide();
 		Buttons[gr_screen.res][B_SQUAD_PREV_BUTTON].button.disable();

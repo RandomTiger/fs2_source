@@ -177,7 +177,7 @@
 #include "cfile.h"
 #include "player.h"
 #include "MissionGoals.h"
-// #include "movie.h"
+#include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 #include "Multi.h"
 #include "TechMenu.h"
 #include "EventMusic.h"
@@ -1322,11 +1322,11 @@ void mission_campaign_store_goals_and_events()
 	// copy the needed info from the Mission_goal struct to our internal structure
 	for (i = 0; i < Num_goals; i++ ) {
 		if ( strlen(Mission_goals[i].name) == 0 ) {
-			char name[NAME_LENGTH];
+			char campaign_name[NAME_LENGTH];	// Claude: was name, which hid the outer local (C4456)
 
-			sprintf(name, NOX("Goal #%d"), i);
+			sprintf(campaign_name, NOX("Goal #%d"), i);
 			//Warning(LOCATION, "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, name);
-			strcpy( mission->goals[i].name, name);
+			strcpy( mission->goals[i].name, campaign_name);
 		} else
 			strcpy( mission->goals[i].name, Mission_goals[i].name );
 		Assert ( Mission_goals[i].satisfied != GOAL_INCOMPLETE );		// should be true or false at this point!!!
@@ -1348,11 +1348,11 @@ void mission_campaign_store_goals_and_events()
 	// copy the needed info from the Mission_goal struct to our internal structure
 	for (i = 0; i < Num_mission_events; i++ ) {
  		if ( strlen(Mission_events[i].name) == 0 ) {
-			char name[NAME_LENGTH];
+			char campaign_name2[NAME_LENGTH];	// Claude: was name, which hid the outer local (C4456)
 
-			sprintf(name, NOX("Event #%d"), i);
-			nprintf(("Warning", "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, name));
-			strcpy( mission->events[i].name, name);
+			sprintf(campaign_name2, NOX("Event #%d"), i);
+			nprintf(("Warning", "Mission goal in mission %s must have a +Name field! using %s for campaign save file\n", mission->name, campaign_name2));
+			strcpy( mission->events[i].name, campaign_name2);
 		} else
 			strcpy( mission->events[i].name, Mission_events[i].name );
 
@@ -1680,7 +1680,7 @@ void mission_campaign_maybe_play_movie(int type)
 		return;
 
 	// no soup for you!
-	// movie_play( filename );
+	movie_play( filename );		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 }
 
 // return nonzero if the passed filename is a multiplayer campaign, 0 otherwise
@@ -1757,10 +1757,10 @@ void mission_campaign_end_do()
 	// did the supernova blow?
 	if(Supernova_status == SUPERNOVA_HIT){
 		// no soup for you!
-		// movie_play_two("endpart1.mve", "endprt2b.mve");			// good ending
+		movie_play_two("endpart1.mve", "endprt2b.mve");			// good ending	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	} else {
 		// no soup for you!
-		// movie_play_two("endpart1.mve", "endprt2a.mve");			// good ending
+		movie_play_two("endpart1.mve", "endprt2a.mve");			// good ending	// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 	}	
 
 	if (Game_profile->demo_campaign_end) {	// Claude: data set profile (D-20261021-071013); was #ifdef FS2_DEMO
