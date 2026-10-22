@@ -774,7 +774,7 @@ int ds_load_buffer(int *sid, int *hid, int *final_size, void *header, sound_info
 //	if (ds_using_ds3d()) {
 		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRL3D | DSBCAPS_MUTE3DATMAXDISTANCE;
 	} else {
-		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_LOCSOFTWARE;
+		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN | DSBCAPS_LOCSOFTWARE;	// AUDIOTRIAL
 	}
 
 	// Create a new software buffer using the settings for this wave
@@ -1145,7 +1145,7 @@ int ds_init(int use_eax)
 	// slow, we require the voice manger (a DirectSound extension) to be present.  The 
 	// exception is when A3D is being used, since A3D has a resource manager built in.
 	if (Ds_use_ds3d) {
-		int vm_required = 1;	// voice manager		
+		int vm_required = 0;	// AUDIOTRIAL	// voice manager		
 
 		if (ds3d_init(vm_required) != 0) {
 			Ds_use_ds3d = 0;
