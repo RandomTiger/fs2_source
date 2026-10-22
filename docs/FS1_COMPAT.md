@@ -301,7 +301,7 @@ Each FS1 change was made on its own branch, merged into `FS1Compat` with `--no-f
 - **Docs only:** `FS1Fs2Check-done`
 
 ### Branch-local build target
-On `FS1Compat`, `Freespace2.vcxproj` and `Freespace2.vcxproj.user` build into, and debug from, `PATH_FS1` instead of `PATH_FS2` (commit `cebafe2`), so trial runs load FS1 data. Before the first merge into `Enhanced` it is replaced by a per-data-set property or reverted on `FS1Compat`; the `.user` half goes with the repo-wide untracking of `*.vcxproj.user` (Tom, 2026-10-20).
+Since the `Enhanced` merge-down (`24cd57f`), `FS1Compat` builds into `PATH_FS2` like every other branch: one exe for every data set, which picks FS1 data at run time. The branch-local `PATH_FS1` target (commit `cebafe2`) is gone. To run on FS1 data, the exes are copied from `PATH_FS2` into the FS1 folders (the FS1 retail install, and the FS1 demo folder on `FS1Demo`); `fc_gate.ps1` does this after its builds.
 
 ### Before each merge into Enhanced
 1. Replace or revert the build-target change (above), the first time.
