@@ -120,7 +120,9 @@ static void test_phrases()
 	int i, j, n;
 	const char *expect_targets[] = {
 		"alpha two", "gtc aquitaine", "beta", "alpha", "alpha wing", "beta wing", "epsilon",
-		"epsilon wing", "all fighters", "single missile", "dual missile", "cycle missile"
+		"epsilon wing", "all fighters", "single missile", "dual missile", "cycle missile", "support", "rearm", "repair",
+		"destroy my target", "disable my target", "disarm my target", "destroy subsystem", "protect my target",
+		"ignore my target", "form on my wing", "cover me", "engage enemy", "attack", "capture my target", "depart"
 	};
 	const char *expect_orders[] = {
 		"destroy my target", "disable my target", "disarm my target", "destroy subsystem",
@@ -130,11 +132,22 @@ static void test_phrases()
 
 	// "beta" is both a ship and a wing: listed once
 	n = voice_target_phrases(Targets, NUM_TARGETS, list, VOICE_GRAMMAR_LEN);
-	sprintf(detail, "%d target phrases, expected 12", n);
-	check(n == 12, "target phrase count", detail);
+	sprintf(detail, "%d target phrases, expected 27", n);
+	check(n == 27, "target phrase count", detail);
 	for (i = 0; i < (int)(sizeof(expect_targets) / sizeof(expect_targets[0])); i++) {
 		check(has_phrase(list, expect_targets[i]), "target phrase listed", expect_targets[i]);
 	}
+	// "rearm me" and "abort rearm" have no shortcut key, so they are not said first
+	check(!has_phrase(list, "rearm me") && !has_phrase(list, "abort rearm"), "no order first without a key", NULL);
+
+	// the send step: the targets only
+	n = voice_send_phrases(Targets, NUM_TARGETS, list, VOICE_GRAMMAR_LEN);
+	sprintf(detail, "%d send phrases, expected 9", n);
+	check(n == 9, "send phrase count", detail);
+	for (i = 0; i < 9; i++) {
+		check(has_phrase(list, expect_targets[i]), "send phrase listed", expect_targets[i]);
+	}
+	check(!has_phrase(list, "support") && !has_phrase(list, "cover me"), "send phrases are targets only", NULL);
 
 	// greyed-out rows are listed too, so they can be heard and refused
 	n = voice_order_phrases(Rows, VOICE_NUM_ORDERS, list, VOICE_GRAMMAR_LEN);
@@ -203,13 +216,17 @@ static void test_targets()
 	expect(&vc, VOICE_STEP_TARGET, "single missile", VOICE_RESULT_FUNCTION, VOICE_FUNC_SINGLE_MISSILE, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "dual missile", VOICE_RESULT_FUNCTION, VOICE_FUNC_DUAL_MISSILE, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "cycle missile", VOICE_RESULT_FUNCTION, VOICE_FUNC_CYCLE_MISSILE, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "support", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "rearm", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "repair", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
 
 	// unmatched: nothing, and the step stays
 	expect(&vc, VOICE_STEP_TARGET, "gamma wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "alpha two wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
-	// an order said in the target step is not a target
-	expect(&vc, VOICE_STEP_TARGET, "cover me", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
+	// "rearm me" and "abort rearm" are not said first
+	expect(&vc, VOICE_STEP_TARGET, "rearm me", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "abort rearm", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 
 	// every target name the stub offers resolves to itself
 	for (int i = 0; i < NUM_TARGETS; i++) {
@@ -293,6 +310,61 @@ static void test_orders()
 	}
 }
 
+static void test_send()
+{
+	voice_core vc;
+	int i;
+
+	voice_core_init(&vc);
+
+	// an order said first: the menu holds it, and the next step names who gets it
+	for (i = 0; i < VOICE_NUM_ORDERS; i++) {
+		int first = (i != VOICE_ORDER_REARM_ME) && (i != VOICE_ORDER_ABORT_REARM);
+
+		vc.step = VOICE_STEP_TARGET;
+		vc.held_order = -1;
+		if (first) {
+			expect(&vc, VOICE_STEP_TARGET, voice_order_name(i), VOICE_RESULT_SHORTCUT, -1, i, VOICE_STEP_SEND);
+			check(vc.held_order == i, "shortcut holds the order", voice_order_name(i));
+		} else {
+			expect(&vc, VOICE_STEP_TARGET, voice_order_name(i), VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
+		}
+	}
+	vc.step = VOICE_STEP_TARGET;
+	expect(&vc, VOICE_STEP_TARGET, "attack", VOICE_RESULT_SHORTCUT, -1, VOICE_ORDER_ENGAGE_ENEMY, VOICE_STEP_SEND);
+	vc.step = VOICE_STEP_TARGET;
+	expect(&vc, VOICE_STEP_TARGET, "Destroy my target", VOICE_RESULT_SHORTCUT, -1, VOICE_ORDER_DESTROY_TARGET, VOICE_STEP_SEND);
+
+	// then a ship, a wing or all fighters gets the held order, and the step is target again
+	expect(&vc, VOICE_STEP_SEND, "beta wing", VOICE_RESULT_SEND_WING, 1, VOICE_ORDER_DESTROY_TARGET, VOICE_STEP_TARGET);
+	check(vc.held_order == -1, "send clears the held order", NULL);
+	vc.step = VOICE_STEP_SEND;
+	vc.held_order = VOICE_ORDER_COVER_ME;
+	expect(&vc, VOICE_STEP_SEND, "alpha two", VOICE_RESULT_SEND_SHIP, 11, VOICE_ORDER_COVER_ME, VOICE_STEP_TARGET);
+	vc.step = VOICE_STEP_SEND;
+	vc.held_order = VOICE_ORDER_COVER_ME;
+	expect(&vc, VOICE_STEP_SEND, "beta", VOICE_RESULT_SEND_SHIP, 13, VOICE_ORDER_COVER_ME, VOICE_STEP_TARGET);
+	vc.step = VOICE_STEP_SEND;
+	vc.held_order = VOICE_ORDER_ENGAGE_ENEMY;
+	expect(&vc, VOICE_STEP_SEND, "epsilon", VOICE_RESULT_SEND_WING, 4, VOICE_ORDER_ENGAGE_ENEMY, VOICE_STEP_TARGET);
+	vc.step = VOICE_STEP_SEND;
+	vc.held_order = VOICE_ORDER_ENGAGE_ENEMY;
+	expect(&vc, VOICE_STEP_SEND, "all fighters", VOICE_RESULT_SEND_ALL_FIGHTERS, -1, VOICE_ORDER_ENGAGE_ENEMY, VOICE_STEP_TARGET);
+
+	// in the send step, functions, orders and unknown names do nothing, and the step stays
+	vc.step = VOICE_STEP_SEND;
+	vc.held_order = VOICE_ORDER_DEPART;
+	expect(&vc, VOICE_STEP_SEND, "support", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_SEND);
+	expect(&vc, VOICE_STEP_SEND, "single missile", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_SEND);
+	expect(&vc, VOICE_STEP_SEND, "cover me", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_SEND);
+	expect(&vc, VOICE_STEP_SEND, "gamma wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_SEND);
+	check(vc.held_order == VOICE_ORDER_DEPART, "unmatched keeps the held order", NULL);
+
+	// no held order: a name in the send step does nothing
+	vc.held_order = -1;
+	expect(&vc, VOICE_STEP_SEND, "beta wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_SEND);
+}
+
 static void test_confidence()
 {
 	voice_core vc;
@@ -319,22 +391,22 @@ static void test_steps()
 	check(vc.step == VOICE_STEP_TARGET, "starts at target", NULL);
 
 	// no menu: target
-	check(voice_core_step(&vc, 0, now) == VOICE_STEP_TARGET, "no menu is target", NULL);
+	check(voice_core_step(&vc, 0, -1, now) == VOICE_STEP_TARGET, "no menu is target", NULL);
 
 	// a target said: order until the deadline, while the menu is in its command mode
 	voice_core_dispatch(&vc, VOICE_STEP_TARGET, "beta wing", 1.0f, 0.6f, Targets, NUM_TARGETS, Rows, VOICE_NUM_ORDERS, now, &r);
 	check((vc.step == VOICE_STEP_ORDER) && (vc.order_deadline == now + VOICE_ORDER_TIMEOUT_MS), "target sets the deadline", NULL);
-	check(voice_core_step(&vc, 1, now + 1) == VOICE_STEP_ORDER, "order step while the menu is up", NULL);
-	check(voice_core_step(&vc, 1, now + VOICE_ORDER_TIMEOUT_MS - 1) == VOICE_STEP_ORDER, "order step just before the deadline", NULL);
-	check(voice_core_step(&vc, 1, now + VOICE_ORDER_TIMEOUT_MS) == VOICE_STEP_TARGET, "target step at the deadline", NULL);
+	check(voice_core_step(&vc, 1, -1, now + 1) == VOICE_STEP_ORDER, "order step while the menu is up", NULL);
+	check(voice_core_step(&vc, 1, -1, now + VOICE_ORDER_TIMEOUT_MS - 1) == VOICE_STEP_ORDER, "order step just before the deadline", NULL);
+	check(voice_core_step(&vc, 1, -1, now + VOICE_ORDER_TIMEOUT_MS) == VOICE_STEP_TARGET, "target step at the deadline", NULL);
 
 	// the menu closed (order given by key, or menu timed out): back to target
 	voice_core_dispatch(&vc, VOICE_STEP_TARGET, "beta wing", 1.0f, 0.6f, Targets, NUM_TARGETS, Rows, VOICE_NUM_ORDERS, now, &r);
-	check(voice_core_step(&vc, 0, now + 1) == VOICE_STEP_TARGET, "menu closed is target", NULL);
+	check(voice_core_step(&vc, 0, -1, now + 1) == VOICE_STEP_TARGET, "menu closed is target", NULL);
 	check(vc.step == VOICE_STEP_TARGET, "menu closed resets the step", NULL);
 
 	// the menu opened at a target by the keyboard: order step, with a fresh deadline
-	check(voice_core_step(&vc, 1, now + 100) == VOICE_STEP_ORDER, "keyboard-opened menu is order", NULL);
+	check(voice_core_step(&vc, 1, -1, now + 100) == VOICE_STEP_ORDER, "keyboard-opened menu is order", NULL);
 	check(vc.order_deadline == now + 100 + VOICE_ORDER_TIMEOUT_MS, "keyboard-opened menu sets the deadline", NULL);
 
 	// an order given: target again, though the menu may still show this frame
@@ -344,15 +416,22 @@ static void test_steps()
 	// a lapsed order step takes a new target while the menu is still up
 	vc.step = VOICE_STEP_ORDER;
 	vc.order_deadline = now;
-	check(voice_core_step(&vc, 1, now + 5) == VOICE_STEP_TARGET, "lapsed step takes a target", NULL);
+	check(voice_core_step(&vc, 1, -1, now + 5) == VOICE_STEP_TARGET, "lapsed step takes a target", NULL);
 	voice_core_dispatch(&vc, VOICE_STEP_TARGET, "alpha two", 1.0f, 0.6f, Targets, NUM_TARGETS, Rows, VOICE_NUM_ORDERS, now + 5, &r);
-	check((r.kind == VOICE_RESULT_SHIP) && (voice_core_step(&vc, 1, now + 6) == VOICE_STEP_ORDER), "new target after a lapse", NULL);
+	check((r.kind == VOICE_RESULT_SHIP) && (voice_core_step(&vc, 1, -1, now + 6) == VOICE_STEP_ORDER), "new target after a lapse", NULL);
+
+	// the menu holds an order (said first, or its key): send step, whatever came before
+	vc.step = VOICE_STEP_ORDER;
+	check(voice_core_step(&vc, 0, VOICE_ORDER_COVER_ME, now) == VOICE_STEP_SEND, "held order is send", NULL);
+	check(vc.held_order == VOICE_ORDER_COVER_ME, "step takes the held order", NULL);
+	check(voice_core_step(&vc, 0, -1, now + 1) == VOICE_STEP_TARGET, "held order gone is target", NULL);
+	check(vc.held_order == -1, "step clears the held order", NULL);
 
 	// the deadline survives the millisecond clock wrapping
 	vc.step = VOICE_STEP_ORDER;
 	vc.order_deadline = (int)0x80000005;
-	check(voice_core_step(&vc, 1, 0x7FFFFFFD) == VOICE_STEP_ORDER, "before a deadline past the wrap", NULL);
-	check(voice_core_step(&vc, 1, (int)0x80000005) == VOICE_STEP_TARGET, "at a deadline past the wrap", NULL);
+	check(voice_core_step(&vc, 1, -1, 0x7FFFFFFD) == VOICE_STEP_ORDER, "before a deadline past the wrap", NULL);
+	check(voice_core_step(&vc, 1, -1, (int)0x80000005) == VOICE_STEP_TARGET, "at a deadline past the wrap", NULL);
 }
 
 static void test_parse()
@@ -393,14 +472,18 @@ static void test_engine()
 	char dir[MAX_PATH];
 	char json[VOICE_RESULT_LEN];
 	short samples[160];
+	int final;
 	DWORD n;
 
 	memset(samples, 0, sizeof(samples));
 
 	// before open: off, and nothing runs
 	check(voice_engine_state() == VOICE_ENGINE_OFF, "engine starts off", NULL);
-	check(!voice_engine_recognize("cover me\n", samples, 160), "no recognise when off", NULL);
-	check(!voice_engine_result(json, VOICE_RESULT_LEN), "no result when off", NULL);
+	check(!voice_engine_stream_start("cover me\n"), "no stream when off", NULL);
+	voice_engine_stream_feed(samples, 160);
+	voice_engine_stream_end();
+	voice_engine_stream_next("cover me\n");
+	check(!voice_engine_stream_result(json, VOICE_RESULT_LEN, &final), "no result when off", NULL);
 
 	// no model folder set
 	check(!voice_engine_open("", ""), "open with no model fails", NULL);
@@ -423,8 +506,10 @@ static void test_engine()
 		check(!voice_engine_open(dir, dir), "open with no DLL fails", NULL);
 		check(voice_engine_state() == VOICE_ENGINE_FAILED, "no DLL is failed", voice_engine_error());
 		check(strstr(voice_engine_error(), "libvosk.dll") != NULL, "no DLL names the DLL", voice_engine_error());
-		check(!voice_engine_recognize("cover me\n", samples, 160), "no recognise when failed", NULL);
-		check(!voice_engine_result(json, VOICE_RESULT_LEN), "no result when failed", NULL);
+		check(!voice_engine_stream_start("cover me\n"), "no stream when failed", NULL);
+		voice_engine_stream_feed(samples, 160);
+		voice_engine_stream_end();
+		check(!voice_engine_stream_result(json, VOICE_RESULT_LEN, &final), "no result when failed", NULL);
 		voice_engine_close();
 		check(voice_engine_state() == VOICE_ENGINE_OFF, "close after a failed open", NULL);
 		RemoveDirectoryA(dir);
@@ -462,6 +547,59 @@ static void test_engine_dll(const char *dll_dir)
 	RemoveDirectoryA(dir);
 }
 
+// a real libvosk.dll and model: a stream of silence ends with one empty final result, and the
+// engine then takes the next stream
+static void test_engine_stream(const char *dll_dir, const char *model_dir)
+{
+	static short silence[VOICE_ENGINE_RATE / 60];	// one frame
+	char json[VOICE_RESULT_LEN];
+	char text[VOICE_TEXT_LEN];
+	float conf;
+	int i, j, ok, final, results;
+
+	memset(silence, 0, sizeof(silence));
+
+	check(voice_engine_open(dll_dir, model_dir) == 1, "open with the model", voice_engine_error());
+	for (i = 0; (i < 600) && (voice_engine_state() == VOICE_ENGINE_LOADING); i++) {
+		Sleep(50);
+	}
+	check(voice_engine_state() == VOICE_ENGINE_READY, "model loads", voice_engine_error());
+	if (voice_engine_state() != VOICE_ENGINE_READY) {
+		voice_engine_close();
+		return;
+	}
+
+	for (j = 0; j < 2; j++) {
+		check(voice_engine_stream_start("alpha two\nbeta wing\nall fighters\n") == 1, "stream starts", NULL);
+		check(!voice_engine_stream_start("cover me\n"), "one stream at a time", NULL);
+		for (i = 0; i < 120; i++) {
+			voice_engine_stream_feed(silence, VOICE_ENGINE_RATE / 60);
+		}
+		voice_engine_stream_end();
+
+		ok = 0;
+		results = 0;
+		final = 0;
+		for (i = 0; (i < 200) && !final; i++) {
+			if (voice_engine_stream_result(json, VOICE_RESULT_LEN, &final)) {
+				results++;
+				ok = !voice_parse_result(json, text, VOICE_TEXT_LEN, &conf);
+				if (!final) {
+					voice_engine_stream_next("cover me\n");
+				}
+			} else {
+				Sleep(10);
+			}
+		}
+		check(final, "silence gives a final result", json);
+		check(ok, "silence is heard as nothing", json);
+		check(results == 1, "silence gives one result", NULL);
+	}
+
+	voice_engine_close();
+	check(voice_engine_state() == VOICE_ENGINE_OFF, "close after streams", NULL);
+}
+
 int main(int argc, char **argv)
 {
 	build_rows();
@@ -470,12 +608,16 @@ int main(int argc, char **argv)
 	test_phrases();
 	test_targets();
 	test_orders();
+	test_send();
 	test_confidence();
 	test_steps();
 	test_parse();
 	test_engine();
 	if (argc > 1) {
 		test_engine_dll(argv[1]);
+	}
+	if (argc > 2) {
+		test_engine_stream(argv[1], argv[2]);
 	}
 
 	printf("%s: %d checks, %d failed\n", Failures ? "FAIL" : "PASS", Checks, Failures);

@@ -35,40 +35,48 @@ Model=D:\Vosk\vosk-model-small-en-us-0.15
 
 Caps Lock is the default because no game control uses it. The backtick key is not used: it is the debug key, and while it is held the game ignores the ship keys (in a Debug build it also turns primary fire into the debug laser). Whatever key is chosen still does what it is bound to in the controls config, so pick an unbound one.
 
-The model loads in the background when the game starts, so the first few seconds may not hear anything. The log (`mprintf`, Debug builds) says what happened: `Voice: loading model ...`, `Voice: off: <reason>` when the DLL or model could not be loaded, `Voice: cannot open the microphone`, and `Voice: heard '<text>' (<confidence>): result ...` for each utterance.
+The model loads in the background when the game starts, so the first few seconds may not hear anything. The log (`mprintf`, Debug builds) says what happened: `Voice: loading model ...`, `Voice: off: <reason>` when the DLL or model could not be loaded, `Voice: cannot open the microphone`, and `Voice: heard '<text>' (<confidence>): result ...` for each phrase.
 
 ## Saying an order
 Two steps, as the old 2009-2014 SAPI version worked:
 
-1. **Target.** Hold push-to-talk, say a target, let go. The squad menu opens at it.
+1. **Target.** Hold push-to-talk and say a target. At the pause after it (about half a second) the squad menu opens at it.
    - A ship, by the name the game shows: "Alpha 2", "GTC Aquitaine".
    - A wing, by its name or with "wing" after it: "Beta", "Beta wing". When a ship and a wing have the same name, the name alone is the ship and "... wing" is the wing.
    - "all fighters".
    - The phrases list only the friendly ships and wings that are in the mission now and can be messaged. The menu then makes its own checks (departing, dying, not taking orders) and refuses with the fail sound.
-2. **Order.** Hold push-to-talk again and say one of the orders the menu shows: its text as written ("Destroy my target", "Form on my wing", "Cover me", ...), or "attack" for "Engage enemy". The menu sends it exactly as if its number key had been pressed, so every check the menu makes still applies. Only the first ten rows (the ones with number keys) can be said.
+2. **Order.** Keep holding push-to-talk and, once the menu is up, say one of the orders the menu shows: its text as written ("Destroy my target", "Form on my wing", "Cover me", ...), or "attack" for "Engage enemy". The menu sends it exactly as if its number key had been pressed, so every check the menu makes still applies. Only the first ten rows (the ones with number keys) can be said.
 
 Numbers are said as words: "Alpha 2" is "alpha two", "Delta 12" is "delta twelve". Two-digit numbers are said as tens and ones ("twenty one"); a number with a leading zero or of three or more digits is said digit by digit ("zero seven", "one zero zero").
 
 - A greyed-out order is heard, refused with the fail sound, and the order step stays open for another order.
 - Anything else, or a result below `MinConfidence`, does nothing.
 - The order step lasts 8 seconds, the menu's own timeout. After that, or once the menu closes, the next utterance is a target again. A menu opened at a target with the keyboard also takes a spoken order.
+- Both steps fit in one press, or a press each: releasing push-to-talk ends a phrase as a pause does. Speech said before the menu is up is kept and heard against the menu once it is. One press can go on to another target and order.
 - A target refused by the menu (the ship cannot take orders now, comms are down, the player is under EMP) plays the fail sound.
 
-Three ship functions can be said at the target step and act at once:
+The order can also come first, as the old version allowed through the shortcut keys: say "destroy my target", then "beta wing". The order opens the menu holding it, as its shortcut key does (the menu asks Ships, Wings or All fighters), and the target then gets it at once. In one press or two, like the usual flow.
+- Every order with a shortcut key can be said first: all of them but "rearm me" and "abort rearm". "attack" works here too. "Ignore my target" goes to all fighters at once, as its key does, so it needs no target.
+- The target is a ship, a wing ("beta" or "beta wing") or "all fighters", by the same rules as the target step. The menu makes its own checks: a ship or wing that does not take that order, or "all fighters" with no fighters to order, plays the fail sound and the menu stays up for another target.
+- A shortcut key pressed by hand also takes a spoken target.
+- The menu closes by its own timeout, as it does for the key; after that the next utterance is a target or an order again.
+
+Four ship functions can be said at the target step and act at once:
 
 | Phrase | What it does |
 |---|---|
 | "single missile" | Turns dual-fire missiles off, if on. |
 | "dual missile" | Turns dual-fire missiles on, if off. |
 | "cycle missile" | Cycles the secondary weapon. |
+| "support", "rearm" or "repair" | Calls in the support ship, as the rearm key does. |
 
-They press the same control actions the keys do (`CYCLE_NUM_MISSLES`, `CYCLE_SECONDARY`). The old version also had gun phrases ("all guns", and turning the primary or secondary banks off) through `CHOOSE_*` control actions; this source has no such actions, only cycling, so those phrases are left out.
+They do what the keys do (`CYCLE_NUM_MISSLES`, `CYCLE_SECONDARY`, and `hud_squadmsg_rearm_shortcut` for `REARM_MESSAGE`). The old version also had gun phrases ("all guns", and turning the primary or secondary banks off) through `CHOOSE_*` control actions; this source has no such actions, only cycling, so those phrases are left out.
 
-Recognition uses a small grammar for each step: only the phrases above, built from the mission as it is when push-to-talk is released. The result is matched against the game as it is when recognition finishes, so a ship that left in the meantime is not ordered.
+Recognition uses a small grammar for each step: only the phrases above, built from the mission as it is when the phrase starts (when push-to-talk is pressed, or when the last phrase has been acted on). The result is matched against the game as it is when recognition finishes, so a ship that left in the meantime is not ordered.
 
 ## Recording and replay
 Voice works with the gameplay recorder (`docs/REPLAY.md`):
-- Microphone, push-to-talk state, the engine and its clock are not recorded. Only a result that does something is recorded, on the frame it is applied, as one `RT_INPUT_DEVICE` entry of four ints: `0x56434531` ("VCE1"), the result kind, the index (ship, wing, menu row or function) and the order. The kinds, orders and functions are numbered in `VoiceCore.h` and are never renumbered.
+- Microphone, push-to-talk state, the engine and its clock are not recorded. Only a result that does something is recorded, on the frame it is applied, as one `RT_INPUT_DEVICE` entry of four ints: `0x56434531` ("VCE1"), the result kind, the index (ship, wing, menu row or function) and the order. An order said first records the order (kind 7), then the ship, wing or all fighters it goes to with the order again (kinds 8 to 10). The kinds, orders and functions are numbered in `VoiceCore.h` and are never renumbered.
 - A replay never opens the DLL, the model or the microphone. It applies each recorded result at the same point in the frame, so it needs neither the DLL nor a microphone, and a recording made with voice replays on any machine.
 - A recording made by a build without voice has no voice entries, so it replays the same with voice on or off.
 - At the merge into `Enhanced`, `voice_frame()` goes after `pad_frame()` in `game_process_keys`. The pad writes an `RT_INPUT_DEVICE` entry every frame and voice writes one only on a result frame, so the pad must read its entry first. In the other order voice would read the pad's entry (up to 76 ints, more than voice reads) and the replay would stop with a desync.
@@ -87,6 +95,7 @@ Vosk (`vosk-api`) and the `vosk-model-small-en-us-0.15` model are released under
 `tools/VoiceDispatchTest` checks everything voice does short of hearing, with no game, no microphone, no DLL and no model. It links `VoiceCore.cpp` and `VoiceEngine.cpp` and feeds recognised text against stubbed targets and menu rows:
 - normalisation, including "(*)" and the number rules;
 - every target, "name wing", "all fighters", function and order phrase (row text and synonym) resolving to the right result;
+- an order said first holding the order (all but "rearm me" and "abort rearm"), and a ship, a wing or "all fighters" then getting it;
 - a greyed-out row refused, an unmatched phrase and a low confidence ignored;
 - the step changes and the 8-second order step, including across the clock wrapping;
 - the result JSON (text and the lowest word confidence);
@@ -99,3 +108,5 @@ tools\bin\VoiceDispatchTest.exe
 It prints each failure, then `PASS` or `FAIL` with the count, and exits with 0 on `PASS`. `/p:Platform=x64` builds `tools\bin\x64\VoiceDispatchTest.exe`.
 
 `VoiceDispatchTest.exe <dll_dir>` also loads the real `libvosk.dll` from `dll_dir` (same bitness as the test exe) against an empty model folder: the DLL and all its functions must load, and the model failure must be reported cleanly. Vosk prints its own error line for the empty model; that is expected.
+
+`VoiceDispatchTest.exe <dll_dir> <model_dir>` also loads that model and streams silence through the engine twice, as a push-to-talk press with nothing said: each stream must end with one empty final result, and the engine must take the next stream.

@@ -1,8 +1,8 @@
 /*
  * Voice control for squad orders: the game side.  See VoiceGame.h and docs/VOICE_CONTROL.md.
  *
- * Live, each frame: while push-to-talk is held the microphone records; on release the audio
- * goes to the engine with the phrases for the current step.  When the engine answers, the
+ * Live, each frame: while push-to-talk is held the microphone's audio streams to the engine
+ * with the phrases for the current step.  The engine answers at each pause and on release; the
  * text is matched against the targets and menu rows as they are now, and the result is
  * recorded (replay_input_device) and applied.  All of that live work runs inside
  * replay_push()/replay_pop() and times itself with GetTickCount, so it adds nothing to a
@@ -42,11 +42,16 @@ extern int hud_squadmsg_voice_in_command();
 extern int hud_squadmsg_voice_num_rows();
 extern int hud_squadmsg_voice_row(int row, char **text, int *order, int *active);
 extern int hud_squadmsg_voice_select_row(int row, int order);
+extern int hud_squadmsg_voice_held_order();
+extern int hud_squadmsg_voice_shortcut(int order);
+extern int hud_squadmsg_voice_send_ship(int shipnum, int order);
+extern int hud_squadmsg_voice_send_wing(int wingnum, int order);
+extern int hud_squadmsg_voice_send_all_fighters(int order);
+extern void hud_squadmsg_rearm_shortcut();
 
 #define VOICE_INI_SECTION			"Voice"
 #define VOICE_DEFAULT_PTT			KEY_CAPSLOCK	// unbound by default.  Not backtick: that is the debug key, and the ship keys are ignored while it is held
 #define VOICE_DEFAULT_MIN_CONF	"0.6"
-#define VOICE_MIN_SAMPLES			(VOICE_ENGINE_RATE / 10)	// shorter presses are ignored
 
 // a recorded result: VOICE_MAGIC, kind, index, order
 #define VOICE_MAGIC					0x56434531		// "VCE1"
@@ -61,7 +66,8 @@ static int Voice_capture_failed_logged = 0;
 
 static voice_core Voice_core;
 static int Voice_talking = 0;			// push-to-talk held and recording
-static int Voice_busy = 0;				// the engine is recognising
+static int Voice_busy = 0;				// a stream is open in the engine
+static int Voice_need_next = 0;		// a phrase was acted on; the engine waits for the next step's phrases
 static int Voice_job_step = VOICE_STEP_TARGET;
 
 static voice_target Voice_targets[VOICE_MAX_TARGETS];
@@ -121,6 +127,7 @@ void voice_game_close()
 	voice_engine_close();
 	Voice_enabled = 0;
 	Voice_busy = 0;
+	Voice_need_next = 0;
 }
 
 // the ships and wings the player can name now
@@ -206,7 +213,7 @@ static void voice_apply(int kind, int index, int order)
 		break;
 
 	case VOICE_RESULT_FUNCTION:
-		// as the keys do: CYCLE_NUM_MISSLES toggles dual fire
+		// as the keys do: CYCLE_NUM_MISSLES toggles dual fire, and the rearm key calls in support
 		if ((Player == NULL) || (Player_ship == NULL)) {
 			break;
 		}
@@ -220,7 +227,26 @@ static void voice_apply(int kind, int index, int order)
 			}
 		} else if (index == VOICE_FUNC_CYCLE_MISSILE) {
 			button_info_set(&Player->bi, CYCLE_SECONDARY);
+		} else if (index == VOICE_FUNC_REARM) {
+			hud_squadmsg_rearm_shortcut();
 		}
+		break;
+
+	case VOICE_RESULT_SHORTCUT:
+		// the menu opens holding the order, as its shortcut key does
+		hud_squadmsg_voice_shortcut(order);
+		break;
+
+	case VOICE_RESULT_SEND_SHIP:
+		hud_squadmsg_voice_send_ship(index, order);
+		break;
+
+	case VOICE_RESULT_SEND_WING:
+		hud_squadmsg_voice_send_wing(index, order);
+		break;
+
+	case VOICE_RESULT_SEND_ALL_FIGHTERS:
+		hud_squadmsg_voice_send_all_fighters(order);
 		break;
 
 	default:
@@ -228,10 +254,30 @@ static void voice_apply(int kind, int index, int order)
 	}
 }
 
+// the phrases for a step, as the game is now, into Voice_grammar.  0 if there are none yet.
+static int voice_build_grammar(int step)
+{
+	int num;
+
+	if (step == VOICE_STEP_ORDER) {
+		num = voice_build_rows();
+		return voice_order_phrases(Voice_rows, num, Voice_grammar, VOICE_GRAMMAR_LEN);
+	}
+	num = voice_build_targets();
+	if (step == VOICE_STEP_SEND) {
+		return voice_send_phrases(Voice_targets, num, Voice_grammar, VOICE_GRAMMAR_LEN);
+	}
+	return voice_target_phrases(Voice_targets, num, Voice_grammar, VOICE_GRAMMAR_LEN);
+}
+
 // push-to-talk and the engine.  Returns 1 and fills r when something was recognised.
+//
+// One press can carry a target and then an order: the engine ends a phrase at the pause after
+// it, the result is acted on (the menu opens at the target), and the next frame gives the
+// engine the next step's phrases while it holds on to the audio that came after the pause.
 static int voice_live(voice_result *r)
 {
-	int now, step, count, num;
+	int now, step, count, num, final;
 	short *samples;
 	char text[VOICE_TEXT_LEN];
 	float conf;
@@ -247,43 +293,52 @@ static int voice_live(voice_result *r)
 		return 0;
 	}
 
-	step = voice_core_step(&Voice_core, hud_squadmsg_voice_in_command(), now);
+	step = voice_core_step(&Voice_core, hud_squadmsg_voice_in_command(), hud_squadmsg_voice_held_order(), now);
+
+	// the last phrase has been acted on: give the engine the phrases for the step it led to.
+	// The menu fills its rows in its own frame, so an order step may have to wait one.
+	if (Voice_need_next && voice_build_grammar(step)) {
+		voice_engine_stream_next(Voice_grammar);
+		Voice_job_step = step;
+		Voice_need_next = 0;
+	}
 
 	if (voice_engine_state() == VOICE_ENGINE_READY) {
 		if (keyd_pressed[Voice_ptt_key]) {
 			if (Voice_talking) {
-				voice_capture_poll();
-			} else if (!Voice_busy) {
-				if (voice_capture_start()) {
+				count = voice_capture_poll(&samples);
+				voice_engine_stream_feed(samples, count);
+			} else if (!Voice_busy && voice_build_grammar(step)) {
+				if (!voice_capture_start()) {
+					if (!Voice_capture_failed_logged) {
+						mprintf(("Voice: cannot open the microphone\n"));
+						Voice_capture_failed_logged = 1;
+					}
+				} else if (voice_engine_stream_start(Voice_grammar)) {
 					Voice_talking = 1;
-				} else if (!Voice_capture_failed_logged) {
-					mprintf(("Voice: cannot open the microphone\n"));
-					Voice_capture_failed_logged = 1;
+					Voice_busy = 1;
+					Voice_job_step = step;
+				} else {
+					voice_capture_stop(&samples);
 				}
 			}
 		} else if (Voice_talking) {
 			Voice_talking = 0;
 			count = voice_capture_stop(&samples);
-			if (count >= VOICE_MIN_SAMPLES) {
-				if (step == VOICE_STEP_ORDER) {
-					num = voice_build_rows();
-					voice_order_phrases(Voice_rows, num, Voice_grammar, VOICE_GRAMMAR_LEN);
-				} else {
-					num = voice_build_targets();
-					voice_target_phrases(Voice_targets, num, Voice_grammar, VOICE_GRAMMAR_LEN);
-				}
-				if (voice_engine_recognize(Voice_grammar, samples, count)) {
-					Voice_busy = 1;
-					Voice_job_step = step;
-				}
-			}
+			voice_engine_stream_feed(samples, count);
+			voice_engine_stream_end();
 		}
 	}
 
-	if (!Voice_busy || !voice_engine_result(Voice_json, VOICE_RESULT_LEN)) {
+	if (!Voice_busy || !voice_engine_stream_result(Voice_json, VOICE_RESULT_LEN, &final)) {
 		return 0;
 	}
-	Voice_busy = 0;
+	if (final) {
+		Voice_busy = 0;
+		Voice_need_next = 0;
+	} else {
+		Voice_need_next = 1;
+	}
 
 	if (!voice_parse_result(Voice_json, text, VOICE_TEXT_LEN, &conf)) {
 		return 0;

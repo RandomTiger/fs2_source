@@ -2,9 +2,15 @@
  * Vosk recogniser, loaded at run time.  See VoiceEngine.h.
  *
  * The Vosk C API is called through our own typedefs, so there is no link dependency and no
- * Vosk header.  Each utterance gets a new recogniser with that step's grammar, which avoids
+ * Vosk header.  Each phrase gets a new recogniser with that step's grammar, which avoids
  * vosk_recognizer_set_grm (not in every release).  Grammar phrases with a word the model does
  * not know are left out, since Vosk would otherwise drop the word and match the rest.
+ *
+ * Vosk's own endpointing ends a phrase: vosk_recognizer_accept_waveform returns 1 after about
+ * half a second of silence that follows speech.  The worker then stops reading the audio queue
+ * until the game, having acted on the phrase, gives the next step's grammar.  Audio is fed in
+ * chunks of a tenth of a second, so at most that much after the pause goes to the old
+ * recogniser.
  */
 
 #include <windows.h>
@@ -23,6 +29,7 @@ typedef int						(__cdecl *vosk_model_find_word_t)(VoskModel *model, const char 
 typedef VoskRecognizer *	(__cdecl *vosk_recognizer_new_grm_t)(VoskModel *model, float sample_rate, const char *grammar);
 typedef void					(__cdecl *vosk_recognizer_set_words_t)(VoskRecognizer *recognizer, int words);
 typedef int						(__cdecl *vosk_recognizer_accept_waveform_s_t)(VoskRecognizer *recognizer, const short *data, int length);
+typedef const char *			(__cdecl *vosk_recognizer_result_t)(VoskRecognizer *recognizer);
 typedef const char *			(__cdecl *vosk_recognizer_final_result_t)(VoskRecognizer *recognizer);
 typedef void					(__cdecl *vosk_recognizer_free_t)(VoskRecognizer *recognizer);
 typedef void					(__cdecl *vosk_set_log_level_t)(int log_level);
@@ -34,6 +41,7 @@ static vosk_model_find_word_t					p_vosk_model_find_word;
 static vosk_recognizer_new_grm_t				p_vosk_recognizer_new_grm;
 static vosk_recognizer_set_words_t			p_vosk_recognizer_set_words;
 static vosk_recognizer_accept_waveform_s_t	p_vosk_recognizer_accept_waveform_s;
+static vosk_recognizer_result_t				p_vosk_recognizer_result;
 static vosk_recognizer_final_result_t		p_vosk_recognizer_final_result;
 static vosk_recognizer_free_t					p_vosk_recognizer_free;
 static vosk_set_log_level_t					p_vosk_set_log_level;
@@ -41,6 +49,8 @@ static vosk_set_log_level_t					p_vosk_set_log_level;
 #define VOICE_PATH_LEN		MAX_PATH
 #define VOICE_ERROR_LEN		256
 #define VOICE_PHRASES_LEN	16384
+#define VOICE_CHUNK			(VOICE_ENGINE_RATE / 10)	// samples fed to Vosk at a time
+#define VOICE_QUEUE_MAX		(VOICE_ENGINE_RATE * 30)	// audio waiting beyond this is dropped
 
 static volatile LONG Voice_engine_state = VOICE_ENGINE_OFF;
 static char Voice_engine_err[VOICE_ERROR_LEN];
@@ -50,13 +60,27 @@ static VoskModel *Voice_model = NULL;
 static HANDLE Voice_thread = NULL;
 static HANDLE Voice_job_event = NULL;
 static volatile LONG Voice_quit = 0;
-static volatile LONG Voice_job_busy = 0;		// a job is queued or running
-static volatile LONG Voice_job_done = 0;		// a result is waiting
 
+// game thread only
+static int Voice_stream_open = 0;			// started, final result not yet taken
+
+// shared with the worker, under Voice_lock
+static CRITICAL_SECTION Voice_lock;
+static int Voice_lock_made = 0;
+static int Voice_streaming = 0;				// worker has a stream to recognise
+static int Voice_stream_ended = 0;			// no more audio is coming
+static int Voice_phrases_new = 0;			// Voice_job_phrases not yet taken by the worker
+static int Voice_paused = 0;					// a phrase result was given; waiting for the next phrases
+static int Voice_result_ready = 0;
+static int Voice_result_final = 0;
 static char Voice_job_phrases[VOICE_PHRASES_LEN];
-static short *Voice_job_samples = NULL;
-static int Voice_job_count = 0;
 static char Voice_job_result[VOICE_RESULT_LEN];
+static short *Voice_queue = NULL;			// audio not yet fed: Voice_queue_len samples from Voice_queue_pos
+static int Voice_queue_pos = 0;
+static int Voice_queue_len = 0;
+
+// worker only
+static VoskRecognizer *Voice_rec = NULL;
 
 static void voice_engine_fail(const char *fmt, const char *arg)
 {
@@ -176,31 +200,97 @@ static int voice_build_grammar(const char *phrases, char *out, int max)
 	return num;
 }
 
-static void voice_engine_run_job()
+static void voice_engine_free_rec()
 {
-	static char grammar[VOICE_PHRASES_LEN * 2 + 64];
-	VoskRecognizer *rec;
-	const char *res;
+	if (Voice_rec) {
+		p_vosk_recognizer_free(Voice_rec);
+		Voice_rec = NULL;
+	}
+}
 
+// hand a result to the game.  After the final one the stream is over; after any other the
+// worker waits for the next phrases.
+static void voice_engine_post(const char *res, int final)
+{
+	EnterCriticalSection(&Voice_lock);
 	Voice_job_result[0] = 0;
-
-	if (voice_build_grammar(Voice_job_phrases, grammar, (int)sizeof(grammar)) <= 0) {
-		return;
-	}
-
-	rec = p_vosk_recognizer_new_grm(Voice_model, (float)VOICE_ENGINE_RATE, grammar);
-	if (!rec) {
-		return;
-	}
-	p_vosk_recognizer_set_words(rec, 1);
-	p_vosk_recognizer_accept_waveform_s(rec, Voice_job_samples, Voice_job_count);
-	res = p_vosk_recognizer_final_result(rec);
 	if (res) {
 		strncpy(Voice_job_result, res, VOICE_RESULT_LEN - 1);
 		Voice_job_result[VOICE_RESULT_LEN - 1] = 0;
 		voice_utf8_to_latin1(Voice_job_result);
 	}
-	p_vosk_recognizer_free(rec);
+	Voice_result_final = final;
+	Voice_result_ready = 1;
+	if (final) {
+		Voice_streaming = 0;
+	} else {
+		Voice_paused = 1;
+	}
+	LeaveCriticalSection(&Voice_lock);
+}
+
+// feed the queued audio to the recogniser until it runs out, a phrase ends or the stream does
+static void voice_engine_run_stream()
+{
+	static char phrases[VOICE_PHRASES_LEN];
+	static char grammar[VOICE_PHRASES_LEN * 2 + 64];
+	static short chunk[VOICE_CHUNK];
+	int n, last, new_phrases;
+
+	for (;;) {
+		if (Voice_quit) {
+			return;
+		}
+
+		EnterCriticalSection(&Voice_lock);
+		new_phrases = Voice_phrases_new;
+		if (new_phrases) {
+			strcpy(phrases, Voice_job_phrases);
+			Voice_phrases_new = 0;
+			Voice_paused = 0;
+		}
+		if (!Voice_streaming || Voice_paused) {
+			LeaveCriticalSection(&Voice_lock);
+			return;
+		}
+		n = (Voice_queue_len < VOICE_CHUNK) ? Voice_queue_len : VOICE_CHUNK;
+		memcpy(chunk, Voice_queue + Voice_queue_pos, n * sizeof(short));
+		Voice_queue_pos += n;
+		Voice_queue_len -= n;
+		last = Voice_stream_ended && (Voice_queue_len == 0);
+		LeaveCriticalSection(&Voice_lock);
+
+		if (new_phrases) {
+			voice_engine_free_rec();
+			if (voice_build_grammar(phrases, grammar, (int)sizeof(grammar)) > 0) {
+				Voice_rec = p_vosk_recognizer_new_grm(Voice_model, (float)VOICE_ENGINE_RATE, grammar);
+				if (Voice_rec) {
+					p_vosk_recognizer_set_words(Voice_rec, 1);
+				}
+			}
+		}
+
+		// with no recogniser (no phrase the model knows) the audio is dropped
+		if ((n > 0) && Voice_rec && (p_vosk_recognizer_accept_waveform_s(Voice_rec, chunk, n) == 1)) {
+			// a pause ended the phrase
+			voice_engine_post(p_vosk_recognizer_result(Voice_rec), last);
+			voice_engine_free_rec();
+			if (last) {
+				return;
+			}
+			continue;
+		}
+
+		if (last) {
+			voice_engine_post(Voice_rec ? p_vosk_recognizer_final_result(Voice_rec) : NULL, 1);
+			voice_engine_free_rec();
+			return;
+		}
+
+		if (n == 0) {
+			return;
+		}
+	}
 }
 
 static DWORD WINAPI voice_engine_thread(LPVOID)
@@ -220,12 +310,10 @@ static DWORD WINAPI voice_engine_thread(LPVOID)
 		if (Voice_quit) {
 			break;
 		}
-		if (Voice_job_busy && !Voice_job_done) {
-			voice_engine_run_job();
-			InterlockedExchange(&Voice_job_done, 1);
-		}
+		voice_engine_run_stream();
 	}
 
+	voice_engine_free_rec();
 	return 0;
 }
 
@@ -271,12 +359,13 @@ int voice_engine_open(const char *dll_dir, const char *model_dir)
 	p_vosk_recognizer_new_grm = (vosk_recognizer_new_grm_t)GetProcAddress(Vosk_dll, "vosk_recognizer_new_grm");
 	p_vosk_recognizer_set_words = (vosk_recognizer_set_words_t)GetProcAddress(Vosk_dll, "vosk_recognizer_set_words");
 	p_vosk_recognizer_accept_waveform_s = (vosk_recognizer_accept_waveform_s_t)GetProcAddress(Vosk_dll, "vosk_recognizer_accept_waveform_s");
+	p_vosk_recognizer_result = (vosk_recognizer_result_t)GetProcAddress(Vosk_dll, "vosk_recognizer_result");
 	p_vosk_recognizer_final_result = (vosk_recognizer_final_result_t)GetProcAddress(Vosk_dll, "vosk_recognizer_final_result");
 	p_vosk_recognizer_free = (vosk_recognizer_free_t)GetProcAddress(Vosk_dll, "vosk_recognizer_free");
 	p_vosk_set_log_level = (vosk_set_log_level_t)GetProcAddress(Vosk_dll, "vosk_set_log_level");
 
 	if (!p_vosk_model_new || !p_vosk_model_free || !p_vosk_model_find_word || !p_vosk_recognizer_new_grm
-		|| !p_vosk_recognizer_set_words || !p_vosk_recognizer_accept_waveform_s || !p_vosk_recognizer_final_result
+		|| !p_vosk_recognizer_set_words || !p_vosk_recognizer_accept_waveform_s || !p_vosk_recognizer_result || !p_vosk_recognizer_final_result
 		|| !p_vosk_recognizer_free || !p_vosk_set_log_level) {
 		FreeLibrary(Vosk_dll);
 		Vosk_dll = NULL;
@@ -287,15 +376,25 @@ int voice_engine_open(const char *dll_dir, const char *model_dir)
 	p_vosk_set_log_level(-1);
 
 	Voice_quit = 0;
-	Voice_job_busy = 0;
-	Voice_job_done = 0;
-	Voice_job_event = CreateEventA(NULL, FALSE, FALSE, NULL);
+	Voice_stream_open = 0;
+	Voice_streaming = 0;
+	Voice_result_ready = 0;
+	Voice_queue = (short *)malloc(VOICE_QUEUE_MAX * sizeof(short));
+	Voice_job_event = Voice_queue ? CreateEventA(NULL, FALSE, FALSE, NULL) : NULL;
+	if (Voice_job_event && !Voice_lock_made) {
+		InitializeCriticalSection(&Voice_lock);
+		Voice_lock_made = 1;
+	}
 	InterlockedExchange(&Voice_engine_state, VOICE_ENGINE_LOADING);
 	Voice_thread = Voice_job_event ? CreateThread(NULL, 0, voice_engine_thread, NULL, 0, NULL) : NULL;
 	if (!Voice_thread) {
 		if (Voice_job_event) {
 			CloseHandle(Voice_job_event);
 			Voice_job_event = NULL;
+		}
+		if (Voice_queue) {
+			free(Voice_queue);
+			Voice_queue = NULL;
 		}
 		FreeLibrary(Vosk_dll);
 		Vosk_dll = NULL;
@@ -316,43 +415,105 @@ const char *voice_engine_error()
 	return Voice_engine_err;
 }
 
-int voice_engine_recognize(const char *phrases, const short *samples, int count)
+int voice_engine_stream_start(const char *phrases)
 {
-	if ((Voice_engine_state != VOICE_ENGINE_READY) || Voice_job_busy || (count <= 0)) {
+	if ((Voice_engine_state != VOICE_ENGINE_READY) || Voice_stream_open) {
 		return 0;
 	}
 
-	if (Voice_job_samples) {
-		free(Voice_job_samples);
-	}
-	Voice_job_samples = (short *)malloc(count * sizeof(short));
-	if (!Voice_job_samples) {
-		return 0;
-	}
-	memcpy(Voice_job_samples, samples, count * sizeof(short));
-	Voice_job_count = count;
+	EnterCriticalSection(&Voice_lock);
 	strncpy(Voice_job_phrases, phrases, VOICE_PHRASES_LEN - 1);
 	Voice_job_phrases[VOICE_PHRASES_LEN - 1] = 0;
+	Voice_phrases_new = 1;
+	Voice_paused = 0;
+	Voice_stream_ended = 0;
+	Voice_result_ready = 0;
+	Voice_queue_pos = 0;
+	Voice_queue_len = 0;
+	Voice_streaming = 1;
+	LeaveCriticalSection(&Voice_lock);
 
-	InterlockedExchange(&Voice_job_done, 0);
-	InterlockedExchange(&Voice_job_busy, 1);
+	Voice_stream_open = 1;
 	SetEvent(Voice_job_event);
 	return 1;
 }
 
-int voice_engine_result(char *json, int max)
+void voice_engine_stream_feed(const short *samples, int count)
 {
-	if (!Voice_job_busy || !Voice_job_done) {
+	if (!Voice_stream_open || (count <= 0)) {
+		return;
+	}
+
+	EnterCriticalSection(&Voice_lock);
+	if (!Voice_stream_ended) {
+		if (Voice_queue_pos + Voice_queue_len + count > VOICE_QUEUE_MAX) {
+			memmove(Voice_queue, Voice_queue + Voice_queue_pos, Voice_queue_len * sizeof(short));
+			Voice_queue_pos = 0;
+		}
+		if (count > VOICE_QUEUE_MAX - Voice_queue_len) {
+			count = VOICE_QUEUE_MAX - Voice_queue_len;
+		}
+		memcpy(Voice_queue + Voice_queue_pos + Voice_queue_len, samples, count * sizeof(short));
+		Voice_queue_len += count;
+	}
+	LeaveCriticalSection(&Voice_lock);
+
+	SetEvent(Voice_job_event);
+}
+
+void voice_engine_stream_end()
+{
+	if (!Voice_stream_open) {
+		return;
+	}
+
+	EnterCriticalSection(&Voice_lock);
+	Voice_stream_ended = 1;
+	LeaveCriticalSection(&Voice_lock);
+
+	SetEvent(Voice_job_event);
+}
+
+int voice_engine_stream_result(char *json, int max, int *final)
+{
+	int ready;
+
+	*final = 0;
+	if (!Voice_stream_open) {
 		return 0;
 	}
 
-	if (max > 0) {
-		strncpy(json, Voice_job_result, max - 1);
-		json[max - 1] = 0;
+	EnterCriticalSection(&Voice_lock);
+	ready = Voice_result_ready;
+	if (ready) {
+		if (max > 0) {
+			strncpy(json, Voice_job_result, max - 1);
+			json[max - 1] = 0;
+		}
+		*final = Voice_result_final;
+		Voice_result_ready = 0;
 	}
-	InterlockedExchange(&Voice_job_done, 0);
-	InterlockedExchange(&Voice_job_busy, 0);
-	return 1;
+	LeaveCriticalSection(&Voice_lock);
+
+	if (ready && *final) {
+		Voice_stream_open = 0;
+	}
+	return ready;
+}
+
+void voice_engine_stream_next(const char *phrases)
+{
+	if (!Voice_stream_open) {
+		return;
+	}
+
+	EnterCriticalSection(&Voice_lock);
+	strncpy(Voice_job_phrases, phrases, VOICE_PHRASES_LEN - 1);
+	Voice_job_phrases[VOICE_PHRASES_LEN - 1] = 0;
+	Voice_phrases_new = 1;
+	LeaveCriticalSection(&Voice_lock);
+
+	SetEvent(Voice_job_event);
 }
 
 void voice_engine_close()
@@ -382,10 +543,15 @@ void voice_engine_close()
 		p_vosk_model_free(Voice_model);
 		Voice_model = NULL;
 	}
-	if (Voice_job_samples) {
-		free(Voice_job_samples);
-		Voice_job_samples = NULL;
+	if (Voice_queue) {
+		free(Voice_queue);
+		Voice_queue = NULL;
 	}
+	if (Voice_lock_made) {
+		DeleteCriticalSection(&Voice_lock);
+		Voice_lock_made = 0;
+	}
+	Voice_stream_open = 0;
 	if (Vosk_dll) {
 		FreeLibrary(Vosk_dll);
 		Vosk_dll = NULL;
