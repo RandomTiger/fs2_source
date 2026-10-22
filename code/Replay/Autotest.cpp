@@ -463,6 +463,7 @@ static void autotest_main_menu()
 #define AUTOTEST_OPEN_COMMIT		4		// commit_pressed(), as the Commit button
 #define AUTOTEST_OPEN_SCREEN		5		// the briefing screens' own buttons, which pick the next screen
 #define AUTOTEST_OPEN_OPTIONS_KEY	6		// press a key on the Options screen, opened first (D-20261021-201402)
+#define AUTOTEST_OPEN_BARRACKS_BUTTON	7	// press a Barracks button, Barracks opened first and closed after (D-20261022-060501)
 #define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
@@ -475,8 +476,11 @@ static void autotest_main_menu()
 #define AUTOTEST_REGION_TECH_ROOM		3
 #define AUTOTEST_REGION_OPTIONS			4
 #define AUTOTEST_REGION_CAMPAIGN_ROOM	5
+// Barracks.cpp's buttons
+#define AUTOTEST_BARRACKS_MEDALS_BUTTON	8	// B_STATS_MEDAL_BUTTON
 extern int Next_screen;	// MissionScreenCommon.cpp: the briefing screen to go to
 extern int Help_overlay_flags;	// ContextHelp.cpp: the help overlays showing
+void barracks_button_pressed(int n);	// Barracks.cpp: as the player clicks a Barracks button
 typedef struct autotest_view {
 	char *name;		// <category>/<screen>, as the reference captures are named
 	int key;		// pressed first: 0 for none, a key, or AUTOTEST_TOUR_HELP
@@ -498,7 +502,7 @@ static autotest_stop Autotest_tour[] = {
 		  { "controls/controls_weapons", KEY_TAB }, { "controls/controls_misc", KEY_TAB } } },
 	{ "HUD config",			AUTOTEST_OPEN_OPTIONS_KEY,	KEY_H,						GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/hud_config", 0 } } },
-	{ "Medals",				AUTOTEST_OPEN_EVENT,	GS_EVENT_VIEW_MEDALS,				GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
+	{ "Medals",				AUTOTEST_OPEN_BARRACKS_BUTTON,	AUTOTEST_BARRACKS_MEDALS_BUTTON,	GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/medals", 0 } } },
 	{ "Barracks",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_BARRACKS,			GS_STATE_BARRACKS_MENU,				GS_EVENT_MAIN_MENU,
 		{ { "main_hall_pilot/barracks", 0 }, { "main_hall_pilot/barracks_help", AUTOTEST_TOUR_HELP } } },
@@ -562,8 +566,9 @@ static int Autotest_tour_frames;
 static DWORD Autotest_tour_ms;
 static DWORD Autotest_tour_view_ms;			// when the view started showing
 static int Autotest_tour_region = -1;		// a main hall region to click on the next main hall frame
-static int Autotest_tour_options = 0;		// AUTOTEST_OPEN_OPTIONS_KEY: 1 opening the Options screen, 2 open, 3 closing it again
-static int Autotest_tour_options_from;		// the state the Options screen was opened from
+static int Autotest_tour_options = 0;		// AUTOTEST_OPEN_OPTIONS_KEY and _BARRACKS_BUTTON: 1 opening the host screen (Options or Barracks), 2 open, 3 closing it again
+static int Autotest_tour_options_from;		// the state the host screen was opened from
+static int Autotest_tour_options_leave;		// the event that closes the host screen
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
 static int Autotest_tour_help_seen;			// the view's help overlay showed
 static int Autotest_tour_not_in_demo;		// the "not in demo" popup showed during the view
@@ -852,15 +857,15 @@ static void autotest_tour_frame(int state)
 			if ((Autotest_tour_stop == 0) && (state != GS_STATE_MAIN_MENU)) {
 				return;
 			}
-			// the Options screen the stop before opened on its way closes first, back to where it was opened from
+			// the host screen (Options or Barracks) the stop before opened on its way closes first, back to where it was opened from
 			if (Autotest_tour_options >= 2) {
 				if (state != Autotest_tour_options_from) {
 					if (Autotest_tour_options == 2) {
-						gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
+						gameseq_post_event(Autotest_tour_options_leave);
 						Autotest_tour_options = 3;
 						Autotest_tour_ms = Autotest_frame_ms;
 					} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
-						autotest_tour_end("the Options screen did not go back");
+						autotest_tour_end("the host screen did not go back");
 					}
 					return;
 				}
@@ -871,6 +876,7 @@ static void autotest_tour_frame(int state)
 				if (Autotest_tour_options == 0) {
 					Autotest_tour_options = 1;
 					Autotest_tour_options_from = state;
+					Autotest_tour_options_leave = GS_EVENT_PREVIOUS_STATE;
 					Autotest_tour_ms = Autotest_frame_ms;
 					if (state == GS_STATE_MAIN_MENU) {
 						Autotest_tour_region = AUTOTEST_REGION_OPTIONS;
@@ -879,6 +885,23 @@ static void autotest_tour_frame(int state)
 					}
 				} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
 					autotest_tour_end("the Options screen did not open");
+				}
+				return;
+			}
+			// a Barracks button: open Barracks first through its main hall region, as the player does; closed to the main hall after
+			if ((s->open == AUTOTEST_OPEN_BARRACKS_BUTTON) && (state != GS_STATE_BARRACKS_MENU)) {
+				if (Autotest_tour_options == 0) {
+					if (state != GS_STATE_MAIN_MENU) {
+						autotest_tour_end("Barracks opens only from the main hall");
+						return;
+					}
+					Autotest_tour_options = 1;
+					Autotest_tour_options_from = state;
+					Autotest_tour_options_leave = GS_EVENT_MAIN_MENU;
+					Autotest_tour_ms = Autotest_frame_ms;
+					Autotest_tour_region = AUTOTEST_REGION_BARRACKS;
+				} else if (Autotest_frame_ms - Autotest_tour_ms > AUTOTEST_GIVE_UP_MS) {
+					autotest_tour_end("the Barracks screen did not open");
 				}
 				return;
 			}
@@ -919,6 +942,10 @@ static void autotest_tour_frame(int state)
 
 				case AUTOTEST_OPEN_COMMIT:
 					commit_pressed();
+					break;
+
+				case AUTOTEST_OPEN_BARRACKS_BUTTON:
+					barracks_button_pressed(s->arg);
 					break;
 
 				case AUTOTEST_OPEN_SCREEN:
