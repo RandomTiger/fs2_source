@@ -6,11 +6,9 @@
 #ifndef _FS2_VOICECAPTURE_H
 #define _FS2_VOICECAPTURE_H
 
-#define VOICE_CAPTURE_MAX_SECONDS	6		// longer speech is cut off
-
 int  voice_capture_start();					// 1 if recording started
-void voice_capture_poll();						// call each frame while recording
-int  voice_capture_stop(short **samples);	// stops; returns the sample count, *samples valid until the next start
+int  voice_capture_poll(short **samples);	// each frame while recording: the samples since the last call, *samples valid until the next call
+int  voice_capture_stop(short **samples);	// stops; returns the last samples, as voice_capture_poll
 void voice_capture_close();
 
 #endif

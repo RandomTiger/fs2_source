@@ -1166,6 +1166,94 @@ int hud_squadmsg_voice_open_all_fighters()
 	return 0;
 }
 
+// Claude: the order the menu holds for a target (its shortcut key was pressed, or the order was
+// said first), as an index into Comm_orders; -1 if none
+int hud_squadmsg_voice_held_order()
+{
+	int i;
+
+	if ( (Player == NULL) || !(Player->flags & PLAYER_FLAGS_MSG_MODE) || (Msg_shortcut_command == -1) )
+		return -1;
+	if ( (Squad_msg_mode != SM_MODE_TYPE_SELECT) && (Squad_msg_mode != SM_MODE_SHIP_SELECT) && (Squad_msg_mode != SM_MODE_WING_SELECT) )
+		return -1;
+	for ( i = 0; i < MAX_SHIP_ORDERS; i++ ) {
+		if ( Comm_orders[i].value == Msg_shortcut_command )
+			return i;
+	}
+	return -1;
+}
+
+// Claude: an order said before its target: press its shortcut key.  A menu already open is
+// closed first, as the key would not act on it.  0 (and the fail sound) if no message can go.
+int hud_squadmsg_voice_shortcut( int order )
+{
+	if ( (order < 0) || (order >= MAX_SHIP_ORDERS) || !hud_squadmsg_voice_can_message() ) {
+		gamesnd_play_iface(SND_GENERAL_FAIL);
+		return 0;
+	}
+	if ( Player->flags & PLAYER_FLAGS_MSG_MODE )
+		hud_squadmsg_toggle();
+	hud_squadmsg_shortcut( Comm_orders[order].value );
+	return 1;
+}
+
+// Claude: send the held order to a ship, a wing or all fighters, if the menu would list them for
+// it, as picking them from the menu does.  0 (and the fail sound) if not; the menu stays up, so
+// another target can be said.
+static int hud_squadmsg_voice_holds( int order )
+{
+	return (order >= 0) && (order < MAX_SHIP_ORDERS) && (hud_squadmsg_voice_held_order() == order) && hud_squadmsg_voice_can_message();
+}
+
+int hud_squadmsg_voice_send_ship( int shipnum, int order )
+{
+	int command;
+
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_voice_ship_valid(shipnum) ) {
+		command = Comm_orders[order].value;
+		if ( (command != IGNORE_TARGET_ITEM) && (Ships[shipnum].orders_accepted & command) && hud_squadmsg_ship_order_valid(shipnum, command) ) {
+			hud_squadmsg_send_ship_command( shipnum, command, 1 );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_send_wing( int wingnum, int order )
+{
+	int command;
+
+	// capture goes to a ship only: its key offers no wings
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_voice_wing_known(wingnum) ) {
+		command = Comm_orders[order].value;
+		if ( (command != IGNORE_TARGET_ITEM) && (command != CAPTURE_TARGET_ITEM) && hud_squadmsg_wing_valid(&Wings[wingnum], Player_ship->team) ) {
+			hud_squadmsg_send_wing_command( wingnum, command, 1 );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_send_all_fighters( int order )
+{
+	int command;
+
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_count_fighters() ) {
+		command = Comm_orders[order].value;
+		if ( command != CAPTURE_TARGET_ITEM ) {
+			hud_squadmsg_send_to_all_fighters( command );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
 // Claude: 1 while the menu shows a ship's or wing's orders
 int hud_squadmsg_voice_in_command()
 {

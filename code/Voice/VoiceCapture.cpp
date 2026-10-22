@@ -9,12 +9,9 @@
 #include "VoiceEngine.h"
 
 #define VOICE_CAPTURE_BUFFER_SECONDS	2		// dscap's looping buffer; polled every frame
-#define VOICE_CAPTURE_MAX_SAMPLES		(VOICE_ENGINE_RATE * VOICE_CAPTURE_MAX_SECONDS)
 
 static int Voice_capture_buffer = 0;			// dscap buffer created
 static int Voice_capture_recording = 0;
-static short Voice_capture_samples[VOICE_CAPTURE_MAX_SAMPLES];
-static int Voice_capture_count = 0;
 static unsigned char *Voice_capture_raw = NULL;
 static int Voice_capture_raw_size = 0;
 
@@ -44,7 +41,6 @@ int voice_capture_start()
 		Voice_capture_buffer = 1;
 	}
 
-	Voice_capture_count = 0;
 	if (dscap_start_record() != 0) {
 		return 0;
 	}
@@ -52,41 +48,37 @@ int voice_capture_start()
 	return 1;
 }
 
-void voice_capture_poll()
+int voice_capture_poll(short **samples)
 {
-	int bytes, n;
+	int bytes;
 
-	if (!Voice_capture_recording) {
-		return;
-	}
-
-	bytes = dscap_get_raw_data(Voice_capture_raw, (unsigned int)Voice_capture_raw_size);
-	if (bytes <= 0) {
-		return;
-	}
-
-	n = bytes / (int)sizeof(short);
-	if (n > VOICE_CAPTURE_MAX_SAMPLES - Voice_capture_count) {
-		n = VOICE_CAPTURE_MAX_SAMPLES - Voice_capture_count;
-	}
-	if (n > 0) {
-		memcpy(Voice_capture_samples + Voice_capture_count, Voice_capture_raw, n * sizeof(short));
-		Voice_capture_count += n;
-	}
-}
-
-int voice_capture_stop(short **samples)
-{
-	*samples = Voice_capture_samples;
+	*samples = (short *)Voice_capture_raw;
 
 	if (!Voice_capture_recording) {
 		return 0;
 	}
 
-	voice_capture_poll();
+	bytes = dscap_get_raw_data(Voice_capture_raw, (unsigned int)Voice_capture_raw_size);
+	if (bytes <= 0) {
+		return 0;
+	}
+	return bytes / (int)sizeof(short);
+}
+
+int voice_capture_stop(short **samples)
+{
+	int count;
+
+	*samples = (short *)Voice_capture_raw;
+
+	if (!Voice_capture_recording) {
+		return 0;
+	}
+
+	count = voice_capture_poll(samples);
 	dscap_stop_record();
 	Voice_capture_recording = 0;
-	return Voice_capture_count;
+	return count;
 }
 
 void voice_capture_close()
@@ -104,5 +96,4 @@ void voice_capture_close()
 		Voice_capture_raw = NULL;
 	}
 	Voice_capture_raw_size = 0;
-	Voice_capture_count = 0;
 }

@@ -2,7 +2,8 @@
  * Voice control core.  See VoiceCore.h and docs/VOICE_CONTROL.md.
  *
  * Phrases follow the 2009-2014 SAPI implementation (voicerecognition.cpp, phrases.xml):
- * ship and wing names, "all fighters", the menu's order text, and three missile functions.
+ * ship and wing names, "all fighters", the menu's order text, three missile functions and the
+ * support ship.
  * Changes from it: an order matches a live menu row (so the menu's greyed-out checks apply),
  * an unmatched phrase does nothing, and targets come from the mission instead of a fixed list.
  */
@@ -31,10 +32,20 @@ static const char *Voice_order_phrases[VOICE_NUM_ORDERS][3] = {
 	{ "depart", NULL },
 };
 
-static const char *Voice_func_phrases[VOICE_NUM_FUNCS] = {
-	"single missile",
-	"dual missile",
-	"cycle missile",
+// the orders that can be said before the target: those with a shortcut key
+static const int Voice_order_first[VOICE_NUM_ORDERS] = {
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	0,		// rearm me
+	0,		// abort rearm
+	1,
+};
+
+// phrases for each ship function; the first names it in logs
+static const char *Voice_func_phrases[VOICE_NUM_FUNCS][4] = {
+	{ "single missile", NULL },
+	{ "dual missile", NULL },
+	{ "cycle missile", NULL },
+	{ "support", "rearm", "repair", NULL },
 };
 
 #define VOICE_ALL_FIGHTERS_PHRASE	"all fighters"
@@ -181,30 +192,61 @@ static int voice_add_phrase(char *out, int *len, int max, const char *phrase)
 	return 1;
 }
 
-int voice_target_phrases(const voice_target *targets, int count, char *out, int max)
+// the ship and wing names and "all fighters"
+static int voice_add_targets(const voice_target *targets, int count, char *out, int *len, int max)
 {
-	int i, len = 0, num = 0;
+	int i, num = 0;
 	char name[VOICE_TEXT_LEN];
 	char wing[VOICE_TEXT_LEN + 8];
+
+	for (i = 0; i < count; i++) {
+		voice_normalize(targets[i].name, name, VOICE_TEXT_LEN);
+		num += voice_add_phrase(out, len, max, name);
+		if (targets[i].kind == VOICE_TARGET_WING) {
+			sprintf(wing, "%s%s", name, VOICE_WING_SUFFIX);
+			num += voice_add_phrase(out, len, max, wing);
+		}
+	}
+	num += voice_add_phrase(out, len, max, VOICE_ALL_FIGHTERS_PHRASE);
+	return num;
+}
+
+int voice_target_phrases(const voice_target *targets, int count, char *out, int max)
+{
+	int i, j, len = 0, num = 0;
 
 	if (max <= 0) {
 		return 0;
 	}
 	out[0] = 0;
 
-	for (i = 0; i < count; i++) {
-		voice_normalize(targets[i].name, name, VOICE_TEXT_LEN);
-		num += voice_add_phrase(out, &len, max, name);
-		if (targets[i].kind == VOICE_TARGET_WING) {
-			sprintf(wing, "%s%s", name, VOICE_WING_SUFFIX);
-			num += voice_add_phrase(out, &len, max, wing);
+	num += voice_add_targets(targets, count, out, &len, max);
+	for (i = 0; i < VOICE_NUM_FUNCS; i++) {
+		for (j = 0; Voice_func_phrases[i][j]; j++) {
+			num += voice_add_phrase(out, &len, max, Voice_func_phrases[i][j]);
 		}
 	}
-	num += voice_add_phrase(out, &len, max, VOICE_ALL_FIGHTERS_PHRASE);
-	for (i = 0; i < VOICE_NUM_FUNCS; i++) {
-		num += voice_add_phrase(out, &len, max, Voice_func_phrases[i]);
+	for (i = 0; i < VOICE_NUM_ORDERS; i++) {
+		if (!Voice_order_first[i]) {
+			continue;
+		}
+		for (j = 0; Voice_order_phrases[i][j]; j++) {
+			num += voice_add_phrase(out, &len, max, Voice_order_phrases[i][j]);
+		}
 	}
 	return num;
+}
+
+int voice_send_phrases(const voice_target *targets, int count, char *out, int max)
+{
+	int len = 0;
+
+	if (max <= 0) {
+		return 0;
+	}
+	out[0] = 0;
+
+	return voice_add_targets(targets, count, out, &len, max);
 }
 
 int voice_order_phrases(const voice_row *rows, int count, char *out, int max)
@@ -230,7 +272,8 @@ int voice_order_phrases(const voice_row *rows, int count, char *out, int max)
 	return num;
 }
 
-int voice_match_target(const char *heard, const voice_target *targets, int count, voice_result *r)
+// a ship, a wing or "all fighters"
+static int voice_match_name(const char *heard, const voice_target *targets, int count, voice_result *r)
 {
 	int i;
 	char name[VOICE_TEXT_LEN];
@@ -247,14 +290,6 @@ int voice_match_target(const char *heard, const voice_target *targets, int count
 	if (!strcmp(heard, VOICE_ALL_FIGHTERS_PHRASE)) {
 		r->kind = VOICE_RESULT_ALL_FIGHTERS;
 		return r->kind;
-	}
-
-	for (i = 0; i < VOICE_NUM_FUNCS; i++) {
-		if (!strcmp(heard, Voice_func_phrases[i])) {
-			r->kind = VOICE_RESULT_FUNCTION;
-			r->index = i;
-			return r->kind;
-		}
 	}
 
 	// ships first: a ship's full name wins over a wing of the same name
@@ -283,6 +318,72 @@ int voice_match_target(const char *heard, const voice_target *targets, int count
 		}
 	}
 
+	return r->kind;
+}
+
+int voice_match_target(const char *heard, const voice_target *targets, int count, voice_result *r)
+{
+	int i, j;
+
+	r->kind = VOICE_RESULT_NONE;
+	r->index = -1;
+	r->order = -1;
+
+	if (!heard[0]) {
+		return r->kind;
+	}
+
+	for (i = 0; i < VOICE_NUM_FUNCS; i++) {
+		for (j = 0; Voice_func_phrases[i][j]; j++) {
+			if (!strcmp(heard, Voice_func_phrases[i][j])) {
+				r->kind = VOICE_RESULT_FUNCTION;
+				r->index = i;
+				return r->kind;
+			}
+		}
+	}
+
+	// an order before its target, as the old version took it
+	for (i = 0; i < VOICE_NUM_ORDERS; i++) {
+		if (!Voice_order_first[i]) {
+			continue;
+		}
+		for (j = 0; Voice_order_phrases[i][j]; j++) {
+			if (!strcmp(heard, Voice_order_phrases[i][j])) {
+				r->kind = VOICE_RESULT_SHORTCUT;
+				r->order = i;
+				return r->kind;
+			}
+		}
+	}
+
+	return voice_match_name(heard, targets, count, r);
+}
+
+int voice_match_send(const char *heard, const voice_target *targets, int count, int held_order, voice_result *r)
+{
+	voice_match_name(heard, targets, count, r);
+
+	if ((held_order < 0) || (held_order >= VOICE_NUM_ORDERS)) {
+		r->kind = VOICE_RESULT_NONE;
+		r->index = -1;
+		return r->kind;
+	}
+
+	switch (r->kind) {
+	case VOICE_RESULT_SHIP:
+		r->kind = VOICE_RESULT_SEND_SHIP;
+		break;
+	case VOICE_RESULT_WING:
+		r->kind = VOICE_RESULT_SEND_WING;
+		break;
+	case VOICE_RESULT_ALL_FIGHTERS:
+		r->kind = VOICE_RESULT_SEND_ALL_FIGHTERS;
+		break;
+	default:
+		return r->kind;
+	}
+	r->order = held_order;
 	return r->kind;
 }
 
@@ -400,10 +501,18 @@ void voice_core_init(voice_core *vc)
 {
 	vc->step = VOICE_STEP_TARGET;
 	vc->order_deadline = 0;
+	vc->held_order = -1;
 }
 
-int voice_core_step(voice_core *vc, int menu_in_command, int now_ms)
+int voice_core_step(voice_core *vc, int menu_in_command, int held_order, int now_ms)
 {
+	// an order said first, or its shortcut key pressed: the menu waits for who gets it
+	vc->held_order = held_order;
+	if (held_order >= 0) {
+		vc->step = VOICE_STEP_SEND;
+		return VOICE_STEP_SEND;
+	}
+
 	if (!menu_in_command) {
 		vc->step = VOICE_STEP_TARGET;
 		return VOICE_STEP_TARGET;
@@ -440,6 +549,8 @@ int voice_core_dispatch(voice_core *vc, int step, const char *heard, float conf,
 
 	if (step == VOICE_STEP_ORDER) {
 		voice_match_order(text, rows, num_rows, r);
+	} else if (step == VOICE_STEP_SEND) {
+		voice_match_send(text, targets, num_targets, vc->held_order, r);
 	} else {
 		voice_match_target(text, targets, num_targets, r);
 	}
@@ -452,9 +563,18 @@ int voice_core_dispatch(voice_core *vc, int step, const char *heard, float conf,
 		vc->order_deadline = now_ms + VOICE_ORDER_TIMEOUT_MS;
 		break;
 
+	case VOICE_RESULT_SHORTCUT:
+		vc->step = VOICE_STEP_SEND;
+		vc->held_order = r->order;
+		break;
+
 	case VOICE_RESULT_ORDER:
 	case VOICE_RESULT_FUNCTION:
+	case VOICE_RESULT_SEND_SHIP:
+	case VOICE_RESULT_SEND_WING:
+	case VOICE_RESULT_SEND_ALL_FIGHTERS:
 		vc->step = VOICE_STEP_TARGET;
+		vc->held_order = -1;
 		break;
 
 	default:
@@ -478,5 +598,5 @@ const char *voice_func_name(int func)
 	if ((func < 0) || (func >= VOICE_NUM_FUNCS)) {
 		return "?";
 	}
-	return Voice_func_phrases[func];
+	return Voice_func_phrases[func][0];
 }
