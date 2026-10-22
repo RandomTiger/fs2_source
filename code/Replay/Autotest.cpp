@@ -485,6 +485,7 @@ static void autotest_main_menu()
 #define AUTOTEST_SIM_ROOM_CUTSCENES_BUTTON	9	// CUTSCENES_BUTTON
 // TechMenu.cpp's buttons
 #define AUTOTEST_TECH_ROOM_SIMULATOR_TAB	4	// SIMULATOR_TAB
+#define AUTOTEST_TECH_ROOM_CREDITS_TAB		6	// CREDITS_TAB
 extern int Next_screen;	// MissionScreenCommon.cpp: the briefing screen to go to
 extern int Help_overlay_flags;	// ContextHelp.cpp: the help overlays showing
 void barracks_button_pressed(int n);	// Barracks.cpp: as the player clicks a Barracks button
@@ -525,7 +526,7 @@ static autotest_stop Autotest_tour[] = {
 		{ { "campaign_techroom/simulator_single", 0 }, { "campaign_techroom/simulator_single_help", AUTOTEST_TOUR_HELP } } },
 	{ "Cutscenes",			AUTOTEST_OPEN_SIM_ROOM_BUTTON,	AUTOTEST_SIM_ROOM_CUTSCENES_BUTTON,	GS_STATE_VIEW_CUTSCENES,		GS_EVENT_MAIN_MENU,
 		{ { "campaign_techroom/cutscenes", 0 } } },
-	{ "Credits",			AUTOTEST_OPEN_EVENT,	GS_EVENT_CREDITS,					GS_STATE_CREDITS,					GS_EVENT_MAIN_MENU,
+	{ "Credits",			AUTOTEST_OPEN_TECH_ROOM_BUTTON,	AUTOTEST_TECH_ROOM_CREDITS_TAB,	GS_STATE_CREDITS,			GS_EVENT_MAIN_MENU,
 		{ { "campaign_techroom/credits", 0 } } },
 	{ "Command briefing",	AUTOTEST_OPEN_EVENT,	GS_EVENT_START_GAME,				GS_STATE_CMD_BRIEF,					AUTOTEST_TOUR_STAY,
 		{ { "briefing/command_briefing", 0 }, { "briefing/command_briefing_help", AUTOTEST_TOUR_HELP } } },
