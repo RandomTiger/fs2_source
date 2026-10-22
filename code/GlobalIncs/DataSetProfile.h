@@ -55,7 +55,8 @@ typedef struct data_set_profile {
 #define FVS_HUD_CONFIG			(1<<5)	// options HUD config button; clear: not-in-demo popup
 #define FVS_IPX					(1<<6)	// multi options IPX button; clear: hidden and ignored
 #define FVS_HOTKEYS				(1<<7)	// F3 hotkey screen and its help line; clear: F3 does nothing (batch 8, D-20261021-100301)
-#define FVS_ALL					((1<<8) - 1)
+#define FVS_CUTSCENES			(1<<8)	// Simulator room, Credits and Tech room Cutscenes buttons; clear: not-in-demo popup (the FS2 demo has no ViewFootage art, #87, D-20261022-065950)
+#define FVS_ALL					((1<<9) - 1)
 
 extern const data_set_profile *Game_profile;
 
