@@ -354,23 +354,26 @@ Profile fields in `GlobalIncs/DataSetProfile.h`, each read where the `FS2_DEMO` 
 
 `full_version_screens` bits (set: the screen opens as in the full game; clear: what the demo build did):
 
-| Bit | Value | Site | Clear |
-|---|---|---|---|
-| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup |
-| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | `fs2_demo_walls` 1: restart-campaign popup (FS2 demo); 0: not-in-demo popup (FS1 demo) |
-| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing |
-| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing |
-| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup |
-| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup |
-| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored |
-| `FVS_HOTKEYS` | 128 | F3 hotkey screen and its help line | `fs2_demo_walls` 1: nothing, no help line (FS2 demo); 0: not-in-demo popup, help line kept (FS1 demo) |
-| `FVS_MULTIPLAYER` | 256 | main hall multiplayer region | not-in-demo popup |
-| `FVS_OBJECTIVES` | 512 | in-mission objectives key | not-in-demo popup |
-| `FVS_OPTIONS_MULTI` | 1024 | options multiplayer tab | not-in-demo popup |
-| `FVS_DEBRIEF_MEDALS` | 2048 | debriefing medals button | not-in-demo popup |
+| Bit | Value | Site | Clear | FS2 retail | FS2 demo | FS1 retail | FS1 demo |
+|---|---|---|---|---|---|---|---|
+| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | `fs2_demo_walls` 1: restart-campaign popup (FS2 demo); 0: not-in-demo popup (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing | 1 | 0 | 1 | 1 |
+| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing | 1 | 0 | 1 | 1 |
+| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup | 1 | 0 | 1 | 1 |
+| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored | 1 | 0 | 1 | 1 |
+| `FVS_HOTKEYS` | 128 | F3 hotkey screen and its help line | `fs2_demo_walls` 1: nothing, no help line (FS2 demo); 0: not-in-demo popup, help line kept (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_MULTIPLAYER` | 256 | main hall multiplayer region | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OBJECTIVES` | 512 | in-mission objectives key | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OPTIONS_MULTI` | 1024 | options multiplayer tab | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_DEBRIEF_MEDALS` | 2048 | debriefing medals button | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_CUTSCENES` | 4096 | Simulator room, Credits and Tech room Cutscenes buttons | not-in-demo popup (#87) | 1 | 0 | 1 | 1 |
 
-Rows: both retail rows `FVS_ALL`; FS2 demo `FVS_MULTIPLAYER | FVS_OBJECTIVES | FVS_OPTIONS_MULTI | FVS_DEBRIEF_MEDALS`;
-FS1 demo `FVS_LOAD_MISSION | FVS_QUICK_START | FVS_HUD_CONFIG | FVS_IPX`. No row's behaviour changed at the merge.
+`FVS_ALL` is `(1<<13) - 1`. Bits 8-11 are FS1Compat's, numbered at the first Enhanced merge; `FVS_CUTSCENES`
+(FS2Demo, #87) takes bit 12 above them, and a child's new bit takes the first bit above Enhanced's `FVS_ALL`
+(D-20261022-161946). The FS1 demo row sets `FVS_CUTSCENES`: it walls only the FS2 demo, and FS1Compat ran
+retail code at those sites (D-20261021-142001 rule 5). No code, recording, pilot or save stores the numbers.
 
 FS1Demo's `full_version_screens` (D-20261020-214042), one 1/0 wall over the FS1 demo's missing screens, was
 joined into these bits at the FS2Demo merge into Enhanced (D-20261021-142001): FS1 walls with an FS2 bit use it,
@@ -382,6 +385,18 @@ at `GS_EVENT_GAME_INIT` and the IPX button hidden when the multi options screen 
 screens are read on exit, after any switch. Kept as they were: the replay and autotest pilot load at start-up
 (D-20261018-184854) and the sales-screen skip (D-20261018-221703). Held: the PlayerMenu demo title, dead in
 both builds, for the D-060 pass; the `OEM_BUILD` and `MULTIPLAYER_BETA_BUILD` arms, for batch 9.
+
+The Options H hotkey reads `FVS_HUD_CONFIG` as the button does (D-20261021-195004). **Open check:** the FS2
+demo menu tour now opens HUD Config through the player's entry (D-20261021-201402) and passes it, but stops at
+Medals: that stop still posts the state event, bypasses the Barracks wall and hits a missing-bitmap Error (#85). It
+stays open until every walled screen in the tour opens through the player's entry.
+
+**Unreachable screens** (D-20261022-090902). A demo bug on a screen that a demo player cannot reach gets no
+fix, and the menu tour SKIPs that screen: a stop whose host screen ended in SKIP logs "SKIP not in demo (host
+Tech room)". Tom: "OriginalBugFixes should be minimal to reduce risk to FS2. Fixing bugs that can't be reached
+in UI for FS2 demo in particular doesn't cross that threshold." So #87, the demo Cutscenes wall, is unreachable
+in the shipped demo (the Tech room is walled) and stays as a latent guard; #88, the demo Credits crash, is
+likewise kept, with no fix. #91, the Hotkeys stop, is the same case: the shipped demo has no Hotkeys screen (no art, no help line), so the tour SKIPs it through the F3 wall's signal rather than a tour-side list (D-20261022-144601, D-20261022-150211).
 
 ### Batch 8: mission UI, HUD, controls (D-20261021-100301)
 
@@ -397,7 +412,7 @@ Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the
 | `breakup_fx` | 1 | 0 | 1 | 1 | ship break-up particle range, life and scale (ShipFX.cpp); affects game logic (D-20261021-110833) |
 
 `full_version_screens` gains `FVS_HOTKEYS` (128): the F3 hotkey screen (FreeSpace.cpp) and its help line;
-clear, F3 does nothing. `FVS_ALL` is now `(1<<8) - 1`.
+clear, F3 does nothing for the player; under the autotest its refusal branch calls `autotest_not_in_demo()` so the menu tour logs the Hotkeys stop and its help view "SKIP not in demo" (#91, D-20261022-144601). `FVS_ALL` is now `(1<<13) - 1`, with `FVS_CUTSCENES` at bit 12 (D-20261022-161946).
 
 No field: the demo key check in ControlsConfig.cpp is compiled always, as the shipped demo's list was empty
 (D-20261021-100517); the `show_framerate` console command is compiled in Release on every data set.

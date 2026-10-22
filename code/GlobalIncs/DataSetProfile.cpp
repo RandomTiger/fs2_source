@@ -196,7 +196,7 @@ static const data_set_profile Data_set_profiles[NUM_DATA_SETS] = {
 		"demo", "Freespace Demo Campaign",
 		{ "DemoTitle1", NULL }, NULL,
 		Game_builtin_missions_fs1_demo, &Game_builtin_missions_fs1_demo_count,
-		FVS_LOAD_MISSION | FVS_QUICK_START | FVS_HUD_CONFIG | FVS_IPX, 0, 0, 0, 0,	// FS1's demo walls (D-20261020-214042, D-20261021-142001)
+		FVS_LOAD_MISSION | FVS_QUICK_START | FVS_HUD_CONFIG | FVS_IPX | FVS_CUTSCENES, 0, 0, 0, 0,	// FS1's demo walls (D-20261020-214042, D-20261021-142001); FVS_CUTSCENES set: an FS2Demo-only wall, FS1 ran retail code there (D-20261022-161946)
 		1, 1, 1, 1, 1,	// brief_fade 1 with brief_fade_anim 0 below: the cut's static sound plays and nothing is drawn (D-20261021-142002)
 		1, 0,
 		2, 0, 0, 0, 0, 0, 0, 0, 0, 0, { { 133, 337 }, { 213, 539 } }, { "Briefing_Help_Overlay_Demo", "Main_Help_Overlay_Demo" }, { { 452, 37 }, { 723, 59 } }, 1, { 27, 168 }, { -66, 25 }, { 4, 14 }, { 0, 16 } },
