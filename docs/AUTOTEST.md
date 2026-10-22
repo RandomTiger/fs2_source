@@ -39,6 +39,9 @@ Visits every single-player screen and quits: the main hall, options (general, mu
 - Each screen, tab, page and help overlay is a view. Main hall rooms are opened by clicking their region, other screens the way their button or key opens them. Each view is drawn for 30 frames (gameplay 120) and the screen is closed the way its Back button closes it.
 - The log has one line per view: `Screen '<category>/<screen>': PASS`, `FAIL <why>` or `SKIP <why>`. A view fails if its screen does not open, closes by itself or does not go back, if its help overlay does not show, or if an `Assert`, `Int3` or `Warning` fires while it is up. After a crash the views not reached are listed as `FAIL not reached`. The log ends with `Menu tour: N screens, N passed, N failed, N skipped`. Any failure gives exit code 2.
 - A screen that shows the "not in demo" popup (`game_feature_not_in_demo_popup`) is skipped: `SKIP not in demo`.
+- **Rule:** a tour stop for a screen with a demo wall is opened through the player's entry, never by posting its state event, so the tour meets the wall the player meets (D-20261021-201402). HUD config (main menu and in-game) is the H key on the Options screen: the tour opens Options first and closes it again after.
+  Medals is the Barracks medals button: the tour opens Barracks through its main hall region, presses the button, and closes Barracks to the main hall after (D-20261022-060501).
+- With a mission that has only a briefing (training or scramble, for example `-at_mission btm-01` in FS1), the briefing views are `briefing/briefing_training` and `briefing/briefing_training_help`, and ship and weapon select are `SKIP`.
 - In Debug builds a run-time check failure (`/RTC`) or a CRT assert also counts: the screen is logged as `FAIL` and the game exits with code `0x80000003`.
 - `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
 - The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
@@ -96,7 +99,6 @@ tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 - The time limit is in mission time, which a replay reproduces exactly. A real-time limit would end the replay on a different frame.
 - `-autotest` on a replay adds only the log, the watchdog and the no-dialog handling. The replay still drives the menus itself.
 - If an `Assert` or `Int3` fired while recording, replay with `-autotest` too, or the replay stops at the same `Assert` dialog.
-- Red alert missions can be run, but replay does not support them yet, so the log warns when one is recorded.
 
 ## Not covered
 - Nobody flies the player ship, so player weapons, collisions and the player's own damage are not tested. AI ships fight as normal.
