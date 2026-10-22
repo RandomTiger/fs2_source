@@ -315,6 +315,7 @@
 #include "acm.h"
 #include "dscap.h"
 #include "Replay.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 		
 #define SND_F_USED			(1<<0)		// Sounds[] element is used
 
@@ -562,6 +563,7 @@ int snd_load( game_snd *gs, int allow_hardware_load )
 	sound_info		*si;
 	sound				*snd;
 	WAVEFORMATEX	*header = NULL;
+	loadtime_scope lt_scope(LT_SND_LOAD);	// Claude: -loadtimes, see LoadTimes.h
 
 	if ( gs->filename == NULL || gs->filename[0] == 0 )
 		return -1;

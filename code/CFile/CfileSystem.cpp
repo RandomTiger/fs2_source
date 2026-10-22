@@ -94,6 +94,7 @@
 #include "Cfile.h"
 #include "CfileSystem.h"
 #include "localize.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 
 #define CF_ROOTTYPE_PATH 0
@@ -737,6 +738,7 @@ void cf_free_secondary_filelist()
 int cf_find_file_location( char *filespec, int pathtype, char *pack_filename, int *size, int *offset, bool localize )
 {
 	int i;
+	loadtime_scope lt_scope(LT_CF_FIND);	// Claude: -loadtimes, see LoadTimes.h
 
 	Assert(filespec && strlen(filespec));
 

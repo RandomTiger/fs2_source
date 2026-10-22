@@ -259,6 +259,8 @@ cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.i
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
+cmdline_parm loadtimes_arg("-loadtimes", NULL);	// Claude: mission load times log, see LoadTimes.h
+int Cmdline_loadtimes = 0;						// Claude: -loadtimes
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -698,6 +700,11 @@ int parse_cmdline(char *cmdline)
 	if(dataset_arg.found()){	// Claude
 		Cmdline_dataset = dataset_arg.str();	// Claude
 	}	// Claude
+
+	// Claude: -loadtimes
+	if(loadtimes_arg.found()){
+		Cmdline_loadtimes = 1;
+	}
 
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.
 	if(autotest_arg.found()){

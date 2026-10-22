@@ -475,6 +475,7 @@
 #include "TgaUtils.h"
 #include "Ship.h"
 #include "Replay.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 #ifndef NDEBUG
 #define BMPMAN_NDEBUG
@@ -2229,6 +2230,7 @@ void bm_page_in_stop()
 				}
 #endif
 
+				fix lt_lock = loadtime_start();	// Claude: -loadtimes, see LoadTimes.h
 				// if preloaded == 3, load it as an xparent texture				
 				if(bm_bitmaps[i].used_flags == BMP_AABITMAP){
 					bm_lock( bm_bitmaps[i].handle, 8, bm_bitmaps[i].used_flags );
@@ -2236,12 +2238,15 @@ void bm_page_in_stop()
 					bm_lock( bm_bitmaps[i].handle, 16, bm_bitmaps[i].used_flags );
 				}
 				bm_unlock( bm_bitmaps[i].handle );
+				loadtime_add(LT_BM_LOCK, lt_lock, bm_bitmaps[i].bm.w * bm_bitmaps[i].bm.h * (bm_bitmaps[i].bm.bpp / 8));	// Claude: -loadtimes
 
 				if ( d3d_preloading )	{
+					fix lt_preload = loadtime_start();	// Claude: -loadtimes
 					if ( !gr_preload(bm_bitmaps[i].handle, (bm_bitmaps[i].preloaded==2) ) )	{
 						mprintf(( "Out of VRAM.  Done preloading.\n" ));
 						d3d_preloading = 0;
 					}
+					loadtime_add(LT_D3D_PRELOAD, lt_preload, 0);	// Claude: -loadtimes
 				}
 
 				n++;

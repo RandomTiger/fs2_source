@@ -680,6 +680,7 @@
 #include "timer.h"
 #include "FreeSpace.h"		// For flFrameTime
 #include "fvi.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 #define MAX_SUBMODEL_COLLISION_ROT_ANGLE (PI / 6.0f)	// max 30 degrees per frame
 
@@ -2021,6 +2022,7 @@ int read_model_file(polymodel * pm, char *filename, int n_subsystems, model_subs
 int model_load(char *filename, int n_subsystems, model_subsystem *subsystems)
 {
 	int i, num, arc_idx;
+	loadtime_scope lt_scope(LT_MODEL_LOAD);	// Claude: -loadtimes, see LoadTimes.h
 
 	if ( !model_initted )
 		model_init();
