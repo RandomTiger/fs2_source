@@ -379,6 +379,13 @@ demo menu tour now opens HUD Config through the player's entry (D-20261021-20140
 Medals: that stop still posts the state event, bypasses the Barracks wall and hits a missing-bitmap Error (#85). It
 stays open until every walled screen in the tour opens through the player's entry.
 
+**Unreachable screens** (D-20261022-090902). A demo bug on a screen that a demo player cannot reach gets no
+fix, and the menu tour SKIPs that screen: a stop whose host screen ended in SKIP logs "SKIP not in demo (host
+Tech room)". Tom: "OriginalBugFixes should be minimal to reduce risk to FS2. Fixing bugs that can't be reached
+in UI for FS2 demo in particular doesn't cross that threshold." So #87, the demo Cutscenes wall, is unreachable
+in the shipped demo (the Tech room is walled) and stays as a latent guard; #88, the demo Credits crash, is
+likewise kept, with no fix.
+
 ### Batch 8: mission UI, HUD, controls (D-20261021-100301)
 
 Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the `FS2_DEMO` build did):
