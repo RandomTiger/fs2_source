@@ -384,7 +384,7 @@ fix, and the menu tour SKIPs that screen: a stop whose host screen ended in SKIP
 Tech room)". Tom: "OriginalBugFixes should be minimal to reduce risk to FS2. Fixing bugs that can't be reached
 in UI for FS2 demo in particular doesn't cross that threshold." So #87, the demo Cutscenes wall, is unreachable
 in the shipped demo (the Tech room is walled) and stays as a latent guard; #88, the demo Credits crash, is
-likewise kept, with no fix.
+likewise kept, with no fix. #91, the Hotkeys stop, is the same case: the shipped demo has no Hotkeys screen (no art, no help line), so the tour SKIPs it through the F3 wall's signal rather than a tour-side list (D-20261022-144601, D-20261022-150211).
 
 ### Batch 8: mission UI, HUD, controls (D-20261021-100301)
 
@@ -400,7 +400,7 @@ Profile fields in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the
 | `breakup_fx` | 1 | 0 | 1 | 1 | ship break-up particle range, life and scale (ShipFX.cpp); affects game logic (D-20261021-110833) |
 
 `full_version_screens` gains `FVS_HOTKEYS` (128): the F3 hotkey screen (FreeSpace.cpp) and its help line;
-clear, F3 does nothing. `FVS_ALL` is now `(1<<8) - 1`.
+clear, F3 does nothing for the player; under the autotest its refusal branch calls `autotest_not_in_demo()` so the menu tour logs the Hotkeys stop and its help view "SKIP not in demo" (#91, D-20261022-144601). `FVS_ALL` is now `(1<<8) - 1`.
 
 No field: the demo key check in ControlsConfig.cpp is compiled always, as the shipped demo's list was empty
 (D-20261021-100517); the `show_framerate` console command is compiled in Release on every data set.
