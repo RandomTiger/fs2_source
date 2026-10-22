@@ -1933,7 +1933,7 @@ void get_tangent_point(vector *goal_point, object *objp, vector *point, float ra
 	vm_vec_normalized_dir(&vec_to_point, point, &objp->pos);
 	vm_vec_crossprod(&up_vec, &vec_to_point, &objp->orient.fvec);
 	vm_vec_crossprod(&perp_vec, &vec_to_point, &up_vec);
-	vm_vec_normalize(&perp_vec);
+	vm_vec_normalize_safe(&perp_vec);	// Claude: zero when objp faces *point; same (1,0,0) result as vm_vec_normalize, without its Debug Warning (#78)
 
 	vm_vec_scale_add(&perp_point, point, &vec_to_point, -radius);
 
