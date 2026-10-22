@@ -72,6 +72,29 @@ is never written to. 0 on success; otherwise non-zero and the reason in `err`.
 the FS1 demo's row extracts with `dataset_fs1_extract()` from `fsdemo10.exe` beside the exe on first start,
 as the FS2 demo does from its installer.
 
+`full_version_screens` bits, all four rows (D-20261021-142001 rule 6, D-20261022-161946):
+
+| Bit | Value | Site | Clear | FS2 retail | FS2 demo | FS1 retail | FS1 demo |
+|---|---|---|---|---|---|---|---|
+| `FVS_TECH_ROOM` | 1 | main hall tech room | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_CAMPAIGN_ROOM` | 2 | main hall campaign room | `fs2_demo_walls` 1: restart-campaign popup (FS2 demo); 0: not-in-demo popup (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_LOAD_MISSION` | 4 | main hall load mission key | nothing | 1 | 0 | 1 | 1 |
+| `FVS_QUICK_START` | 8 | main hall quick start, Debug only | nothing | 1 | 0 | 1 | 1 |
+| `FVS_MEDALS` | 16 | barracks medals button | not-in-demo popup | 1 | 0 | 1 | 0 |
+| `FVS_HUD_CONFIG` | 32 | options HUD config button | not-in-demo popup | 1 | 0 | 1 | 1 |
+| `FVS_IPX` | 64 | multi options IPX button | hidden and ignored | 1 | 0 | 1 | 1 |
+| `FVS_HOTKEYS` | 128 | F3 hotkey screen and its help line | `fs2_demo_walls` 1: nothing, no help line (FS2 demo); 0: not-in-demo popup, help line kept (FS1 demo) | 1 | 0 | 1 | 0 |
+| `FVS_MULTIPLAYER` | 256 | main hall multiplayer region | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OBJECTIVES` | 512 | in-mission objectives key | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_OPTIONS_MULTI` | 1024 | options multiplayer tab | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_DEBRIEF_MEDALS` | 2048 | debriefing medals button | not-in-demo popup | 1 | 1 | 1 | 0 |
+| `FVS_CUTSCENES` | 4096 | Simulator room, Credits and Tech room Cutscenes buttons | not-in-demo popup (#87) | 1 | 0 | 1 | 1 |
+
+`FVS_ALL` is `(1<<13) - 1`. Bits 8-11 are FS1Compat's, numbered at the first Enhanced merge; `FVS_CUTSCENES`
+(FS2Demo, #87) takes bit 12 above them, and a child's new bit takes the first bit above Enhanced's `FVS_ALL`
+(D-20261022-161946). The FS1 demo row sets `FVS_CUTSCENES`: it walls only the FS2 demo, and FS1Compat ran
+retail code at those sites (D-20261021-142001 rule 5). No code, recording, pilot or save stores the numbers.
+
 ## 3. Test
 
 `tools\fs1demo_test.ps1 -Installer <fsdemo10.exe> [-Fs2Installer <fs2demo10.exe>]` builds a small program from
@@ -87,6 +110,28 @@ the files above, then:
    with .NET's extraction of the same zip entries, to show the shared inflater left the FS2 path working.
 
 Result on 2026-10-19: all 20 checks pass.
+
+### Menu tour on the four data sets
+```
+tools\menu_tour_all.ps1 [-Sets fs2,fs2demo,fs1,fs1demo] [-Configs r,d] [-Shots <dir>] [-Fs2Dir <dir>] [-Fs2DemoDir <dir>] [-Fs1Dir <dir>] [-Fs1DemoDir <dir>] [-NoBuild]
+```
+Builds this branch, runs the autotest menu tour (`docs/AUTOTEST.md`, Menu tour) in Release and Debug on FS2 retail,
+the FS2 demo, FS1 retail and the FS1 demo, and prints one line per screen per build ending `PASS`, `FAIL <why>` or
+`SKIP <why>`, then `DONE pass=N fail=N` (builds). A screen behind the demo's "not in demo" popup is `SKIP`.
+- Each folder needs a single-player pilot. The FS2 demo test folder (`tools\make_demo_test.ps1`) has none until
+  the game is run there once, or a `.plr` is copied into its `Data\Players\Single`.
+- The exes in each folder are saved first and put back at the end. Point the demo folders at copies when someone
+  is playing the demo in its own folder.
+- `-Shots` saves each screen per set and build. Keep it outside the repo: the screenshots show game data.
+
+Result on 2026-10-21 (FS1Demo 4c5c995):
+
+| Set | Release | Debug |
+|---|---|---|
+| FS2 retail | 59 pass | 59 pass |
+| FS2 demo | stops at HUD config: `Error: Could not load in 2_HUDConfig-m!` (`WINDOW.cpp` line 195); 10 screens passed before it | the same |
+| FS1 retail | 59 pass | 59 pass |
+| FS1 demo | 37 pass, 22 `SKIP` (not in demo, or no command briefing) | the same |
 
 ## 4. What the demo contains
 

@@ -4674,6 +4674,8 @@ int game_poll()
 					}
 					k = 0;
 				}
+			} else {	// Claude
+				autotest_not_in_demo();	// Claude: the demo has no Hotkeys screen and shows no popup; the menu tour skips it (#91, D-20261022-144601)
 			}	// Claude
 			break;
 

@@ -87,7 +87,8 @@ typedef struct data_set_profile {
 #define FVS_OBJECTIVES			(1<<9)	// in-mission objectives screen; clear: not-in-demo popup (FS1 demo, D-20261021-142001)
 #define FVS_OPTIONS_MULTI		(1<<10)	// options multiplayer tab; clear: not-in-demo popup (FS1 demo, D-20261021-142001)
 #define FVS_DEBRIEF_MEDALS		(1<<11)	// debriefing medals button; clear: not-in-demo popup (FS1 demo; its own bit, the FS2_DEMO build left it open, D-20261021-142001)
-#define FVS_ALL					((1<<12) - 1)
+#define FVS_CUTSCENES			(1<<12)	// Simulator room, Credits and Tech room Cutscenes buttons; clear: not-in-demo popup (the FS2 demo has no ViewFootage art, #87, D-20261022-065950); bit 12 above FS1's four (D-20261022-161946)
+#define FVS_ALL					((1<<13) - 1)
 
 extern const data_set_profile *Game_profile;
 
