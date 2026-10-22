@@ -256,8 +256,8 @@ typedef struct scoring_struct {
 
 	unsigned int missions_flown;		// total # of missions flown
 	unsigned int flight_time;			// total # of flight hours the player has
-	time_t last_flown;					// last time the player has flown
-	time_t last_backup;					// so we can easily call scoring_level_backout()
+	int last_flown;						// last time the player has flown	// Claude: int, the campaign file's 32-bit time, was time_t (D-057)
+	int last_backup;						// so we can easily call scoring_level_backout()	// Claude: int, as last_flown (D-057)
 
 	// Mission total
 	int m_medal_earned;					// which medal (if any) earned this mission

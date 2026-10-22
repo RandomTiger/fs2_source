@@ -2419,7 +2419,7 @@ int create_wings()
 
 	for ( i = 0; i < MAX_WING_BLOCKS; i++ ) {
 		wb = &Ss_wings[i];
-		wp = &Wings[wb->wingnum];		
+		wp = Wings + wb->wingnum;	// Claude: address only; the index can be -1 here (#18, D-077)		
 
 		if ( wb->wingnum == -1 )
 			continue;

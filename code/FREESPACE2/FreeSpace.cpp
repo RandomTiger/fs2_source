@@ -2105,7 +2105,6 @@ void game_init()
 // SOUND INIT START
 /////////////////////////////
 
-	int use_a3d = 0;
 	int use_eax = 0;
 
 	ptr = os_config_read_string(NULL, NOX("Soundcard"), NULL);
@@ -2114,15 +2113,13 @@ void game_init()
 		if (!stricmp(ptr, NOX("no sound"))) {
 			Cmdline_freespace_no_sound = 1;
 
-		} else if (!stricmp(ptr, NOX("Aureal A3D"))) {
-			use_a3d = 1;
 		} else if (!stricmp(ptr, NOX("EAX"))) {
 			use_eax = 1;
 		}
 	}
 
 	if (!Is_standalone) {
-		snd_init(use_a3d, use_eax);
+		snd_init(use_eax);
 	}
 /////////////////////////////
 // SOUND INIT END
@@ -2504,12 +2501,6 @@ void game_show_framerate()
 		dy = gr_get_font_height() + 1;
 
 		gr_set_color_fast(&HUD_color_debug);
-
-		{
-			extern int TotalRam;
-			gr_printf( sx, sy, NOX("DYN: %d KB\n"), TotalRam/1024 );
-			sy += dy;
-		}	
 
 		{
 			extern int Model_ram;
@@ -4299,14 +4290,8 @@ void game_stop_time()
 
 		//mprintf(("Last_time in game_stop_time = %7.3f\n", f2fl(Last_delta_time)));
 		if (Last_delta_time < 0) {
-			#if defined(TIMER_TEST) && !defined(NDEBUG)
-			Int3();		//get Matt!!!!
-			#endif
 			Last_delta_time = 0;
 		}
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		time_stopped = time;
-		#endif
 
 		// Stop the timer_tick stuff...
 		// Normally, you should never access 'timestamp_ticker', consider this a low-level routine
@@ -4314,9 +4299,6 @@ void game_stop_time()
 	}
 	timer_paused++;
 
-	#if defined(TIMER_TEST) && !defined(NDEBUG)
-	stop_count++;
-	#endif
 }
 
 void game_start_time()
@@ -4326,19 +4308,11 @@ void game_start_time()
 	if (timer_paused==0) {
 		fix time;
 		time = timer_get_fixed_seconds();
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		if (Last_time < 0)
-			Int3();		//get Matt!!!!
-		}
-		#endif
 		// Take current time, and set it backwards to account for time	
 		// that the frame already executed, so that timer_get_fixed_seconds() - Last_time
 		// will be correct when it goes to calculate the frametime next
 		// frame.
 		Last_time = time - Last_delta_time;		
-		#if defined(TIMER_TEST) && !defined(NDEBUG)
-		time_started = time;
-		#endif
 
 		// Restore the timer_tick stuff...
 		// Normally, you should never access 'timestamp_ticker', consider this a low-level routine
@@ -4347,9 +4321,6 @@ void game_start_time()
 		saved_timestamp_ticker = -1;
 	}
 
-	#if defined(TIMER_TEST) && !defined(NDEBUG)
-	start_count++;
-	#endif
 }
 
 
@@ -4710,9 +4681,6 @@ int game_poll()
 			gameseq_post_event( GS_EVENT_TOGGLE_FULLSCREEN );
 			break;
 
-		case KEY_DEBUGGED + KEY_F4:
-			gameseq_post_event( GS_EVENT_TOGGLE_GLIDE );
-			break;
 		
 		case KEY_F4:
 			if(Game_mode & GM_MULTIPLAYER){
@@ -5026,10 +4994,6 @@ void game_process_event( int current_state, int event )
 			// Claude: the DirectDraw renderer this switched to is gone
 			break;
 
-		case GS_EVENT_TOGGLE_GLIDE:
-			// Claude: the Glide renderer this switched to is gone
-			break;
- 
 		case GS_EVENT_LOAD_MISSION_MENU:
 			gameseq_set_state(GS_STATE_LOAD_MISSION_MENU);
 			break;

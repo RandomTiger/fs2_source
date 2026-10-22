@@ -200,9 +200,6 @@ void mouse_close()
 	if (!mouse_inited)
 		return;
 
-#ifdef USE_DIRECTINPUT
-	di_cleanup();
-#endif
 	mouse_inited = 0;
 	DeleteCriticalSection( &mouse_lock );
 }
@@ -221,12 +218,7 @@ void mouse_init()
 	Mouse_x = gr_screen.max_w / 2;
 	Mouse_y = gr_screen.max_h / 2;
 
-#ifdef USE_DIRECTINPUT
-	if (!di_init())
-		Mouse_mode = MOUSE_MODE_WIN;
-#else
 	Mouse_mode = MOUSE_MODE_WIN;
-#endif
 
 	LEAVE_CRITICAL_SECTION(&mouse_lock);	
 

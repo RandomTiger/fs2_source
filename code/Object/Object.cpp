@@ -447,7 +447,7 @@ object *Viewer_obj = NULL;
 
 
 //Data for objects
-object Objects[MAX_OBJECTS];
+GUARDED_ARRAY(object, Objects, MAX_OBJECTS);	// Claude: Debug bounds guard (D-076)
 
 #ifdef OBJECT_CHECK 
 typedef struct checkobject

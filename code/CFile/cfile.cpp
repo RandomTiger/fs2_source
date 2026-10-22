@@ -468,7 +468,7 @@ int cfile_pop_dir()
 // NOTE : WILL NOT DELETE READ-ONLY FILES
 int cfile_flush_dir(int dir_type)
 {
-	int find_handle;
+	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 	int del_count;
 	_finddata_t find;
 
@@ -682,11 +682,6 @@ CFILE *cfopen(char *file_path, char *mode, int type, int dir_type, bool localize
 // #if !defined(MULTIPLAYER_BETA_BUILD) && !defined(FS2_DEMO)
 
 // we no longer need to do this, and on machines with crappy-ass drivers it can slow things down horribly.
-#if 0	
-	if ( game_cd_changed() ) {
-		cfile_refresh();
-	}
-#endif
 
 	//================================================
 	// Check that all the parameters make sense

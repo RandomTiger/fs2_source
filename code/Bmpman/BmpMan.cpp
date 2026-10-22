@@ -1373,7 +1373,7 @@ void bm_lock_pcx( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 			Assert( be->data_size == bmp->w * bmp->h );
 		#endif
 		palette = pal;
-		bmp->data = (uint)data;
+		bmp->data = (uintptr_t)data;
 		bmp->bpp = 8;
 		bmp->palette = gr_palette;
 		memset( data, 0, bmp->w * bmp->h);
@@ -1381,7 +1381,7 @@ void bm_lock_pcx( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		// Claude: bpp is 16, or 32 for 32 bit textures
 		data = (ubyte*)bm_malloc(bitmapnum, bmp->w * bmp->h * (bpp / 8));
 		bmp->bpp = bpp;									// Claude: was 16
-		bmp->data = (uint)data;
+		bmp->data = (uintptr_t)data;
 		bmp->palette = NULL;
 		memset( data, 0, bmp->w * bmp->h * (bpp / 8));	// Claude: was 2
 	}	
@@ -1483,7 +1483,7 @@ void bm_lock_ani( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		} else {
 			bm->bpp = bpp;
 		}
-		bm->data = (uint)bm_malloc(first_frame + i, size);
+		bm->data = (uintptr_t)bm_malloc(first_frame + i, size);
 
 		frame_data = anim_get_next_raw_buffer(the_anim_instance, 0 ,flags & BMP_AABITMAP ? 1 : 0, bm->bpp);
 
@@ -1602,14 +1602,14 @@ void bm_lock_user( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, uby
 	case 16:			// user 16 bit bitmap
 		bmp->bpp = bpp;
 		bmp->flags = be->info.user.flags;		
-		bmp->data = (uint)be->info.user.data;								
+		bmp->data = (uintptr_t)be->info.user.data;								
 		break;	
 	
 	case 8:			// Going from 8 bpp to something (probably only for aabitmaps)
 		/*
 		Assert(flags & BMP_AABITMAP);
 		bmp->bpp = 16;
-		bmp->data = (uint)malloc(bmp->w * bmp->h * 2);
+		bmp->data = (uintptr_t)malloc(bmp->w * bmp->h * 2);
 		bmp->flags = be->info.user.flags;
 		bmp->palette = NULL;
 
@@ -1625,7 +1625,7 @@ void bm_lock_user( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, uby
 		Assert(flags & BMP_AABITMAP);
 		bmp->bpp = bpp;
 		bmp->flags = be->info.user.flags;		
-		bmp->data = (uint)be->info.user.data;								
+		bmp->data = (uintptr_t)be->info.user.data;								
 		break;
 		
 	// default:
@@ -1658,7 +1658,7 @@ void bm_lock_tga( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		data = (ubyte*)bm_malloc(bitmapnum, bmp->w * bmp->h);	
 	}
 	bmp->bpp = bpp;
-	bmp->data = (uint)data;
+	bmp->data = (uintptr_t)data;
 	bmp->palette = NULL;
 	if(bpp == 16){
 		memset( data, 0, bmp->w * bmp->h * 2);	

@@ -192,12 +192,6 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	}
 
 	
-	#ifndef NDEBUG				
-	{
-		extern void windebug_memwatch_init();
-		windebug_memwatch_init();
-	}
-	#endif
 	
 	parse_cmdline(szCmdLine);	
 	{	// Claude: the data set folder, made from a demo installer on the first start; everything after this reads and writes there (D-20261018-221704)
@@ -411,7 +405,7 @@ int find_freespace_cd(char *volume_name)
 	int cdrom_drive=-1;
 	int volume_match = 0;
 	_finddata_t find;
-	int find_handle;
+	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 
 	GetCurrentDirectory(MAX_PATH, oldpath);
 

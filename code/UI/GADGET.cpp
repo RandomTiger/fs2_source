@@ -636,31 +636,6 @@ void UI_GADGET::stop_drag_with_children()
 // Returns 1 if moving
 int UI_GADGET::check_move()
 {
-	#if 0
-		if ( parent != NULL ) return base_dragging;
-
-		if ( !base_dragging )	{
-
-			if ( B2_JUST_PRESSED )	{
-				if ( is_mouse_on() || is_mouse_on_children() ) {
-					start_drag_with_children();
-					base_drag_x = ui_mouse.x;
-					base_drag_y = ui_mouse.y;
-					return 1;
-				} else {
-					return 0;
-				}
-			} else 
-				return 0;
-		} else {
-			drag_with_children(ui_mouse.x - base_drag_x,ui_mouse.y - base_drag_y);
-			nprintf(( "UI", "UI: X=%d, Y=%d, Delta=(%d,%d)\n", x, y, (ui_mouse.x - base_drag_x), (ui_mouse.y - base_drag_y) ));
-			if (B2_RELEASED)	{
-				stop_drag_with_children();
-			}
-			return 1;
-		}
-	#endif
 	return 0;
 }
 

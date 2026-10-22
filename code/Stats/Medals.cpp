@@ -694,9 +694,6 @@ void init_medal_palette()
 {
 	Medal_palette = bm_load("MedalsPalette.pcx");
 	if(Medal_palette > -1){
-#ifndef HARDWARE_ONLY
-		palette_use_bm_palette(Medal_palette);
-#endif
 	}
 }
 */

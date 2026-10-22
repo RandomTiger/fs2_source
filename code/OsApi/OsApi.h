@@ -20,13 +20,8 @@ extern int Os_debugger_running;
 // game-wide
 // #define THREADED
 
-#ifdef THREADED
-	#define ENTER_CRITICAL_SECTION(csc)		do { EnterCriticalSection(csc); } while(0);
-	#define LEAVE_CRITICAL_SECTION(csc)		do { LeaveCriticalSection(csc); } while(0);
-#else
 	#define ENTER_CRITICAL_SECTION(csc)		do { } while(0);
 	#define LEAVE_CRITICAL_SECTION(csc)		do { } while(0);
-#endif
 
 // --------------------------------------------------------------------------------------------------
 // OSAPI FUNCTIONS
@@ -84,9 +79,9 @@ typedef struct os_find_data {
 	unsigned int	size;
 	time_t			write_time;
 } os_find_data;
-int os_find_first(const char *filespec, os_find_data *fd);	// a handle, or -1 if nothing matches
-int os_find_next(int handle, os_find_data *fd);				// 0 if fd holds the next file, -1 at the end
-void os_find_close(int handle);
+intptr_t os_find_first(const char *filespec, os_find_data *fd);	// a handle, or -1 if nothing matches
+int os_find_next(intptr_t handle, os_find_data *fd);				// 0 if fd holds the next file, -1 at the end
+void os_find_close(intptr_t handle);	// intptr_t: a pointer-sized handle on x64, int on x86 (D-057)
 
 // Used to stop message processing
 void os_suspend();

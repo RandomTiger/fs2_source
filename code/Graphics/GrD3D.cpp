@@ -605,7 +605,7 @@ HRESULT d3d_SetRenderState( D3DRENDERSTATETYPE dwRenderStateType,  DWORD dwRende
 	if ( DrawPrim )	{
 		return lpD3DDevice->SetRenderState(dwRenderStateType, dwRenderState );
 	} else {
-		if ( (uint)D3D_ex_ptr > (uint)D3D_ex_end )  {
+		if ( (uintptr_t)D3D_ex_ptr > (uintptr_t)D3D_ex_end )  {
 			gr_d3d_exb_flush(0);
 		}
 		OP_STATE_RENDER(1, D3D_ex_ptr);
@@ -629,7 +629,7 @@ HRESULT d3d_DrawPrimitive( D3DPRIMITIVETYPE dptPrimitiveType, D3DVERTEXTYPE dvtV
 				D3DTLVERTEX *Verts = (D3DTLVERTEX *)lpvVertices;
 				
 				if ( D3D_num_verts + dwVertexCount > D3D_MAX_VERTS ) gr_d3d_exb_flush(0);
-				if ( (uint)D3D_ex_ptr > (uint)D3D_ex_end )  gr_d3d_exb_flush(0);
+				if ( (uintptr_t)D3D_ex_ptr > (uintptr_t)D3D_ex_end )  gr_d3d_exb_flush(0);
 
 				D3DTLVERTEX *src_v = &D3D_vertices[D3D_num_verts];
 
@@ -670,7 +670,7 @@ HRESULT d3d_DrawPrimitive( D3DPRIMITIVETYPE dptPrimitiveType, D3DVERTEXTYPE dvtV
 				D3DTLVERTEX *Verts = (D3DTLVERTEX *)lpvVertices;
 				
 				if ( D3D_num_verts + dwVertexCount > D3D_MAX_VERTS ) gr_d3d_exb_flush(0);
-				if ( (uint)D3D_ex_ptr > (uint)D3D_ex_end )  gr_d3d_exb_flush(0);
+				if ( (uintptr_t)D3D_ex_ptr > (uintptr_t)D3D_ex_end )  gr_d3d_exb_flush(0);
 
 				D3DTLVERTEX *src_v = &D3D_vertices[D3D_num_verts];
 
@@ -1833,9 +1833,7 @@ void gr_d3d_flip()
 			os_sleep(1000);	// Wait a second
 
 			// os poll?
-	#ifndef THREADED
 			os_poll();
-	#endif
 
 			goto TryFlipAgain;
 		} else if (ddrval != DD_OK )	{

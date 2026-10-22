@@ -244,9 +244,6 @@ void UI_WINDOW::set_foreground_bmap(char *fname)
 	if (foreground_bmap_id < 0) {
 		Error(LOCATION,"Could not load in %s!",fname);
 	}
-#ifndef HARDWARE_ONLY
-	palette_use_bm_palette(foreground_bmap_id);
-#endif
 }
 
 
@@ -786,59 +783,6 @@ void UI_WINDOW::draw_xstrs()
 
 void UI_WINDOW::do_dump_check()
 {
-#if 0
-	if ( keypress == KEY_SHIFTED+KEY_CTRLED+KEY_ALTED+KEY_F12 ) {
-		FILE *fp;
-
-		last_keypress = keypress = 0;
-
-		mprintf(( "\n========== WINDOW GADGETS =========\n" ));
-		mprintf(( "(Also dumped to ui.out)\n" ));
-
-		fp = fopen( "ui.out", "wt" );
-		tmp = first_gadget;
-		do	{
-			if ( tmp->parent == NULL ) {	
-				switch ( tmp->kind ) {
-				case UI_KIND_BUTTON:
-					mprintf(( "UI: Button at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Button at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_KEYTRAP:
-					mprintf(( "UI: Keytrap at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Keytrap at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_CHECKBOX:
-					mprintf(( "UI: Checkbox at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Checkbox at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_RADIO:
-					mprintf(( "UI: Radiobutton at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Radiobutton at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_SCROLLBAR:
-					mprintf(( "UI: Scrollbar at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Scrollbar at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_LISTBOX:
-					mprintf(( "UI: Listbox at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Listbox at %d,%d\n", tmp->x, tmp->y );
-					break;
-				case UI_KIND_INPUTBOX:
-					mprintf(( "UI: Inputbox at %d,%d\n", tmp->x, tmp->y ));
-					fprintf( fp, "UI: Inputbox at %d,%d\n", tmp->x, tmp->y );
-					break;
-				default:
-					mprintf(( "UI: Unknown type %d at %d,%d\n", tmp->kind, tmp->x, tmp->y ));
-					fprintf( fp, "UI: Unknown type %d at %d,%d\n", tmp->kind, tmp->x, tmp->y );
-				}
-			}
-			tmp = tmp->next;
-		} while( tmp != first_gadget );
-		fclose(fp);
-		mprintf(( "===================================\n" ));
-	}
-#endif
 }
 
 /*

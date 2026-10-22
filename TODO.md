@@ -50,6 +50,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
       position where the replay reads the timer; likely focus/pause related).
 - [x] Commit the recorder work on RecordPlayback.
 - [x] Record a full mission and confirm the replay matches its trace (SM1-01).
+- [ ] Tom (2026-10-17): back-fill every historical fix as a GitHub issue on RandomTiger/fs2_source: one per fix, from the OriginalSourceBugFixes commits and docs/fix_reviews, then each later layer's fixes, labelled and linked to its commit. New findings are logged as issues as they are found (#1, #2 so far).
 - [ ] Threshold experiments E1-E4 for TraceDiff tolerances.
 
 ## 32 bit rendering (32BitRendering branch)
@@ -59,7 +60,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [ ] Before Latest: replay every recording in Release and Debug, at 32 and 16 bit.
 
 ## Other
-- [ ] Tom: play SM1-07 again on `PrePort` and commit it as `recordings/played/SM1-07`.
+- [x] ~~Tom: play SM1-07 again on `PrePort`~~ Dropped by Tom, 2026-10-18: no longer needed.
 - [ ] Tom (back burner, 2026-10-17): demo mode. The demo is the only freely distributable data, so keep the demo logic (`FS2_DEMO`, `DEMO` blocks) and make the game detect demo data and switch to demo mode at run time instead of at build time. Tom to be involved. The build-variant dead-code group (D-063 G1: OEM, beta, press tour and the rest) waits for this, since much of it shares conditions with the demo blocks.
       The old one was removed there because the debris change (docs/DEBRIS_OFFSCREEN_FIX.md)
       makes it desync; it still passes on `Enhanced` and below.

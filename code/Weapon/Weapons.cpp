@@ -396,8 +396,8 @@ DCF_BOOL( weapon_flyby, Weapon_flyby_sound_enabled )
 
 static int Weapon_flyby_sound_timer;	
 
-weapon Weapons[MAX_WEAPONS];
-weapon_info Weapon_info[MAX_WEAPON_TYPES];
+GUARDED_ARRAY(weapon, Weapons, MAX_WEAPONS);	// Claude: Debug bounds guard (D-076)
+GUARDED_ARRAY(weapon_info, Weapon_info, MAX_WEAPON_TYPES);	// Claude: Debug bounds guard (D-076)
 
 #define		MISSILE_OBJ_USED	(1<<0)			// flag used in missile_obj struct
 #define		MAX_MISSILE_OBJS	MAX_WEAPONS		// max number of missiles tracked in missile list

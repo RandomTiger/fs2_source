@@ -689,7 +689,7 @@ int ai_big_maybe_follow_subsys_path(int do_dot_check)
 	object	*target_objp;
 
 	aip = &Ai_info[Ships[Pl_objp->instance].ai_index];
-	target_objp = &Objects[aip->target_objnum];
+	target_objp = Objects + aip->target_objnum;	// Claude: address only; target_objnum can be -1 here (#5, D-077)
 
 	if ( (aip->targeted_subsys != NULL) && (aip->target_objnum >= 0) && (aip->targeted_subsys->system_info->path_num >= 0) ) {
 		polymodel	*pm;
@@ -1026,7 +1026,7 @@ void ai_big_maybe_fire_weapons(float dist_to_enemy, float dot_to_enemy, vector *
 
 					ai_choose_secondary_weapon(Pl_objp, aip, En_objp);
 					int current_bank = tswp->current_secondary_bank;
-					weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[current_bank]];
+					weapon_info	*swip = Weapon_info + tswp->secondary_bank_weapons[current_bank];	// Claude: address only; the index can be -1 here (#18, D-077)
 
 					//	If ship is protected and very low on hits, don't fire missiles.
 					if ((current_bank > -1) &&  (!(En_objp->flags & OF_PROTECTED) || (En_objp->hull_strength > 10*swip->damage))) {

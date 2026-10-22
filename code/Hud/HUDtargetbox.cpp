@@ -1612,9 +1612,6 @@ void hud_show_target_data(float frametime)
 	emp_hud_string(Targetbox_coords[gr_screen.res][TBOX_DIST][0]+hx, Targetbox_coords[gr_screen.res][TBOX_DIST][1]+hy, EG_TBOX_DIST, outstr);	
 
 	float spd;
-#if 0
-	spd = vm_vec_dist(&target_objp->pos, &target_objp->last_pos) / frametime;
-#endif
 	// 7/28/99 DKA: Do not use vec_mag_quick -- the error is too big
 	spd = vm_vec_mag(&target_objp->phys_info.vel);
 //	spd = target_objp->phys_info.fspeed;

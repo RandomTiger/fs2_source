@@ -390,7 +390,7 @@ void snd_clear()
 // returns:     1		=> init success
 //              0		=> init failed
 //
-int snd_init(int use_a3d, int use_eax)
+int snd_init(int use_eax)
 {
 	int rval;
 
@@ -416,7 +416,7 @@ int snd_init(int use_a3d, int use_eax)
 	int num_tries=0;
 	int gave_warning = 0;
 	while(1) {
-		rval = ds_init(use_a3d, use_eax);
+		rval = ds_init(use_eax);
 
 		if( rval != 0 ) {
 			nprintf(( "Sound", "SOUND ==> Error initializing DirectSound, trying again in 1 second.\n"));

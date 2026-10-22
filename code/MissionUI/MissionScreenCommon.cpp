@@ -620,9 +620,6 @@ void common_set_interface_palette(char *filename)
 	}
 	*/
 
-#ifndef HARDWARE_ONLY
-	palette_use_bm_palette(InterfacePaletteBitmap);
-#endif
 }
 
 // release the interface palette .pcx file, and restore the game palette
