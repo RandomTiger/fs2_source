@@ -323,6 +323,7 @@ typedef struct player {
 
 	int				failures_this_session;					// number of times dude has failed the mission he is on this session
 	ubyte				show_skip_popup;							// false if dude clicked "don't show this again" -- persists for current mission only
+	int				saved_data_set;							// Claude: the data set a version 141 pilot file was saved in (DATA_SET_*), logged only, never acted on (D-20261023-201747)
 } player;
 
 extern player Players[MAX_PLAYERS];

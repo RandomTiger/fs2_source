@@ -176,13 +176,8 @@ struct player;
 
 // ARGH. IMPORTANT : do not change NUM_MEDALS without talking to DaveB first. It will affect the size of the scoring struct and hence, will break
 // a lot of PXO related stuff. SEE ALSO : MAX_SHIP_TYPES
-#ifdef FS2_DEMO
-	#define NUM_MEDALS			16
-	#define NUM_MEDALS_FS1		16
-#else 
-	#define NUM_MEDALS			18
-	#define NUM_MEDALS_FS1		16
-#endif
+	#define NUM_MEDALS			18	// Claude: retail value on every data set; was 16 under FS2_DEMO.  A 140 pilot and a version 1 .css read Game_profile->pilot_medals (batch 5, D-20261023-194323 item 3)
+	#define NUM_MEDALS_FS1		16	// Claude: the same in both arms of the FS2_DEMO block that was here
 
 #define NUM_RANKS				10
 

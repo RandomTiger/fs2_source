@@ -8,6 +8,8 @@
 
 // The data sets, an enumeration rather than a demo flag (Tom, 2026-10-18), so code, logs and recordings
 // say which one.  Only the FreeSpace 2 pair is detected and played so far.
+// The values are on disk (the pilot 141 and .css 2 headers, D-20261023-201747): never renumber or reuse
+// one; a new data set appends after the last.
 #define DATA_SET_UNKNOWN		-1
 #define DATA_SET_FS2_RETAIL	0
 #define DATA_SET_FS2_DEMO		1
