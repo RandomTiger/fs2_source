@@ -431,6 +431,7 @@
 #include "Beam.h"
 #include "Swarm.h"
 #include "Demo.h"
+#include "DataSetProfile.h"	// Claude
 
 /*
  *  Global variables
@@ -439,6 +440,9 @@
 object obj_free_list;
 object obj_used_list;
 object obj_create_list;	
+// Claude: free slots at or above Obj_ordered_slots (Game_profile->object_slots, read at obj_init) wait here, never in obj_free_list, and are handed out only when obj_free_list is empty (D-20261023-220843)
+object obj_overflow_list;
+static int Obj_ordered_slots = MAX_OBJECTS;
 
 object *Player_obj = NULL;
 object *Viewer_obj = NULL;
@@ -506,6 +510,9 @@ int free_object_slots(int num_used)
 	// calc num_already_free by walking the obj_free_list
 	num_already_free = 0;
 	for ( objp = GET_FIRST(&obj_free_list); objp != END_OF_LIST(&obj_free_list); objp = GET_NEXT(objp) )
+		num_already_free++;
+	// Claude: free slots in the overflow list count too (D-20261023-220843)
+	for ( objp = GET_FIRST(&obj_overflow_list); objp != END_OF_LIST(&obj_overflow_list); objp = GET_NEXT(objp) )
 		num_already_free++;
 
 	if (MAX_OBJECTS - num_already_free < num_used)
@@ -677,6 +684,9 @@ void obj_init()
 	list_init( &obj_free_list );
 	list_init( &obj_used_list );
 	list_init( &obj_create_list );
+	// Claude: the data set's ordered slots; retail rows give MAX_OBJECTS, so the overflow list stays empty and the free list is today's (D-20261023-220843)
+	list_init( &obj_overflow_list );
+	Obj_ordered_slots = ((Game_profile->object_slots > 0) && (Game_profile->object_slots < MAX_OBJECTS)) ? Game_profile->object_slots : MAX_OBJECTS;
 
 	// Link all object slots into the free list
 	objp = Objects;
@@ -689,7 +699,7 @@ void obj_init()
 			objp->objsnd_num[idx] = -1;
 		}
 		
-		list_append(&obj_free_list, objp);
+		if (i < Obj_ordered_slots) list_append(&obj_free_list, objp); else list_append(&obj_overflow_list, objp);	// Claude: slots N and up go to the overflow list (D-20261023-220843)
 		objp++;
 	}
 
@@ -730,7 +740,8 @@ int obj_allocate(void)
 
 	// Find next available object
 	objp = GET_FIRST(&obj_free_list);
-	Assert ( objp != &obj_free_list );		// shouldn't have the dummy element
+	if (objp == END_OF_LIST(&obj_free_list)) objp = GET_FIRST(&obj_overflow_list);	// Claude: all N ordered slots in use: the next overflow slot (D-20261023-220843)
+	Assert ( (objp != &obj_free_list) && (objp != &obj_overflow_list) );		// shouldn't have the dummy element	// Claude: either list's
 
 	// remove objp from the free list
 	list_remove( &obj_free_list, objp );
@@ -776,7 +787,7 @@ void obj_free(int objnum)
 	list_remove( &obj_used_list, objp);
 
 	// add objp to the end of the free
-	list_append( &obj_free_list, objp );
+	if (objnum < Obj_ordered_slots) list_append( &obj_free_list, objp ); else list_append( &obj_overflow_list, objp );	// Claude: a slot N or up never enters the ordered FIFO (D-20261023-220843)
 
 	// decrement counter
 	num_objects--;

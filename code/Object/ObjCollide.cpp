@@ -232,12 +232,8 @@
 #include "Multi.h"
 #include "Beam.h"
 
-#ifdef FS2_DEMO
-	#define MAX_PAIRS 3000
-#else
-	#define MAX_PAIRS 8000	//	Reduced from 10,000 to 6,000 by MK on 4/1/98.
+	#define MAX_PAIRS 8000	//	Reduced from 10,000 to 6,000 by MK on 4/1/98.	// Claude: retail value on every data set; was 3000 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 									//	Most I saw was 3400 in sm1-06a, the asteriod mission.  No other mission came close.
-#endif
 
 // the next 3 variables are used for pair statistics
 // also in weapon.cpp there is Weapons_created.

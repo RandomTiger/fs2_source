@@ -396,12 +396,8 @@ typedef struct weapon {
 } weapon;
 
 
-#ifdef FS2_DEMO
-	#define MAX_WEAPONS	100
-#else
 	// upped 5/6/98 from 200 - DB
-	#define MAX_WEAPONS	350
-#endif
+	#define MAX_WEAPONS	350	// Claude: retail value on every data set; was 100 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 
 // info specific to beam weapons
 #define MAX_BEAM_SECTIONS				5

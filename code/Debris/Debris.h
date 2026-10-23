@@ -174,11 +174,7 @@ typedef struct debris {
 #define	DEBRIS_EXPIRE			(1<<1)	// debris can expire (ie hull chunks from small ships)
 
 
-#ifdef FS2_DEMO
-	#define	MAX_DEBRIS_PIECES	48
-#else
-	#define	MAX_DEBRIS_PIECES	64
-#endif
+	#define	MAX_DEBRIS_PIECES	64	// Claude: retail value on every data set; was 48 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 
 extern	debris Debris[MAX_DEBRIS_PIECES];
 
