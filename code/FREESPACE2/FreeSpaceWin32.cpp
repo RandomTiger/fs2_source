@@ -21,7 +21,6 @@
 #include "Replay.h"
 #include "Autotest.h"
 #include "ExceptionHandler.h"
-#include "Demo.h"
 
 #define EXE_FNAME			("fs2.exe")
 #define LAUNCHER_FNAME	("freespace2.exe")

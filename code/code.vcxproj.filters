@@ -148,9 +148,6 @@
     <Filter Include="TgaUtils">
       <UniqueIdentifier>{7b5d42c3-dbe7-4726-93aa-d8d03ca621ae}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Demo">
-      <UniqueIdentifier>{8ba6d5b8-6811-4fd3-9701-60da89029ea6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="InetFile">
       <UniqueIdentifier>{bdb7ef44-08b1-4ebd-9ac1-7a4e08593e53}</UniqueIdentifier>
     </Filter>
@@ -800,9 +797,6 @@
     </ClCompile>
     <ClCompile Include="TgaUtils\TgaUtils.cpp">
       <Filter>TgaUtils</Filter>
-    </ClCompile>
-    <ClCompile Include="Demo\Demo.cpp">
-      <Filter>Demo</Filter>
     </ClCompile>
     <ClCompile Include="Inetfile\CFtp.cpp">
       <Filter>InetFile</Filter>
@@ -1525,9 +1519,6 @@
     </ClInclude>
     <ClInclude Include="TgaUtils\TgaUtils.h">
       <Filter>TgaUtils</Filter>
-    </ClInclude>
-    <ClInclude Include="Demo\Demo.h">
-      <Filter>Demo</Filter>
     </ClInclude>
     <ClInclude Include="Inetfile\CFtp.h">
       <Filter>InetFile</Filter>

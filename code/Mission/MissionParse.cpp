@@ -357,7 +357,6 @@
 #include "multi_endgame.h"
 #include "localize.h"
 #include "Neb.h"
-#include "Demo.h"
 #include "neblightning.h"
 #include "fvi.h"
 
@@ -1761,11 +1760,6 @@ int parse_create_object(p_object *objp)
 		if ( (Game_mode & GM_IN_MISSION) && MULTIPLAYER_MASTER && (objp->wingnum == -1) ){
 			send_ship_create_packet( &Objects[objnum], (objp==Arriving_support_ship)?1:0 );
 		}
-	}
-
-	// if recording a demo, post the event
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_obj_create(objp->name, Objects[objnum].signature);
 	}
 
 	return objnum;

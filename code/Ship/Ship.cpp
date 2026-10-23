@@ -708,7 +708,6 @@
 #include "Neb.h"
 #include "ShipContrails.h"
 #include "AlphaColors.h"
-#include "demo.h"
 #include "Beam.h"
 #include "StaticRand.h"
 #include "MissionShipChoice.h"
@@ -2840,11 +2839,6 @@ void ship_vanished(int num)
 	sp = &Ships[num];
 	objp = &Objects[sp->objnum];
 
-	// demo recording
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_departed(Objects[Ships[num].objnum].signature, Ships[num].flags);
-	}
-
 	// add the information to the exited ship list
 	ship_add_exited_ship( sp, SEF_DEPARTED );
 
@@ -2862,11 +2856,6 @@ void ship_departed( int num )
 	int i;
 
 	sp = &Ships[num];
-
-	// demo recording
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_departed(Objects[Ships[num].objnum].signature, Ships[num].flags);
-	}
 
 	// add the information to the exited ship list
 	ship_add_exited_ship( sp, SEF_DEPARTED );
@@ -2899,15 +2888,13 @@ void ship_departed( int num )
 		
 	ai_ship_destroy(num, SEF_DEPARTED);		// should still do AI cleanup after ship has departed
 
-	// don't bother doing this for demo playback - we don't keep track of wing info
-	if(!(Game_mode & GM_DEMO_PLAYBACK)){
-		if ( sp->wingnum != -1 ) {
-			wing *wingp;
+	// Claude: #70 demo recorder removed
+	if ( sp->wingnum != -1 ) {
+		wing *wingp;
 
-			wingp = &Wings[sp->wingnum];
-			wingp->total_departed++;
-			ship_wing_cleanup( num, wingp );
-		}
+		wingp = &Wings[sp->wingnum];
+		wingp->total_departed++;
+		ship_wing_cleanup( num, wingp );
 	}
 }
 
@@ -5257,11 +5244,6 @@ int ship_fire_primary(object * obj, int stream_weapons, int force)
 		if(!(MULTIPLAYER_CLIENT && (shipp != Player_ship))){
 			send_NEW_primary_fired_packet( shipp, banks_fired );
 		}
-	}
-
-	// post a primary fired event
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_primary_fired(obj, swp->current_primary_bank, shipp->flags & SF_PRIMARY_LINKED);
 	}
 
    // STATS
