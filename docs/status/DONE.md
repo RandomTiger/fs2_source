@@ -20,7 +20,7 @@ Done 2026-10-16: `-headless` (no window shown, no graphics or sound device) and 
 
 Done 2026-10-17: engine interface leaks (`docs/ENGINE_INTERFACE.md`). PrePort done (D-049).
 
-Done 2026-10-22 (D-20261022-143926): the joystick polling thread in `code/Io/Joy.cpp` is gone; `joy_poll` samples the stick once per `os_poll` on the game's thread, with the same down/up counting and the hold time taken from the frame step. Gates green, no recording moved. Tom's live check on the x86 windowed build is still owed (`STATUS.md`).
+Done 2026-10-22 (D-20261022-143926): the joystick polling thread in `code/Io/Joy.cpp` is gone; `joy_poll` samples the stick once per `os_poll` on the game's thread, with the same down/up counting and the hold time taken from the frame step. Gates green, no recording moved. Tom's live check on the x86 windowed build done 2026-10-23: quick taps, held buttons and hat all fine.
 
 ## PrePortCleanup (D-059 to D-062, D-066 to D-074)
 No change may alter a recording; each cut passes the x86 quick suite and x64 headless 48/48, Release and Debug.

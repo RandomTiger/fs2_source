@@ -11,9 +11,6 @@ Reference configuration (D-023): 1024x768, GR_1024, medium skill. All 48 recordi
 
 This file holds the open queue only. Finished items, the stage gates as met and the PrePortCleanup record are in `docs/status/DONE.md` (Tom, 2026-10-23). Stage gates 1 to 3 (D-026) are met or ready to argue as met; gate 4 (suite green) is re-run per commit (quick) and per layer change (full).
 
-## Owed: live stick check (D-20261022-143926)
-The joystick polling thread in `code/Io/Joy.cpp` is gone; `joy_poll` samples the stick once per `os_poll` on the game's thread. The recording suite cannot see a real stick, so Tom's live check on the x86 windowed build is still owed: buttons, hat and axes should feel as before. If a quick tap is missed at a normal frame rate, the change goes back to the steward with the measure before anything is re-recorded or ifdef'd.
-
 ## Carried, by Tom's call
 - Popups and other modal loops block a host frame. Resolved for the port by D-20261022-065224: the game runs as a coroutine on Godot's main thread; the fiber test is a port task in its turn (D-041).
 - Squad message menu (piece 4): deferred by Tom; a carried exception unless gate 2 cannot be met without it.
