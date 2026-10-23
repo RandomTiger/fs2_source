@@ -185,7 +185,8 @@ or caller, so it simply went.
 
 The 13 dependent `#ifndef FS2_DEMO` blocks (11 files) read the field at run time: FreeSpace.cpp (sound
 environment's `Num_asteroids` term, inside a commented-out block; `Asteroids_enabled = 1` compiled always),
-HUDtarget.cpp x2 (closest-target search; `OBJ_ASTEROID` case body), HUDtargetbox.cpp
+HUDtarget.cpp x2 (closest-target search; `OBJ_ASTEROID` case in the target box bounds, where 0 does what the
+`default` did, `Int3` and return, so the bounds are never read unset), HUDtargetbox.cpp
 (`hud_render_target_asteroid`, early return), CollideDebrisShip.cpp (`collide_asteroid_ship`, early return 0),
 CollideDebrisWeapon.cpp (`collide_asteroid_weapon`, early return 0), CollideShipShip.cpp
 (`check_special_cruiser_asteroid_collision`, early return 0), AiCode.cpp (`Asteroid_obj_list` loop in the

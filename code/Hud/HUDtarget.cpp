@@ -3424,13 +3424,15 @@ void hud_show_brackets(object *targetp, vertex *projected_v)
 			break;
 
 		case OBJ_ASTEROID:
-			if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the case
+			if (!Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the case: 0 does what the default did
+				Int3();	// should never happen
+				return;
+			}
 			{
 			int subtype = 0;
 			subtype = Asteroids[targetp->instance].asteroid_subtype;
 			modelnum = Asteroid_info[Asteroids[targetp->instance].type].model_num[subtype];
 			bound_rc = model_find_2d_bound_min( modelnum, &targetp->orient, &targetp->pos,&x1,&y1,&x2,&y2 );
-			}
 			}
 			break;
 
