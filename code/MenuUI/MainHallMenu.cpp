@@ -310,7 +310,6 @@
 #include "multi_voice.h"
 #include "multi.h"
 #include "AlphaColors.h"
-#include "demo.h"
 #include "fishtank.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
@@ -1027,9 +1026,6 @@ void main_hall_do(float frametime)
 	case KEY_3:		
 		main_hall_campaign_cheat();	
 		break;	
-	case KEY_DEBUGGED + KEY_D:
-		demo_start_playback("test.fsd");
-		break;
 	}
 #else 
 	}

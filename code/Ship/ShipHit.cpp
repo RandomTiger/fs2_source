@@ -462,7 +462,6 @@
 #include "Popup.h"
 #include "Emp.h"
 #include "Beam.h"
-#include "Demo.h"
 #include "multi_pmsg.h"
 
 //#pragma optimize("", off)
@@ -931,7 +930,7 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 		}
 
 		// if we're not in CLIENT_NODAMAGE multiplayer mode (which is a the NEW way of doing things)
-		if (damage_to_apply > 0.1f && !(MULTIPLAYER_CLIENT) && !(Game_mode & GM_DEMO_PLAYBACK)) {
+		if (damage_to_apply > 0.1f && !(MULTIPLAYER_CLIENT)) {	// Claude: #70 demo recorder removed
 			//	Decrease damage to subsystems to player ships.
 			if (ship_obj->flags & OF_PLAYER_SHIP){
 				damage_to_apply *= Skill_level_subsys_damage_scale[Game_skill_level];
@@ -952,7 +951,7 @@ float do_subobj_hit_stuff(object *ship_obj, object *other_obj, vector *hitpos, f
 			}
 
 			// multiplayer clients never blow up subobj stuff on their own
-			if ( (hit_subsys->current_hits <= 0.0f) && !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK)){
+			if ( (hit_subsys->current_hits <= 0.0f) && !MULTIPLAYER_CLIENT){	// Claude: #70 demo recorder removed
 				do_subobj_destroyed_stuff( ship_p, hit_subsys, hitpos );
 			}
 
@@ -1582,11 +1581,6 @@ void ship_generic_kill_stuff( object *objp, float percent_killed )
 	sp = &Ships[objp->instance];
 	ship_info *sip = &Ship_info[sp->ship_info_index];
 
-	// if recording demo
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_ship_kill(objp);
-	}
-
 	ai_announce_ship_dying(objp);
 
 	sp->flags |= SF_DYING;
@@ -1749,7 +1743,7 @@ void ship_hit_kill(object *ship_obj, object *other_obj, float percent_killed, in
 	game_tst_mark(ship_obj, sp);
 
 	// single player and multiplayer masters evaluate the scoring and kill stuff
-	if ( !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK)) {
+	if ( !MULTIPLAYER_CLIENT ) {	// Claude: #70 demo recorder removed
 		scoring_eval_kill( ship_obj );
 
 		// ship is destroyed -- send this event to the mission log stuff to record this event.  Try to find who
@@ -2185,7 +2179,7 @@ static void ship_do_damage(object *ship_obj, object *other_obj, vector *hitpos, 
 			}
 
 			// multiplayer clients don't do damage
-			if(((Game_mode & GM_MULTIPLAYER) && MULTIPLAYER_CLIENT) || (Game_mode & GM_DEMO_PLAYBACK)){
+			if((Game_mode & GM_MULTIPLAYER) && MULTIPLAYER_CLIENT){	// Claude: #70 demo recorder removed
 			} else {
 				ship_obj->hull_strength -= damage;		
 			}
@@ -2253,7 +2247,7 @@ static void ship_do_damage(object *ship_obj, object *other_obj, vector *hitpos, 
 					percent_killed = 1.0f;
 				}
 
-				if ( !(shipp->flags & SF_DYING) && !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK)){  // if not killed, then kill
+				if ( !(shipp->flags & SF_DYING) && !MULTIPLAYER_CLIENT){  // if not killed, then kill (Claude: #70 demo recorder removed)
 					ship_hit_kill(ship_obj, other_obj, percent_killed, 0);
 				}
 			}
@@ -2319,7 +2313,7 @@ void ship_apply_local_damage(object *ship_obj, object *other_obj, vector *hitpos
 	}
 
 	// only want to check the following in single player or if I am the multiplayer game server
-	if ( !MULTIPLAYER_CLIENT && !(Game_mode & GM_DEMO_PLAYBACK) && ((other_obj->type == OBJ_SHIP) || (other_obj->type == OBJ_WEAPON)) ){
+	if ( !MULTIPLAYER_CLIENT && ((other_obj->type == OBJ_SHIP) || (other_obj->type == OBJ_WEAPON)) ){	// Claude: #70 demo recorder removed
 		ai_ship_hit(ship_obj, other_obj, hitpos, shield_quadrant, hit_normal);
 	}
 

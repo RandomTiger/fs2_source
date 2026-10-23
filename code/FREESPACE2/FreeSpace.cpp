@@ -553,7 +553,6 @@
 #include "multi_rate.h"
 #include "Muzzleflash.h"
 #include "Encrypt.h"
-#include "Demo.h"
 #include "Replay.h"
 #include "DataSetInstall.h"	// Claude
 #include "DataSetProfile.h"	// Claude
@@ -3780,7 +3779,7 @@ void game_simulation_frame()
 
 		// we don't want to evaluate mission stuff when any ingame joiner in multiplayer is receiving
 		// ships/wing packets.
-		if ( !((Game_mode & GM_MULTIPLAYER) && (Netgame.flags & NG_FLAG_INGAME_JOINING_CRITICAL)) && !(Game_mode & GM_DEMO_PLAYBACK)){
+		if ( !((Game_mode & GM_MULTIPLAYER) && (Netgame.flags & NG_FLAG_INGAME_JOINING_CRITICAL)) ){	// Claude: #70 demo recorder removed
 			mission_parse_eval_stuff();
 		}
 
@@ -3795,15 +3794,11 @@ void game_simulation_frame()
 		// check for cargo reveal (this has an internal timestamp, so only runs every N ms)
 		// AL: 3-15-98: It was decided to not let AI ships inspect cargo
 		//	ship_check_cargo_all();
-		if(!(Game_mode & GM_DEMO_PLAYBACK)){
-			mission_eval_goals();
-		}
+		mission_eval_goals();	// Claude: #70 demo recorder removed
 	}
 
 	// always check training objectives, even in multiplayer missions. we need to do this so that the directives gauge works properly on clients
-	if(!(Game_mode & GM_DEMO_PLAYBACK)){
-		training_check_objectives();
-	}
+	training_check_objectives();	// Claude: #70 demo recorder removed
 	
 	// do all interpolation now
 	if ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_AM_MASTER) && !multi_endgame_ending() && !(Netgame.flags & NG_FLAG_SERVER_LOST)) {
@@ -3824,12 +3819,11 @@ void game_simulation_frame()
 		message_queue_process();				// process any messages send to the player
 	}
 
-	if(!(Game_mode & GM_DEMO_PLAYBACK)){
-		message_maybe_distort();				// maybe distort incoming message if comms damaged
-		player_repair_frame(flFrametime);	//	AI objects get repaired in ai_process, called from move code...deal with player.
-		player_process_pending_praise();		// maybe send off a delayed praise message to the player
-		player_maybe_play_all_alone_msg();	// mabye tell the player he is all alone	
-	}
+	// Claude: #70 demo recorder removed
+	message_maybe_distort();				// maybe distort incoming message if comms damaged
+	player_repair_frame(flFrametime);	//	AI objects get repaired in ai_process, called from move code...deal with player.
+	player_process_pending_praise();		// maybe send off a delayed praise message to the player
+	player_maybe_play_all_alone_msg();	// mabye tell the player he is all alone	
 
 	if(!(Game_mode & GM_STANDALONE_SERVER)){		
 		// process some stuff every frame (before frame is rendered)
@@ -4036,14 +4030,6 @@ void game_frame()
 			;
 	}
 #endif
-
-#ifdef DEMO_SYSTEM
-	demo_do_frame_start();
-	if(Demo_error){
-		mprintf(("Error (%d) while processing demo!\n", Demo_error));
-		demo_close();
-	}
-#endif
 	
 	// start timing frame
 	timing_frame_start();
@@ -4081,8 +4067,7 @@ void game_frame()
 			if( (!popup_running_state()) && (!popupdead_is_active()) ){
 				game_process_keys();
 
-				// don't read flying controls if we're playing a demo back
-				if(!(Game_mode & GM_DEMO_PLAYBACK) && !Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship
+				if(!Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship; demo playback guard removed (#70)
 					read_player_controls( Player_obj, flFrametime);
 				}
 			}
@@ -4246,14 +4231,6 @@ void game_frame()
 	Timing_render2 = f2fl( render2_time2- render2_time1 ) * 1000.0f;
 	Timing_render3 = f2fl( render3_time2- render3_time1 ) * 1000.0f;
 	Timing_flip = f2fl( flip_time2 - flip_time1 ) * 1000.0f;
-
-#ifdef DEMO_SYSTEM
-	demo_do_frame_end();
-	if(Demo_error){
-		mprintf(("Error (%d) while processing demo!\n", Demo_error));
-		demo_close();
-	}
-#endif
 }
 
 #define	MAX_FRAMETIME	(F1_0/4)		// Frametime gets saturated at this.  Changed by MK on 11/1/97.
@@ -4917,13 +4894,6 @@ void game_process_event( int current_state, int event )
 		case GS_EVENT_ENTER_GAME:		
 			replay_enter_game();
 
-#ifdef DEMO_SYSTEM
-			// maybe start recording a demo
-			if(Demo_make){
-				demo_start_record("test.fsd");
-			}
-#endif
-
 			if (Game_mode & GM_MULTIPLAYER) {
 				// if we're respawning, make sure we change the view mode so that the hud shows up
 				if (current_state == GS_STATE_DEATH_BLEW_UP) {
@@ -5449,11 +5419,6 @@ void game_leave_state( int old_state, int new_state )
 			}
 
 			if (end_mission) {
-			// shut down any recording or playing demos
-#ifdef DEMO_SYSTEM
-				demo_close();
-#endif
-
 				// when in multiplayer and going back to the main menu, send a leave game packet
 				// right away (before calling stop mission).  stop_mission was taking to long to
 				// close mission down and I want people to get notified ASAP.

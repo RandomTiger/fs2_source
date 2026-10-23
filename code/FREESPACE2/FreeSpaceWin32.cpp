@@ -22,7 +22,6 @@
 #include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"
 #include "ExceptionHandler.h"
-#include "Demo.h"
 #include "Movie.h"		// Claude: the movie player is back (code/Movie)
 
 #define EXE_FNAME			("fs2.exe")

@@ -2179,18 +2179,6 @@ SOURCE=.\TgaUtils\TgaUtils.cpp
 SOURCE=.\TgaUtils\TgaUtils.h
 # End Source File
 # End Group
-# Begin Group "Demo"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\Demo\Demo.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\Demo\Demo.h
-# End Source File
-# End Group
 # Begin Group "InetFile"
 
 # PROP Default_Filter ""

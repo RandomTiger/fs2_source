@@ -220,7 +220,6 @@
 #include "Bmpman.h"
 #include "Freespace.h"
 #include "MuzzleFlash.h"
-#include "Demo.h"
 #include "ShipHit.h"
 #include "Neblightning.h"
 #include "Objectsnd.h"
@@ -681,11 +680,6 @@ void shipfx_warpin_start( object *objp )
 		return;
 	}
 
-	// post a warpin event
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_warpin(objp->signature, shipp->flags);
-	}
-
 	// if there is no arrival warp, then skip the whole thing
 	if ( shipp->flags & SF_NO_ARRIVAL_WARP )	{
 		shipfx_actually_warpin(shipp,objp);
@@ -1021,11 +1015,6 @@ void shipfx_warpout_start( object *objp )
 	// if we're HUGE, keep alive - set guardian
 	if (Ship_info[shipp->ship_info_index].flags & SIF_HUGE_SHIP) {
 		objp->flags |= OF_GUARDIAN;
-	}
-
-	// post a warpin event
-	if(Game_mode & GM_DEMO_RECORD){
-		demo_POST_warpout(objp->signature, shipp->flags);
 	}
 
 	// don't send ship depart packets for player ships
