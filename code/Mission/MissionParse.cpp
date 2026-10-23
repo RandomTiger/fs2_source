@@ -360,6 +360,7 @@
 #include "Demo.h"
 #include "neblightning.h"
 #include "fvi.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 LOCAL struct {
 	p_object *docker;
@@ -3302,7 +3303,7 @@ void parse_bitmaps(mission *pm)
 
 void parse_asteroid_fields(mission *pm)
 {
-#ifndef FS2_DEMO
+	if (!Game_profile->asteroids) return;	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the body
 
 	int i, count, subtype;
 
@@ -3397,7 +3398,6 @@ void parse_asteroid_fields(mission *pm)
 		}
 		i++;
 	}
-#endif // DEMO
 }
 
 void parse_variables()

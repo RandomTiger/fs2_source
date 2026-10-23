@@ -216,6 +216,7 @@
 #include "multi.h"
 #include "Emp.h"
 #include "Localize.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 int Target_window_coords[GR_NUM_RESOLUTIONS][4] =
 {
@@ -772,7 +773,7 @@ void hud_render_target_jump_node(object *target_objp)
 //
 void hud_render_target_asteroid(object *target_objp)
 {
-#ifndef FS2_DEMO
+	if (!Game_profile->asteroids) return;	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the body
 	vector		obj_pos = {0.0f,0.0f,0.0f};
 	vector		camera_eye = {0.0f,0.0f,0.0f};
 	matrix		camera_orient = IDENTITY_MATRIX;
@@ -852,7 +853,6 @@ void hud_render_target_asteroid(object *target_objp)
 	if ( time_to_impact >= 0 ) {
 		emp_hud_printf(Targetbox_coords[gr_screen.res][TBOX_CLASS][0], Targetbox_coords[gr_screen.res][TBOX_CLASS][1], EG_TBOX_CLASS, NOX("impact: %.1f sec"), time_to_impact);	
 	}
-#endif
 }
 
 void get_turret_subsys_name(model_subsystem *system_info, char *outstr)

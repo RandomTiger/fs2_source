@@ -160,6 +160,7 @@
 #include "Timer.h"
 #include "Asteroid.h"
 #include "hud.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 void calculate_ship_ship_collision_physics(collision_info_struct *ship_ship_hit_info);
 
@@ -301,7 +302,7 @@ int collide_debris_ship( obj_pair * pair )
 // Returns 1 if all future collisions between these can be ignored
 int collide_asteroid_ship( obj_pair * pair )
 {
-#ifndef FS2_DEMO
+	if (!Game_profile->asteroids) return 0;	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the body
 
 	if (!Asteroids_enabled)
 		return 0;
@@ -443,7 +444,4 @@ int collide_asteroid_ship( obj_pair * pair )
 		}
 		return 0;
 	}
-#else
-	return 0;	// no asteroids in demo version
-#endif
 }

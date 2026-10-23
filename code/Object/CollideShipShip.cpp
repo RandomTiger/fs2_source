@@ -511,6 +511,7 @@
 #include "Joy_ff.h"
 #include "Timer.h"
 #include "Asteroid.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 //#pragma optimize("", off)
 //#pragma auto_inline(off)
@@ -1048,7 +1049,7 @@ int ship_ship_check_collision(collision_info_struct *ship_ship_hit_info, vector 
 // returns 1 if modified mass is larger than given mass, 0 otherwise 
 int check_special_cruiser_asteroid_collision(object *heavy, object *light, float *cruiser_mass, int *cruiser_light)
 {
-#ifndef FS2_DEMO
+	if (!Game_profile->asteroids) return 0;	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the body
 	int asteroid_type;
 
 	if (heavy->type == OBJ_ASTEROID) {
@@ -1088,7 +1089,6 @@ int check_special_cruiser_asteroid_collision(object *heavy, object *light, float
 			}
 		}
 	}
-#endif
 	return 0;
 }
 
