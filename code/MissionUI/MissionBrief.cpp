@@ -1612,12 +1612,12 @@ int brief_setup_closeup(brief_icon *bi)
 		*/
 		break;
 	case ICON_ASTEROID_FIELD:
-#ifndef FS2_DEMO
+		if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO
 		strcpy(pof_filename, Asteroid_info[ASTEROID_TYPE_BIG].pof_files[0]);
 		strcpy(Closeup_icon->closeup_label, XSTR( "asteroid", 431));
 		vm_vec_make(&Closeup_cam_pos, 0.0f, 0.0f, -334.0f);
 		Closeup_zoom = 0.5f;
-#endif
+		}
 		break;
 	case ICON_JUMP_NODE:
 		strcpy(pof_filename, NOX("subspacenode.pof"));
