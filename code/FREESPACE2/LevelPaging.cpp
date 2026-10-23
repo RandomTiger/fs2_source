@@ -53,6 +53,7 @@
 #include "Freespace.h"
 #include "BmpMan.h"
 #include "LevelPaging.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 // All the page in functions
 extern void ship_page_in();
@@ -80,30 +81,46 @@ void level_page_in()
 	if(!(Game_mode & GM_STANDALONE_SERVER)){		
 		bm_page_in_start();
 	}
+	loadtime_mark("bm_page_in_start");	// Claude: -loadtimes, see LoadTimes.h
 
 	// Most important ones first
 	ship_page_in();
+	loadtime_mark("ship_page_in");	// Claude: -loadtimes
 	weapons_page_in();
+	loadtime_mark("weapons_page_in");	// Claude: -loadtimes
 	fireballs_page_in();
+	loadtime_mark("fireballs_page_in");	// Claude: -loadtimes
 	particle_page_in();
+	loadtime_mark("particle_page_in");	// Claude: -loadtimes
 	debris_page_in();
+	loadtime_mark("debris_page_in");	// Claude: -loadtimes
 	hud_page_in();
+	loadtime_mark("hud_page_in");	// Claude: -loadtimes
 	radar_page_in();
+	loadtime_mark("radar_page_in");	// Claude: -loadtimes
 	training_mission_page_in();
+	loadtime_mark("training_mission_page_in");	// Claude: -loadtimes
 	stars_page_in();
+	loadtime_mark("stars_page_in");	// Claude: -loadtimes
 	shockwave_page_in();
+	loadtime_mark("shockwave_page_in");	// Claude: -loadtimes
 	shield_hit_page_in();
+	loadtime_mark("shield_hit_page_in");	// Claude: -loadtimes
 	asteroid_page_in();
+	loadtime_mark("asteroid_page_in");	// Claude: -loadtimes
 	neb2_page_in();
+	loadtime_mark("neb2_page_in");	// Claude: -loadtimes
 
 	// preload mission messages if NOT running low-memory (greater than 48MB)
 	if (game_using_low_mem() == false) {
 		message_pagein_mission_messages();
 	}
+	loadtime_mark("message_pagein_mission_messages");	// Claude: -loadtimes
 
 	if(!(Game_mode & GM_STANDALONE_SERVER)){
 		bm_page_in_stop();
 	}
+	loadtime_mark("bm_page_in_stop");	// Claude: -loadtimes
 
 	mprintf(( "Ending level bitmap paging...\n" ));
 

@@ -176,6 +176,7 @@
 #include "CfileSystem.h"
 #include "CfileArchive.h"
 #include "osapi.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 char Cfile_root_dir[CFILE_ROOT_DIRECTORY_LEN] = "";
 char Cfile_root_path[CFILE_ROOT_DIRECTORY_LEN] = "";	// Claude: the root as the host gave it, not lower-cased; the first search root (D-050)
@@ -680,6 +681,7 @@ extern int game_cd_changed();
 CFILE *cfopen(char *file_path, char *mode, int type, int dir_type, bool localize)
 {
 	char longname[_MAX_PATH];
+	loadtime_scope lt_scope(LT_CFOPEN);	// Claude: -loadtimes, see LoadTimes.h
 
 //	nprintf(("CFILE", "CFILE -- trying to open %s\n", file_path ));
 // #if !defined(MULTIPLAYER_BETA_BUILD) && !defined(FS2_DEMO)

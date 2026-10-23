@@ -569,6 +569,7 @@
 // #include "names.h"
 #include "shiphit.h"
 #include "missionloopbrief.h"
+#include "LoadTimes.h"	// Claude: -loadtimes
 
 #ifdef NDEBUG
 #ifdef FRED
@@ -1737,14 +1738,17 @@ void freespace_mission_load_stuff()
 		mprintf(( "=================== STARTING LEVEL DATA LOAD ==================\n" ));
 
 		game_loading_callback_init();
+		loadtime_mark("game_loading_callback_init");	// Claude: -loadtimes, see LoadTimes.h
 		
 		event_music_level_init();	// preloads the first 2 seconds for each event music track
+		loadtime_mark("event_music_level_init");	// Claude: -loadtimes
 		game_busy();
 
 		gamesnd_unload_interface_sounds();		// unload interface sounds from memory
 		game_busy();
 
 		gamesnd_preload_common_sounds();			// load in sounds that are expected to play
+		loadtime_mark("gamesnd_unload_interface_sounds, gamesnd_preload_common_sounds");	// Claude: -loadtimes
 		game_busy();
 
 		ship_assign_sound_all();	// assign engine sounds to ships
@@ -1753,6 +1757,7 @@ void freespace_mission_load_stuff()
 
 		// call function in missionparse.cpp to fixup player/ai stuff.
 		mission_parse_fixup_players();
+		loadtime_mark("ship_assign_sound_all, game_assign_sound_environment, mission_parse_fixup_players");	// Claude: -loadtimes
 		game_busy();
 
 		// Load in all the bitmaps for this level
@@ -1761,6 +1766,7 @@ void freespace_mission_load_stuff()
 		game_busy();
 
 		game_loading_callback_close();	
+		loadtime_mark("game_loading_callback_close");	// Claude: -loadtimes
 	} 
 	// the only thing we need to call on the standalone for now.
 	else {
@@ -1772,10 +1778,7 @@ void freespace_mission_load_stuff()
 	}
 }
 
-uint load_gl_init;
-uint load_mission_load;
-uint load_post_level_init;
-uint load_mission_stuff;
+// Claude: the unused time(NULL) globals load_gl_init, load_mission_load, load_post_level_init and load_mission_stuff are replaced by -loadtimes (LoadTimes.h)
 
 // tells the server to load the mission and initialize structures
 int game_start_mission()
@@ -1784,11 +1787,9 @@ int game_start_mission()
 	
 	replay_load_begin();
 
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_gl_init = (uint)time(NULL);
+	loadtime_begin(Game_current_mission_filename);	// Claude: -loadtimes, see LoadTimes.h
 	game_level_init();
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_gl_init = (uint)time(NULL) - load_gl_init;
+	loadtime_mark("game_level_init");	// Claude: -loadtimes
 	
 	if (Game_mode & GM_MULTIPLAYER) {
 		Player->flags |= PLAYER_FLAGS_IS_MULTI;
@@ -1797,9 +1798,8 @@ int game_start_mission()
 		init_multiplayer_stats();
 	}
 
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_mission_load = (uint)time(NULL);
 	if (mission_load()) {
+		loadtime_end();	// Claude: -loadtimes
 		if ( !(Game_mode & GM_MULTIPLAYER) ) {
 			popup(PF_BODY_BIG, 1, POPUP_OK, XSTR( "Attempt to load the mission failed", 169));
 			gameseq_post_event(GS_EVENT_MAIN_MENU);
@@ -1809,8 +1809,7 @@ int game_start_mission()
 
 		return 0;
 	}
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_mission_load = (uint)time(NULL) - load_mission_load;
+	loadtime_mark("mission_load");	// Claude: -loadtimes
 
 	// If this is a red alert mission in campaign mode, bash wingman status
 	if ( (Game_mode & GM_CAMPAIGN_MODE) && red_alert_mission() ) {
@@ -1823,26 +1822,21 @@ int game_start_mission()
 		// game_load_palette();
 	}
 
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_post_level_init = (uint)time(NULL);
 	game_post_level_init();
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_post_level_init = (uint)time(NULL) - load_post_level_init;
+	loadtime_mark("game_post_level_init");	// Claude: -loadtimes
 
 	#ifndef NDEBUG
 	{
 		void Do_model_timings_test();
 		Do_model_timings_test();	
+		loadtime_mark("Do_model_timings_test (Debug only)");	// Claude: -loadtimes
 	}
 	#endif
 
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_mission_stuff = (uint)time(NULL);
 	freespace_mission_load_stuff();
-	// Claude: x64, cast to uint, its width on Win32 (D-20261020-194406 batch 2)
-	load_mission_stuff = (uint)time(NULL) - load_mission_stuff;
 
 	replay_load_end();
+	loadtime_end();	// Claude: -loadtimes
 
 	return 1;
 }
@@ -4701,6 +4695,8 @@ int game_poll()
 					}
 					k = 0;
 				}
+			} else {	// Claude
+				autotest_not_in_demo();	// Claude: the demo has no Hotkeys screen and shows no popup; the menu tour skips it (#91, D-20261022-144601)
 			}	// Claude
 			break;
 

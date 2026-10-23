@@ -1463,10 +1463,6 @@ void replay_load_end()
 			Hdr.campaign_size = replay_read_player_file(filename, &Hdr_campaign);
 		}
 	} else {
-		if (red_alert_mission()) {
-			replay_fatal("Red alert missions are not supported by replay yet");
-		}
-
 		// the loadout the player committed in the recorded run.  The briefing restores it
 		// through the same path as a player re-flying a mission.
 		Player_loadout = Hdr_loadout;
@@ -1746,6 +1742,14 @@ void replay_drive_state(int state)
 			if (!Replay_committed) {
 				Replay_committed = 1;
 				commit_pressed();
+			}
+			break;
+
+		case GS_STATE_RED_ALERT:
+			// a red alert mission has no briefing; its screen's continue button enters the game
+			if (!Replay_committed) {
+				Replay_committed = 1;
+				gameseq_post_event(GS_EVENT_ENTER_GAME);
 			}
 			break;
 	}

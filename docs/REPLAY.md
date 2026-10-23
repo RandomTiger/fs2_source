@@ -118,6 +118,6 @@ The tolerance file has one `kind value` per line. The kinds are `pos`, `orient`,
 
 ## Known limits
 
-- Red alert missions are not supported yet; replay stops with an error.
+- Red alert missions replay from the simulator (where there is no carry-over). In a campaign their carry-over (wingmen, hull, ammo from the previous mission) is read from the recorded pilot file, but no recording tests that yet. A red alert mission entered straight from the one before it is not the first mission since the game started, so it cannot be recorded; restart and use Continue Campaign.
 - If the window loses focus during recording, `Mouse_hidden` is cleared and that is not recorded. This only matters when flying with the mouse.
 - Replay must use the same screen size, detail settings and sound settings as the recording. Rendering consumes the same `rand()` stream as gameplay.

@@ -230,6 +230,7 @@
 #include "MissionCampaign.h"
 #include "MissionShipChoice.h"
 #include "Freespace.h"
+#include "DataSetProfile.h"	// Claude
 #include "MainHallMenu.h"
 #include "MissionScreenCommon.h"
 #include "GameSnd.h"
@@ -1266,6 +1267,10 @@ int techroom_button_pressed(int num)
 
 		case CUTSCENES_TAB:
 #if !defined(E3_BUILD) && !defined(PD_BUILD)
+			if (!(Game_profile->full_version_screens & FVS_CUTSCENES)) {	// Claude: data set profile wall (D-20261022-065950)
+			game_feature_not_in_demo_popup();
+			return 1;
+			}	// Claude
 			gamesnd_play_iface(SND_SWITCH_SCREENS);
 			gameseq_post_event(GS_EVENT_GOTO_VIEW_CUTSCENES_SCREEN);
 			return 1;

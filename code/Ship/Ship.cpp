@@ -8733,10 +8733,12 @@ float ship_get_secondary_weapon_range(ship *shipp)
 	if ( swp->current_secondary_bank >= 0 ) {
 		weapon_info	*wip;
 		int bank=swp->current_secondary_bank;
+		if ( swp->secondary_bank_weapons[bank] >= 0 ) {	// Claude: an empty bank (weapon -1) indexed Weapon_info[-1] (#84, D-20261021-202101)
 		wip = &Weapon_info[swp->secondary_bank_weapons[bank]];
 		if ( swp->secondary_bank_ammo[bank] > 0 ) {
 			srange = wip->max_speed * wip->lifetime;
 		}
+		}	// Claude
 	}
 
 	return srange;
@@ -8748,6 +8750,9 @@ int get_max_ammo_count_for_bank(int ship_class, int bank, int ammo_type)
 {
 	float capacity, size;
 
+	if ( ammo_type < 0 ) {	// Claude: an empty bank (weapon -1) read Weapon_info[-1]; its max ammo is 0 (#92, D-20261022-214722)
+		return 0;
+	}	// Claude
 	capacity = (float) Ship_info[ship_class].secondary_bank_ammo_capacity[bank];
 	size = (float) Weapon_info[ammo_type].cargo_size;
 	return (int) (capacity / size);

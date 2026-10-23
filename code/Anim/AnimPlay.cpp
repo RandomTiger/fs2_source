@@ -534,6 +534,8 @@ int anim_show_next_frame(anim_instance *instance, float frametime, int blit)	// 
 		new_frame_num = instance->start_at - 1 - fl2i(percent_through * n_frames + 0.5f);
 
 	frame_save = instance->frame_num;
+	int last_frame_save = instance->last_frame_num;	// Claude: a pause must also undo the stop that the clamp below may set on this call, or the next call ends and frees an anim its owner still holds (#93, D-20261022-224915)
+	int stop_now_save = instance->stop_now;	// Claude
 
 	// If framerate independent, use the new_frame_num... unless instance->skip_frames is
 	// FALSE, then only advance a maximum of one frame (this is needed since some big animations
@@ -636,6 +638,8 @@ int anim_show_next_frame(anim_instance *instance, float frametime, int blit)	// 
 	// if the anim is paused, ignore all the above changes and still display this frame
 	if(instance->paused || Anim_paused){
 		instance->frame_num = frame_save;
+		instance->last_frame_num = last_frame_save;	// Claude: #93
+		instance->stop_now = stop_now_save;	// Claude: #93
 		instance->time_elapsed -= frametime;
 		frame_diff = 0;
 	}

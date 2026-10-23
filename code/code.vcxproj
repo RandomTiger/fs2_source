@@ -264,6 +264,7 @@
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Demo\Demo.cpp" />
     <ClCompile Include="Replay\Autotest.cpp" />
+    <ClCompile Include="Replay\LoadTimes.cpp" />
     <ClCompile Include="Replay\Replay.cpp" />
     <ClCompile Include="Replay\StateTrace.cpp" />
     <ClCompile Include="ExceptionHandler\ExceptionHandler.cpp" />
@@ -518,6 +519,7 @@
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Demo\Demo.h" />
     <ClInclude Include="Replay\Autotest.h" />
+    <ClInclude Include="Replay\LoadTimes.h" />
     <ClInclude Include="Replay\Replay.h" />
     <ClInclude Include="Replay\StateTrace.h" />
     <ClInclude Include="Replay\TraceFormat.h" />
