@@ -319,11 +319,7 @@
  *		CONSTANTS
  */
 
-#ifdef FS2_DEMO
-	#define MAX_OBJECTS			300		
-#else
-	#define MAX_OBJECTS			1000		
-#endif
+	#define MAX_OBJECTS			1000			// Claude: retail value on every data set; was 300 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 
 #define MAX_SHIELD_SECTIONS	4					//	Number of sections in shield.
 

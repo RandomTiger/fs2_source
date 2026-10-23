@@ -151,11 +151,7 @@
 #ifndef _BMPMAN_H
 #define _BMPMAN_H
 
-#ifdef FS2_DEMO
-	#define MAX_BITMAPS 3500
-#else
-	#define MAX_BITMAPS 3500			// How many bitmaps the game can handle
-#endif
+	#define MAX_BITMAPS 3500			// How many bitmaps the game can handle	// Claude: retail value on every data set; was 3500 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 
 // 16 bit pixel formats
 #define BM_PIXEL_FORMAT_ARGB				0						// for glide - can assume certain things, like 1555 LFB writes, whee!

@@ -48,6 +48,7 @@ typedef struct data_set_profile {
 	int	command_heads;					// head variants the data set ships for command and large personas, picked the same way; the FS2 demo has only CM1a (MissionMessage.cpp, batch 5, D-20261023-194324)
 	int	pilot_medals;					// medal ints in a version 140 pilot file and in a version 1 .css block written in this data set; read only, the exe writes pilot 141 and .css 2 with their own count (ManagePilot.cpp, MissionCampaign.cpp, batch 5, D-20261023-201347, D-20261023-203603)
 	int	fs2_demo_walls;					// with an FVS_ bit clear, 1: the site does what the FS2_DEMO build did there (campaign room: offer to restart the campaign; F3: nothing); 0: the not-in-demo popup, as FS1's demo build (D-20261021-142001)
+	int	object_slots;					// slots 0..N-1 of Objects[] go in the free list in FIFO order, slots N and up only when all N are in use; an order, not a cap: storage, loops and limit tests stay at retail MAX_OBJECTS and nothing is refused; the FS2 demo's 300 reproduces the shipped demo's objnums (Object.cpp, batch 5, D-20261023-220843)
 	// FS1 data sets (FS1Compat), appended after FS2Demo's fields at their merge (D-20261021-142003)
 	int	thruster_species;					// species whose thruster anims are loaded: FS1's demo build cut the Shivan ones (Ship.cpp)
 	int	shields;							// 0: no shields at all, as FS1's demo build (Shield.cpp, D-20261020-161655)

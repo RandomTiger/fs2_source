@@ -289,14 +289,10 @@
 #define	OPERATOR_LENGTH	24  // if this ever exceeds TOKEN_LENGTH, let JasonH know!
 #define	TOKEN_LENGTH		32
 
-#ifdef FS2_DEMO
-	#define	MAX_SEXP_NODES	1600
-#else
-	#define	MAX_SEXP_NODES	2200	// Reduced from 2000 to 1200 by MK on 4/1/98.
+	#define	MAX_SEXP_NODES	2200	// Reduced from 2000 to 1200 by MK on 4/1/98.	// Claude: retail value on every data set; was 1600 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 											//	Most used nodes is 698 in sm1-10a.  Sandeep thinks that's the most complex mission.
 											// AL 2-4-98: upped to 1600, btm03 ran out of sexps, since campaign took a bunch
 											// DA 12/15 bumped up to 2000 - Dan ran out
-#endif
 
 #define MAX_SEXP_VARIABLES 100
 
