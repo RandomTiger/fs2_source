@@ -63,6 +63,15 @@ Every value the game takes from the OS during the mission, as one ordered stream
 
 On `PrePort`, recording version 4 (decision D-035) leaves out the sound-device and music-stream answers and the screen flip's cursor position. No gameplay reads them any more: message voices run on their own clock (D-034), and the cursor position only draws the cursor. A replay asks the device live. A `PrePort` build refuses an earlier recording ("made before the sound-device answers left the stream"); only the diagnostics `FS2_REPLAY_SOUND_LIVE=1` and `FS2_REPLAY_SOUND_MODEL=1` replay one, skipping those entries. The mouse deltas for mouse flying are still recorded.
 
+**Standing rule (D-20261022-212629):** every recording made below `PrePort32` arrives in a carry-up in version 3, which `PrePort32` refuses. It is re-recorded on `PrePort32` in that carry-up, in version 4, as a logged deviation. Before the commit, each one must:
+
+1. replay identically in Release and Debug;
+2. match the `Enhanced` replay of the version-3 file in end reason, success or failure, and end time;
+3. pass the event timeline comparison of D-20261019-175928 where that entry asks for it;
+4. trip no assertion.
+
+`Enhanced` and below keep the version-3 file. Above `PrePort32` the recording is carried unchanged and must replay identically; a move there is a leak, never a re-record. Each carry-up report lists the files re-recorded.
+
 The stream starts at `GS_EVENT_ENTER_GAME`. The mission load, briefing and loadout screens run live and are not replayed: the load's loading-screen flips depend on what the menus already cached, so they differ between runs. So these are put back at `GS_EVENT_ENTER_GAME`:
 
 - **The random number stream.** It is re-seeded with `srand(level seed)` in both record and replay, because the briefing consumes `rand()` for as long as the player stays in it. This is the only change to how the game plays while recording.
