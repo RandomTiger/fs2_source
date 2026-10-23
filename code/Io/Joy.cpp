@@ -226,12 +226,10 @@ int Joy_sensitivity = 9;
 
 CRITICAL_SECTION joy_lock;
 
-HANDLE joy_thread = NULL;
-DWORD joy_thread_id;
-int joy_pollrate = 1000 / 18;  // poll at 18Hz
-
-HANDLE Joy_tell_thread_to_end_event = NULL;
-HANDLE Joy_thread_says_its_done_event = NULL;
+// Claude: no polling thread; joy_poll() samples the stick from os_poll on the game's thread (D-20261022-143926)
+static int Joy_polling = 0;			// Claude: set by joy_init where it started the thread
+static fix Joy_last_poll_time = 0;	// Claude: unrecorded game timer at the last poll
+int joy_pollrate = 1000 / 18;  // Claude: the last frame step in ms (was the 18Hz thread's period)
 
 static int Joy_last_x_reading = 0;
 static int Joy_last_y_reading = 0;
@@ -315,33 +313,23 @@ void joy_flush()
 }
 
 // --------------------------------------------------------------
-//	joy_process()
+//	joy_poll()	// Claude: was joy_process()
 //
-// Runs as a separate thread, and updates the state of the joystick
+// Claude: Called from os_poll on the game's thread, and updates the state of the joystick (was a separate thread, D-20261022-143926)
 //
-DWORD joy_process(DWORD lparam)
+void joy_poll()
 {
 	MMRESULT		rs;
 	JOYINFOEX	ji;
 	int			i,state;
-	joy_button_info	*bi;	
+	fix			now;	// Claude
 
-	for ( i = 0; i < JOY_TOTAL_BUTTONS; i++) {
-		bi = &joy_buttons[i];
-		bi->actual_state = 0;		// Don't set in flush code!
-		bi->state		= 0;
-		bi->down_count	= 0;
-		bi->up_count	= 0;
-		bi->down_time	= 0;
-		bi->last_down_check = timer_get_milliseconds();
-	}
+	if (!Joy_polling) return;	// Claude: no stick answered at init (the thread was not started)
+	now = timer_get_fixed_seconds_unrecorded();	// Claude: hold time from the frame step, game timer, not recorded
+	joy_pollrate = (int)(((longlong)(now - Joy_last_poll_time) * 1000) >> 16);	// Claude
+	Joy_last_poll_time = now;	// Claude
 
-	while (1) {
-		// Wait for the thread to be signaled to end or 1/18th of a second to pass...
-		if ( WaitForSingleObject( Joy_tell_thread_to_end_event, joy_pollrate )==WAIT_OBJECT_0)	{
-			break;
-		}
-
+	{	// Claude: was the thread's loop; one sample per call
 		memset(&ji, 0, sizeof(ji));
 		ji.dwSize = sizeof(ji);
 //		ji.dwFlags = JOY_RETURNBUTTONS | JOY_RETURNRAWDATA;
@@ -439,10 +427,6 @@ DWORD joy_process(DWORD lparam)
 
 		LeaveCriticalSection(&joy_lock);
 	}
-
-	SetEvent(Joy_thread_says_its_done_event);	
-
-	return 0;
 }
 
 // --------------------------------------------------------------
@@ -460,22 +444,8 @@ void joy_close()
 	Joy_inited = 0;
 	joy_num_sticks = 0;
 
-	// Tell joystick polling thread to end
-	SetEvent(Joy_tell_thread_to_end_event);
-
-	// Wait for it to end
-	if ( WaitForSingleObject( Joy_thread_says_its_done_event, 5000 )==WAIT_TIMEOUT)	{			//INFINITE );
-		mprintf(( "Joy end thread wait timeout!\n" ));
-	}
-	CloseHandle(Joy_tell_thread_to_end_event);
-	CloseHandle(Joy_thread_says_its_done_event);
-
-	// It is now safe to release any resources use by the polling thread.
+	Joy_polling = 0;	// Claude: no polling thread to end (D-20261022-143926)
 	DeleteCriticalSection( &joy_lock );
-	if (joy_thread)	{
-		CloseHandle(joy_thread);
-		joy_thread = NULL;
-	}
 
 	joy_ff_shutdown();
 }
@@ -624,18 +594,9 @@ int joy_init()
 		if (rs == JOYERR_NOERROR) {
 			joy_num_sticks++;
 
-			Joy_tell_thread_to_end_event = CreateEvent( NULL, FALSE, FALSE, NULL );
-			Joy_thread_says_its_done_event = CreateEvent( NULL, FALSE, FALSE, NULL );
-
-			joy_thread = CreateThread(NULL, 
-											1024 * 32,
-											(LPTHREAD_START_ROUTINE) joy_process,
-											NULL,
-											0,
-											&joy_thread_id);
-
-		//		SetThreadPriority(joy_thread, THREAD_PRIORITY_TIME_CRITICAL - 1);
-			SetThreadPriority(joy_thread, THREAD_PRIORITY_HIGHEST);
+			// Claude: no polling thread; os_poll calls joy_poll (D-20261022-143926)
+			Joy_last_poll_time = timer_get_fixed_seconds_unrecorded();
+			Joy_polling = 1;
 		}
 	}
 

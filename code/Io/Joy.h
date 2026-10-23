@@ -99,6 +99,7 @@ extern int Dead_zone_size;  // percentage of range that is dead zone
 
 int	joy_init();
 void	joy_flush();
+void	joy_poll();	// Claude: one stick sample, from os_poll (D-20261022-143926)
 int	joy_get_pos(int * x, int * y, int *z, int *r);
 int	joy_down_count(int btn, int reset_count = 1);
 int	joy_down(int btn);

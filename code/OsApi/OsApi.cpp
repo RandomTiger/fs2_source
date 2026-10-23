@@ -692,6 +692,7 @@ void os_win32_poll_events()
 void os_poll()
 {
 	Host_hooks.poll_events();	// Claude: through the host (D-051)
+	joy_poll();	// Claude: joystick sampled here on the game's thread (D-20261022-143926)
 
 	replay_os_poll();
 	autotest_poll_done();	// Claude: for the autotest stuck dump (D-053)
