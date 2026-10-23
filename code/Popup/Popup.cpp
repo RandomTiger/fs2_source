@@ -632,9 +632,8 @@ void popup_slider_bogus()
 // Claude: FS1 data: FS1's popup art is Pop2a (one or two choices) and Pop3 (three), with its own buttons, Pop2a_00
 // to Pop2a_04; it has no Pop2 and no Pop_ buttons.  The buttons are cut from the panel on the art's right, so their
 // slots are where each matches the art (x 343, y 135, 169 and 199 in the art, error about 1 of 255); the art is
-// drawn where FS2 draws its own.  The text and title sit 24 in from the sides of FS1's black area (x 8 to 364
-// in the art), centred in its height (y 14 to 156 left of the step; the button panel at y 132, x 342 on).
-// Overwrites the GR_640 entries (docs/FS1_COMPAT.md).
+// drawn where FS2 draws its own.  The text and title keep FS2's size, moved inside FS1's frame (its black area
+// starts at x 8, y 12 to 18; the button panel at y 132).  Overwrites the GR_640 entries (docs/FS1_COMPAT.md).
 static void popup_fs1_layout()
 {
 	static int button_y[3] = {234, 268, 298};
@@ -654,11 +653,9 @@ static void popup_fs1_layout()
 		Button_regions[GR_640][i][0] = 462;					Button_regions[GR_640][i][1] = button_y[i] + 8;
 		Button_regions[GR_640][i][2] = 506;					Button_regions[GR_640][i][3] = button_y[i] + 26;
 	}
-	Popup_text_coords[GR_640][0] = 161;				Popup_text_coords[GR_640][1] = 115;
-	Popup_text_coords[GR_640][2] = 308;				Popup_text_coords[GR_640][3] = 138;
-	Title_coords[GR_640][0] = 161;					Title_coords[GR_640][1] = 115;
-	Title_coords[GR_640][2] = 308;
-	Title_coords[GR_640][4] = 161 + Title_coords[GR_640][2] / 2;
+	Popup_text_coords[GR_640][0] = 141;				Popup_text_coords[GR_640][1] = 117;
+	Title_coords[GR_640][0] = 141;					Title_coords[GR_640][1] = 117;
+	Title_coords[GR_640][4] = 141 + Title_coords[GR_640][2] / 2;
 }
 
 // init the Popup window

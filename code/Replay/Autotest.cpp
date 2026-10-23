@@ -997,15 +997,6 @@ static void autotest_tour_frame(int state)
 				autotest_tour_frame(state);
 				return;
 			}
-			// the barracks' Medals button answers the "not in demo" popup on a demo data set (Barracks.cpp); the simulator
-			// room, cutscenes and credits open only from the tech and campaign rooms, not in demo, and FS1's demo data
-			// has no LoadMission art
-			if (((s->arg == GS_EVENT_VIEW_MEDALS) || (s->arg == GS_EVENT_SIMULATOR_ROOM) || (s->arg == GS_EVENT_GOTO_VIEW_CUTSCENES_SCREEN) || (s->arg == GS_EVENT_CREDITS))
-				&& (s->open == AUTOTEST_OPEN_EVENT) && (!(Game_profile->full_version_screens & FVS_MEDALS) || !(Game_profile->full_version_screens & FVS_TECH_ROOM)) && !Game_profile->fs2_demo_walls) {	// FS1's demo walls; the FS2 demo's tour still opens these by event, as its recordings were made (D-20261021-142001)
-				autotest_tour_skip("not in demo");
-				autotest_tour_next_stop();
-				return;
-			}
 			switch (s->open) {
 				case AUTOTEST_OPEN_EVENT:
 					if (s->arg == GS_EVENT_START_GAME) {
@@ -1048,12 +1039,6 @@ static void autotest_tour_frame(int state)
 				case AUTOTEST_OPEN_SCREEN:
 					// as the Ship Selection and Weapon Loadout buttons: posting the event alone leaves Next_screen on the
 					// briefing, and the screen goes straight back to it
-					// a data set with no loadout screens (the FS1 demo) has neither button (MissionScreenCommon.cpp)
-					if (!Game_profile->loadout) {
-						autotest_tour_skip("not in demo");
-						autotest_tour_next_stop();
-						return;
-					}
 					if (brief_only_allow_briefing()) {
 						autotest_tour_skip("the mission has no ship or weapon selection (training or scramble)");
 						autotest_tour_next_stop();
@@ -1097,12 +1082,6 @@ static void autotest_tour_frame(int state)
 			return;
 
 		case AUTOTEST_TOUR_LOOK:
-			// a command briefing with no stages opens for a frame, then goes on to the briefing (MissionCmdBrief.cpp)
-			if ((s->state == GS_STATE_CMD_BRIEF) && (state == GS_STATE_BRIEFING) && (Autotest_tour_view == 0)) {
-				autotest_tour_skip("the mission has no command briefing");
-				autotest_tour_next_stop();
-				return;
-			}
 			if (state != s->state) {
 				autotest_tour_end("its screen closed by itself");
 				return;

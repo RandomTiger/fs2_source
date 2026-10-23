@@ -714,7 +714,6 @@
 #include "MissionShipChoice.h"
 #include "HudArtillery.h"
 #include "Autotest.h"	// Claude
-#include "DataSetProfile.h"	// Claude: Game_profile
 
 #ifdef FS2_DEMO
 	#define MAX_SHIP_SUBOBJECTS		360
@@ -1040,13 +1039,15 @@ int parse_ship()
 
 	// AL 28-3-98: If this is a demo build, we only want to parse weapons that are preceded with
 	//             the '@' symbol
-	if ( !Game_profile->unmarked_entries && (sip->name[0] != '@') ) {	// Claude: was #ifdef DEMO; the FS1 demo reads only the entries marked '@' (D-20261020-161656)
+#ifdef DEMO // not needed FS2_DEMO (using separate table file)
+	if ( sip->name[0] != '@' ) {
 		// advance to next weapon, and return -1
 		if ( skip_to_start_of_strings("$Name:", "#End") != 1 ) {
 			Int3();
 		}
 		return -1;
 	}
+#endif
 
 #ifdef NDEBUG
 	if (strchr(sip->name, '#') && Fred_running)
@@ -3522,7 +3523,10 @@ void ship_init_thrusters()
 		return;
 
 	// AL 29-3-98: Don't want to include Shivan thrusters in the demo build
-	int num_thrust_anims = Game_profile->thruster_species * 2;	// Claude: was NUM_THRUST_ANIMS, and NUM_THRUST_ANIMS - 2 under #ifdef DEMO
+	int num_thrust_anims = NUM_THRUST_ANIMS;
+	#ifdef DEMO // N/A FS2_DEMO
+		num_thrust_anims = NUM_THRUST_ANIMS - 2;
+	#endif
 
 	for ( i = 0; i < num_thrust_anims; i++ ) {
 		ta = &Thrust_anims[i];
@@ -3536,7 +3540,10 @@ void ship_init_thrusters()
 	}
 
 	// AL 29-3-98: Don't want to include Shivan thrusters in the demo build
-	int num_thrust_glow_anims = Game_profile->thruster_species * 2;	// Claude: was NUM_THRUST_GLOW_ANIMS, and NUM_THRUST_GLOW_ANIMS - 2 under #ifdef DEMO
+	int num_thrust_glow_anims = NUM_THRUST_GLOW_ANIMS;
+	#ifdef DEMO // N/A FS2_DEMO
+		num_thrust_glow_anims = NUM_THRUST_GLOW_ANIMS - 2;
+	#endif
 
 	for ( i = 0; i < num_thrust_glow_anims; i++ ) {
 		ta = &Thrust_glow_anims[i];

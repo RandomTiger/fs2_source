@@ -247,9 +247,6 @@ char *fs1_table_default(char *filename)
 		fs1_help_tbl();
 	} else if (!stricmp(filename, "mainhall.tbl")) {
 		fs1_mainhall_tbl();
-	} else if (!stricmp(filename, "cutscenes.tbl")) {
-		fs1_line("#Cutscenes");							// the FS1 demo has no cutscenes (docs/FS1_DEMO.md)
-		fs1_line("#End");
 	} else {
 		return NULL;
 	}

@@ -186,6 +186,8 @@ Each FS1 change was made on its own branch, merged into `FS1Compat` with `--no-f
 - **Across screens:** `FS1HelpOverlays-done`, `FS1TextColours-done`, `FS1SmallDiffs-done`
 - **Docs only:** `FS1Fs2Check-done`
 
+### FS1 demo split (D-20261023-202744)
+The FS1 demo's code is not on this branch. The merge `f2363f5` ("Merge FS1Demo into FS1Compat") was reverted here (rule 4 of D-20261021-173031); of its hunks only the FS1 retail one was re-applied as its own commit (the FS1 popup text inset, `Popup.cpp`). `FS1Demo` merged the revert down and reverted the revert, so the demo code lives on `FS1Demo` only. The data set profile keeps the FS1 demo fields and row values: they are inert here.
 ### Branch-local build target
 Since the `Enhanced` merge-down (`24cd57f`), `FS1Compat` builds into `PATH_FS2` like every other branch: one exe for every data set, which picks FS1 data at run time. The branch-local `PATH_FS1` target (commit `cebafe2`) is gone. To run on FS1 data, the exes are copied from `PATH_FS2` into the FS1 folders (the FS1 retail install, and the FS1 demo folder on `FS1Demo`); `fc_gate.ps1` does this after its builds.
 
