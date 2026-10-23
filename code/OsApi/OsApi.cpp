@@ -677,6 +677,7 @@ BOOL win32_create_window()
 void os_poll()
 {
 	win32_process2(0);
+	joy_poll();	// Claude: joystick sampled here on the game's thread (D-20261022-143926)
 
 	replay_os_poll();
 	autotest_poll_done();	// Claude: for the autotest stuck dump (D-053)
