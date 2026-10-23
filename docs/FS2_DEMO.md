@@ -155,7 +155,7 @@ demo suite.
 | 2 | **Detection flag.** Done (D-20261018-175706): the rule in section 3, logged with its inputs, and the replay check. No header field below GodotPrep: the replay takes the recording's data set from its campaign, else its mission name (demo names in Replay.cpp, retail from the build's built-in list); our own test missions are "unknown" and play on either set. | FreeSpace.cpp/.h, Replay, Autotest |
 | 3 | **Record the demo suite.** Done (D-20261018-184854/-184856, D-20261018-194722): the three campaign missions in `recordings/demo`, from the compile-time `FS2_DEMO` build; replay and autotest load their own pilot under `FS2_DEMO`; the missing-bitmap write fixed (#25, review 50). | recordings/demo, FreeSpace.cpp, BmpMan.cpp |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
-| 5 | **Pools and limits (Q/Q!).** Arrays keep retail sizes. Under D-20261017-224829 and Tom's decision (section 6, item 3) the demo runs at retail limits, so these `#ifdef` arms go. Q!: objects 300, weapons 100, sexp nodes 1600, wings 15, arrivals 45/10, collision pairs 3000, ship subobjects 360, subsystem status 125, debris 48. Q: particles 500, heads 1/1. `NUM_MEDALS` becomes 18 storage with a run-time count (pilot files). | Object.h, Weapon.h, SEXP.H, Ship.h, MissionParse.h, ObjCollide.cpp, Ship.cpp, Debris.h, Particle.cpp, MissionMessage.cpp, Scoring.h, BmpMan.h (identical arms) |
+| 5 | **Pools and limits (Q/Q!), heads (W).** Every pool takes its retail value on every data set: objects, weapons, sexp nodes, wings, arrivals, collision pairs, ship subobjects, subsystem status, debris (Q!), particles (Q), bitmaps (identical arms). `object_slots` keeps the demo's object slot order and refuses nothing. The two head defines are walls (W, not Q), now `wingman_heads` and `command_heads`. `NUM_MEDALS` is 18 storage with `pilot_medals` for old files; pilots are version 141 and .css files version 2, with read guards. SPDemo-01 and SPDemo-02 re-recorded under D-20261019-135403 (c). | Object.h, Object.cpp, Weapon.h, SEXP.H, Ship.h, MissionParse.h, ObjCollide.cpp, Ship.cpp, Debris.h, Particle.cpp, BmpMan.h, MissionMessage.cpp, Scoring.h, ManagePilot.cpp, MissionCampaign.cpp |
 | 6 | **Asteroids (W).** The demo has no asteroid models. Asteroid.cpp is compiled always behind the `asteroids` profile field (its 18 entry points return the demo stub value when it is 0), `Asteroids_enabled` stays the retail Debug toggle, and the 13 dependent blocks became `if`. | Asteroid.cpp, FreeSpace.cpp (sound env, enable), HUDtarget.cpp x2, HUDtargetbox.cpp, CollideDebrisShip/Weapon.cpp, CollideShipShip.cpp, AiCode.cpp, Beam.cpp, MissionParse.cpp, MissionBrief.cpp (asteroid closeup), KeyControl.cpp (debug key) |
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
@@ -165,6 +165,102 @@ demo suite.
 ### Finished batches
 
 Batches 1, 2 and 3 and the work after batch 3 are done; their records are in `docs/fs2demo/DONE_BATCHES.md`.
+
+### Batch 5: pools, medals, heads (D-20261023-194323, D-20261023-194324)
+
+Later rulings: D-20261023-201347 and D-20261023-201747 (pilot 141), D-20261023-203603 (.css 2),
+D-20261023-220843 (`object_slots`).
+
+Profile fields in `GlobalIncs/DataSetProfile.h`:
+
+| Field | FS2 retail | FS2 demo | FS1 retail | FS1 demo | Sites |
+|---|---|---|---|---|---|
+| `wingman_heads` | 2 | 1 | 2 | 2 | MissionMessage.cpp x2 (wingman and support pick; no-persona fallback) |
+| `command_heads` | 3 | 1 | 3 | 3 | MissionMessage.cpp x1 (command and large pick) |
+| `pilot_medals` | 18 | 16 | 18 | 18 | ManagePilot.cpp (140 pilot read), MissionCampaign.cpp (version 1 .css read); read only |
+| `object_slots` | `MAX_OBJECTS` | 300 | `MAX_OBJECTS` | `MAX_OBJECTS` | Object.cpp x1 (`obj_init`) |
+
+**Heads (walls, not pools).** The two head defines name which head art files the data set ships; nothing
+in a demo mission runs out of heads (D-20261023-194324). The `#ifdef` and both defines are gone; the three
+`Missiontime % MAX_*` sites read the fields. The FS2 demo row reproduces the `FS2_DEMO` build's 1 and 1
+(proof by inspection: `Missiontime % 1` is 0, so every head is the a variant).
+
+**Pools at retail values.** The twelve `#ifdef FS2_DEMO` arms are gone and every data set gets the retail
+value: `MAX_OBJECTS` 1000 (was 300), `MAX_WEAPONS` 350 (100), `MAX_SEXP_NODES` 2200 (1600), `MAX_WINGS` 25
+(15), `MAX_SUBSYS_STATUS` 250 (125), `MAX_SHIP_ARRIVALS` 90 (45), `MAX_WING_ARRIVALS` 20 (10), `MAX_PAIRS`
+8000 (3000), `MAX_SHIP_SUBOBJECTS` 700 (360), `MAX_DEBRIS_PIECES` 64 (48), `MAX_PARTICLES` 2000 (500),
+`MAX_BITMAPS` 3500 (both arms 3500). Sites: Object.h, Weapon.h, SEXP.H, Ship.h, MissionParse.h x2, ObjCollide.cpp,
+Ship.cpp, Debris.h, Particle.cpp, BmpMan.h. No pool has a field except `object_slots`, below.
+
+Peak use on the `FS2_DEMO` build (throwaway instrumentation, never committed):
+
+| Pool | Demo limit | DemoTrain | SPDemo-01 | SPDemo-02 |
+|---|---|---|---|---|
+| `MAX_OBJECTS` | 300 | 30 | 134 | 132 |
+| `MAX_WEAPONS` | 100 | 0 | 90 | 95 (at the deletion threshold) |
+| `MAX_SEXP_NODES` | 1600 | 798 | 882 | 1125 |
+| `MAX_WINGS` | 15 | 1 | 11 | 12 |
+| `MAX_SUBSYS_STATUS` | 125 | 12 | 67 | 89 |
+| `MAX_SHIP_ARRIVALS` | 45 | 10 | 44 | 35 |
+| `MAX_WING_ARRIVALS` | 10 | - | - | - (not used in the code) |
+| `MAX_PAIRS` | 3000 | 1 | 590 | 1153 |
+| `MAX_SHIP_SUBOBJECTS` | 360 | 10 | 69 | 136 |
+| `MAX_DEBRIS_PIECES` | 48 | 0 | 39 | 21 |
+| `MAX_PARTICLES` | 500 | 0 | 502 (at limit) | 469 (at limit) |
+| `MAX_BITMAPS` | 3500 | 809 | 914 | 986 |
+
+**`object_slots`: an order, not a cap.** Storage, every loop bound and every limit test stay at
+`MAX_OBJECTS`. `obj_init` puts slots 0 to N-1 in the free list in index order and slots N and up in a
+separate overflow list. `obj_allocate` takes the overflow list only when the free list is empty, and
+`obj_free` returns a slot to the list it came from, so a slot N or up never enters the ordered list. While
+fewer than N objects are in use, the objnums are exactly the shipped demo's. The field never refuses an
+allocation: the demo row can still hold `MAX_OBJECTS` objects. Retail rows (N = `MAX_OBJECTS`) build
+today's list and never reach the overflow branch. It exists because objnum-dependent code
+(`static_rand(objnum)`, stale fields after `obj_create`'s commented-out memset) moved SPDemo-01 at frame
+1327, before any limit, when the slot order changed (#98, D-20261023-220843). That dependence is untouched.
+
+**Re-recorded under D-20261019-135403 (c).** SPDemo-01 and SPDemo-02 now run past demo limits, so their
+recordings moved, each at or after its first limit frame (TraceDiff against the old recordings):
+
+| Recording | First limit frame | Diverged | DESYNC |
+|---|---|---|---|
+| DemoTrain | none | MATCH, 3543 frames | - |
+| SPDemo-01 | 1472 (particles) | 2352 | 2360 |
+| SPDemo-02 | 41 (particles), 625 (weapons) | 605 | 607 |
+
+Both were recorded again on FS2Demo (format 3) with the batch 3 settings; PrePort (format 4) follows at
+carry-up.
+
+**Pilot files, version 141 (D-20261023-201347, D-20261023-201747).** The exe always writes 141. Layout:
+the version, then one int, the data set active at save time (`Game_profile->data_set`), then the existing
+fields, with the stats block's medal count before that many medal ints. The tag is informational: it is
+logged, and it never selects the read layout; an unknown id is logged and the read carries on. A 141 file
+reads its count from the file (at most `NUM_MEDALS` stored, the rest skipped). A 140 file has no tag and
+reads `pilot_medals` ints, so every recording's embedded 140 pilot reads as before. Version 135 support is
+dropped (`LOWEST_COMPATIBLE` stays 140).
+
+**Campaign stats (.css), version 2 (D-20261023-203603).** The exe always writes version 2: the writer's
+data set id after the version, then per mission block the fixed fields one by one and a medal count before
+that many medal ints, with no raw `sizeof(scoring_struct)`. Version 1 is read with its data set's
+`pilot_medals`, so `pilot_medals` serves both 140 pilots and version 1 .css files, and loads only at its
+exact size for that layout.
+
+**The guard.** Pilot and .css reads never Assert or Error on file content. Each file is read whole into
+memory first; every count and length is checked against the bytes left, the read must end exactly at the
+end of the file, and every .css mission index must be in range. A pilot that fails is not shown in the
+pilot list, not loaded, not rewritten and not deleted, so a misread file is hidden. A .css that fails is not
+loaded: the stats stay zero, a log line says why, and the file is left on disk. A recording whose embedded
+pilot fails the guard is a replay ERROR naming the failing part.
+
+**`DATA_SET_*` values are a file format.** They are written into the pilot 141 and .css 2 headers: never
+renumber or reuse one; a new data set appends (comment at the enumeration in `CFile/DataSetInstall.h`).
+
+**`FS2_DEMO` sites left after batch 5.** PlayerMenu.cpp x5 (the held second title screen, section 7), and the
+batch 9 arms shared with the multiplayer build variants: MultiUI.cpp x3, MultiUtil.cpp, multi_pinfo.cpp,
+multi_rate.cpp, Psnet2.h.
+
+Each commit passed the per-commit check (`commit_check_demo.ps1`): retail Release and Debug rebuilds, retail
+quick suite, FS2_DEMO build, 3 demo recordings, tools check.
 
 ### Batch 6: asteroids (D-20261023-182930)
 
@@ -306,6 +402,8 @@ The open questions from the first version of this brief, as Tom answered them.
    (batch 8).
 3. **Demo limits: retail values.** Every pool and cap in batch 5, logic-affecting ones included, runs
    at the retail size in demo mode.
+   The head caps were ruled walls, not pools (D-20261023-194324): the demo keeps its 1 and 1 heads.
+   `object_slots` keeps the demo's object slot order without capping it (D-20261023-220843).
 4. **Original FS2Demo.exe as a reference run: not now.** It may become one later, if needed. It would
    need DDrawCompat in the demo folder and its registry settings (already present, virtualised).
 5. **The FS1 `DEMO` macro blocks: held** for the FS1 decision (D-064). Batch 9 leaves them alone.
