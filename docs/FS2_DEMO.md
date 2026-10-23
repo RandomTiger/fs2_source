@@ -156,7 +156,7 @@ demo suite.
 | 3 | **Record the demo suite.** Done (D-20261018-184854/-184856, D-20261018-194722): the three campaign missions in `recordings/demo`, from the compile-time `FS2_DEMO` build; replay and autotest load their own pilot under `FS2_DEMO`; the missing-bitmap write fixed (#25, review 50). | recordings/demo, FreeSpace.cpp, BmpMan.cpp |
 | 4 | **Names, versions, files (D/X).** App name and title, version, MOTD URL, built-in campaign and mission list, title screen file, `hud_1.hcf` vs `hud_3.hcf`. | OsRegistry.cpp, version.h, MissionCampaign.h, FreeSpace.cpp (builtin list, title fname, version " D"), ManagePilot.cpp |
 | 5 | **Pools and limits (Q/Q!).** Arrays keep retail sizes. Under D-20261017-224829 and Tom's decision (section 6, item 3) the demo runs at retail limits, so these `#ifdef` arms go. Q!: objects 300, weapons 100, sexp nodes 1600, wings 15, arrivals 45/10, collision pairs 3000, ship subobjects 360, subsystem status 125, debris 48. Q: particles 500, heads 1/1. `NUM_MEDALS` becomes 18 storage with a run-time count (pilot files). | Object.h, Weapon.h, SEXP.H, Ship.h, MissionParse.h, ObjCollide.cpp, Ship.cpp, Debris.h, Particle.cpp, MissionMessage.cpp, Scoring.h, BmpMan.h (identical arms) |
-| 6 | **Asteroids (W).** The demo has no asteroid models. Asteroid.cpp is compiled always, `Asteroids_enabled` follows the flag, and the 13 dependent blocks become `if`. | Asteroid.cpp, FreeSpace.cpp (sound env, enable), HUDtarget.cpp x2, HUDtargetbox.cpp, CollideDebrisShip/Weapon.cpp, CollideShipShip.cpp, AiCode.cpp, Beam.cpp, MissionParse.cpp, MissionBrief.cpp (asteroid closeup), KeyControl.cpp (debug key) |
+| 6 | **Asteroids (W).** The demo has no asteroid models. Asteroid.cpp is compiled always behind the `asteroids` profile field (its 18 entry points return the demo stub value when it is 0), `Asteroids_enabled` stays the retail Debug toggle, and the 13 dependent blocks became `if`. | Asteroid.cpp, FreeSpace.cpp (sound env, enable), HUDtarget.cpp x2, HUDtargetbox.cpp, CollideDebrisShip/Weapon.cpp, CollideShipShip.cpp, AiCode.cpp, Beam.cpp, MissionParse.cpp, MissionBrief.cpp (asteroid closeup), KeyControl.cpp (debug key) |
 | 7 | **Menus and flow (W/X).** Tech room, campaign room, barracks medals, HUD config, load mission and quick start walls; IPX hidden; initial player select; end-of-campaign popup and `GS_EVENT_END_DEMO`; upsell screens; title screen; trailer timer. | MainHallMenu.cpp, Barracks.cpp, OptionsMenu.cpp, OptionsMenuMulti.cpp, ReadyRoom.cpp, PlayerMenu.cpp, MissionCampaign.cpp, MissionDebrief.cpp, FreeSpace.cpp (upsell, title, trailer, state flow), Joy.cpp, Mouse.cpp, MissionBrief.cpp (trailer resets) |
 | 8 | **Mission UI, HUD, controls (W/X/Q!).** Briefing fade (W: no `briefmap.ani` in the demo), ship and weapon anim loop frames (W), gameplay help lines, break-up particle sizes (Q, presentation). Q!: disabled shield-management keys (`Invalid_demo_keys`), F5-F12 hotkeys and the hotkey screen, artillery lock off (`ship_update_artillery_lock`), demo cheat code. Kept as shipped (section 6, item 2). | MissionBrief.cpp, MissionShipChoice.cpp, MissionWeaponChoice.cpp, GameplayHelp.cpp x4, ShipFX.cpp x3, ControlsConfig.cpp, KeyControl.cpp x3, FreeSpace.cpp (hotkey screen, show_framerate), Ship.cpp |
 | 9 | **G1 build variants and the Glide/E3 block (D-066, D-070).** After batches 4 to 8 nothing compile-time remains for the demo, so the other variants are cut under D-060: `OEM_BUILD` (35 blocks, 13 files; its arms share chains with `FS2_DEMO` in batches 4 and 7, which leave them in place for this batch), `E3_BUILD` (15), `PRESS_TOUR_BUILD` (12), `PD_BUILD` (11), `MULTIPLAYER_BETA_BUILD`, `RELEASE_REAL`, `INTERPLAYQA`, `STANDALONE_ONLY_BUILD`, `MULTI_USE_LAG`, and `GERMAN_BUILD` with condition 2 of D-066 (run-time localisation untouched). Also D-070 (a): the "3DFX Glide" renderer branch in `game_init`, its `E3_BUILD` arm and then `GR_GLIDE`, with the OsRegistry "3DFX Glide" mapping where it is still present on this layer. The FS1 `DEMO` blocks (37) are held for FS1 (section 6, item 5). | FreeSpace.cpp/.h, PsTypes.h, version.h, MenuUI, Cutscenes.cpp, MissionLoad.cpp, TechMenu.cpp, ContextHelp.cpp, HUD.cpp, HUDreticle.cpp, localize.cpp/.h, MissionGoals.cpp, Scoring.cpp, Player.h, WinDebug.cpp, ShipContrails.cpp, OsRegistry.cpp |
@@ -165,6 +165,44 @@ demo suite.
 ### Finished batches
 
 Batches 1, 2 and 3 and the work after batch 3 are done; their records are in `docs/fs2demo/DONE_BATCHES.md`.
+
+### Batch 6: asteroids (D-20261023-182930)
+
+Profile field in `GlobalIncs/DataSetProfile.h` (1 = the full game, 0 = what the `FS2_DEMO` build did):
+
+| Field | FS2 retail | FS2 demo | FS1 retail | FS1 demo | Sites |
+|---|---|---|---|---|---|
+| `asteroids` | 1 | 0 | 1 | 1 | Asteroid.cpp entry points and the 13 dependent blocks below |
+
+Asteroid.cpp is compiled on every data set: its `#ifndef FS2_DEMO`, the `#else` arm of demo stubs and the
+`#endif` are gone, and each of the 18 entry points the stubs covered opens with one early return of the stub's
+value when the field is 0 (`asteroid_init`, `asteroid_level_init`, `asteroid_level_close`, `asteroid_create_all`,
+`asteroid_render`, `asteroid_delete`, `asteroid_process_pre`, `asteroid_process_post`, `asteroid_hit`,
+`asteroid_show_brackets`, `asteroid_target_closest_danger`, `asteroid_page_in`, `asteroid_sub_create`,
+`asteroid_frame`: return; `asteroid_check_collision`, `asteroid_count`, `asteroid_collide_objnum`: return 0;
+`asteroid_time_to_impact`: return 0.0f). The 19th stub, `asteroid_save_restore`, had no retail body, declaration
+or caller, so it simply went.
+
+The 13 dependent `#ifndef FS2_DEMO` blocks (11 files) read the field at run time: FreeSpace.cpp (sound
+environment's `Num_asteroids` term, inside a commented-out block; `Asteroids_enabled = 1` compiled always),
+HUDtarget.cpp x2 (closest-target search; `OBJ_ASTEROID` case body), HUDtargetbox.cpp
+(`hud_render_target_asteroid`, early return), CollideDebrisShip.cpp (`collide_asteroid_ship`, early return 0),
+CollideDebrisWeapon.cpp (`collide_asteroid_weapon`, early return 0), CollideShipShip.cpp
+(`check_special_cruiser_asteroid_collision`, early return 0), AiCode.cpp (`Asteroid_obj_list` loop in the
+target search), Beam.cpp (`OBJ_ASTEROID` case body; 0 falls through to the default as the demo build with no
+case), MissionParse.cpp (`parse_asteroid_fields`, early return), MissionBrief.cpp (`ICON_ASTEROID_FIELD`
+closeup), KeyControl.cpp (debug key U, asteroid field toggle). Blocks inside a `switch` keep the case label and
+wrap the body, since a label cannot sit inside an `if`.
+
+`Asteroids_enabled` stays the retail Debug toggle (never set from the profile) and has no effect in demo mode,
+because the field's early returns come before every read of it.
+
+Sites the run-time switcher re-runs (D-20261019-135406 rule 2): `asteroid_init`, the asteroid.tbl parse at
+start-up, which returns at once when the field is 0 and so never loaded the table for a demo start; a switch
+to a data set with asteroids must re-run it (D-20261020-161656 change 3: table load re-run, noted, not solved).
+
+Each commit passed the per-commit check (`commit_check_demo.ps1`): retail Release and Debug rebuilds, retail
+quick suite 13 of 14 (AutotestAI Debug's known warnings, #78), FS2_DEMO build, 3 demo recordings, tools check.
 
 ### Batch 7: menus and flow (D-20261021-071013, D-20261021-071014)
 
