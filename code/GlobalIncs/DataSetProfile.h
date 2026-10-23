@@ -44,6 +44,7 @@ typedef struct data_set_profile {
 	int	artillery_lock;					// ship_update_artillery_lock runs; 0: it returns at once
 	int	cheat_code;						// the full game's cheat codes; 0: the demo's one code, single player and multi alike
 	int	breakup_fx;						// ship break-up particles at the full game's sizes; 0: the demo's (range x5, longer life, double scale); affects game logic (D-20261021-110833)
+	int	asteroids;						// asteroid fields and the asteroid system; 0: every Asteroid.cpp entry point returns its demo stub value and the dependent sites are skipped, as the FS2_DEMO build (batch 6, D-20261023-182930)
 } data_set_profile;
 
 // full_version_screens bits (shared with FS1Demo's field of the same name; the layouts are reconciled at the first common merge)
