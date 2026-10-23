@@ -43,6 +43,7 @@ typedef struct data_set_profile {
 	int	artillery_lock;					// ship_update_artillery_lock runs; 0: it returns at once
 	int	cheat_code;						// the full game's cheat codes; 0: the demo's one code, single player and multi alike
 	int	breakup_fx;						// ship break-up particles at the full game's sizes; 0: the demo's (range x5, longer life, double scale); affects game logic (D-20261021-110833)
+	int	asteroids;						// asteroid fields and the asteroid system; 0: every Asteroid.cpp entry point returns its demo stub value and the dependent sites are skipped, as the FS2_DEMO build (batch 6, D-20261023-182930)
 	int	fs2_demo_walls;					// with an FVS_ bit clear, 1: the site does what the FS2_DEMO build did there (campaign room: offer to restart the campaign; F3: nothing); 0: the not-in-demo popup, as FS1's demo build (D-20261021-142001)
 	// FS1 data sets (FS1Compat), appended after FS2Demo's fields at their merge (D-20261021-142003)
 	int	thruster_species;					// species whose thruster anims are loaded: FS1's demo build cut the Shivan ones (Ship.cpp)
