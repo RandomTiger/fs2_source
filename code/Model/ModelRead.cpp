@@ -3144,6 +3144,7 @@ typedef struct model_instance_saved {
 
 static model_instance_saved *Model_instance_saved = NULL;
 static int Model_instance_saved_size = 0;
+static polymodel *Model_instance_saved_pm[MAX_POLYGON_MODELS];	// Claude: the model saved in each slot; drawing can load more (#94)
 
 void model_instance_state_save()
 {
@@ -3163,6 +3164,7 @@ void model_instance_state_save()
 	n = 0;
 	for (i=0; i<MAX_POLYGON_MODELS; i++ )	{
 		polymodel *pm = Polygon_models[i];
+		Model_instance_saved_pm[i] = pm;	// Claude: #94
 		if ( pm )	{
 			for (j=0; j<pm->n_models; j++, n++ )	{
 				Model_instance_saved[n].blown_off = pm->submodel[j].blown_off;
@@ -3174,7 +3176,9 @@ void model_instance_state_save()
 	}
 }
 
-// Drawing loads no models, so the list is the one model_instance_state_save walked.
+// Drawing can load models: the subspace effect loads subspace_small.pof and subspace_big.pof the first time it is
+// drawn. Only the slots model_instance_state_save saved are restored, in the order it saved them, or the restore
+// reads past the saved list and gives every later model another model's state (#94).
 void model_instance_state_restore()
 {
 	int i, j, n;
@@ -3182,7 +3186,7 @@ void model_instance_state_restore()
 	n = 0;
 	for (i=0; i<MAX_POLYGON_MODELS; i++ )	{
 		polymodel *pm = Polygon_models[i];
-		if ( pm )	{
+		if ( pm && (pm == Model_instance_saved_pm[i]) )	{	// Claude: a model drawing loaded was not saved, so it keeps its state (#94)
 			for (j=0; j<pm->n_models; j++, n++ )	{
 				Assert( n < Model_instance_saved_size );
 				pm->submodel[j].blown_off = Model_instance_saved[n].blown_off;
