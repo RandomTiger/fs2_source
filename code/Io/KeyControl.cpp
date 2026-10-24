@@ -1062,9 +1062,9 @@ void process_debug_keys(int k)
 		}
 		*/
 
-#ifndef FS2_DEMO
 		case KEY_DEBUGGED + KEY_U: {
 		case KEY_DEBUGGED1 + KEY_U:
+			if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the case
 			// launch asteroid
 			extern asteroid_field Asteroid_field;
 			object *asteroid_create(asteroid_field *asfieldp, int asteroid_type, int subtype);
@@ -1075,9 +1075,9 @@ void process_debug_keys(int k)
 			objp->phys_info.desired_vel = vel;
 			objp->pos = Player_obj->pos;
 			//mission_goal_mark_all_true( PRIMARY_GOAL );
+			}
 			break;
 		}
-#endif
 
 		case KEY_DEBUGGED + KEY_0: {
 		case KEY_DEBUGGED1 + KEY_0:

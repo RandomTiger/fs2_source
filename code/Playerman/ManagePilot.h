@@ -173,3 +173,22 @@ int pilot_verify_overwrite();
 // functions that update player information that is stored in PLR file
 void update_missions_played(int mission_number);
 void clear_missions_played();
+
+// Claude: the batch 5 guards (D-20261023-201347, D-20261023-203603).  A save file is read whole into memory
+// and walked with bounds-checked reads before the game reads it for real; a file that fails is not shown,
+// not loaded, not rewritten and not deleted.
+#ifndef SAVE_BUF_DEFINED
+#define SAVE_BUF_DEFINED
+typedef struct save_buf {
+	ubyte	*data;
+	int	size;
+	int	pos;
+	int	failed;		// set by a read past the end; every later read gives 0
+} save_buf;
+#endif
+int save_buf_load(save_buf *sb, char *filename, int cf_type);	// 0: the whole file is in memory, free it with save_buf_free; -1: no such file; -2: too big or unreadable
+void save_buf_free(save_buf *sb);
+int save_buf_bytes(save_buf *sb, void *dst, int len);			// dst NULL skips; a negative length or one past the end fails
+int save_buf_int(save_buf *sb);
+int pilot_file_guard(char *filename, int single, int *data_set);	// 0: a 140 or 141 pilot whose whole layout reads in bounds and ends at the end of the file; 1: no such file; -1: incompatible
+char *pilot_file_guard_reason();									// why the last pilot read failed, for the replay's error

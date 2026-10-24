@@ -715,15 +715,11 @@
 #include "Autotest.h"	// Claude
 #include "DataSetProfile.h"	// Claude: Game_profile
 
-#ifdef FS2_DEMO
-	#define MAX_SHIP_SUBOBJECTS		360
-#else
-	#define MAX_SHIP_SUBOBJECTS		700			//	Reduced from 1000 to 400 by MK on 4/1/98.  
+	#define MAX_SHIP_SUBOBJECTS		700			//	Reduced from 1000 to 400 by MK on 4/1/98.  	// Claude: retail value on every data set; was 360 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 																// Highest I saw was 164 in sm2-03a which Sandeep says has a lot of ships.
 																// JAS: sm3-01 needs 460.   You cannot know this number until *all* ships
 																// have warped in.   So I put code in the paging code which knows all ships
 																// that will warp in.
-#endif
 
 //#define MIN_COLLISION_MOVE_DIST		5.0
 //#define COLLISION_VEL_CONST			0.1

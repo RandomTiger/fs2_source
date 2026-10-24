@@ -21,6 +21,8 @@ FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_spee
 
 Autotest never saves the pilot file, so the pilot's skill level, stats and settings are left as they were.
 
+No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
+
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
 
 ## What happens

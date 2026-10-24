@@ -67,5 +67,7 @@ void red_alert_store_wingman_status();
 void red_alert_bash_wingman_status();
 void red_alert_write_wingman_status(CFILE *fp);
 void red_alert_read_wingman_status(CFILE *fp, int version);
+int red_alert_wingman_status_max_slots();	// Claude: for the pilot file guard (batch 5, D-20261023-201347)
+int red_alert_wingman_status_slot_bytes();	// Claude: bytes per slot after its name
 
 #endif

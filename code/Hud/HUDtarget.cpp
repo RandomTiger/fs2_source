@@ -232,6 +232,7 @@
 #include "Localize.h"
 #include "Awacs.h"
 #include "HUDArtillery.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 // If any of these bits in the ship->flags are set, ignore this ship when targetting
 int TARGET_SHIP_IGNORE_FLAGS = (SF_EXPLODED|SF_DEPART_WARP|SF_DYING|SF_ARRIVING_STAGE_1|SF_HIDDEN_FROM_SENSORS);
@@ -2488,11 +2489,11 @@ void hud_target_in_reticle_new()
 			break;
 		case OBJ_ASTEROID:
 			{
-#ifndef FS2_DEMO
+			if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO
 			int subtype = 0;
 			subtype = Asteroids[A->instance].asteroid_subtype;
 			mc.model_num = Asteroid_info[Asteroids[A->instance].type].model_num[subtype];
-#endif
+			}
 			}
 			break;
 		case OBJ_JUMP_NODE:
@@ -3443,8 +3444,11 @@ void hud_show_brackets(object *targetp, vertex *projected_v)
 			bound_rc = model_find_2d_bound_min( modelnum, &targetp->orient, &targetp->pos,&x1,&y1,&x2,&y2 );
 			break;
 
-#ifndef FS2_DEMO
 		case OBJ_ASTEROID:
+			if (!Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the case: 0 does what the default did
+				Int3();	// should never happen
+				return;
+			}
 			{
 			int subtype = 0;
 			subtype = Asteroids[targetp->instance].asteroid_subtype;
@@ -3452,7 +3456,6 @@ void hud_show_brackets(object *targetp, vertex *projected_v)
 			bound_rc = model_find_2d_bound_min( modelnum, &targetp->orient, &targetp->pos,&x1,&y1,&x2,&y2 );
 			}
 			break;
-#endif
 
 		case OBJ_JUMP_NODE:
 			modelnum = Jump_nodes[targetp->instance].modelnum;
