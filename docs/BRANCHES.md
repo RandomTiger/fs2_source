@@ -4,7 +4,6 @@ The repo is a stack of layers. Each layer is a branch off the one below it, and 
 
 ```
 master                    original 1999 source, as provided by Volition. Never changed.
-  VS2015                  builds with Visual Studio 2015
     VS2022                builds with Visual Studio 2022
       OriginalSourceBugFixes   bugs that were in the original game, one commit and review doc each (docs/fix_reviews)
         RecordPlayback    gameplay recorder and replayer, recordings, the test suite
