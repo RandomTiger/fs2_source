@@ -6988,6 +6988,13 @@ void ship_close()
 	// free memory alloced for subsystem storage
 	for ( i = 0; i < Num_ship_types; i++ ) {
 		if ( Ship_info[i].subsystems != NULL ) {
+			// Claude: free the stepped rotation blocks ModelRead.cpp allocated with new; this list owns them
+			for ( int j = 0; j < Ship_info[i].n_subsystems; j++ ) {
+				if ( Ship_info[i].subsystems[j].stepped_rotation != NULL ) {
+					delete Ship_info[i].subsystems[j].stepped_rotation;
+					Ship_info[i].subsystems[j].stepped_rotation = NULL;
+				}
+			}
 			free(Ship_info[i].subsystems);
 		}
 	}
