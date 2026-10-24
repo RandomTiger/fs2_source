@@ -889,6 +889,16 @@ void model_copy_subsystems( int n_subsystems, model_subsystem *d_sp, model_subsy
 				dest->turn_rate = source->turn_rate;
 				dest->turret_gun_sobj = source->turret_gun_sobj;
 
+				// Claude: the flags above carry MSS_FLAG_STEPPED_ROTATE, so copy its data too, as this class's own block (ship_close frees each class's blocks)
+				if ( dest->stepped_rotation != NULL ) {
+					delete dest->stepped_rotation;
+					dest->stepped_rotation = NULL;
+				}
+				if ( source->stepped_rotation != NULL ) {
+					dest->stepped_rotation = new(stepped_rotation);
+					*dest->stepped_rotation = *source->stepped_rotation;
+				}
+
 				strcpy( dest->name, source->name );
 
 				if ( dest->type == SUBSYSTEM_TURRET ) {
