@@ -221,7 +221,6 @@
 #include "bmpman.h"
 #include "LinkList.h"
 #include "Emp.h"
-#include "DataSetProfile.h"	// Claude: Game_profile
 
 #define FADE_FACTOR	2			// how much the bounding brackets get faded
 #define LOWEST_RED	50			// lowest r value for bounding bracket
@@ -729,7 +728,7 @@ void draw_bounding_brackets(int x1, int y1, int x2, int y2, int w_correction, in
 	}
 
 	//	Maybe show + for each additional fighter or bomber attacking target.
-	if ( (target_objnum != -1) && hud_gauge_active(HUD_ATTACKING_TARGET_COUNT) && Game_profile->attackers ) {	// Claude: the FS1 demo has no attacker.pcx (docs/FS1_DEMO.md)
+	if ( (target_objnum != -1) && hud_gauge_active(HUD_ATTACKING_TARGET_COUNT) ) {
 		int num_attacking = hud_bracket_num_ships_attacking(target_objnum);
 
 		if (Ships_attacking_bitmap == -1){

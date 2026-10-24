@@ -17,7 +17,6 @@
 #include <string.h>
 
 #include "DataSetInstall.h"
-#include "DataSetFs1.h"
 
 static char *Data_set_names[NUM_DATA_SETS] = { "FS2 retail", "FS2 demo", "FS1 retail", "FS1 demo" };
 
@@ -36,7 +35,7 @@ typedef struct dataset_info {
 
 static dataset_info Datasets[] = {
 	{ DATA_SET_FS2_DEMO,	"fs2demo",	"fs2demo10.exe",	1 },
-	{ DATA_SET_FS1_DEMO,	"fs1demo",	"fsdemo10.exe",	1 },		// its InstallShield cab: DataSetFs1.cpp
+	{ DATA_SET_FS1_DEMO,	"fs1demo",	"fsdemo10.exe",	0 },		// the FS1 branch adds the InstallShield cab reader
 };
 #define NUM_DATASETS		(int)(sizeof(Datasets) / sizeof(Datasets[0]))
 #define DATASET_DEFAULT	0						// fs2demo, when more than one set could run
@@ -280,8 +279,8 @@ static int inf_stored(inf_state *s)
 	return 1;
 }
 
-// inflates src into dst, up to dst_cap bytes, with the number written in *produced (DataSetInstall.h)
-int dataset_inflate(const unsigned char *src, int src_len, unsigned char *dst, int dst_cap, int *produced, void (*progress)(int done))
+// inflates src into dst; 1 if the stream was whole and filled dst exactly
+static int inflate_buffer(const unsigned char *src, int src_len, unsigned char *dst, int dst_len, void (*progress)(int done))
 {
 	static unsigned char fixed_lengths[288 + 30];
 	static inf_tree fixed_lt, fixed_dt;
@@ -302,12 +301,11 @@ int dataset_inflate(const unsigned char *src, int src_len, unsigned char *dst, i
 		fixed_made = 1;
 	}
 
-	*produced = 0;
 	memset(&s, 0, sizeof(s));
 	s.src = src;
 	s.src_end = src + src_len;
 	s.dst = s.dst_start = s.progress_mark = dst;
-	s.dst_end = dst + dst_cap;
+	s.dst_end = dst + dst_len;
 	s.progress = progress;
 
 	do {
@@ -330,21 +328,12 @@ int dataset_inflate(const unsigned char *src, int src_len, unsigned char *dst, i
 		if (!ok || s.bad) {
 			return 0;
 		}
-	} while (!final && (s.src < s.src_end));		// a sync-flushed stream (InstallShield's chunks) ends without a final block
+	} while (!final);
 
 	if (progress && (s.dst > s.progress_mark)) {
 		progress((int)(s.dst - s.progress_mark));
 	}
-	*produced = (int)(s.dst - s.dst_start);
-	return 1;
-}
-
-// inflates src into dst; 1 if the stream was whole and filled dst exactly
-static int inflate_buffer(const unsigned char *src, int src_len, unsigned char *dst, int dst_len, void (*progress)(int done))
-{
-	int produced;
-
-	return dataset_inflate(src, src_len, dst, dst_len, &produced, progress) && (produced == dst_len);
+	return s.dst == s.dst_end;
 }
 
 // -----------------------------------------------------------------------------------------
@@ -372,11 +361,6 @@ static unsigned int crc32_buffer(const unsigned char *p, int len)
 		c = Crc_table[(c ^ p[i]) & 0xff] ^ (c >> 8);
 	}
 	return c ^ 0xFFFFFFFF;
-}
-
-unsigned int dataset_crc32(const unsigned char *p, int len)
-{
-	return crc32_buffer(p, len);
 }
 
 // -----------------------------------------------------------------------------------------
@@ -661,100 +645,6 @@ static int zip_extract(char *installer, char *folder, char *title, char *err, in
 	return ok;
 }
 
-// reads one entry of the zip appended to installer into memory, checking its CRC (DataSetInstall.h)
-int dataset_zip_read(char *installer, char *entry, unsigned char **data, int *len, char *err, int err_len)
-{
-	unsigned char *zip, *out = NULL;
-	const unsigned char *eocd = NULL, *p, *lh, *src;
-	int zip_len, i, entries, cd_size, cd_offset, base, n_len, method, csize, usize = 0, ok = 0;
-	unsigned int crc;
-
-	*data = NULL;
-	*len = 0;
-	zip = read_whole_file(installer, &zip_len);
-	if (!zip) {
-		_snprintf(err, err_len, "Could not read %s.", installer);
-		return 1;
-	}
-	for (i = zip_len - 22; (i >= 0) && (i >= zip_len - 22 - 65535); i--) {
-		if (get32(zip + i) == 0x06054b50) {
-			eocd = zip + i;
-			break;
-		}
-	}
-	if (!eocd) {
-		_snprintf(err, err_len, "%s is not a zip self-extractor this game can read.", installer);
-		VirtualFree(zip, 0, MEM_RELEASE);
-		return 1;
-	}
-	entries = get16(eocd + 10);
-	cd_size = get32(eocd + 12);
-	cd_offset = get32(eocd + 16);
-	base = (int)(eocd - zip) - cd_size - cd_offset;
-	if ((base < 0) || (base + cd_offset + cd_size > zip_len)) {
-		_snprintf(err, err_len, "%s has a damaged zip directory.", installer);
-		VirtualFree(zip, 0, MEM_RELEASE);
-		return 1;
-	}
-
-	_snprintf(err, err_len, "%s has no %s in it.", installer, entry);
-	for (p = zip + base + cd_offset, i = 0; i < entries; i++) {
-		if ((p + 46 > eocd) || (get32(p) != 0x02014b50)) {
-			_snprintf(err, err_len, "%s has a damaged zip directory.", installer);
-			break;
-		}
-		n_len = get16(p + 28);
-		if ((n_len == (int)strlen(entry)) && (p + 46 + n_len <= eocd) && !_strnicmp((const char *)(p + 46), entry, n_len)) {
-			method = get16(p + 10);
-			crc = get32(p + 16);
-			csize = get32(p + 20);
-			usize = get32(p + 24);
-			lh = zip + base + get32(p + 42);
-			if ((lh < zip) || (lh + 30 > zip + zip_len) || (get32(lh) != 0x04034b50)) {
-				_snprintf(err, err_len, "%s: %s has a damaged zip header.", installer, entry);
-				break;
-			}
-			src = lh + 30 + get16(lh + 26) + get16(lh + 28);
-			if ((csize < 0) || (usize < 0) || (src + csize > zip + zip_len)) {
-				_snprintf(err, err_len, "%s: %s is cut short.", installer, entry);
-				break;
-			}
-			out = (unsigned char *)malloc(usize ? usize : 1);
-			if (!out) {
-				_snprintf(err, err_len, "Not enough memory to read %s.", entry);
-				break;
-			}
-			if (method == 0) {
-				ok = (csize == usize);
-				if (ok) {
-					memcpy(out, src, usize);
-				}
-			} else if (method == 8) {
-				ok = inflate_buffer(src, csize, out, usize, NULL);
-			}
-			if (!ok) {
-				_snprintf(err, err_len, "%s: %s could not be decompressed.", installer, entry);
-			} else if (crc32_buffer(out, usize) != crc) {
-				_snprintf(err, err_len, "%s: %s does not match its checksum.", installer, entry);
-				ok = 0;
-			}
-			break;
-		}
-		p += 46 + n_len + get16(p + 30) + get16(p + 32);
-	}
-	VirtualFree(zip, 0, MEM_RELEASE);
-	if (!ok) {
-		if (out) {
-			free(out);
-		}
-		return 1;
-	}
-	err[0] = 0;
-	*data = out;
-	*len = usize;
-	return 0;
-}
-
 // -----------------------------------------------------------------------------------------
 // choosing the folder
 //
@@ -781,15 +671,6 @@ static int folder_has_vps(char *folder)
 	return 1;
 }
 
-// the FS1 demo keeps its only VP in Data\, not at the top of the folder
-static int folder_has_dataset(dataset_info *ds, char *folder)
-{
-	if (ds->set == DATA_SET_FS1_DEMO) {
-		return dataset_fs1_detect(folder);
-	}
-	return folder_has_vps(folder);
-}
-
 static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err, int err_len)
 {
 	dataset_info *ds = &Datasets[idx];
@@ -802,7 +683,7 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 	strncpy(dir, folder, dir_len - 1);
 	dir[dir_len - 1] = 0;
 
-	if (folder_has_dataset(ds, folder)) {
+	if (folder_has_vps(folder)) {
 		return 0;
 	}
 	if (!file_exists(installer)) {
@@ -817,10 +698,6 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 		// never write into a folder that is already there
 		_snprintf(err, err_len, "%s exists but holds no game data.  Remove it, and the game will make it again from %s.", folder, ds->installer);
 		return 1;
-	}
-	if (ds->set == DATA_SET_FS1_DEMO) {
-		// its own .partial and rename, CRC checked (DataSetFs1.cpp)
-		return dataset_fs1_extract(exe_dir, err, err_len);
 	}
 
 	_snprintf(partial, MAX_PATH - 1, "%s.partial", folder);
@@ -889,7 +766,7 @@ int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *di
 		folder[MAX_PATH - 1] = 0;
 		_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].installer);
 		installer[MAX_PATH - 1] = 0;
-		if (folder_has_dataset(&Datasets[i], folder) || (Datasets[i].can_extract && file_exists(installer))) {
+		if (folder_has_vps(folder) || (Datasets[i].can_extract && file_exists(installer))) {
 			found = i;
 			count++;
 		}
