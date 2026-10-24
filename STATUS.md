@@ -38,7 +38,7 @@ No change may alter a recording; each cut passes the x86 quick suite and x64 hea
 
 ## Open items
 - #74: one-off Release heap crash, watched; ProcDump capture armed via `FS2_PROCDUMP`.
-- Next carry-up brings FS2Demo batch 5 (pushed 56ad11b): profile field `object_slots` (FS2 demo 300, every other row MAX_OBJECTS) orders the object free list only, never a cap (D-20261023-220843); `SPDemo-01`/`SPDemo-02` were re-recorded in format 3 and get the format 4 re-record under 1b (#98).
+- Carried up 2026-10-24 (Enhanced 7aec997, merge 08b6f4a): FS2Demo batch 5 profile field `object_slots` (FS2 demo 300, every other row MAX_OBJECTS) orders the object free list only, never a cap (D-20261023-220843); `SPDemo-01`/`SPDemo-02` re-recorded in format 4 under 1b (4c3b0d4, #98).
 - Issue labels still naming `PrePort`/`PrePortCleanup` (#75, #83); no `branch: PrePort32` label exists yet.
 
 ## What the port needs from the C++ side
