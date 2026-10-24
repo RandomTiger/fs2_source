@@ -40,7 +40,10 @@ $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $run = @($Sets | Where-Object { $dirs[$_] -and (Test-Path $dirs[$_]) })
 foreach ($s in $Sets) { if ($run -notcontains $s) { "SKIP $s : no folder (see the parameters)" } }
 $bak = Join-Path $Out 'exe_backup'
-foreach ($s in $run) {
+# the build links into PATH_FS2 (the -Fs2Dir folder), so that folder is saved and put back even when fs2 is not toured
+$keep = @($run)
+if (-not $NoBuild -and $keep -notcontains 'fs2' -and $Fs2Dir -and (Test-Path $Fs2Dir)) { $keep += 'fs2' }
+foreach ($s in $keep) {
 	$b = Join-Path $bak $s
 	New-Item -ItemType Directory -Force $b | Out-Null
 	Copy-Item (Join-Path $dirs[$s] 'FS2vs2022r.exe'), (Join-Path $dirs[$s] 'FS2vs2022d.exe') $b -ErrorAction SilentlyContinue
@@ -61,14 +64,25 @@ try {
 				Copy-Item (Join-Path $built 'FS2vs2022r.exe'), (Join-Path $built 'FS2vs2022d.exe') $dir -Force
 			} else {
 				$env:PATH_FS1 = $dir
+				$env:PATH_FS2 = $Fs2Dir
+				# every worktree links into the same game folders: delete first so no other branch's exe survives a no-op link
+				$targets = @($run | Where-Object { $_ -ne 'fs2demo' } | ForEach-Object { $dirs[$_] })
+				foreach ($d in @($Fs2Dir) + $targets) { Remove-Item (Join-Path $d 'FS2vs2022r.exe'), (Join-Path $d 'FS2vs2022d.exe') -ErrorAction SilentlyContinue }
 				$ok = $true
 				foreach ($c in 'Release', 'Debug') {
 					& $msb (Join-Path $repo 'Freespace2.vcxproj') "/p:Configuration=$c" /p:Platform=Win32 /m /v:m /nologo > (Join-Path $Out "build_$c.log") 2>&1
 					if ($LASTEXITCODE) { "FAIL $s build $c ($Out\build_$c.log)"; $ok = $false; break }
 				}
 				if (-not $ok) { $fail++; break }
-				$built = $dir
+				# take the exes from wherever the build linked them: the set's folder, else PATH_FS2
+				$built = @($dir, $Fs2Dir) | Where-Object { (Test-Path (Join-Path $_ 'FS2vs2022r.exe')) -and (Test-Path (Join-Path $_ 'FS2vs2022d.exe')) } | Select-Object -First 1
+				if (-not $built) { "FAIL $s build: no fresh FS2vs2022r/d.exe in $dir or $Fs2Dir"; $fail++; break }
+				foreach ($d in $targets) { if ($d -ne $built) { Copy-Item (Join-Path $built 'FS2vs2022r.exe'), (Join-Path $built 'FS2vs2022d.exe') $d -Force } }
 			}
+		}
+		foreach ($c in $Configs) {
+			$e = Join-Path $dir "FS2vs2022$c.exe"
+			if (Test-Path $e) { "$s $c exe built $((Get-Item $e).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" } else { "$s $c exe missing: $e" }
 		}
 		$a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'menu_check.ps1'), '-Out', (Join-Path $Out $s), '-Configs', ($Configs -join ','), '-GameDir', $dir)
 		if ($Shots) { $a += '-Shots', (Join-Path $Shots $s) }
@@ -79,7 +93,7 @@ try {
 		}
 	}
 } finally {
-	foreach ($s in $run) { Copy-Item (Join-Path (Join-Path $bak $s) '*.exe') $dirs[$s] -Force -ErrorAction SilentlyContinue }
+	foreach ($s in $keep) { Copy-Item (Join-Path (Join-Path $bak $s) '*.exe') $dirs[$s] -Force -ErrorAction SilentlyContinue }
 	'exes put back'
 }
 "DONE pass=$pass fail=$fail"
