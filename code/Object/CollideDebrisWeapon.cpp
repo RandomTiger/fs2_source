@@ -57,6 +57,7 @@
 #include "Asteroid.h"
 #include "Debris.h"
 #include "Fvi.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 // placeholder struct for ship_debris collisions
 typedef struct ship_weapon_debris_struct {
@@ -105,7 +106,7 @@ int collide_debris_weapon( obj_pair * pair )
 // Returns 1 if all future collisions between these can be ignored
 int collide_asteroid_weapon( obj_pair * pair )
 {
-#ifndef FS2_DEMO
+	if (!Game_profile->asteroids) return 0;	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the body
 
 	if (!Asteroids_enabled)
 		return 0;
@@ -133,9 +134,6 @@ int collide_asteroid_weapon( obj_pair * pair )
 		return weapon_will_never_hit( weapon, pasteroid, pair );
 	}
 
-#else
-	return 0;
-#endif
 }				
 
 

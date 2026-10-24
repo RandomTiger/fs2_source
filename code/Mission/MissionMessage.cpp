@@ -450,13 +450,7 @@ message_extra Message_waves[MAX_MESSAGE_WAVES];
 
 #define MAX_PLAYING_MESSAGES		2
 
-#ifdef FS2_DEMO
-	#define MAX_WINGMAN_HEADS			1
-	#define MAX_COMMAND_HEADS			1
-#else
-#define MAX_WINGMAN_HEADS			2
-#define MAX_COMMAND_HEADS			3
-#endif
+// Claude: MAX_WINGMAN_HEADS (2; 1 under FS2_DEMO) and MAX_COMMAND_HEADS (3; 1 under FS2_DEMO) are now Game_profile->wingman_heads and command_heads, the head variants the data set ships (batch 5, D-20261023-194324)
 
 //XSTR:OFF
 #define HEAD_PREFIX_STRING			"head-"
@@ -1185,19 +1179,19 @@ void message_play_anim( message_q *q )
 				rand_index=2;	// 3rd version is always death animation
 				is_death_scream=1;
 			} else {
-				rand_index = (Missiontime % MAX_WINGMAN_HEADS);
+				rand_index = (Missiontime % Game_profile->wingman_heads);	// Claude: data set profile (batch 5, D-20261023-194324); was MAX_WINGMAN_HEADS
 			}
 			sprintf(ani_name, "%s%c", ani_name, 'a'+rand_index);
 			subhead_selected = TRUE;
 		} else if ( (persona_index >= 0) && (Personas[persona_index].flags & (PERSONA_FLAG_COMMAND | PERSONA_FLAG_LARGE)) ) {
 			// get a random head -- it's one of two.
-			rand_index = (Missiontime % MAX_COMMAND_HEADS);
+			rand_index = (Missiontime % Game_profile->command_heads);	// Claude: data set profile (batch 5, D-20261023-194324); was MAX_COMMAND_HEADS
 			sprintf(ani_name, "%s%c", ani_name, 'a'+rand_index);
 			subhead_selected = TRUE;
 		}
 		if (!subhead_selected) {
 			// choose between a and b
-			rand_index = (Missiontime % MAX_WINGMAN_HEADS);
+			rand_index = (Missiontime % Game_profile->wingman_heads);	// Claude: data set profile (batch 5, D-20261023-194324); was MAX_WINGMAN_HEADS
 			sprintf(ani_name, "%s%c", ani_name, 'a'+rand_index);
 			mprintf(("message '%s' with invalid head.  Fix by assigning persona to the message.\n", m->name));
 		}

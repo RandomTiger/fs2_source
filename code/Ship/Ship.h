@@ -881,11 +881,7 @@ extern engine_wash_info Engine_wash_info[MAX_ENGINE_WASH_TYPES];
 
 #define MAX_SHIPS_PER_WING	6
 
-#ifdef FS2_DEMO
-	#define MAX_WINGS				15
-#else
-	#define MAX_WINGS				25
-#endif
+	#define MAX_WINGS				25	// Claude: retail value on every data set; was 15 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 
 #define MAX_PLAYER_WINGS	3  // number of wings player can start a mission with
 
