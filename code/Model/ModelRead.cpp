@@ -982,6 +982,10 @@ static void set_subsystem_info( model_subsystem *subsystemp, char *props, char *
 		// CASE OF STEPPED ROTATION
 		if ( (p = strstr(props, "$stepped")) != NULL) {
 
+			// Claude: free the block from an earlier read of this model (models are re-read each level), or it leaks
+			if ( subsystemp->stepped_rotation != NULL ) {
+				delete subsystemp->stepped_rotation;
+			}
 			subsystemp->stepped_rotation = new(stepped_rotation);
 			subsystemp->flags |= MSS_FLAG_STEPPED_ROTATE;
 
