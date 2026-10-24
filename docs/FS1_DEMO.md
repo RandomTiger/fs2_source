@@ -4,6 +4,11 @@ The FS1 demo as a data set (`DATA_SET_FS1_DEMO`, `-dataset fs1demo`): getting it
 installer, recognising them, and what the engine lacks to play them. Branch `FS1Demo`, off `FS1Compat`, with
 `origin/FS2Demo` merged in once for the data-set code (`docs/FS2_DEMO.md`).
 
+**Split out of `FS1Compat`** (rule 4 of D-20261021-173031, D-20261023-202744). `FS1Compat` reverted the merge
+`f2363f5` ("Merge FS1Demo into FS1Compat") and re-applied its one FS1 retail hunk (the popup text inset, `5be693f`);
+this branch merged that down and reverted the revert in the same commit, so its code is unchanged and the demo code
+lives here only.
+
 **Demo-only over `FS1Compat`** (D-20261021-100828). The FS1 retail fixes first made here (loading animation
 position, barracks pilot picture, briefing text inset) and the two OSBF fixes they needed (PCX 16 bpp overrun,
 `bitmap_ex` source offset) now live on `FS1Compat`, which was merged back in. What remains here touches only the

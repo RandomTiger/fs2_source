@@ -281,6 +281,7 @@
 #include "hudmessage.h"
 #include "key.h"
 #include "Lighting.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 // ------------------------------------------------------------------------------------------------
 // BEAM WEAPON DEFINES/VARS
@@ -1840,15 +1841,15 @@ int beam_get_model(object *objp)
 		}
 		return Debris[objp->instance].model_num;		
 
-#ifndef FS2_DEMO
 	case OBJ_ASTEROID:
+		if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO around the case; 0 falls through to the default, as the demo build with no case
 		subtype = Asteroids[objp->instance].asteroid_subtype;
 		Assert(Asteroids[objp->instance].type >= 0);
 		if(Asteroids[objp->instance].type < 0){
 			return -1;
 		}
 		return Asteroid_info[Asteroids[objp->instance].type].model_num[subtype];
-#endif
+		}
 
 	default:
 		// this shouldn't happen too often

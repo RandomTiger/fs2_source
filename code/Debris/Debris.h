@@ -174,11 +174,7 @@ typedef struct debris {
 #define	DEBRIS_EXPIRE			(1<<1)	// debris can expire (ie hull chunks from small ships)
 
 
-#ifdef FS2_DEMO
-	#define	MAX_DEBRIS_PIECES	48
-#else
 	#define	MAX_DEBRIS_PIECES	128	// Claude: was 64. Capital ships now leave debris when they break up off screen too (docs/DEBRIS_OFFSCREEN_FIX.md)
-#endif
 
 extern	debris Debris[MAX_DEBRIS_PIECES];
 

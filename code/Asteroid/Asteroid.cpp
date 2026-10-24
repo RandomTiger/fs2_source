@@ -273,8 +273,7 @@
 #include "SystemVars.h"
 #include "localize.h"
 #include "Multi.h"
-
-#ifndef FS2_DEMO
+#include "DataSetProfile.h"	// Claude: Game_profile; the file is compiled always, was #ifndef FS2_DEMO down to the demo stubs at the end (batch 6, D-20261023-182930)
 
 #define			ASTEROID_OBJ_USED	(1<<0)				// flag used in asteroid_obj struct
 #define			MAX_ASTEROID_OBJS	MAX_ASTEROIDS		// max number of asteroids tracked in asteroid list
@@ -640,6 +639,7 @@ object *asteroid_create(asteroid_field *asfieldp, int asteroid_type, int asteroi
 //	Create asteroids when parent_objp blows up.
 void asteroid_sub_create(object *parent_objp, int asteroid_type, vector *relvec)
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	object	*new_objp;
 	float speed;
 
@@ -754,6 +754,7 @@ int get_debris_weight(int ship_debris_index)
 // Create all the asteroids for the mission, called from 
 void asteroid_create_all()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	int i, idx;
 
 	// ship_debris_odds_table keeps track of debris type of the next debris piece
@@ -847,6 +848,7 @@ void asteroid_create_all()
 // Init asteriod system for the level, called from game_level_init()
 void asteroid_level_init()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	Asteroid_field.num_initial_asteroids=0;
 	Num_asteroids = 0;
 	Next_asteroid_throw = timestamp(1);
@@ -1029,6 +1031,7 @@ void maybe_throw_asteroid(int count)
 
 void asteroid_delete( object * obj )
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	int		num;
 	asteroid	*asp;
 
@@ -1111,6 +1114,7 @@ void lerp(float *goal, float f1, float f2, float scale)
 
 void asteroid_process_pre( object *objp, float frame_time)
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (Asteroids_enabled) {
 		vector	*v, *vv;
 
@@ -1130,6 +1134,7 @@ void asteroid_process_pre( object *objp, float frame_time)
 #pragma warning ( disable : 4701 )
 int asteroid_check_collision(object *pasteroid, object *other_obj, vector *hitpos, collision_info_struct *asteroid_hit_info)
 {
+	if (!Game_profile->asteroids) return 0;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (!Asteroids_enabled) {
 		return 0;
 	}
@@ -1387,6 +1392,7 @@ int asteroid_check_collision(object *pasteroid, object *other_obj, vector *hitpo
 
 void asteroid_render(object * obj)
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (Asteroids_enabled) {
 		int			num;
 		polymodel	*pm;
@@ -1550,6 +1556,7 @@ void asteroid_do_area_effect(object *asteroid_objp)
 //				damage			=>		amount of damage to apply to asteroid
 void asteroid_hit( object * asteroid_obj, object * other_obj, vector * hitpos, float damage )
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	float		explosion_life;
 	asteroid	*asp;
 
@@ -1607,6 +1614,7 @@ void asteroid_hit( object * asteroid_obj, object * other_obj, vector * hitpos, f
 // De-init asteroids, called from game_level_close()
 void asteroid_level_close()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	int	i;
 
 	for (i=0; i<MAX_ASTEROIDS; i++) {
@@ -1678,6 +1686,7 @@ void hud_target_asteroid()
 // Return the number of active asteroids
 int asteroid_count()
 {
+	if (!Game_profile->asteroids) return 0;	// Claude: demo stub (batch 6, D-20261023-182930)
 	return Num_asteroids;
 }
 
@@ -1887,6 +1896,7 @@ void asteroid_verify_collide_objnum(asteroid *asp)
 
 void asteroid_process_post(object * obj, float frame_time)
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (Asteroids_enabled) {
 		int num;
 		num = obj->instance;
@@ -1916,12 +1926,14 @@ void asteroid_process_post(object * obj, float frame_time)
 // return the object number that the asteroid is about to impact
 int asteroid_collide_objnum(object *asteroid_objp)
 {
+	if (!Game_profile->asteroids) return 0;	// Claude: demo stub (batch 6, D-20261023-182930)
 	return Asteroids[asteroid_objp->instance].collide_objnum;
 }
 
 // return the time until the asteroid will impact its collide_objnum
 float asteroid_time_to_impact(object *asteroid_objp)
 {
+	if (!Game_profile->asteroids) return 0.0f;	// Claude: demo stub (batch 6, D-20261023-182930)
 	float		time=-1.0f, total_dist, speed;
 	asteroid	*asp;
 	mc_info	mc;
@@ -2084,6 +2096,7 @@ int set_asteroid_throw_objnum()
 
 void asteroid_frame()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (Num_asteroids < 1)
 		return;
 
@@ -2100,12 +2113,14 @@ void asteroid_frame()
 // Called once, at game start.  Do any one-time initializations here
 void asteroid_init()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	asteroid_parse_tbl();
 }
 
 // Draw brackets around on-screen asteroids that are about to collide, otherwise draw an offscreen indicator
 void asteroid_show_brackets()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	vertex	asteroid_vertex;
 	object	*asteroid_objp, *player_target;
 	asteroid	*asp;
@@ -2156,6 +2171,7 @@ void asteroid_show_brackets()
 // target the closest danger asteroid to the player
 void asteroid_target_closest_danger()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	object	*asteroid_objp, *closest_asteroid_objp = NULL;
 	asteroid	*asp;
 	float		dist, closest_dist = 999999.0f;
@@ -2186,6 +2202,7 @@ void asteroid_target_closest_danger()
 
 void asteroid_page_in()
 {
+	if (!Game_profile->asteroids) return;	// Claude: demo stub (batch 6, D-20261023-182930)
 	if (Asteroid_field.num_initial_asteroids > 0 ) {
 		int i, j, k;
 
@@ -2239,29 +2256,3 @@ void asteroid_page_in()
 		} 
 	}
 }
-
-#else
-
-// stubbed out functions not used in the demo
-void	asteroid_init() {}
-void	asteroid_level_init() {}
-void	asteroid_level_close() {}
-void	asteroid_create_all() {}
-void	asteroid_render( object *asteroid_objp ) {}
-void	asteroid_delete( object *asteroid_objp ) {}
-void	asteroid_process_pre( object *asteroid_objp, float frame_time) {}
-void	asteroid_process_post( object *asteroid_objp, float frame_time) {}
-int	asteroid_check_collision( object *asteroid_objp, object * other_obj, vector * hitpos, collision_info_struct *asteroid_hit_info ) {return 0;}
-void	asteroid_hit( object *asteroid_objp, object *other_objp, vector *hitpos, float damage ) {}
-void	asteroid_save_restore(CFILE *fp) {}
-int	asteroid_count() {return 0;}
-int	asteroid_collide_objnum(object *asteroid_objp) {return 0;}
-float asteroid_time_to_impact(object *asteroid_objp) {return 0.0f;}
-void	asteroid_show_brackets() {}
-void	asteroid_target_closest_danger() {}
-void	asteroid_page_in() {}
-void	asteroid_sub_create(object *parent_objp, int asteroid_type, vector *relvec) {}
-void	asteroid_frame() {}
-
-
-#endif

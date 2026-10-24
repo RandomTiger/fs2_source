@@ -2858,9 +2858,9 @@ void gr_d3d_init()
 		}
 	}
 
-	// Claude: Left on the startup test (same front buffer read as D3DTextureOrigin above).  0 would match the
-	// texture default, but no line problem has been seen, so it is unchanged.
-	tmp = os_config_read_uint( NULL, "D3DLineOffset", 0xFFFF );
+	// Claude: The startup test for this reads the front buffer, which when windowed is the desktop, not the game's
+	// test pixel (#77, fix review 60).  Default to 0, the value every measured case gave, instead of running it.
+	tmp = os_config_read_uint( NULL, "D3DLineOffset", 0 );
 
 	if ( tmp != 0xFFFF )	{
 		if ( tmp )	{

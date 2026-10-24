@@ -1288,7 +1288,7 @@ int replay_load_pilot()
 
 	Player = &Players[0];
 	if (read_pilot_file(Hdr.callsign, 1, Player)) {
-		replay_fatal("Cannot load the recorded pilot '%s'", Hdr.callsign);
+		replay_fatal("Cannot load the recorded pilot '%s': %s", Hdr.callsign, pilot_file_guard_reason());	// Claude: with the guard's cause (D-20261023-201347 term 5)
 	}
 	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
 	return 1;

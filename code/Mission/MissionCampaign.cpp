@@ -184,6 +184,10 @@
 #include "AlphaColors.h"
 #include "localize.h"
 #include "supernova.h"
+#include "ManagePilot.h"	// Claude: save_buf, for the .css guard
+#include "DataSetProfile.h"	// Claude
+#include "DataSetInstall.h"	// Claude
+#include <stddef.h>	// Claude: offsetof
 
 // mission disk stuff
 #define CAMPAIGN_SAVEFILE_MAX_SHIPS_OLD						75
@@ -230,7 +234,7 @@ campaign Campaign;
 #define CAMPAIGN_FILE_ID								0xbeefcafe
 
 // variables with deal with the campaign stats save file
-#define CAMPAIGN_STATS_FILE_VERSION					1
+#define CAMPAIGN_STATS_FILE_VERSION					2	// Claude: was 1; 2 writes the data set and each block field by field with its medal count (batch 5, D-20261023-203603)
 #define CAMPAIGN_STATS_FILE_COMPATIBLE_VERSION	1
 #define CAMPAIGN_STATS_FILE_ID						0xabbadaad
 
@@ -711,6 +715,231 @@ void mission_campaign_savefile_generate_root(char *filename)
 	sprintf( filename, NOX("%s.%s."), Player->callsign, base );
 }
 
+// Claude: campaign stats (.css) version 2 (batch 5, D-20261023-203603).  Version 1 dumped scoring_struct raw,
+// so its layout depended on the build (NUM_MEDALS 16 in the FS2_DEMO build).  Version 2 writes the writer's
+// data set after the version (informational, it never chooses the layout) and each block field by field
+// with its medal count.  A read checks the whole file into scratch first: every count against the bytes
+// left, the end exactly at the end of the file, every mission index in range; only then are the stats
+// copied in.  A file that fails loads no stats, says why in the log and is left on disk.  Version 1 is
+// read with the data set's pilot_medals, and only when its size is exactly that layout's.
+#define CSS_MAX_MEDALS		64				// a medal count above this is a failed read
+
+static scoring_struct Css_scratch_stats[MAX_CAMPAIGN_MISSIONS];
+static int Css_scratch_index[MAX_CAMPAIGN_MISSIONS];
+
+static void campaign_stats_write_ushorts(ushort *u, int count, CFILE *fp)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		cfwrite_ushort(u[i], fp);
+	}
+}
+
+static void campaign_stats_read_ushorts(save_buf *sb, ushort *u, int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		u[i] = 0;
+		save_buf_bytes(sb, &u[i], sizeof(ushort));
+		u[i] = INTEL_SHORT(u[i]);
+	}
+}
+
+static void campaign_stats_write_block(scoring_struct *s, CFILE *fp)
+{
+	int i;
+
+	cfwrite_int(s->flags, fp);
+	cfwrite_int(s->score, fp);
+	cfwrite_int(s->rank, fp);
+	cfwrite_int(NUM_MEDALS, fp);
+	for (i = 0; i < NUM_MEDALS; i++) {
+		cfwrite_int(s->medals[i], fp);
+	}
+	campaign_stats_write_ushorts(s->kills, MAX_SHIP_TYPES, fp);
+	cfwrite_int(s->assists, fp);
+	cfwrite_int(s->kill_count, fp);
+	cfwrite_int(s->kill_count_ok, fp);
+	cfwrite_uint(s->p_shots_fired, fp);
+	cfwrite_uint(s->s_shots_fired, fp);
+	cfwrite_uint(s->p_shots_hit, fp);
+	cfwrite_uint(s->s_shots_hit, fp);
+	cfwrite_uint(s->p_bonehead_hits, fp);
+	cfwrite_uint(s->s_bonehead_hits, fp);
+	cfwrite_int(s->bonehead_kills, fp);
+	cfwrite_uint(s->missions_flown, fp);
+	cfwrite_uint(s->flight_time, fp);
+	cfwrite_int((int)s->last_flown, fp);
+	cfwrite_int((int)s->last_backup, fp);
+	cfwrite_int(s->m_medal_earned, fp);
+	cfwrite_int(s->m_badge_earned, fp);
+	cfwrite_int(s->m_promotion_earned, fp);
+	cfwrite_int(s->m_score, fp);
+	campaign_stats_write_ushorts(s->m_kills, MAX_SHIP_TYPES, fp);
+	campaign_stats_write_ushorts(s->m_okKills, MAX_SHIP_TYPES, fp);
+	cfwrite_int(s->m_kill_count, fp);
+	cfwrite_int(s->m_kill_count_ok, fp);
+	cfwrite_int(s->m_assists, fp);
+	cfwrite_uint(s->mp_shots_fired, fp);
+	cfwrite_uint(s->ms_shots_fired, fp);
+	cfwrite_uint(s->mp_shots_hit, fp);
+	cfwrite_uint(s->ms_shots_hit, fp);
+	cfwrite_uint(s->mp_bonehead_hits, fp);
+	cfwrite_uint(s->ms_bonehead_hits, fp);
+	cfwrite_int(s->m_bonehead_kills, fp);
+	cfwrite_int(s->m_player_deaths, fp);
+	campaign_stats_write_ushorts(s->m_dogfight_kills, MAX_PLAYERS, fp);
+}
+
+// version 2, the write above in the same order
+static void campaign_stats_read_block(save_buf *sb, scoring_struct *s)
+{
+	int i, count, value;
+
+	memset(s, 0, sizeof(scoring_struct));
+	s->flags = save_buf_int(sb);
+	s->score = save_buf_int(sb);
+	s->rank = save_buf_int(sb);
+	count = save_buf_int(sb);
+	if ((count < 0) || (count > CSS_MAX_MEDALS)) {
+		sb->failed = 1;
+		return;
+	}
+	for (i = 0; i < count; i++) {
+		value = save_buf_int(sb);
+		if (i < NUM_MEDALS) {
+			s->medals[i] = value;
+		}
+	}
+	campaign_stats_read_ushorts(sb, s->kills, MAX_SHIP_TYPES);
+	s->assists = save_buf_int(sb);
+	s->kill_count = save_buf_int(sb);
+	s->kill_count_ok = save_buf_int(sb);
+	s->p_shots_fired = (uint)save_buf_int(sb);
+	s->s_shots_fired = (uint)save_buf_int(sb);
+	s->p_shots_hit = (uint)save_buf_int(sb);
+	s->s_shots_hit = (uint)save_buf_int(sb);
+	s->p_bonehead_hits = (uint)save_buf_int(sb);
+	s->s_bonehead_hits = (uint)save_buf_int(sb);
+	s->bonehead_kills = save_buf_int(sb);
+	s->missions_flown = (uint)save_buf_int(sb);
+	s->flight_time = (uint)save_buf_int(sb);
+	s->last_flown = (time_t)save_buf_int(sb);
+	s->last_backup = (time_t)save_buf_int(sb);
+	s->m_medal_earned = save_buf_int(sb);
+	s->m_badge_earned = save_buf_int(sb);
+	s->m_promotion_earned = save_buf_int(sb);
+	s->m_score = save_buf_int(sb);
+	campaign_stats_read_ushorts(sb, s->m_kills, MAX_SHIP_TYPES);
+	campaign_stats_read_ushorts(sb, s->m_okKills, MAX_SHIP_TYPES);
+	s->m_kill_count = save_buf_int(sb);
+	s->m_kill_count_ok = save_buf_int(sb);
+	s->m_assists = save_buf_int(sb);
+	s->mp_shots_fired = (uint)save_buf_int(sb);
+	s->ms_shots_fired = (uint)save_buf_int(sb);
+	s->mp_shots_hit = (uint)save_buf_int(sb);
+	s->ms_shots_hit = (uint)save_buf_int(sb);
+	s->mp_bonehead_hits = (uint)save_buf_int(sb);
+	s->ms_bonehead_hits = (uint)save_buf_int(sb);
+	s->m_bonehead_kills = save_buf_int(sb);
+	s->m_player_deaths = save_buf_int(sb);
+	campaign_stats_read_ushorts(sb, s->m_dogfight_kills, MAX_PLAYERS);
+}
+
+// version 1: the raw struct of the build that wrote it, with medals ints where this build has NUM_MEDALS
+static void campaign_stats_read_old_block(save_buf *sb, scoring_struct *s, int medals)
+{
+	int i, value;
+
+	memset(s, 0, sizeof(scoring_struct));
+	save_buf_bytes(sb, s, (int)offsetof(scoring_struct, medals));
+	for (i = 0; i < medals; i++) {
+		value = save_buf_int(sb);
+		if (i < NUM_MEDALS) {
+			s->medals[i] = value;
+		}
+	}
+	save_buf_bytes(sb, &s->kills, (int)(sizeof(scoring_struct) - offsetof(scoring_struct, kills)));
+}
+
+static void campaign_stats_load(char *filename)
+{
+	save_buf sb;
+	int id, version, data_set, count, i, num, old_block, err;
+	char *why;
+
+	err = save_buf_load(&sb, filename, CF_TYPE_SINGLE_PLAYERS);
+	if (err == -1) {
+		return;		// no file: no stats, as before
+	}
+
+	why = NULL;
+	count = 0;
+	version = 0;
+	data_set = DATA_SET_UNKNOWN;
+	old_block = (int)sizeof(scoring_struct) + ((Game_profile->pilot_medals - NUM_MEDALS) * (int)sizeof(int));
+	if (err) {
+		why = "too big or cannot be read";
+	} else {
+		id = save_buf_int(&sb);
+		version = save_buf_int(&sb);
+		if (sb.failed || (id != (int)CAMPAIGN_STATS_FILE_ID)) {
+			why = "invalid signature";
+		} else if ((version < CAMPAIGN_STATS_FILE_COMPATIBLE_VERSION) || (version > CAMPAIGN_STATS_FILE_VERSION)) {
+			why = "unknown version";
+		} else {
+			if (version >= 2) {
+				data_set = save_buf_int(&sb);
+			}
+			count = save_buf_int(&sb);
+			if (sb.failed || (count < 0) || (count > MAX_CAMPAIGN_MISSIONS)) {
+				why = "block count out of range";
+			} else if ((version < 2) && (sb.size != 12 + (count * (4 + old_block)))) {
+				why = "size is not this data set's version 1 layout";
+			} else {
+				for (i = 0; i < count; i++) {
+					num = save_buf_int(&sb);
+					if (!sb.failed && ((num < 0) || (num >= Campaign.num_missions))) {
+						why = "mission index out of range";
+						break;
+					}
+					Css_scratch_index[i] = num;
+					if (version < 2) {
+						campaign_stats_read_old_block(&sb, &Css_scratch_stats[i], Game_profile->pilot_medals);
+					} else {
+						campaign_stats_read_block(&sb, &Css_scratch_stats[i]);
+					}
+					if (sb.failed) {
+						why = "ends early or a medal count is out of range";
+						break;
+					}
+				}
+				if (!why && (sb.pos != sb.size)) {
+					why = "bytes past the end of the layout";
+				}
+			}
+		}
+	}
+
+	if (why) {
+		mprintf(("Campaign stats file %s (version %d) not loaded: %s, at byte %d of %d; left as it is\n", filename, version, why, sb.pos, sb.size));
+		save_buf_free(&sb);
+		return;
+	}
+
+	for (i = 0; i < count; i++) {
+		memcpy(&Campaign.missions[Css_scratch_index[i]].stats, &Css_scratch_stats[i], sizeof(scoring_struct));
+	}
+	if (version >= 2) {
+		mprintf(("Campaign stats file %s: %d blocks, saved in data set %d (%s)\n", filename, count, data_set, data_set_name(data_set)));
+	} else {
+		mprintf(("Campaign stats file %s: %d blocks, version 1 with %d medals each\n", filename, count, Game_profile->pilot_medals));
+	}
+	save_buf_free(&sb);
+}
+
 // mission_campaign_savefile_save saves the state of the campaign.  This function will probably always be called
 // then the player is done flying a mission in the campaign path.  It will save the missions played, the
 // state of the goals, etc.
@@ -802,6 +1031,7 @@ int mission_campaign_savefile_save()
 	// Write out campaign file info
 	cfwrite_int( CAMPAIGN_STATS_FILE_ID,fp );
 	cfwrite_int( CAMPAIGN_STATS_FILE_VERSION,fp );
+	cfwrite_int( Game_profile->data_set, fp );	// Claude: version 2: the writer's data set, read at save time, informational only (D-20261023-203603)
 
 	// determine how many missions we are saving -- I think that this method is safer than the method
 	// I used for release
@@ -817,7 +1047,7 @@ int mission_campaign_savefile_save()
 	for (i = 0; i < Campaign.num_missions; i++ ) {
 		if ( Campaign.missions[i].completed ) {
 			cfwrite_int( i, fp );
-			cfwrite( &Campaign.missions[i].stats, sizeof(scoring_struct), 1, fp );
+			campaign_stats_write_block( &Campaign.missions[i].stats, fp );	// Claude: was a raw cfwrite of sizeof(scoring_struct) (D-20261023-203603)
 		}
 	}
 
@@ -906,7 +1136,7 @@ void mission_campaign_delete_all_savefiles( char *pilot_name, int is_multi )
 void mission_campaign_savefile_load( char *cfilename )
 {
 	char filename[_MAX_FNAME], base[_MAX_FNAME];
-	int id, version, i, num, j, num_stats_blocks;
+	int id, version, i, num, j;	// Claude: num_stats_blocks went with the raw .css read
 	int type_sig;
 	CFILE *fp;
 
@@ -1042,32 +1272,7 @@ void mission_campaign_savefile_load( char *cfilename )
 	// it, then simply return
 	sprintf( filename, NOX("%s.%s.css"), Player->callsign, base );
 
-	fp = cfopen(filename, "rb", CFILE_NORMAL, CF_TYPE_SINGLE_PLAYERS );
-	if ( !fp )
-		return;
-
-	id = cfread_int( fp );
-	if ( id != CAMPAIGN_STATS_FILE_ID ) {
-		Warning(LOCATION, "Campaign stats save file has invalid signature");
-		cfclose( fp );
-		return;
-	}
-
-	version = cfread_int( fp );
-	if ( version < CAMPAIGN_STATS_FILE_COMPATIBLE_VERSION ) {
-		Warning(LOCATION, "Campaign save file too old -- not compatible.  Not loaded.\nYou can continue from here without trouble\n\n");	// Claude: was "Deleting file." (#23)
-		cfclose( fp );
-		return;	// Claude: the file is left as it is; the next campaign save replaces it (#23)
-	}
-
-	num_stats_blocks = cfread_int( fp );
-	for (i = 0; i < num_stats_blocks; i++ ) {
-		num = cfread_int( fp );
-		cfread( &Campaign.missions[num].stats, sizeof(scoring_struct), 1, fp );
-	}
-
-	cfclose(fp);
-
+	campaign_stats_load(filename);	// Claude: was a raw read of each block into Campaign.missions[num], unchecked; now the whole file is checked into scratch first (D-20261023-203603)
 }
 
 // the following code only ever called by CSFE!!!!

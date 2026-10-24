@@ -1709,13 +1709,11 @@ void game_assign_sound_environment()
 		Game_sound_env.volume = 0.800f;
 		Game_sound_env.damping = 1.188f;
 		Game_sound_env.decay = 6.392f;
-#ifndef FS2_DEMO
-	} else if (Num_asteroids > 30) {
+	} else if (Game_profile->asteroids && (Num_asteroids > 30)) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO
 		Game_sound_env.id = SND_ENV_AUDITORIUM;
 		Game_sound_env.volume = 0.603f;
 		Game_sound_env.damping = 0.5f;
 		Game_sound_env.decay = 4.279f;
-#endif
 	} else {
 		Game_sound_env = Game_default_sound_env;
 	}
@@ -2108,9 +2106,7 @@ void game_init()
 	Use_fullscreen_at_startup = os_config_read_uint( NULL, NOX("ForceFullscreen"), 1 );
 #endif
 
-#ifndef FS2_DEMO
-	Asteroids_enabled = 1;		
-#endif
+	Asteroids_enabled = 1;		// Claude: compiled always, the retail Debug toggle; the profile's asteroids gates the system before it (batch 6, D-20261023-182930); was #ifndef FS2_DEMO
 
 /////////////////////////////
 // SOUND INIT START

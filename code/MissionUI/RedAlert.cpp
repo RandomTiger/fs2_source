@@ -871,6 +871,17 @@ void red_alert_read_wingman_status(CFILE *fp, int version)
 	}
 }
 
+// Claude: the wingman status sizes, for the pilot file guard in ManagePilot.cpp (batch 5, D-20261023-201347)
+int red_alert_wingman_status_max_slots()
+{
+	return MAX_RED_ALERT_SLOTS;
+}
+
+int red_alert_wingman_status_slot_bytes()
+{
+	return (int)(sizeof(float) + sizeof(int) + (MAX_RED_ALERT_SUBSYSTEMS * sizeof(float)) + (SUBSYSTEM_MAX * sizeof(float)) + (MAX_WL_WEAPONS * 2 * sizeof(int)));
+}
+
 // return !0 if this is a red alert mission, otherwise return 0
 int red_alert_mission()
 {

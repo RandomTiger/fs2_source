@@ -214,11 +214,12 @@
 #include "Bmpman.h"
 #include "Autotest.h"	// Claude
 #include "DataSetProfile.h"	// Claude
+#include "DataSetInstall.h"	// Claude: data_set_name for the 141 tag
 
 // update this when altering data that is read/written to .PLR file
-#define CURRENT_PLAYER_FILE_VERSION					140
+#define CURRENT_PLAYER_FILE_VERSION					141	// Claude: was 140; 141 adds the data-set tag and the medal count (batch 5, D-20261023-201347, D-20261023-201747)
 #define FS2_DEMO_PLAYER_FILE_VERSION				135
-#define LOWEST_COMPATIBLE_PLAYER_FILE_VERSION	CURRENT_PLAYER_FILE_VERSION			// demo plr files should work in final
+#define LOWEST_COMPATIBLE_PLAYER_FILE_VERSION	140			// demo plr files should work in final	// Claude: was CURRENT_PLAYER_FILE_VERSION; a 140 file reads its medals by the data set's pilot_medals (no 135, Tom)
 
 // keep track of pilot file changes here 
 // version 2	: Added squad logo filename
@@ -234,6 +235,7 @@
 // version 138	: new multiplayer config
 // version 139 : # medals increased - added compatibility with old plr file versions
 // version 140 : ships table reordered. clear out old pilot files
+// version 141 : data set id after the version, medal count before the medals	// Claude: batch 5 (D-20261023-201347, D-20261023-201747)
 // search for PLAYER INIT for new pilot initialization stuff. I _think_ its in the right spot for now
 #define PLR_FILE_ID	'FPSF'	// unique signiture to identify a .PLR file (FreeSpace Player File)  // FPSF appears as FSPF in file.
 
@@ -283,6 +285,243 @@ void delete_pilot_file( char *pilot_name, int single )
 	mission_campaign_delete_all_savefiles( basename, !single );
 }
 
+// Claude: the batch 5 pilot guard (D-20261023-201347 term 4, D-20261023-201747).  The whole file is read into
+// memory and walked as read_pilot_file reads it: every string length and count is checked against its limit
+// and the bytes left, and the walk must end exactly at the end of the file.  A file that fails is
+// incompatible: verify_pilot_file leaves it out of the pilot lists, read_pilot_file refuses it, and it is
+// never rewritten or deleted.  Nothing here Asserts on file content.
+#define PILOT_GUARD_MAX_MEDALS		64				// a medal count above this is a failed read
+#define SAVE_BUF_MAX_SIZE			(1024 * 1024)
+
+static char Pilot_guard_reason[256];
+
+int save_buf_load(save_buf *sb, char *filename, int cf_type)
+{
+	CFILE *fp;
+
+	memset(sb, 0, sizeof(save_buf));
+	fp = cfopen(filename, "rb", CFILE_NORMAL, cf_type);
+	if (!fp) {
+		return -1;
+	}
+
+	sb->size = cfilelength(fp);
+	if ((sb->size < 0) || (sb->size > SAVE_BUF_MAX_SIZE)) {
+		cfclose(fp);
+		return -2;
+	}
+
+	sb->data = (ubyte *)malloc(sb->size + 1);
+	if (!sb->data || ((sb->size > 0) && (cfread(sb->data, 1, sb->size, fp) != sb->size))) {
+		save_buf_free(sb);
+		cfclose(fp);
+		return -2;
+	}
+
+	cfclose(fp);
+	return 0;
+}
+
+void save_buf_free(save_buf *sb)
+{
+	if (sb->data) {
+		free(sb->data);
+	}
+	sb->data = NULL;
+}
+
+int save_buf_bytes(save_buf *sb, void *dst, int len)
+{
+	if (sb->failed || (len < 0) || (len > sb->size - sb->pos)) {
+		sb->failed = 1;
+		return 0;
+	}
+	if (dst && len) {
+		memcpy(dst, sb->data + sb->pos, len);
+	}
+	sb->pos += len;
+	return 1;
+}
+
+int save_buf_int(save_buf *sb)
+{
+	int i = 0;
+
+	save_buf_bytes(sb, &i, sizeof(int));
+	return INTEL_INT(i);
+}
+
+// a count read from the file must be 0 to max
+static int pilot_guard_count(save_buf *sb, int count, int max)
+{
+	if ((count < 0) || (count > max)) {
+		sb->failed = 1;
+	}
+	return sb->failed ? 0 : count;
+}
+
+// as cfread_string_len: an int length below n, then that many bytes
+static void pilot_guard_string_len(save_buf *sb, int n)
+{
+	int len = save_buf_int(sb);
+
+	if ((len < 0) || (len >= n)) {
+		sb->failed = 1;
+	}
+	save_buf_bytes(sb, NULL, len);
+}
+
+// as cfread_string: bytes up to a NUL, which must come within n bytes so the string fits
+static void pilot_guard_string(save_buf *sb, int n)
+{
+	int i;
+	ubyte c;
+
+	for (i = 0; i < n; i++) {
+		c = 1;
+		save_buf_bytes(sb, &c, 1);
+		if (sb->failed || (c == 0)) {
+			return;
+		}
+	}
+	sb->failed = 1;
+}
+
+char *pilot_file_guard_reason()
+{
+	return Pilot_guard_reason[0] ? Pilot_guard_reason : "the file cannot be read";
+}
+
+#define PILOT_GUARD_STEP(s)		if (!sb.failed) { step = (s); }
+
+int pilot_file_guard(char *filename, int single, int *data_set)
+{
+	save_buf sb;
+	char *step;
+	uint id, version;
+	int i, count, ships, weapons, intel, err;
+	ubyte b;
+
+	Pilot_guard_reason[0] = 0;
+	if (data_set) {
+		*data_set = DATA_SET_UNKNOWN;
+	}
+
+	err = save_buf_load(&sb, filename, single ? CF_TYPE_SINGLE_PLAYERS : CF_TYPE_MULTI_PLAYERS);
+	if (err == -1) {
+		sprintf(Pilot_guard_reason, "%s cannot be opened", filename);
+		return 1;			// no such file: the caller's own open says so, as before
+	}
+	if (err) {
+		sprintf(Pilot_guard_reason, "%s is too big or cannot be read", filename);
+		mprintf(("Pilot file %s is too big or cannot be read; not shown, not loaded, left as it is\n", filename));
+		return -1;
+	}
+
+	step = "the header";
+	id = (uint)save_buf_int(&sb);
+	version = (uint)save_buf_int(&sb);
+	if (!sb.failed && (id != PLR_FILE_ID)) {
+		step = "the header (invalid signature)";
+		sb.failed = 1;
+	}
+	if (!sb.failed && ((version < LOWEST_COMPATIBLE_PLAYER_FILE_VERSION) || (version > CURRENT_PLAYER_FILE_VERSION))) {
+		step = "the header (version not 140 or 141)";
+		sb.failed = 1;
+	}
+	if (version >= 141) {
+		i = save_buf_int(&sb);			// the writer's data set: informational, it never chooses the layout
+		if (data_set && !sb.failed) {
+			*data_set = i;
+		}
+	}
+
+	PILOT_GUARD_STEP("the player strings");
+	save_buf_bytes(&sb, NULL, 1 + 4 + 1 + 4);			// is_multi, rank, on_bastion, tips
+	pilot_guard_string_len(&sb, MAX_FILENAME_LEN - 1);	// image_filename
+	pilot_guard_string_len(&sb, NAME_LENGTH);			// squad_name
+	pilot_guard_string_len(&sb, MAX_FILENAME_LEN - 1);	// squad_filename
+	pilot_guard_string_len(&sb, MAX_FILENAME_LEN);		// current_campaign
+	pilot_guard_string_len(&sb, NAME_LENGTH);			// last ship flown
+
+	PILOT_GUARD_STEP("the controls");
+	b = 0;
+	save_buf_bytes(&sb, &b, 1);
+	count = pilot_guard_count(&sb, b, CCFG_MAX);
+	save_buf_bytes(&sb, NULL, count * 2 * (int)sizeof(short));
+
+	PILOT_GUARD_STEP("the HUD config");
+	save_buf_bytes(&sb, NULL, (4 * 4) + 1 + (2 * 4) + (NUM_HUD_GAUGES * (int)sizeof(color)));
+
+	PILOT_GUARD_STEP("the volumes and detail");
+	save_buf_bytes(&sb, NULL, 4 + (3 * 4) + (int)sizeof(detail_levels));
+
+	PILOT_GUARD_STEP("the recent missions");
+	count = pilot_guard_count(&sb, save_buf_int(&sb), MAX_RECENT_MISSIONS);
+	for (i = 0; i < count; i++) {
+		pilot_guard_string_len(&sb, MAX_FILENAME_LEN);
+	}
+
+	PILOT_GUARD_STEP("the stats");
+	save_buf_bytes(&sb, NULL, 3 * 4);					// score, rank, assists
+	count = (version >= 141) ? save_buf_int(&sb) : Game_profile->pilot_medals;
+	count = pilot_guard_count(&sb, count, PILOT_GUARD_MAX_MEDALS);
+	save_buf_bytes(&sb, NULL, count * 4);
+	count = pilot_guard_count(&sb, save_buf_int(&sb), MAX_SHIP_TYPES);
+	save_buf_bytes(&sb, NULL, (count * (int)sizeof(ushort)) + (9 * 4));
+
+	PILOT_GUARD_STEP("the skill, axes and flags");
+	save_buf_bytes(&sb, NULL, 4 + (NUM_JOY_AXIS_ACTIONS * 2 * 4) + 4);
+
+	PILOT_GUARD_STEP("the loadout");
+	pilot_guard_string_len(&sb, MAX_FILENAME_LEN);
+	pilot_guard_string_len(&sb, DATE_TIME_LENGTH);
+	ships = pilot_guard_count(&sb, save_buf_int(&sb), MAX_SHIP_TYPES);
+	weapons = pilot_guard_count(&sb, save_buf_int(&sb), MAX_WEAPON_TYPES);
+	save_buf_bytes(&sb, NULL, ((ships + weapons) * 4) + (MAX_WSS_SLOTS * (1 + (2 * MAX_WL_WEAPONS)) * 4));
+
+	PILOT_GUARD_STEP("the multiplayer options");
+	save_buf_bytes(&sb, NULL, 1 + 1 + 4 + 4 + 1 + 1 + 1 + 4 + 4 + (int)sizeof(fix) + 4 + 4 + 4);
+
+	PILOT_GUARD_STEP("the ready room, voice and protocol");
+	save_buf_bytes(&sb, NULL, 3 * 4);
+
+	PILOT_GUARD_STEP("the red alert status");
+	count = save_buf_int(&sb);
+	if (count > 0) {
+		count = pilot_guard_count(&sb, count, red_alert_wingman_status_max_slots());
+		pilot_guard_string(&sb, MAX_FILENAME_LEN);		// precursor mission
+		for (i = 0; i < count; i++) {
+			pilot_guard_string(&sb, NAME_LENGTH);
+			save_buf_bytes(&sb, NULL, red_alert_wingman_status_slot_bytes());
+		}
+	}
+
+	PILOT_GUARD_STEP("the tech room");
+	ships = pilot_guard_count(&sb, save_buf_int(&sb), MAX_SHIP_TYPES);
+	weapons = pilot_guard_count(&sb, save_buf_int(&sb), MAX_WEAPON_TYPES);
+	intel = pilot_guard_count(&sb, save_buf_int(&sb), MAX_INTEL_ENTRIES);
+	save_buf_bytes(&sb, NULL, ships + weapons + intel);
+
+	PILOT_GUARD_STEP("the last settings");
+	save_buf_bytes(&sb, NULL, 5 * 4);
+
+	if (!sb.failed && (sb.pos != sb.size)) {
+		step = "the end (bytes past the layout)";
+		sb.failed = 1;
+	}
+
+	if (sb.failed) {
+		sprintf(Pilot_guard_reason, "%s fails in %s, at byte %d of %d", filename, step, sb.pos, sb.size);
+		mprintf(("Pilot file %s is incompatible: fails in %s, at byte %d of %d; not shown, not loaded, left as it is\n", filename, step, sb.pos, sb.size));
+		save_buf_free(&sb);
+		return -1;
+	}
+
+	save_buf_free(&sb);
+	return 0;
+}
+
 // check if a pilot file is valid or not (i.e. is usable, not out of date, etc)
 // used in barracks and player_select
 int verify_pilot_file(char *filename, int single, int *rank)
@@ -292,6 +531,9 @@ int verify_pilot_file(char *filename, int single, int *rank)
 	int type;
 
 	filename = cf_add_ext(filename, NOX(".plr"));
+	if (pilot_file_guard(filename, single, NULL) < 0) {	// Claude: the full read into scratch; a file that fails is not in the list (D-20261023-201347 term 4)
+		return -1;	// Claude
+	}	// Claude
 	
 	if (single){
 		file = cfopen(filename, "rb", CFILE_NORMAL, CF_TYPE_SINGLE_PLAYERS);
@@ -319,6 +561,9 @@ int verify_pilot_file(char *filename, int single, int *rank)
 		cfclose(file);
 		return -1;
 	}
+	if (file_version >= 141) {	// Claude: 141: the data-set tag after the version (D-20261023-201747)
+		cfread_int(file);	// Claude
+	}	// Claude
 
 	type = !cfread_ubyte(file);
 	if (rank){
@@ -518,6 +763,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 	uint id;
 	int idx;
 	int i, key_value;
+	int saved_data_set;	// Claude: the 141 tag
 
 	if (!p) {
 		Assert((Player_num >= 0) && (Player_num < MAX_PLAYERS));
@@ -537,6 +783,11 @@ int read_pilot_file(char *callsign, int single, player *p)
 		return 0;
 	}
 	
+	// Claude: the whole file is walked first; a file that fails is not loaded and left as it is (D-20261023-201347 term 4)
+	if (pilot_file_guard(filename, single, &saved_data_set) < 0) {	// Claude
+		return -1;	// Claude
+	}	// Claude
+
 	// see comments at the beginning of function
 	if (single) {
 		file = cfopen(filename, "rb", CFILE_NORMAL, CF_TYPE_SINGLE_PLAYERS);
@@ -564,6 +815,9 @@ int read_pilot_file(char *callsign, int single, player *p)
 		cfclose(file);
 		return -1;
 	}
+	if (Player_file_version >= 141) {	// Claude: 141: the writer's data set after the version (D-20261023-201747)
+		cfread_int(file);	// Claude: the guard read it into saved_data_set
+	}	// Claude
 
 	// read in whether he's a multiplayer or not
 	is_multi = cfread_ubyte(file);
@@ -747,6 +1001,10 @@ int read_pilot_file(char *callsign, int single, player *p)
 
 	// restore the callsign into the Player structure
 	strcpy(p->callsign, callsign);
+	p->saved_data_set = saved_data_set;	// Claude: logged only; nothing acts on it and it never chose the layout (D-20261023-201747)
+	if (Player_file_version >= 141) {	// Claude
+		mprintf(("Pilot %s was saved in data set %d (%s)%s\n", callsign, saved_data_set, data_set_name(saved_data_set), ((saved_data_set < 0) || (saved_data_set >= NUM_DATA_SETS)) ? "; unknown id, the read carries on" : ""));	// Claude
+	}	// Claude
 
 	// restore the truncated callsign into Player structure
 	pilot_set_short_callsign(p, SHORT_CALLSIGN_PIXEL_W);
@@ -782,6 +1040,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 void read_stats_block(CFILE *file, int stats_file_version, scoring_struct *stats)	// Claude: was Player_file_version, which hid the global (C4459)
 {
 	int i, total;
+	int medal_count;	// Claude
    
 	init_scoring_element(stats);
 	stats->score = cfread_int(file);
@@ -795,8 +1054,12 @@ void read_stats_block(CFILE *file, int stats_file_version, scoring_struct *stats
 		}
 	} else {
 		// read the usual way
-		for (i=0; i < NUM_MEDALS; i++) {
-			stats->medals[i] = cfread_int(file);
+		medal_count = (stats_file_version >= 141) ? cfread_int(file) : Game_profile->pilot_medals;	// Claude: 141 says its count; 140 has its data set's (D-20261023-201347)
+		for (i=0; i < medal_count; i++) {	// Claude: was NUM_MEDALS
+			total = cfread_int(file);	// Claude: was stats->medals[i] = cfread_int(file); a count past NUM_MEDALS is skipped (the guard caps it at 64)
+			if (i < NUM_MEDALS) {	// Claude
+				stats->medals[i] = total;	// Claude
+			}	// Claude
 		}
 	}
 
@@ -872,6 +1135,7 @@ int write_pilot_file_core(player *p)
 	// Write out player's info
 	cfwrite_uint(PLR_FILE_ID, file);
 	cfwrite_uint(CURRENT_PLAYER_FILE_VERSION, file);
+	cfwrite_int(Game_profile->data_set, file);	// Claude: 141: the data set active now, read at save time (D-20261023-201747)
 
 	cfwrite_ubyte(is_multi, file);
 	cfwrite_int(p->stats.rank, file);
@@ -1045,6 +1309,7 @@ void write_stats_block(CFILE *file,scoring_struct *stats)
 	cfwrite_int(stats->score, file);
 	cfwrite_int(stats->rank, file);
 	cfwrite_int(stats->assists, file);
+	cfwrite_int(NUM_MEDALS, file);	// Claude: 141: the medal count, then that many ints (D-20261023-201347)
 	for (i=0; i<NUM_MEDALS; i++){
 		cfwrite_int(stats->medals[i], file);
 	}
@@ -1133,6 +1398,9 @@ int is_pilot_multi(CFILE *fp)
 		cfclose(fp);
 		return -1;
 	}
+	if (file_version >= 141) {	// Claude: 141: the data-set tag after the version (D-20261023-201747)
+		cfread_int(fp);	// Claude
+	}	// Claude
 
 	// read in whether he's a multiplayer or not
 	is_multi = cfread_ubyte(fp);

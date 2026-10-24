@@ -445,6 +445,7 @@
 #include "multi_team.h"
 #include "awacs.h"
 #include "fvi.h"
+#include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 #pragma optimize("", off)
 #pragma auto_inline(off)
@@ -2849,14 +2850,14 @@ int get_nearest_turret_objnum(int turret_parent_objnum, ship_subsys *turret_subs
 	 }
 
 
-#ifndef FS2_DEMO
+	if (Game_profile->asteroids) {	// Claude: data set profile (batch 6, D-20261023-182930); was #ifndef FS2_DEMO
 		asteroid_obj *ao;
 	// Asteroid_obj_list
 	for( ao = GET_FIRST(&Asteroid_obj_list); ao != END_OF_LIST(&Asteroid_obj_list); ao = GET_NEXT(ao) ) {
 		objp = &Objects[ao->objnum];
 		evaluate_obj_as_target(objp, &eeo);
 	}
-#endif
+	}
 
 	return eeo.nearest_objnum;										// lowest priority is the closest enemy objnum
 }

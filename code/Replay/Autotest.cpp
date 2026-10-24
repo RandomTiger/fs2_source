@@ -76,6 +76,9 @@ static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mis
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
+
+// the pilot autotest makes when there is none, or the one asked for will not load (#95)
+#define AUTOTEST_SCRATCH_PILOT		"AutotestPilot"
 static int Autotest_time = AUTOTEST_DEFAULT_TIME;
 static int Autotest_speed = AUTOTEST_DEFAULT_SPEED;
 static int Autotest_skill = -1;			// -at_skill, or -1 for the pilot's own
@@ -412,28 +415,67 @@ void autotest_set_from_recording(int on, int time, int speed)
 	autotest_logf("Replaying a recording made %s autotest rules%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "");
 }
 
+// ManagePilot.cpp: writes the file even under autotest, which write_pilot_file does not
+extern int write_pilot_file_core(player *p);
+
+// Load the scratch pilot, first creating it as the pilot screen's "create" button does if it is
+// missing or will not load.  Only ever writes AUTOTEST_SCRATCH_PILOT.plr, never a player's pilot.
+static int autotest_load_scratch_pilot(char *why)
+{
+	strcpy(Autotest_pilot, AUTOTEST_SCRATCH_PILOT);
+	Player = &Players[0];
+	if (!read_pilot_file(Autotest_pilot, 1, Player)) {
+		autotest_logf("%s; using the scratch pilot '%s'\n", why, Autotest_pilot);
+		return 1;
+	}
+
+	memset(Player, 0, sizeof(player));
+	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
+	strcpy(Player->callsign, Autotest_pilot);
+	init_new_pilot(Player, 1);
+	if (write_pilot_file_core(Player)) {
+		return 0;
+	}
+	memset(Player, 0, sizeof(player));
+	if (read_pilot_file(Autotest_pilot, 1, Player)) {
+		return 0;
+	}
+	autotest_logf("%s; made a new scratch pilot '%s'\n", why, Autotest_pilot);
+	return 1;
+}
+
 int autotest_load_pilot()
 {
 	char pilots_arr[MAX_PILOTS][MAX_FILENAME_LEN];
 	char *pilots[MAX_PILOTS];
-	int count;
+	char why[MAX_FILENAME_LEN + 64];
+	int count, i;
 
 	if (!Autotest_harness || (Replay_mode == REPLAY_PLAY)) {
 		return 0;
 	}
 
+	why[0] = 0;
 	if (!Autotest_pilot[0]) {
-		// the most recently saved single-player pilot
+		// the most recently saved single-player pilot that is not the scratch one
 		count = cf_get_file_list_preallocated(MAX_PILOTS, pilots_arr, pilots, CF_TYPE_SINGLE_PLAYERS, NOX("*.plr"), CF_SORT_TIME);
-		if (count <= 0) {
-			autotest_fatal(AUTOTEST_EXIT_FAILED, "no single-player pilot found; make one in the game or pass -at_pilot");
+		for (i = 0; i < count; i++) {
+			if (stricmp(pilots[i], AUTOTEST_SCRATCH_PILOT)) {
+				strcpy(Autotest_pilot, pilots[i]);
+				break;
+			}
 		}
-		strcpy(Autotest_pilot, pilots[0]);
+		if (!Autotest_pilot[0]) {
+			strcpy(why, "No single-player pilot found");
+		}
 	}
 
 	Player = &Players[0];
-	if (read_pilot_file(Autotest_pilot, 1, Player)) {
-		autotest_fatal(AUTOTEST_EXIT_FAILED, "cannot load pilot '%s'", Autotest_pilot);
+	if (!why[0] && read_pilot_file(Autotest_pilot, 1, Player)) {
+		sprintf(why, "Cannot load pilot '%s'", Autotest_pilot);
+	}
+	if (why[0] && !autotest_load_scratch_pilot(why)) {
+		autotest_fatal(AUTOTEST_EXIT_FAILED, "%s, and cannot make the scratch pilot '%s'", why, AUTOTEST_SCRATCH_PILOT);
 	}
 	Player->flags |= PLAYER_FLAGS_STRUCTURE_IN_USE;
 	if (Autotest_skill >= 0) {
