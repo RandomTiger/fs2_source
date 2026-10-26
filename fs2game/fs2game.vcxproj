@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- fs2game.dll: the game as a plain C DLL (x64 only, D-20261022-143922/143923). Compiles what the exe project compiles
+     including the exe's FreeSpaceWin32.cpp (CD and launcher functions; its WinMain is never called), links code.lib, and exports the C API in fs2_api.h. Output FS2game64r.dll / FS2game64d.dll in PATH_FS2. -->
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5B7C0E52-3A41-4D6E-9F18-2E4A7D93C6B0}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <RepoDir>$(MSBuildThisFileDirectory)..\</RepoDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(PATH_FS2)\</OutDir>
+    <IntDir>$(RepoDir)x64\Debug\fs2game\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <TargetName>FS2game64d</TargetName>
+    <TargetExt>.dll</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(PATH_FS2)\</OutDir>
+    <IntDir>$(RepoDir)x64\Release\fs2game\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <TargetName>FS2game64r</TargetName>
+    <TargetExt>.dll</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <Optimization>Disabled</Optimization>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <WarningLevel>Level4</WarningLevel>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <MinimalRebuild>false</MinimalRebuild>
+      <AdditionalIncludeDirectories>$(RepoDir)fs2game;$(RepoDir)code\anim;$(RepoDir)code\asteroid;$(RepoDir)code\bmpman;$(RepoDir)code\cfile;$(RepoDir)code\cmdline;$(RepoDir)code\cmeasure;$(RepoDir)code\controlconfig;$(RepoDir)code\cutscene;$(RepoDir)code\debris;$(RepoDir)code\debugconsole;$(RepoDir)code\directx;$(RepoDir)code\fireball;$(RepoDir)code\gamehelp;$(RepoDir)code\freespace2;$(RepoDir)code\fs2launch;$(RepoDir)code\fred;$(RepoDir)code\gamesequence;$(RepoDir)code\gamesnd;$(RepoDir)code\glide;$(RepoDir)code\globalincs;$(RepoDir)code\graphics;$(RepoDir)code\hud;$(RepoDir)code\io;$(RepoDir)code\jumpnode;$(RepoDir)code\lighting;$(RepoDir)code\math;$(RepoDir)code\menuui;$(RepoDir)code\mission;$(RepoDir)code\missionui;$(RepoDir)code\model;$(RepoDir)code\movie;$(RepoDir)code\network;$(RepoDir)code\object;$(RepoDir)code\observer;$(RepoDir)code\osapi;$(RepoDir)code\palman;$(RepoDir)code\parse;$(RepoDir)code\particle;$(RepoDir)code\pcxutils;$(RepoDir)code\physics;$(RepoDir)code\playerman;$(RepoDir)code\popup;$(RepoDir)code\radar;$(RepoDir)code\render;$(RepoDir)code\ship;$(RepoDir)code\sndman;$(RepoDir)code\sound;$(RepoDir)code\starfield;$(RepoDir)code\stats;$(RepoDir)code\testcode;$(RepoDir)code\ui;$(RepoDir)code\vcodec;$(RepoDir)code\weapon;$(RepoDir)code\localization;$(RepoDir)code\nebula;$(RepoDir)code\demo;$(RepoDir)code\replay;$(RepoDir)code\inetfile;$(RepoDir)code\ExceptionHandler;$(RepoDir)code\3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;_WINDOWS;FS2GAME_EXPORTS;_DEBUG;NO_CD_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+    </ClCompile>
+    <Link>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <AdditionalLibraryDirectories>$(RepoDir)x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <Optimization>Disabled</Optimization>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <WarningLevel>Level4</WarningLevel>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <OmitFramePointers>true</OmitFramePointers>
+      <AdditionalIncludeDirectories>$(RepoDir)fs2game;$(RepoDir)code\anim;$(RepoDir)code\asteroid;$(RepoDir)code\bmpman;$(RepoDir)code\cfile;$(RepoDir)code\cmdline;$(RepoDir)code\cmeasure;$(RepoDir)code\controlconfig;$(RepoDir)code\cutscene;$(RepoDir)code\debris;$(RepoDir)code\debugconsole;$(RepoDir)code\directx;$(RepoDir)code\fireball;$(RepoDir)code\gamehelp;$(RepoDir)code\freespace2;$(RepoDir)code\fs2launch;$(RepoDir)code\fred;$(RepoDir)code\gamesequence;$(RepoDir)code\gamesnd;$(RepoDir)code\glide;$(RepoDir)code\globalincs;$(RepoDir)code\graphics;$(RepoDir)code\hud;$(RepoDir)code\io;$(RepoDir)code\jumpnode;$(RepoDir)code\lighting;$(RepoDir)code\math;$(RepoDir)code\menuui;$(RepoDir)code\mission;$(RepoDir)code\missionui;$(RepoDir)code\model;$(RepoDir)code\movie;$(RepoDir)code\network;$(RepoDir)code\object;$(RepoDir)code\observer;$(RepoDir)code\osapi;$(RepoDir)code\palman;$(RepoDir)code\parse;$(RepoDir)code\particle;$(RepoDir)code\pcxutils;$(RepoDir)code\physics;$(RepoDir)code\playerman;$(RepoDir)code\popup;$(RepoDir)code\radar;$(RepoDir)code\render;$(RepoDir)code\ship;$(RepoDir)code\sndman;$(RepoDir)code\sound;$(RepoDir)code\starfield;$(RepoDir)code\stats;$(RepoDir)code\testcode;$(RepoDir)code\ui;$(RepoDir)code\vcodec;$(RepoDir)code\weapon;$(RepoDir)code\localization;$(RepoDir)code\nebula;$(RepoDir)code\demo;$(RepoDir)code\replay;$(RepoDir)code\inetfile;$(RepoDir)code\ExceptionHandler;$(RepoDir)code\3dnow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;WIN32;_WINDOWS;FS2GAME_EXPORTS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+    </ClCompile>
+    <Link>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <AdditionalLibraryDirectories>$(RepoDir)x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;dxguid.lib;ddraw.lib;dinput8.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\code\FREESPACE2\FreeSpace.cpp" />
+    <ClCompile Include="..\code\FREESPACE2\FreeSpaceWin32.cpp" />
+    <ClCompile Include="..\code\FREESPACE2\LevelPaging.cpp" />
+    <ClCompile Include="fs2_api.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="fs2_api.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\code\code.vcxproj">
+      <Project>{8af849bb-a250-4834-9c96-38b34b201a33}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\lib\xiph\Xiph.vcxproj">
+      <Project>{428bf313-7b31-4734-aed6-0469f04de25b}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -27,6 +27,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fred2", "Fred2.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TraceDiff", "tools\TraceDiff\TraceDiff.vcxproj", "{3D8E2C41-7A55-4B0F-9E2D-6C1F0B7A4E21}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fs2game", "fs2game\fs2game.vcxproj", "{5B7C0E52-3A41-4D6E-9F18-2E4A7D93C6B0}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Xiph", "lib\xiph\Xiph.vcxproj", "{428BF313-7B31-4734-AED6-0469F04DE25B}"
 EndProject
 Global
@@ -112,6 +114,9 @@ Global
 		{428BF313-7B31-4734-AED6-0469F04DE25B}.Release|x86.ActiveCfg = Release|Win32
 		{428BF313-7B31-4734-AED6-0469F04DE25B}.Release|x86.Build.0 = Release|Win32
 		{428BF313-7B31-4734-AED6-0469F04DE25B}.Template|x86.ActiveCfg = Release|Win32
+		{5B7C0E52-3A41-4D6E-9F18-2E4A7D93C6B0}.Debug|x86.ActiveCfg = Debug|x64
+		{5B7C0E52-3A41-4D6E-9F18-2E4A7D93C6B0}.Release|x86.ActiveCfg = Release|x64
+		{5B7C0E52-3A41-4D6E-9F18-2E4A7D93C6B0}.Template|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
