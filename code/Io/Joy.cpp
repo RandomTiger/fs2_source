@@ -554,7 +554,7 @@ int joy_init()
 	}
 
 	InitializeCriticalSection(&joy_lock);
-	atexit(joy_close);
+	{ static int joy_atexit = 0; if ( !joy_atexit ) { joy_atexit = 1; atexit(joy_close); } }	// Claude: registered once (P2)
 
 	joy_flush();
 

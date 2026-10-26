@@ -278,6 +278,19 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	first_cmdline[sizeof(first_cmdline) - 1] = 0;
 	int run_next = host_cmdline_take(first_cmdline, "-replay_next", next_rec, sizeof(next_rec));
 	int trace_next = host_cmdline_take(first_cmdline, "-trace_next", next_trace, sizeof(next_trace));
+	// Claude: -replay_repeat <n> (P2): after the run(s) above, init, play the first recording and shut down n more times in this
+	// process, tracing to <trace>.1 ... <trace>.n, to test that every restart plays the same
+	char repeat_text[32], first_trace[MAX_PATH];
+	int repeat = 0;
+	if ( host_cmdline_take(first_cmdline, "-replay_repeat", repeat_text, sizeof(repeat_text)) ) {
+		repeat = atoi(repeat_text);
+	}
+	int have_first_trace = (repeat > 0) && host_cmdline_take(first_cmdline, "-trace", first_trace, sizeof(first_trace));
+	if ( have_first_trace ) {
+		strcat(first_cmdline, " -trace ");
+		strcat(first_cmdline, first_trace);
+	}
+	int repeat_done = 0;
 	strcpy(cmdline, first_cmdline);
 
 	int code;
@@ -290,8 +303,22 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 		}
 
 		code = game_host_shutdown();
-		if ( !run_next || code ) {
+		if ( code ) {
 			break;
+		}
+		if ( !run_next ) {
+			if ( !have_first_trace || (repeat_done >= repeat) ) {
+				break;
+			}
+			repeat_done++;
+			char numbered[MAX_PATH];
+			strcpy(numbered, first_trace);
+			int len = (int)strlen(numbered);
+			int quoted = (len > 0) && (numbered[len - 1] == '"');
+			sprintf(numbered + len - (quoted ? 1 : 0), ".%d%s", repeat_done, quoted ? "\"" : "");
+			strcpy(cmdline, first_cmdline);
+			host_cmdline_set(cmdline, sizeof(cmdline), "-trace", numbered);
+			continue;
 		}
 		run_next = 0;
 		strcpy(cmdline, first_cmdline);

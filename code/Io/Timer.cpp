@@ -110,7 +110,7 @@ void timer_init()
 		
 		Timer_inited = 1;
 
-		atexit(timer_close);
+		{ static int tm_atexit = 0; if ( !tm_atexit ) { tm_atexit = 1; atexit(timer_close); } }	// Claude: registered once (P2)
 	}
 }
 

@@ -224,7 +224,7 @@ void mouse_init()
 
 	LEAVE_CRITICAL_SECTION(&mouse_lock);	
 
-	atexit( mouse_close );
+	{ static int mouse_atexit = 0; if ( !mouse_atexit ) { mouse_atexit = 1; atexit( mouse_close ); } }	// Claude: registered once (P2)
 }
 
 

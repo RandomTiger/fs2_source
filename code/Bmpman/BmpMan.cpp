@@ -719,7 +719,7 @@ void bm_init()
 	
 	if (!bm_inited)	{
 		bm_inited = 1;
-		atexit(bm_close);
+		{ static int bm_atexit = 0; if ( !bm_atexit ) { bm_atexit = 1; atexit(bm_close); } }	// Claude: registered once (P2)
 	}
 	
 	for (i=0; i<MAX_BITMAPS; i++ ) {

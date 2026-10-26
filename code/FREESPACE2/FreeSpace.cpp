@@ -7962,6 +7962,17 @@ int game_host_frame()
 {
 	int state;
 
+	// Claude: P1 test hook, FS2_FORCE_ERROR_FRAME=<n>: the nth frame of the process raises an Error(), once, to test the fatal path
+	static int force_error_frame = -2, force_error_count = 0;
+	if ( force_error_frame == -2 ) {
+		const char *force_error_env = getenv("FS2_FORCE_ERROR_FRAME");
+		force_error_frame = force_error_env ? atoi(force_error_env) : -1;
+	}
+	if ( (force_error_frame >= 0) && (force_error_count++ >= force_error_frame) ) {
+		force_error_frame = -1;
+		Error( LOCATION, "forced error (FS2_FORCE_ERROR_FRAME)" );
+	}
+
 	// only important for non THREADED mode
 	os_poll();
 
@@ -7985,5 +7996,26 @@ int game_host_shutdown()
 
 	game_shutdown();
 	replay_restart();	// Claude: -autorecord restarts the game after each mission
-	return autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
+	int exit_code = autotest_exit_code(1);	// Claude: was return 1.  Autotest returns 0 on a pass.
+
+	// Claude: P2, close every module that registers an atexit close, so a DLL host that never exits the process gets the same
+	// teardown. Each close is idempotent and the atexit calls stay as the backstop. Order: users of the timer and cfile first.
+	extern void bm_close();
+	extern void cfile_close();
+	extern void key_close();
+	extern void mouse_close();
+	extern void joy_close();
+	extern void model_close();
+	extern void os_deinit();
+	extern void std_deinit_standalone();
+	key_close();
+	mouse_close();
+	joy_close();
+	model_close();
+	bm_close();
+	cfile_close();
+	std_deinit_standalone();
+	timer_close();
+	os_deinit();
+	return exit_code;
 }

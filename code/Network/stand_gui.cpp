@@ -2432,7 +2432,7 @@ void std_init_standalone()
 	os_init_registry_stuff(Osreg_company_name, Osreg_app_name,NULL);
 	
 	// set the close functions
-	atexit(std_deinit_standalone);
+	{ static int std_atexit = 0; if ( !std_atexit ) { std_atexit = 1; atexit(std_deinit_standalone); } }	// Claude: registered once (P2)
 }
 
 // called when freespace closes

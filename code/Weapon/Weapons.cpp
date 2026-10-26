@@ -1374,6 +1374,7 @@ void parse_weaponstbl()
 	Num_weapon_types = 0;
 	First_secondary_index = -1;
 	Num_spawn_types = 0;
+	Num_cmeasure_types = 0;	// Claude: counted again on a restart, and the third init ran past MAX_CMEASURE_TYPES (P2)
 	
 	required_string("#Primary Weapons");
 	while (required_string_either("#End", "$Name:")) {

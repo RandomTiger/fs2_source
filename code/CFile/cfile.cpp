@@ -251,6 +251,7 @@ void cf_chksum_long_init();
 void cfile_close()
 {
 	cf_free_secondary_filelist();
+	cfile_inited = 0;	// Claude: a closed cfile can init again; a second close frees nothing (P2)
 }
 
 // determine if the given path is in a root directory (c:\  or  c:\freespace2.exe  or  c:\fred2.exe   etc)
@@ -343,7 +344,7 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 		// 32 bit CRC table init
 		cf_chksum_long_init();
 
-		atexit( cfile_close );
+		{ static int cf_atexit = 0; if ( !cf_atexit ) { cf_atexit = 1; atexit( cfile_close ); } }	// Claude: registered once (P2)
 	}
 
 	return 0;

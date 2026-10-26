@@ -114,6 +114,7 @@
 
 #include "pstypes.h"
 #include "Autotest.h"
+#include "HostFatal.h"	// Claude: P1
 
 //Uncomment SHOW_CALL_STACK to show the call stack in Asserts, Warnings, and Errors
 #define SHOW_CALL_STACK
@@ -695,7 +696,8 @@ void _cdecl WinAssert(char * text, char * filename, int linenum )
 	int val;
 
 	// Claude: An autotest logs it and carries on, with no dialog.
-	if (autotest_report("Assert", text, filename, linenum)) {
+	int autotest_logged = autotest_report("Assert", text, filename, linenum);
+	if (host_fatal_notify(HOST_FATAL_ASSERT, text, filename, linenum) || autotest_logged) {	// Claude: P1, the host first (after the log); handled = carry on
 		return;
 	}
 
@@ -744,7 +746,9 @@ void _cdecl Error( char * filename, int line, char * format, ... )
 	sprintf(AssertText2,"Error: %s\r\nFile:%s\r\nLine: %d", AssertText1, filename, line );
 
 	// Claude: An autotest logs it and exits, with no dialog.
-	if (autotest_report("Error", AssertText1, filename, line)) {
+	int autotest_logged = autotest_report("Error", AssertText1, filename, line);
+	host_fatal_notify(HOST_FATAL_ERROR, AssertText1, filename, line);	// Claude: P1, never returns into the game if the host handles it; falls through to the exit if it comes back
+	if (autotest_logged) {
 		TerminateProcess(GetCurrentProcess(), 1);	// not exit(), whose atexit handlers would run from the failing state
 	}
 
@@ -791,7 +795,8 @@ void _cdecl Warning( char * filename, int line, char * format, ... )
 	sprintf(AssertText2,"Warning: %s\r\nFile:%s\r\nLine: %d", AssertText1, filename, line );
 
 	// Claude: An autotest logs it and carries on, with no dialog.
-	if (autotest_report("Warning", AssertText1, filename, line)) {
+	int autotest_logged = autotest_report("Warning", AssertText1, filename, line);
+	if (host_fatal_notify(HOST_FATAL_WARNING, AssertText1, filename, line) || autotest_logged) {	// Claude: P1, the host first (after the log); handled = carry on
 		return;
 	}
 

@@ -754,8 +754,11 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 	
 //	gr_test();
 
-	if ( !Gr_inited )	
-		atexit(gr_close);
+	if ( !Gr_inited )	{
+		// Claude: registered once (P2)
+		static int gr_atexit = 0;
+		if ( !gr_atexit ) { gr_atexit = 1; atexit(gr_close); }
+	}
 
 	// If already inited, shutdown the previous graphics
 	if ( Gr_inited )	{

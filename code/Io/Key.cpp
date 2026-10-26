@@ -808,7 +808,7 @@ void key_init()
 		}
 	}
 
-	atexit(key_close);
+	{ static int key_atexit = 0; if ( !key_atexit ) { key_atexit = 1; atexit(key_close); } }	// Claude: registered once (P2)
 }
 
 void key_level_init()
