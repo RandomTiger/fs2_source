@@ -85,6 +85,7 @@ void replay_load_begin();				// start of game_start_mission
 void replay_load_end();					// end of game_start_mission
 void replay_enter_game();				// GS_EVENT_ENTER_GAME
 void replay_mission_over();			// left gameplay (main menu, debrief, quit)
+void replay_abandon();					// Claude: P1, a replay ends without REPLAY OK when the host walks the game out after a fatal error
 void replay_shutdown();					// game_shutdown
 void replay_check_data_set(int set, int (*is_volition_mission)(char *filename));	// game_init: refuse a recording made on the other data set
 int  replay_peek_data_set(int (*is_volition_mission)(char *filename));	// before the data set folder is chosen: a DATA_SET_* value, or DATA_SET_UNKNOWN

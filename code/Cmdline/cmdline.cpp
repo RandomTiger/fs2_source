@@ -448,6 +448,11 @@ void os_init_cmdline(char *cmdline)
 {
 	FILE *fp;
 
+	// Claude: a restarted game (game_host_init again in this process, D-055) parses a new command line: forget what the last one had
+	for (cmdline_parm *parmp = GET_FIRST(&Parm_list); parmp != END_OF_LIST(&Parm_list); parmp = GET_NEXT(parmp)) {
+		parmp->name_found = 0;
+	}
+
 	// read the cmdline.cfg file from the data folder, and pass the command line arguments to
 	// the the parse_parms and validate_parms line.  Read these first so anything actually on
 	// the command line will take precedence
