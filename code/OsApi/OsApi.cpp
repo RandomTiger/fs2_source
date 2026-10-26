@@ -172,7 +172,7 @@ void os_init(char * wclass, char * title, char *app_name, char *version_string )
 	// check to see if we're running under msdev
 	os_check_debugger();
 
-	atexit(os_deinit);
+	{ static int os_atexit = 0; if ( !os_atexit ) { os_atexit = 1; atexit(os_deinit); } }	// Claude: registered once (P2)
 }
 
 // set the main window title
