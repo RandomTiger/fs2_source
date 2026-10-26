@@ -2165,7 +2165,7 @@ void game_init()
 	int trying_d3d = 0;
 	
 	if (Cmdline_nographics) {
-		gr_init(GR_1024, GR_DUMMY);	// Claude: no graphics device, at the reference resolution
+		gr_init(Game_profile->headless_gr_mode, GR_DUMMY);	// Claude: no graphics device; the data set's UI art mode (GR_640 on FS1, GR_1024 on FS2, #101)
 	} else if (!Is_standalone && ptr && (strstr(ptr, NOX("3DFX Glide")))) {
 #ifdef E3_BUILD
 		// always 640 for E3

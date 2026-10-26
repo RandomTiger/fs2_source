@@ -23,6 +23,7 @@ This file holds the open queue only. Finished items, the stage gates as met and 
 No change may alter a recording; each cut passes the x86 quick suite and x64 headless 48/48, Release and Debug.
 - Not cut: demo-conditional code (D-063), legacy-format readers (FS1 compatibility, D-064), multiplayer, FRED, the tools and the software renderer (D-068), and the GR_640 interface art mode. GR_640 is a kept UI art mode: FS1 has no 1024 art, so UI art mode and in-game render resolution become separate settings. No cut or collapse may assume 1024-only art, and the renderer collapse brief must say how GR_640 UI art survives (steward with Tom, 2026-10-17).
 - Decided: 16-bit colour stays (D-20261017-231123); the renderer collapse keeps it and the GR_640 UI art.
+- Done 2026-10-26 (#101, D-20261026-112237): headless starts in the data set's UI art mode, profile field `headless_gr_mode` (GR_640 on both FS1 rows, GR_1024 on both FS2 rows); recordings\fs1 and the FS1 demo now replay and run `-headless` (`-Headless` switch on `replay_check`, `fs1demo_run`, `fs1demo_gate`). No FS2 trace moved.
 - Decided: both sound backends stay until an audio assessment method exists, scripted listening situations per API (D-20261017-231124). The first blind listening session ran 2026-10-23 (#81).
 - Backlog, Tom's call, not scheduled: textured tool views before FRED moves to Godot, revive the 8-bit software texture path for the tools (reopens part of G2b) or write a 32-bit one; costed on issue #13 and #26 (D-20261018-022937). Tom 2026-10-23: stays on the backlog.
 

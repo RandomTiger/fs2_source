@@ -29,7 +29,8 @@ param(
 	[string[]]$CrossCheck = @('sm1-01'),
 	[string]$GameDir = $env:PATH_FS2,
 	[string]$DemoDir = $env:FS2DEMO_TEST,
-	[string]$Fs1Dir = $env:PATH_FS1
+	[string]$Fs1Dir = $env:PATH_FS1,
+	[switch]$Headless	# autotest replays also get -headless (null renderer, no sound device; FS1 sets run at GR_640, #101)
 )
 
 $repo = Split-Path $PSScriptRoot
@@ -87,6 +88,7 @@ foreach ($r in $recs) {
 		Remove-Item $trace, "$rec.replay.log" -ErrorAction SilentlyContinue
 		$flags = "-window -replay `"$rec`" -trace `"$trace`""
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
+		if ($Headless -and $r.Autotest) { $flags += ' -headless' }
 		Wait-NoGame
 		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
 		# FS2_PROCDUMP (path to Sysinternals procdump.exe): a crash leaves a full dump in <Out> (#74). Dumps hold game
@@ -120,6 +122,7 @@ foreach ($r in $recs) {
 			$counts = Select-String (Join-Path $dir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
 			if ($counts) { $line += " ($($counts.Matches[0].Value))" }
 			if ($p.ExitCode -ne 0) { $ok = $false }
+			if ($Headless -and -not (Select-String (Join-Path $dir 'autotest.log') -Pattern 'No graphics device' -Quiet)) { $ok = $false; $line += ' NOT HEADLESS' }
 			# a Debug build must prove its array guards fire (D-20261018-030012)
 			if (($e -eq 'd') -and -not (Select-String (Join-Path $dir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 		}

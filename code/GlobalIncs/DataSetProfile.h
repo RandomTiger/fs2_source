@@ -77,6 +77,7 @@ typedef struct data_set_profile {
 	// the frame strip under the picture window is 16 rows lower in the demo's
 	// BARRACKS.PCX (retail y 165-167, demo y 181-184), so (0,+16) (D-20261021-095912).
 	int	barracks_pic_number_offset[2];
+	int	headless_gr_mode;				// Claude: the UI art mode -headless starts in, GR_640 or GR_1024 (FS1 has no 1024 art, #101)
 } data_set_profile;
 
 // full_version_screens bits (one field for every data set; FS1Compat's walls joined at the FS2Demo merge, D-20261021-142001)
