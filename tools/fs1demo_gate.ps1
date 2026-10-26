@@ -27,7 +27,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
-$hl = if ($Headless) { @('-Headless') } else { @() }
+$hl = @(if ($Headless) { '-Headless' })
 foreach ($d in $Fs2Dir, $Fs1Dir, $DemoDir, $Fs1DemoDir) { if (-not $d -or -not (Test-Path $d)) { "FAIL missing folder '$d' (see the parameters)"; exit 1 } }
 if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
