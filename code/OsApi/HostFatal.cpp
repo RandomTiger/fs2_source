@@ -10,7 +10,8 @@ static int Host_fatal_busy = 0;	// the callback raised another one: do not call 
 host_fatal_fn host_fatal_set(host_fatal_fn fn)
 {
 	host_fatal_fn old = Host_fatal_fn;
-	Host_fatal_fn = fn;
+	Host_fatal_fn = fn;	// a longjmp out of the callback leaves busy set
+	Host_fatal_busy = 0;
 	return old;
 }
 
