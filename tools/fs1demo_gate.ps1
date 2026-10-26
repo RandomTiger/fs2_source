@@ -22,10 +22,12 @@ param(
 	[string]$Fs1Dir = $env:PATH_FS1,
 	[string]$DemoDir = $env:FS2DEMO_TEST,
 	[string]$Fs1DemoDir = $env:FS1DEMO_PATH,
-	[string]$Out = (Join-Path $env:LOCALAPPDATA 'fs1demo_gate')
+	[string]$Out = (Join-Path $env:LOCALAPPDATA 'fs1demo_gate'),
+	[switch]$Headless	# every replay and demo run also with -headless (#101)
 )
 
 $repo = Split-Path $PSScriptRoot
+$hl = if ($Headless) { @('-Headless') } else { @() }
 foreach ($d in $Fs2Dir, $Fs1Dir, $DemoDir, $Fs1DemoDir) { if (-not $d -or -not (Test-Path $d)) { "FAIL missing folder '$d' (see the parameters)"; exit 1 } }
 if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
@@ -60,18 +62,18 @@ try {
 	if (-not (Build $Fs2Dir)) { exit 1 }
 	Copy-Item (Join-Path $Fs2Dir 'FS2vs2022r.exe'), (Join-Path $Fs2Dir 'FS2vs2022d.exe') $Fs1Dir
 	$env:FS2DEMO_TEST = $null	# the demo set runs in step 2, from its own build
-	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'retail') -Configs r,d -GameDir $Fs2Dir -Fs1Dir $Fs1Dir | Select-Object -Last 1
+	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'retail') -Configs r,d -GameDir $Fs2Dir -Fs1Dir $Fs1Dir @hl | Select-Object -Last 1
 	Get-Content (Join-Path $Out 'retail\summary.txt') | Where-Object { $_ -match '^FAIL' }
 
 	# 2. FS2 demo recordings
 	$env:PATH_FS1 = $DemoDir
 	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') -GameDir $DemoDir | Select-Object -Last 1
 	$names = (Get-ChildItem (Join-Path $repo 'recordings\demo\*.fs2rec') | ForEach-Object BaseName) -join ','
-	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'demo') -Missions $names -GameDir $Fs2Dir -DemoDir $DemoDir | Select-Object -Last 1
+	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'demo') -Missions $names -GameDir $Fs2Dir -DemoDir $DemoDir @hl | Select-Object -Last 1
 
 	# 3. FS1 demo missions
 	if (-not (Build $Fs1DemoDir)) { exit 1 }
-	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'fs1demo_run.ps1') -GameDir $Fs1DemoDir -Out (Join-Path $Out 'fs1demo')
+	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'fs1demo_run.ps1') -GameDir $Fs1DemoDir -Out (Join-Path $Out 'fs1demo') @hl
 } finally {
 	foreach ($d in $saved) { Copy-Item (Join-Path (Join-Path $bak ($d -replace '[:\\ ]', '_')) '*.exe') $d -Force -ErrorAction SilentlyContinue }
 	'exes put back'
