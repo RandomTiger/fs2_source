@@ -1,0 +1,7 @@
+; Engine configuration file. The Godot project of the FS2 port: code and project files only, no game data.
+config_version=5
+
+[application]
+config/name="FS2 Godot"
+run/main_scene="res://runner.tscn"
+config/features=PackedStringArray("4.7")
