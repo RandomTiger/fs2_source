@@ -54,12 +54,14 @@ function Verdict([string]$a, [string]$b) {
 
 # the replay log is written next to the recording; give back its verdict line
 function Replay-Result([string]$rec, [string]$dest) {
+	if (-not $gs.RecDir) { return Autotest-Result (Join-Path $run 'autotest.log') $dest }	# fs1demo rule
 	$log = "$rec.replay.log"
 	if (-not (Test-Path $log)) { return 'NO LOG' }
 	Copy-Item $log $dest
 	return (Select-String $dest -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line
 }
 
+$good = if ($gs.RecDir) { '^REPLAY OK' } else { '^AUTOTEST PASS' }
 Set-Location $run
 $pass = 0; $fail = 0
 foreach ($m in $Missions) {
@@ -67,7 +69,7 @@ foreach ($m in $Missions) {
 	$rtrace = if ($gs.RecDir) { Join-Path $gs.RecDir "$m.trace" } else { $null }
 	$ntrace = Join-Path $Out "${m}_native.trace"
 	$dtrace = Join-Path $Out "${m}_dll.trace"
-	Remove-Item $ntrace, $dtrace, "$rec.replay.log" -ErrorAction SilentlyContinue
+	Remove-Item $ntrace, $dtrace, "$rec.replay.log", (Join-Path $run 'autotest.log') -ErrorAction SilentlyContinue
 	$ok = $true
 	$line = $m
 	$flags = & $gs.Flags $m '%T'
@@ -77,20 +79,22 @@ foreach ($m in $Missions) {
 		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $ncode = 'TIMEOUT' } else { $ncode = $p.ExitCode }
 		$nres = Replay-Result $rec (Join-Path $Out "${m}_native.replay.log")
 		$line += " | native exit=$ncode $nres"
-		if (($ncode -ne 0) -or ($gs.RecDir -and ($nres -notmatch '^REPLAY OK'))) { $ok = $false }
+		if (($ncode -ne 0) -or ($nres -notmatch $good)) { $ok = $false }
 		Remove-Item "$rec.replay.log" -ErrorAction SilentlyContinue
 	}
+	Remove-Item (Join-Path $run 'autotest.log') -ErrorAction SilentlyContinue
 	Wait-NoGame
 	$p = Start-Process $runner -ArgumentList "`"$dll`" `"$run`" `"$($flags -replace '%T', $dtrace -replace '"', '\"')`"" -PassThru -NoNewWindow; $null = $p.Handle
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $dcode = 'TIMEOUT' } else { $dcode = $p.ExitCode }
 	$dres = Replay-Result $rec (Join-Path $Out "${m}_dll.replay.log")
 	$line += " | dll exit=$dcode $dres"
-	if (($dcode -ne 0) -or ($gs.RecDir -and ($dres -notmatch '^REPLAY OK'))) { $ok = $false }
-	if (-not $NoNative) {
+	if (($dcode -ne 0) -or ($dres -notmatch $good)) { $ok = $false }
+	if ($gs.RecDir -and -not $NoNative) {
 		$v = Verdict $ntrace $dtrace
 		$line += " / vs native: $v"
 		if ($v -notmatch '^MATCH') { $ok = $false }
 	}
+	if (-not $gs.RecDir) { $line += " [$Fs1DemoRule]" }
 	if ($rtrace) {
 		$v = Verdict $rtrace $dtrace
 		$line += " / vs recorded: $v"

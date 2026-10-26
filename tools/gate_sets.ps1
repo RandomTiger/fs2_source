@@ -38,3 +38,17 @@ function Install-GateBuild($s, [string]$Retail, [string]$Config) {
 		foreach ($f in "FS2vs2022${Config}64.exe", "FS2game64$Config.dll") { Copy-Item (Join-Path $Retail $f) $s.Dir -Force }
 	}
 }
+
+# fs1demo rule (steward D-20261026-203028): no recording and no trace baseline, so a run passes when exit is 0, autotest.log says
+# PASS, and it has Asserts 0, Int3 0, warnings 0 and no Assert/Int3/Error/Warning line. Applied to the native and the Godot/DLL run.
+$Fs1DemoRule = 'fs1demo rule D-20261026-203028: exit 0 + autotest.log PASS + 0 Assert/Int3/Error/warnings, no TraceDiff'
+function Autotest-Result([string]$logSrc, [string]$dest) {
+	if (-not (Test-Path $logSrc)) { return 'AUTOTEST NO LOG' }
+	Copy-Item $logSrc $dest -Force
+	$c = (Select-String $dest -Pattern 'Asserts (\d+), Int3 (\d+), warnings (\d+)' | Select-Object -Last 1)
+	$bad = @(Select-String $dest -Pattern '^\[[ \d.]+\] (Warning|Error|Assert|Int3)')
+	if (-not (Select-String $dest -Pattern '^\[[ \d.]+\] PASS' -Quiet)) { return 'AUTOTEST NOT PASS' }
+	if (-not $c -or $c.Matches[0].Groups[1].Value -ne '0' -or $c.Matches[0].Groups[2].Value -ne '0' -or $c.Matches[0].Groups[3].Value -ne '0') { return 'AUTOTEST PASS but counts not 0' }
+	if ($bad.Count) { return "AUTOTEST PASS but $($bad[0].Line.Trim())" }
+	return 'AUTOTEST PASS'
+}
