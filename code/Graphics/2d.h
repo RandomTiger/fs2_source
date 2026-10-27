@@ -598,6 +598,8 @@ typedef struct gr_host_backend {
 	void (*cleanup)();
 	void (*force_windowed)();
 	void (*activate)(int active);
+	void (*bitmap)(int x, int y);										// Claude: P7-3, gr_bitmap (all sections of gr_screen.current_bitmap)
+	void (*bitmap_ex)(int x, int y, int w, int h, int sx, int sy);	// Claude: P7-3, gr_bitmap_ex
 } gr_host_backend;
 extern void gr_host_backend_register(const gr_host_backend *backend);
 

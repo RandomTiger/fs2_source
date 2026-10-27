@@ -1078,6 +1078,9 @@ void gr_bitmap(int x, int y)
 	case GR_DIRECT3D:
 		gr_d3d_bitmap(x, y);
 		break;
+	case GR_HOST:		// Claude: P7-3
+		if ( Gr_host_backend && Gr_host_backend->bitmap ) Gr_host_backend->bitmap(x, y);
+		break;
 	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	}
 }
@@ -1092,6 +1095,9 @@ void gr_bitmap_ex(int x, int y, int w, int h, int sx, int sy)
 
 	case GR_DIRECT3D:
 		gr_d3d_bitmap_ex(x, y, w, h, sx, sy);
+		break;
+	case GR_HOST:		// Claude: P7-3
+		if ( Gr_host_backend && Gr_host_backend->bitmap_ex ) Gr_host_backend->bitmap_ex(x, y, w, h, sx, sy);
 		break;
 	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	}
