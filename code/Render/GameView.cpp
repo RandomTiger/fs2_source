@@ -20,6 +20,18 @@ static int Game_view_canvas_w;		// the canvas width the projection was set up wi
 
 extern int View_percent;	// FreeSpace.cpp
 
+static object *Game_view_object = NULL;	// Claude: P7
+
+object *game_view_object()	// Claude: P7
+{
+	return Game_view_object;
+}
+
+void game_view_object_clear()	// Claude: P7
+{
+	Game_view_object = NULL;
+}
+
 // The game view's canvas: the art resolution, not the display, cut down the way
 // game_set_view_clip (FreeSpace.cpp) cuts the 3D view, since g3_start_frame takes its
 // aspect from that clip region: the letterbox when the player is dead or the supernova
@@ -77,6 +89,7 @@ void game_view_set(vector *eye_pos, matrix *eye_orient, float zoom)
 	View_position = *eye_pos;
 	Eye_matrix = *eye_orient;
 	Eye_position = *eye_pos;
+	Game_view_object = Viewer_obj;	// Claude: P7
 
 	// Window_scale as g3_start_frame computes it, for a 4:3 canvas at the art resolution
 	int width, height;
