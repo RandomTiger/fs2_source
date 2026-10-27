@@ -1090,6 +1090,7 @@ void ai_level_init()
 	int i;
  
 	// Do the stuff to reset all ai stuff here
+	for (i=0; i<MAX_AI_INFO ; i++) memset(&Ai_info[i], 0, sizeof(ai_info));	// Claude: a game started again in the same process kept the last mission's goals/targets in slots a new process has zeroed (D-055)
 	for (i=0; i<MAX_AI_INFO ; i++) {
 		Ai_info[i].shipnum = -1;
 	}

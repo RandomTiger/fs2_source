@@ -305,6 +305,7 @@ void debris_init()
 	// Reset everything between levels
 	Num_debris_pieces = 0;
 	for (i=0; i<MAX_DEBRIS_PIECES; i++ )	{
+		memset(&Debris[i], 0, sizeof(debris));	// Claude: D-055
 		Debris[i].flags = 0;
 		Debris[i].sound_delay = 0;
 	}

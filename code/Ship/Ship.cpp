@@ -1742,7 +1742,9 @@ void ship_level_init()
 	// mwa removed 11/24/97  num_ships = 0;
 	Num_exited_ships = 0;
 	for (i=0; i<MAX_SHIPS; i++ )	{
+		memset(&Ships[i], 0, sizeof(ship));	// Claude: D-055
 		Ships[i].objnum = -1;
+		Ships[i].next_swarm_path = 0;	// Claude: never initialised: a new process has 0 here, a game started again in the same process had the last mission's count (D-055)
 	}
 
 	for ( i = 0; i < MAX_EXITED_SHIPS; i++ ) {
@@ -1751,8 +1753,10 @@ void ship_level_init()
 	}
 
 	num_wings = 0;
-	for (i = 0; i < MAX_WINGS; i++ )
+	for (i = 0; i < MAX_WINGS; i++ ) {
+		memset(&Wings[i], 0, sizeof(wing));	// Claude: D-055
 		Wings[i].num_waves = -1;
+	}
 
 	for (i=0; i<MAX_PLAYER_WINGS; i++)
 		Starting_wings[i] = -1;
