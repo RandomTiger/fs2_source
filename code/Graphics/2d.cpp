@@ -477,6 +477,14 @@ float Gr_gamma = 1.8f;
 int Gr_gamma_int = 180;
 int Gr_gamma_lookup[256];
 
+// Claude: P7, set by the host before gr_init(.., GR_HOST)
+static const gr_host_backend *Gr_host_backend = NULL;
+
+void gr_host_backend_register(const gr_host_backend *backend)
+{
+	Gr_host_backend = backend;
+}
+
 void gr_close()
 {
 	if ( !Gr_inited )	return;
@@ -493,6 +501,9 @@ void gr_close()
 	// Claude: DirectDraw case removed with the Glide, OpenGL and DirectDraw backends
 	case GR_DIRECT3D:		
 		gr_d3d_cleanup();
+		break;
+	case GR_HOST:		// Claude: P7
+		if ( Gr_host_backend && Gr_host_backend->cleanup ) Gr_host_backend->cleanup();
 		break;
 	// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 	default:
@@ -774,6 +785,9 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 		case GR_DIRECT3D:			
 			gr_d3d_cleanup();
 			break;
+		case GR_HOST:		// Claude: P7
+			if ( Gr_host_backend && Gr_host_backend->cleanup ) Gr_host_backend->cleanup();
+			break;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode
@@ -783,7 +797,7 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 	}
 
 #if defined(HARDWARE_ONLY)
-	if(!Fred_running && !Pofview_running && !Nebedit_running && !Is_standalone){
+	if(!Fred_running && !Pofview_running && !Nebedit_running && !Is_standalone && (mode != GR_HOST)){	// Claude: P7, a host backend is not forced to Direct3D
 		if((mode != GR_DIRECT3D) && (mode != GR_DUMMY)){	// Claude: Direct3D is the only hardware renderer left; was Glide.  The null renderer stays.
 			mprintf(("Forcing Direct3D startup!\n"));
 			mode = GR_DIRECT3D;
@@ -866,6 +880,12 @@ int gr_init(int res, int mode, int depth, int fred_x, int fred_y)
 			}
 
 			break;
+		case GR_HOST:		// Claude: P7
+			if ( !Gr_host_backend || !Gr_host_backend->init ) {
+				Error(LOCATION, "GR_HOST needs a backend registered with gr_host_backend_register before gr_init.");
+			}
+			Gr_host_backend->init();
+			break;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:
 			Int3();		// Invalid graphics mode
@@ -912,6 +932,9 @@ void gr_force_windowed()
 		case GR_DIRECT3D:
 		case GR_DUMMY:		// Claude: null renderer
 			break;
+		case GR_HOST:		// Claude: P7
+			if ( Gr_host_backend && Gr_host_backend->force_windowed ) Gr_host_backend->force_windowed();
+			break;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 
 		default:
@@ -944,6 +967,9 @@ void gr_activate(int active)
 			}
 			break;
 		case GR_DUMMY:		// Claude: null renderer
+			return;
+		case GR_HOST:		// Claude: P7
+			if ( Gr_host_backend && Gr_host_backend->activate ) Gr_host_backend->activate(active);
 			return;
 		// Claude: Glide and OpenGL cases removed with the Glide, OpenGL and DirectDraw backends
 		default:

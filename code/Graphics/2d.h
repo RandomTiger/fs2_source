@@ -589,6 +589,17 @@ extern int Gr_mmx;
 #define GR_GLIDE						(103)		// Use Glide hardware renderer
 #define GR_DUMMY						(105)		// Claude: null renderer, -nographics (GrDummy.cpp)
 #define GR_OPENGL						(104)		// Use OpenGl hardware renderer
+#define GR_HOST						(106)		// Claude: P7, a renderer supplied by the host program through gr_host_backend_register
+
+// Claude: P7, the host's backend (D-20261027-185301).  The host fills these before gr_init(.., GR_HOST); init fills in gr_screen's
+// gf_ table like gr_dummy_init does.  Any entry may be NULL except init.
+typedef struct gr_host_backend {
+	void (*init)();
+	void (*cleanup)();
+	void (*force_windowed)();
+	void (*activate)(int active);
+} gr_host_backend;
+extern void gr_host_backend_register(const gr_host_backend *backend);
 
 // resolution constants   - always keep resolutions in ascending order and starting from 0  
 #define GR_NUM_RESOLUTIONS			2
