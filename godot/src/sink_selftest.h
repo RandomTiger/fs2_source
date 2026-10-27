@@ -19,6 +19,11 @@ class Fs2SinkTest : public Node {
 	Fs2Screen *screen = nullptr;
 	int scene_index = -1;
 	int wait = 0;
+	int measure_left = 0;		// FS2_SELFTEST_MEASURE=1: frames still to sample for the GPU/CPU draw time of the scene on show
+	double gpu_sum = 0.0, cpu_sum = 0.0;
+	int samples = 0;
+	bool measure = false;
+	String suffix;
 	int failures = 0;
 	String out_dir;
 

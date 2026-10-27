@@ -35,6 +35,7 @@ public:
 	int get_frames_committed() const { return const_cast<fs2sink::GodotSink &>(sink).frames_committed(); }
 	// The frame on show, as an image (needs a rendered window; empty under --headless).
 	Ref<Image> get_image();
+	RID get_viewport_rid() const { return viewport ? viewport->get_viewport_rid() : RID(); }
 	bool save_png(const String &path);
 };
 
