@@ -2053,6 +2053,41 @@ int hud_squadmsg_reinforcements_available(int team)
 	return count;
 }
 
+// Claude: P7-6: the drawing of the menu, one helper per menu, so a later step can call it apart from the menu's logic.
+// The mode functions below call them where they drew inline before; nothing moves.
+static void hud_squadmsg_top_show()
+{
+	if ( Mbox_gauge[0].first_frame >= 0 ) {
+		GR_AABITMAP(Mbox_gauge[0].first_frame, Mbox_top_coords[gr_screen.res][0], Mbox_top_coords[gr_screen.res][1]);
+	}
+}
+
+static void hud_squadmsg_type_select_show()
+{
+	hud_squadmsg_display_menu( XSTR( "Message What", 316) );
+}
+
+static void hud_squadmsg_ship_select_show()
+{
+	hud_squadmsg_display_menu( XSTR( "Select Ship", 317) );
+}
+
+static void hud_squadmsg_wing_select_show()
+{
+	hud_squadmsg_display_menu( XSTR( "Select Wing", 318) );
+}
+
+static void hud_squadmsg_reinforcement_select_show()
+{
+	hud_squadmsg_display_menu( XSTR( "Select Ship/Wing", 319) );	// AL 11-14-97: Reinforcement didn't fit, so using this for now
+}
+
+// the ship command and the wing command menus
+static void hud_squadmsg_command_show()
+{
+	hud_squadmsg_display_menu( XSTR( "What Command", 321) );
+}
+
 // function to put up window in upper right to allow for player to select the type
 // of entity to select for a message (i.e. a wing or a ship)
 void hud_squadmsg_type_select( )
@@ -2144,7 +2179,7 @@ void hud_squadmsg_type_select( )
 	}
 
 do_main_menu:
-	hud_squadmsg_display_menu( XSTR( "Message What", 316) );
+	hud_squadmsg_type_select_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {							// when k != -1, we have a key that associates with menu item
 		Assert ( k < Num_menu_items );
@@ -2179,7 +2214,7 @@ void hud_squadmsg_ship_select()
 		hud_squadmsg_count_ships( 1 );
 	}
 
-	hud_squadmsg_display_menu( XSTR( "Select Ship", 317) );
+	hud_squadmsg_ship_select_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {						// if true, we have selected a ship.
 		if ( Msg_shortcut_command == -1 ) {
@@ -2206,7 +2241,7 @@ void hud_squadmsg_wing_select()
 		hud_squadmsg_count_wings( 1 );
 	}
 
-	hud_squadmsg_display_menu( XSTR( "Select Wing", 318) );
+	hud_squadmsg_wing_select_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {						// if true, we have selected a ship.
 		if ( Msg_shortcut_command == -1 ) {									// do normal menu stuff when no hoykey active
@@ -2342,7 +2377,7 @@ void hud_squadmsg_reinforcement_select()
 	}
 
 //	hud_squadmsg_display_menu( "Select Reinforcement" );
-	hud_squadmsg_display_menu( XSTR( "Select Ship/Wing", 319) );	// AL 11-14-97: Reinforcement didn't fit, so using this for now
+	hud_squadmsg_reinforcement_select_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 	if (k != -1) {
 		int rnum;
@@ -2449,7 +2484,7 @@ void hud_squadmsg_ship_command()
 		}
 	}
 
-	hud_squadmsg_display_menu( XSTR( "What Command", 321) );
+	hud_squadmsg_command_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 
 	// when we get a valid goal, we must add the goal to the ai ship's goal list
@@ -2510,7 +2545,7 @@ void hud_squadmsg_wing_command()
 		}
 	}
 
-	hud_squadmsg_display_menu( XSTR( "What Command", 321) );
+	hud_squadmsg_command_show();	// Claude: P7-6
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {
 
@@ -2768,9 +2803,7 @@ int hud_squadmsg_do_frame( )
 	}
 
 	// draw top of frame
-	if ( Mbox_gauge[0].first_frame >= 0 ) {
-		GR_AABITMAP(Mbox_gauge[0].first_frame, Mbox_top_coords[gr_screen.res][0], Mbox_top_coords[gr_screen.res][1]);		
-	}
+	hud_squadmsg_top_show();	// Claude: P7-6
 
 	switch( Squad_msg_mode ) {
 
