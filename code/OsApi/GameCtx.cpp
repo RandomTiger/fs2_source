@@ -21,7 +21,11 @@ static void *Ctx_arg = NULL;
 
 static VOID CALLBACK game_ctx_entry(PVOID)
 {
+#ifdef _WIN64
+	_control87(Ctx_fpu, _MCW_DN | _MCW_EM | _MCW_RC);	// x64: the infinity and precision controls do not exist
+#else
 	_control87(Ctx_fpu, _MCW_DN | _MCW_EM | _MCW_IC | _MCW_RC | _MCW_PC);
+#endif
 	Ctx_proc(Ctx_arg);
 	// a fiber procedure that returns ends the thread, so switch back for good
 	Ctx_done = 1;
