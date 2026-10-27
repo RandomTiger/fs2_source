@@ -64,6 +64,21 @@
 // cargo in an EMP storm), so the AI does not fly it even with -playernpc.
 #define AUTOTEST_STILL_NOTE			"autotest: player stays still"
 
+// A test mission whose notes contain this has the squadmate messaging menu worked by key presses at fixed
+// mission times (P7-6/P7-7 feature test): open it, pick a wing and an order, open it and cancel, open it
+// and let it time out. The presses are recorded with the recording and replayed from it, not made again.
+#define AUTOTEST_SQUAD_MENU_NOTE	"autotest: squad menu"
+struct autotest_squad_key { float time; int key; };
+static autotest_squad_key Autotest_squad_keys[] = {
+	{ 10.0f, KEY_C }, { 11.5f, KEY_2 }, { 13.0f, KEY_1 }, { 14.5f, KEY_7 },	// open, Wings, first wing, an order
+	{ 20.0f, KEY_C }, { 21.5f, KEY_ESC },										// open, cancel
+	{ 26.0f, KEY_C },															// open, left to time out
+	{ 50.0f, KEY_C }, { 51.5f, KEY_3 }, { 53.0f, KEY_1 },						// open, All fighters, an order
+};
+#define AUTOTEST_SQUAD_KEYS	(sizeof(Autotest_squad_keys) / sizeof(Autotest_squad_keys[0]))
+static int Autotest_squad_menu = 0;		// the mission has AUTOTEST_SQUAD_MENU_NOTE
+static int Autotest_squad_next = 0;		// the next key to press
+
 
 int Autotest_harness = 0;
 int Autotest_rules = 0;
@@ -1357,6 +1372,8 @@ void autotest_frame()
 	if (!Autotest_in_mission) {
 		Autotest_mission_vulnerability = (strstr(The_mission.notes, AUTOTEST_VULNERABILITY_NOTE) != NULL);
 		Autotest_player_npc = Autotest_player_npc_asked && (strstr(The_mission.notes, AUTOTEST_STILL_NOTE) == NULL);
+		Autotest_squad_menu = (strstr(The_mission.notes, AUTOTEST_SQUAD_MENU_NOTE) != NULL);
+		Autotest_squad_next = 0;
 		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
 			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
 		}
@@ -1387,6 +1404,14 @@ void autotest_frame()
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));
 		gameseq_post_event(GS_EVENT_END_GAME);
+	}
+
+	// the squad menu test: press the next key when its mission time comes (a replay gets the presses from the recording)
+	if (Autotest_squad_menu && (Replay_mode != REPLAY_PLAY) && (Autotest_squad_next < (int)AUTOTEST_SQUAD_KEYS)
+		&& (f2fl(Missiontime - Autotest_mission_start) >= Autotest_squad_keys[Autotest_squad_next].time)) {
+		autotest_press(Autotest_squad_keys[Autotest_squad_next].key);
+		autotest_logf("Squad menu test: key %d pressed at mission time %.2f\n", Autotest_squad_keys[Autotest_squad_next].key, f2fl(Missiontime));
+		Autotest_squad_next++;
 	}
 
 	autotest_log_events();
