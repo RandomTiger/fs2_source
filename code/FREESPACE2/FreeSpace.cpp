@@ -2015,6 +2015,20 @@ void game_init()
 	game_time_init();	// Claude: D-055
 	rand_alt_init();	// Claude: the alternate random stream starts where a new process starts it (D-055)
 	Rand_count = 0;		// Claude: the trace counts rand calls from process start; a restarted game counts from 0 again (D-055)
+	{	// Claude: the viewer's eye starts at zero as in a new process; the trace writes it before the first mission frame sets it (D-055)
+		extern vector Eye_position;
+		extern matrix Eye_matrix;
+		memset(&Eye_position, 0, sizeof(Eye_position));
+		memset(&Eye_matrix, 0, sizeof(Eye_matrix));
+	}
+	{	// Claude: the AI's frame count gates which frames each ship thinks on (AI_FrameCount ^ objnum) & 7, and was never reset: a restarted game began on the first game's phase (D-055)
+		extern int AI_FrameCount, Last_ai_obj, Chaos_frame;
+		extern float Leader_chaos;
+		AI_FrameCount = 0;
+		Last_ai_obj = -1;
+		Chaos_frame = -1;
+		Leader_chaos = 0.0f;
+	}
 
 	Game_current_mission_filename[0] = 0;
 

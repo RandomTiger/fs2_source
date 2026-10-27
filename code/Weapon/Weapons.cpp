@@ -1493,6 +1493,7 @@ void weapon_level_init()
 	// Reset everything between levels
 	Num_weapons = 0;
 	for (i=0; i<MAX_WEAPONS; i++)	{
+		memset(&Weapons[i], 0, sizeof(weapon));	// Claude: D-055
 		Weapons[i].objnum = -1;
 		Weapons[i].weapon_info_index = -1;
 	}

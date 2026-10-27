@@ -526,6 +526,7 @@ void fireball_init()
 	// Reset everything between levels
 	Num_fireballs = 0;
 	for (i=0; i<MAX_FIREBALLS; i++ )	{
+		memset(&Fireballs[i], 0, sizeof(fireball));	// Claude: D-055
 		Fireballs[i].objnum	= -1;
 	}
 

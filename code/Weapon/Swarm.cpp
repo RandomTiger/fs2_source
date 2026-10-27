@@ -164,6 +164,7 @@ void swarm_level_init()
 
 	for ( i = 0; i < MAX_SWARM_MISSILES; i++ ) {
 		swarmp = &Swarm_missiles[i];
+		memset(swarmp, 0, sizeof(swarm_info));	// Claude: D-055
 		swarmp->flags = 0;
 		swarmp->change_timestamp = 1;
 		swarmp->path_num = -1;
