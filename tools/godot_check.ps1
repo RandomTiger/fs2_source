@@ -18,9 +18,14 @@ param(
 	[string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe',
 	[switch]$Quick,
 	[switch]$NoNative,
-	[string]$Fiber	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
+	[string]$Fiber,	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
+	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see fs2_tools\l1_lib.ps1
+	[int]$Seed,	# L1: seed of the 3 random missions (logged; same seed, same picks)
+	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
+	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
+if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { 'C:\Users\Claude\fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')
@@ -124,7 +129,7 @@ $launch = {
     Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_CMD2, Env:FS2_FIBER -ErrorAction SilentlyContinue
     return $code
 }
-foreach ($kind in 'restart', 'fatal') {
+foreach ($kind in $(if ($NoHostChecks) { @() } else { 'restart', 'fatal' })) {
     $r = Test-HostRestart $gs $run $Out $td $launch $kind 'godot'
     $r | Add-Content $summary; $r
     if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
