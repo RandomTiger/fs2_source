@@ -1280,11 +1280,16 @@ static void barracks_draw_pilot_pic_row(int x, int y, int w, float sx, float sy,
 	vertex *vertlist[4] = { &v[0], &v[1], &v[2], &v[3] };
 	int saved_zbuffer_mode, i;
 
+	if ( (gr_screen.mode == GR_HOST) && Gr_bitmap_poly ) {	// Claude: P7-4, a host backend that draws textured polys takes the poly path below
+		goto barracks_row_as_poly;
+	}
+
 	if ( !((gr_screen.mode == GR_DIRECT3D) || (gr_screen.mode == GR_GLIDE)) || !Gr_bitmap_poly ) {
 		gr_bitmap_ex(x, y, w, 1, fl2i(sx), fl2i(sy));	// Claude: unscaled; no software path scales
 		return;
 	}
 
+barracks_row_as_poly:	// Claude: P7-4
 	memset(v, 0, sizeof(v));
 	for (i = 0; i < 4; i++) {
 		v[i].sx = i2fl(((i == 1) || (i == 2)) ? (x + w) : x);

@@ -600,8 +600,10 @@ typedef struct gr_host_backend {
 	void (*activate)(int active);
 	void (*bitmap)(int x, int y);										// Claude: P7-3, gr_bitmap (all sections of gr_screen.current_bitmap)
 	void (*bitmap_ex)(int x, int y, int w, int h, int sx, int sy);	// Claude: P7-3, gr_bitmap_ex
+	int no_device;													// Claude: P7-4, nonzero when the host draws nothing (headless); then it counts as the null renderer does for Autotest's "no device" test
 } gr_host_backend;
 extern void gr_host_backend_register(const gr_host_backend *backend);
+extern int gr_host_no_device();		// Claude: P7-4, 1 when gr_screen.mode is GR_HOST and the registered backend says it has no device
 
 // resolution constants   - always keep resolutions in ascending order and starting from 0  
 #define GR_NUM_RESOLUTIONS			2

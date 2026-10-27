@@ -1378,6 +1378,9 @@ void autotest_frame()
 		if (gr_screen.mode == GR_DUMMY) {
 			autotest_logf("No graphics device: the null renderer (-nographics)\n");	// Claude: so the log shows the run was headless
 		}
+		if (gr_host_no_device()) {	// Claude: P7-4, a headless host backend is on the same side as the null renderer
+			autotest_logf("No graphics device: the host backend runs headless\n");
+		}
 		autotest_logf("Mission '%s': in gameplay%s%s\n", Game_current_mission_filename, Autotest_mission_vulnerability ? ", the mission controls the player's vulnerability" : "",
 			Autotest_player_npc ? ", the AI flies the player" : (Autotest_player_npc_asked ? ", the player stays still (mission notes)" : ""));
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
