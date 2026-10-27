@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include "fake_sink.h"
+#include "selftest_scenes.h"
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { std::printf("FAIL line %d: %s\n", __LINE__, #cond); failures++; } } while (0)
@@ -49,8 +50,26 @@ static void test_frame_rules()
 	CHECK(fake.errors.size() == 2);
 }
 
+// every self-test scene runs against the fake: rules kept, something drawn, probes inside the screen
+static void test_scenes()
+{
+	for (int i = 0; i < fs2sink::all_scenes_count; i++) {
+		const fs2sink::Scene &sc = *fs2sink::all_scenes[i];
+		fs2sink::FakeSink fake;
+		sc.run(fake.sink());
+		if (!fake.errors.empty()) { std::printf("scene %s: %s\n", sc.name, fake.errors[0].c_str()); }
+		CHECK(fake.errors.empty());
+		CHECK(fake.frames_begun == 1 && fake.frames_ended == 1);
+		CHECK(fake.triangles() > 0);
+		for (int p = 0; p < sc.nprobes; p++) {
+			CHECK(sc.probes[p].x >= 0 && sc.probes[p].x < sc.w && sc.probes[p].y >= 0 && sc.probes[p].y < sc.h);
+		}
+	}
+}
+
 int main()
 {
+	test_scenes();
 	test_frame_rules();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);

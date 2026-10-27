@@ -4,6 +4,8 @@
 #include <godot_cpp/godot.hpp>
 
 #include "fs2_node.h"
+#include "fs2_screen.h"
+#include "sink_selftest.h"
 
 using namespace godot;
 
@@ -11,6 +13,8 @@ static void fs2_initialize(ModuleInitializationLevel level)
 {
 	if (level == MODULE_INITIALIZATION_LEVEL_SCENE) {
 		GDREGISTER_CLASS(Fs2Game);
+		GDREGISTER_CLASS(Fs2Screen);
+		GDREGISTER_CLASS(Fs2SinkTest);
 	}
 }
 
