@@ -196,7 +196,11 @@ extern void hud_squadmsg_toggle();						// toggles the state of messaging mode
 extern void hud_squadmsg_shortcut( int command );	// use of a shortcut key
 extern int hud_squadmsg_hotkey_select( int k );	// a hotkey was hit -- maybe send a message to those ship(s)
 extern void hud_squadmsg_save_keys( int do_scroll = 0 );					// saves into local area keys which need to be saved/restored when in messaging mode
-extern int hud_squadmsg_do_frame();
+extern void hud_squadmsg_update();		// Claude: P7-7: the menu's logic for the frame, from HUD_update_2d
+extern void hud_squadmsg_show();			// Claude: P7-7: draw the menu, from HUD_render_2d
+extern void hud_squadmsg_frame_clear();	// Claude: P7-7
+extern int hud_squadmsg_frame_ran();		// Claude: P7-7: the update ran this frame
+extern int hud_squadmsg_frame_used();		// Claude: P7-7: and a key or a target change used it
 extern int hud_query_order_issued(char *name, char *order, char *target);
 extern int hud_squadmsg_read_key( int k );			// called from high level keyboard code
 
