@@ -13,6 +13,14 @@ extends Node
 var game
 var cmds: Array = []
 var expect_fatal := false
+# smoke test (G3): FS2_SMOKE=1 in a windowed Godot run prints, once a second, how long Godot's own frames take while the game runs,
+# and every window event it gets, so the log shows the window keeps processing events during a mission
+var smoke := false
+var smoke_label: Label
+var smoke_last := 0
+var smoke_max_gap := 0
+var smoke_calls := 0
+var smoke_second := 0
 
 func _ready() -> void:
 	var dll := OS.get_environment("FS2_DLL")
@@ -30,6 +38,14 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	add_child(game)
+	smoke = OS.get_environment("FS2_SMOKE") == "1"
+	if smoke:
+		smoke_label = Label.new()
+		smoke_label.position = Vector2(20, 20)
+		add_child(smoke_label)
+		get_window().size_changed.connect(func(): print("smoke: window size_changed ", get_window().size, " at ", Time.get_ticks_msec(), " ms"))
+		get_window().focus_entered.connect(func(): print("smoke: window focus_entered at ", Time.get_ticks_msec(), " ms"))
+		get_window().focus_exited.connect(func(): print("smoke: window focus_exited at ", Time.get_ticks_msec(), " ms"))
 	game.finished.connect(_on_finished)
 	game.fatal.connect(_on_fatal)
 	expect_fatal = OS.get_environment("FS2_FATAL_RETURN") == "1"
@@ -76,3 +92,21 @@ func _on_finished(code: int) -> void:
 func _restart() -> void:
 	if not game.start(OS.get_environment("FS2_DLL"), OS.get_environment("FS2_ROOT"), cmds[0]):
 		get_tree().quit(1)
+
+func _process(_delta: float) -> void:
+	if not smoke:
+		return
+	var now := Time.get_ticks_msec()
+	if smoke_last != 0:
+		smoke_max_gap = max(smoke_max_gap, now - smoke_last)
+	smoke_last = now
+	smoke_calls += 1
+	smoke_label.text = "FS2 smoke: game frames %d, Godot frames %d" % [game.get_frame_count(), smoke_calls]
+	if now / 1000 != smoke_second:
+		smoke_second = now / 1000
+		print("smoke: t=", now, " ms, godot frames=", smoke_calls, ", game resumes=", game.get_frame_count(), ", max gap between Godot frames=", smoke_max_gap, " ms")
+		smoke_max_gap = 0
+
+func _input(event: InputEvent) -> void:
+	if smoke and (event is InputEventMouseMotion or event is InputEventKey or event is InputEventMouseButton):
+		print("smoke: input event ", event.as_text(), " at ", Time.get_ticks_msec(), " ms")
