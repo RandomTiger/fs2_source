@@ -3,6 +3,7 @@
 #include <cstdlib>
 
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -24,7 +25,17 @@ void Fs2SinkTest::start_scene()
 	const fs2sink::Scene &sc = *fs2sink::all_scenes[scene_index];
 	screen = memnew(Fs2Screen);
 	add_child(screen);
+	if (OS::get_singleton()->get_environment("FS2_SELFTEST_PERSP") == "subdivide") {
+		screen->sink_core().set_perspective_mode(fs2sink::PERSPECTIVE_SUBDIVIDE);
+	}
+	const long tris0 = screen->sink_core().batch_stats().triangles_in;
+	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
 	sc.run(screen->get_sink());
+	const uint64_t us = Time::get_singleton()->get_ticks_usec() - t0;
+	const long tris = screen->sink_core().batch_stats().triangles_in - tris0;
+	if (tris > 0) {
+		UtilityFunctions::print("selftest ", sc.name, ": ", (int64_t)tris, " triangles in ", (int64_t)us, " us on the CPU = ", (double)us * 1000.0 / (double)tris, " ns per triangle");
+	}
 	wait = 3;	// let the viewport render the committed frame
 }
 

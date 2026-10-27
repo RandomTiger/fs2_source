@@ -7,16 +7,18 @@
 #ifndef FS2_RENDER_SINK_GODOT_H
 #define FS2_RENDER_SINK_GODOT_H
 
+#include <map>
 #include <vector>
 
 #include <godot_cpp/classes/sub_viewport.hpp>
 #include <godot_cpp/variant/rid.hpp>
 
+#include "batcher.h"
 #include "render_sink.h"
 
 namespace fs2sink {
 
-class GodotSink {
+class GodotSink : public BatchEmitter {
 public:
 	GodotSink() {}
 	~GodotSink() { shutdown(); }
@@ -31,6 +33,12 @@ public:
 	void set_frames_left(int n) { frames_left = n < 1 ? 1 : n; }
 
 	int frames_committed() const { return committed; }
+
+	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
+	void set_perspective_mode(PerspectiveMode m) { batcher.set_perspective_mode(m); }
+	const BatcherStats &batch_stats() const { return batcher.stats(); }
+
+	void emit(const Batch &b) override;
 
 private:
 	fs2_render_sink sink = {};
@@ -47,6 +55,29 @@ private:
 	godot::RID shown_root;
 	std::vector<godot::RID> shown_items;
 	std::vector<godot::RID> spare_items;	// recycled canvas items
+
+	// textures: the host's ids to RenderingServer textures. A freed texture lives two more frame_ends, because items
+	// of the frame on show may still draw it.
+	struct Tex {
+		godot::RID rid;
+		int w = 0, h = 0, format = 0;
+		uint32_t flags = 0;
+	};
+	struct Dying {
+		godot::RID rid;
+		int age = 0;
+	};
+	std::map<int32_t, Tex> textures;
+	std::vector<Dying> dying;
+	godot::RID shaders[12], materials[12];	// by blend + 3 * (a8 + 2 * perspective)
+	std::vector<godot::RID> pending_meshes, shown_meshes, spare_meshes;
+	TriBatcher batcher;
+
+	godot::RID material_for(int blend, bool a8, bool persp);
+	godot::RID mesh_for_batch(const Batch &b);
+	void release_meshes(std::vector<godot::RID> &meshes);
+	void age_dying(bool force_all);
+	void retire(const godot::RID &r);
 
 	godot::RID parent;			// where new items go: pending_root, or the clip item
 	int clip[4] = { 0, 0, 0, 0 };
