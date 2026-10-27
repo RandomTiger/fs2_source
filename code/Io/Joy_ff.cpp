@@ -129,7 +129,7 @@ int joy_ff_init()
 	Joy_ff_enabled = 0;		// Assume no force feedback
 	ff_enabled = os_config_read_uint(NULL, "EnableJoystickFF", 0);
 
-	if (ff_enabled) {
+	if (ff_enabled && os_get_window()) {	// Claude: no window handle under -headless, so no force feedback (P3)
 		HRESULT hr;
 		TCHAR g_szOutput[256];
 		TCHAR szCodeString[256];

@@ -443,6 +443,7 @@
 #include "GrSoft.h"
 #include "mouse.h"	// Claude: gr_flip_frame
 #include "Replay.h"	// Claude: gr_flip_frame
+#include "GameCtx.h"	// Claude: P6
 #include "GrD3D.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 
@@ -1256,4 +1257,5 @@ void gr_flip_frame()
 		}
 	}
 	(*gr_screen.gf_flip)();
+	game_ctx_flip_yield();	// Claude: P6, the game's yield to a host that runs it as a coroutine; nothing when it is not
 }
