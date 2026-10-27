@@ -1604,6 +1604,18 @@ void replay_mission_over()
 	}
 }
 
+// Claude: P1. The host got a fatal Error() handed back and is walking the game out: a replay cannot follow that (it wants the next
+// recorded input), so it ends here, not as REPLAY OK and not as a desync. Recording is left to replay_mission_over.
+void replay_abandon()
+{
+	if ((Replay_mode != REPLAY_PLAY) || Replay_done) {
+		return;
+	}
+	replay_logf("REPLAY ABANDONED at frame %d: the host ended the game after a fatal error\n", Replay_frame);
+	Replay_done = 1;
+	Replay_active = 0;
+}
+
 void replay_shutdown()
 {
 	if (Replay_mode == REPLAY_OFF) {
