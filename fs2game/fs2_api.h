@@ -37,7 +37,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 2
+#define FS2_API_VERSION 3
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -69,6 +69,14 @@ FS2_API void fs2_set_fatal_return(int on);
 
 // The text of the last Error() that fs2_set_fatal_return handed back ("" if none). Valid until the next one.
 FS2_API const char *fs2_last_error(void);
+
+// G3: run the game as a coroutine on a fiber (P6, GameCtx). mode 0 = off (the default), 1 = on, 2 = stress (also yields at
+// every os_poll). Call before fs2_init. With it on, fs2_init only prepares the game; init, every frame and the shutdown
+// run on the fiber, and each fs2_frame resumes the game until its next yield (gr_flip, or after several os_polls with
+// no flip), so one call is one host frame, not one game frame. fs2_frame returns 1 while the game runs, 0 when it has
+// ended, -1 on a fatal Error() handed back or when game init failed (fs2_last_error has the text). fs2_shutdown then
+// frees the fiber and returns the game's exit code.
+FS2_API void fs2_set_fiber(int mode);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

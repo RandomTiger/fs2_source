@@ -19,6 +19,7 @@ class Fs2Game : public Node {
 	int frames_per_process = 8;
 	int frame_count = 0;
 	bool fatal_return = false;
+	int fiber_mode = 0;
 
 protected:
 	static void _bind_methods();
@@ -36,6 +37,11 @@ public:
 	// P1: hand a fatal Error() back as the "fatal" signal instead of ending the process (fs2_set_fatal_return)
 	void set_fatal_return(bool on) { fatal_return = on; api.module ? api.set_fatal_return(on ? 1 : 0) : (void)0; }
 	bool get_fatal_return() const { return fatal_return; }
+
+	// G3: 0 = the game runs on this node's stack (as in G2), 1 = on a fiber resumed once per step() call frame, 2 = fiber
+	// that also yields at every os_poll (stress). Set before start().
+	void set_fiber_mode(int m) { fiber_mode = m < 0 ? 0 : (m > 2 ? 2 : m); }
+	int get_fiber_mode() const { return fiber_mode; }
 
 	void _process(double delta) override;
 };

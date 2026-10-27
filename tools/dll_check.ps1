@@ -4,7 +4,7 @@ exe's trace of the same configuration (P5, D-20261022-143922 iii). Both run head
 renderer, no sound device). A recording passes when the native run and the DLL run both exit 0, both replay logs say
 REPLAY OK, and TraceDiff exits 0 comparing the two traces. TraceDiff also compares the DLL trace with the recorded one.
 
-Usage: tools\dll_check.ps1 [-Config r|d] [-Out <dir>] [-Missions a,b,...] [-Set autotest|fs1|demo|fs1demo] [-GameDir <dir>] [-NoNative]
+Usage: tools\dll_check.ps1 [-Config r|d] [-Out <dir>] [-Missions a,b,...] [-Set autotest|fs1|demo|fs1demo] [-GameDir <dir>] [-NoNative] [-Fiber 1|stress]
 
 -Config   r (Release, the default) or d (Debug): selects FS2vs2022<c>64.exe and FS2game64<c>.dll in the game dir.
 -Set      the folder under recordings\ (default autotest).
@@ -18,9 +18,11 @@ param(
 	[string[]]$Missions,
 	[string]$Set = 'autotest',
 	[string]$GameDir = $env:PATH_FS2,
-	[switch]$NoNative
+	[switch]$NoNative,
+	[string]$Fiber	# '1' or 'stress': the game runs on a fiber in the DLL run (G3); the native baseline never does
 )
 $repo = Split-Path $PSScriptRoot
+Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')
 $gs = Get-GateSet $Set $repo $GameDir
@@ -84,8 +86,10 @@ foreach ($m in $Missions) {
 	}
 	Remove-Item (Join-Path $run 'autotest.log') -ErrorAction SilentlyContinue
 	Wait-NoGame
+	if ($Fiber) { $env:FS2_FIBER = $Fiber }
 	$p = Start-Process $runner -ArgumentList "`"$dll`" `"$run`" `"$($flags -replace '%T', $dtrace -replace '"', '\"')`"" -PassThru -NoNewWindow; $null = $p.Handle
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $dcode = 'TIMEOUT' } else { $dcode = $p.ExitCode }
+	Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue
 	$dres = Replay-Result $rec (Join-Path $Out "${m}_dll.replay.log")
 	$line += " | dll exit=$dcode $dres"
 	if (($dcode -ne 0) -or ($dres -notmatch $good)) { $ok = $false }
@@ -111,8 +115,11 @@ $launch = {
     param($c1, $c2, $pre)
     $a = "`"$dll`" `"$run`" `"$($c1 -replace '"', '\"')`" `"$($c2 -replace '"', '\"')`""
     Wait-NoGame
+    if ($Fiber) { $env:FS2_FIBER = $Fiber }
     $p = Start-Process $runner -ArgumentList $a -PassThru -NoNewWindow -RedirectStandardOutput "$pre.out.txt" -RedirectStandardError "$pre.err.txt"; $null = $p.Handle
-    if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; return 'TIMEOUT' }
+    $done = $p.WaitForExit(1800000)
+    Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue
+    if (-not $done) { Stop-Process $p -Force; return 'TIMEOUT' }
     return $p.ExitCode
 }
 foreach ($kind in 'restart', 'fatal') {

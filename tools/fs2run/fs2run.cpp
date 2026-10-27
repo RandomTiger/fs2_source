@@ -41,6 +41,11 @@ int main(int argc, char **argv)
 		fprintf(stderr, "fs2run: cannot load %s (error %lu)\n", argv[1], GetLastError());
 		return 2;
 	}
+	// G3: FS2_FIBER=1 runs the game on a fiber (resumed once per fs2_frame), FS2_FIBER=stress yields at every os_poll too
+	const char *fb = getenv("FS2_FIBER");
+	if ( fb && *fb && (fb[0] != '0') ) {
+		api.set_fiber((_stricmp(fb, "stress") == 0) ? 2 : 1);
+	}
 	// P1 test: FS2_FATAL_RETURN=1 hands a fatal Error() of the first run back to this program (force one with
 	// FS2_FORCE_ERROR_FRAME=<n>); the process lives on and the second command line runs. Exit 0 only if the first run ended
 	// that way and the second passed.

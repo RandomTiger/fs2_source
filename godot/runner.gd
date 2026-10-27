@@ -6,6 +6,7 @@
 #   FS2_CMD2  optional: a second run in the same process after the first passed (the restart check)
 #   FS2_FATAL_RETURN  optional, 1: the first run must end in a fatal Error() handed back to Godot (P1; force one with
 #                     FS2_FORCE_ERROR_FRAME=<n>); the process stays up and FS2_CMD2 then runs. Needs FS2_CMD2.
+#   FS2_FIBER  optional: 1 runs the game on a fiber (G3), stress also yields at every os_poll
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
 extends Node
 
@@ -38,6 +39,11 @@ func _ready() -> void:
 			get_tree().quit(2)
 			return
 		game.fatal_return = true
+	var fib := OS.get_environment("FS2_FIBER").to_lower()
+	if fib == "stress":
+		game.fiber_mode = 2
+	elif fib != "" and fib != "0":
+		game.fiber_mode = 1
 	if OS.get_environment("FS2_FRAMES") != "":
 		game.frames_per_process = int(OS.get_environment("FS2_FRAMES"))
 	print("runner: Godot ", Engine.get_version_info().string)

@@ -15,6 +15,7 @@
 #include "FreeSpace.h"
 #include "Replay.h"
 #include "GameSequence.h"
+#include "GameCtx.h"
 #include "fs2_api.h"
 
 static host_hooks Api_hooks;
@@ -26,6 +27,31 @@ static int Api_fatal_armed = 0;
 static int Api_fatal_hit = 0;	// an Error() was handed back: the game may be mid-mission
 static jmp_buf Api_fatal_jmp;
 static char Api_error_text[1024] = "";
+
+// G3: the game as a coroutine (GameCtx, P6). Init, the frame loop and the shutdown run on the fiber.
+static int Api_fiber_mode = 0;		// fs2_set_fiber: 0 off, 1 on, 2 stress
+static int Api_fiber_on = 0;		// a fiber exists for the current run
+static int Api_fiber_init_ok = 0;
+static int Api_fiber_ended = 0;		// game_ctx_resume reported the fiber's procedure has returned
+static int Api_fiber_code = 1;		// game_host_shutdown's result, when the fiber ran it
+static char Api_fiber_cmd[4096], Api_fiber_root[1024];
+
+static void api_fiber_proc(void *)
+{
+	// an Error() handed back by api_fatal longjmps here, on the fiber's own stack; the fiber then parks for good
+	if ( Api_fatal_return && setjmp(Api_fatal_jmp) ) {
+		for (;;) {
+			game_ctx_yield();
+		}
+	}
+	Api_fiber_init_ok = game_host_init(Api_fiber_cmd, Api_fiber_root);
+	if ( !Api_fiber_init_ok ) {
+		return;
+	}
+	while ( game_host_frame() ) {
+	}
+	Api_fiber_code = game_host_shutdown();
+}
 
 // the host_fatal callback (P1): an Error() while a call into the game is armed leaves for the caller, never back into the
 // game. Anything else, or an Error() outside such a call, returns 0 and the built-in behaviour (process exit) follows.
@@ -120,6 +146,24 @@ int fs2_init(const char *cmdline, const char *root_dir)
 		return 0;
 	}
 
+	if ( Api_fiber_mode ) {
+		// G3: the game runs on a fiber from the first fs2_frame on; init happens there
+		memcpy(Api_fiber_cmd, cmd, sizeof(cmd) < sizeof(Api_fiber_cmd) ? sizeof(cmd) : sizeof(Api_fiber_cmd));
+		memcpy(Api_fiber_root, root, sizeof(root));
+		Api_fiber_init_ok = 0;
+		Api_fiber_ended = 0;
+		Api_fiber_code = 1;
+		Api_fatal_hit = 0;
+		host_fatal_set(Api_fatal_return ? api_fatal : NULL);
+		Api_fatal_armed = 0;
+		if ( !game_ctx_start(api_fiber_proc, NULL, 1024 * 1024, (Api_fiber_mode == 2)) ) {
+			return 0;
+		}
+		Api_fiber_on = 1;
+		Api_running = 1;
+		return 1;
+	}
+
 	// P1: with fs2_set_fatal_return on, an Error() during init leaves here (the setjmp), the game half started; the
 	// caller's fs2_shutdown closes it
 	int started;
@@ -144,6 +188,22 @@ int fs2_frame(void)
 	if ( !Api_running ) {
 		return 0;
 	}
+	if ( Api_fiber_on ) {
+		Api_fatal_armed = Api_fatal_return;
+		int alive = game_ctx_resume();
+		Api_fatal_armed = 0;
+		if ( !alive ) {
+			Api_fiber_ended = 1;
+		}
+		if ( Api_fatal_hit ) {
+			return -1;
+		}
+		if ( !alive && !Api_fiber_init_ok ) {
+			strcpy(Api_error_text, "game_host_init failed");
+			return -1;
+		}
+		return alive ? 1 : 0;
+	}
 	int result;
 	if ( Api_fatal_return && setjmp(Api_fatal_jmp) ) {
 		return -1;
@@ -152,6 +212,11 @@ int fs2_frame(void)
 	result = game_host_frame();
 	Api_fatal_armed = 0;
 	return result;
+}
+
+void fs2_set_fiber(int mode)
+{
+	Api_fiber_mode = (mode < 0) ? 0 : (mode > 2) ? 2 : mode;
 }
 
 void fs2_set_fatal_return(int on)
@@ -171,6 +236,22 @@ int fs2_shutdown(void)
 	}
 	Api_running = 0;
 	Api_fatal_armed = 0;
+	if ( Api_fiber_on && !Api_fatal_hit ) {
+		int ended = Api_fiber_ended;
+		int code;
+		if ( ended && !Api_fiber_init_ok ) {
+			code = 1;	// init failed: nothing to shut down, as without the fiber
+		} else if ( ended ) {
+			code = Api_fiber_code;	// the fiber ran game_host_shutdown
+		} else {
+			code = game_host_shutdown();	// abandoned mid-run: close it from the host's stack
+		}
+		fprintf(stderr, "fiber: %d flip yields, %d os_poll yields, game %s\n", game_ctx_flip_yields(), game_ctx_poll_yields(), ended ? "ended" : "abandoned");
+		game_ctx_end();
+		Api_fiber_on = 0;
+		host_fatal_set(NULL);
+		return code;
+	}
 	if ( Api_fatal_hit ) {
 		// after a handed-back Error() the game is wherever it stopped, often mid-mission: walk it out through the game
 		// sequence as a quit does, so the mission is closed before game_host_shutdown. A second Error() ends the walk.
@@ -186,7 +267,12 @@ int fs2_shutdown(void)
 		Api_fatal_armed = 0;
 	}
 	host_fatal_set(NULL);
-	return game_host_shutdown();
+	int code = game_host_shutdown();
+	if ( Api_fiber_on ) {	// after a handed-back Error(): the fiber is parked mid-game, drop it
+		game_ctx_end();
+		Api_fiber_on = 0;
+	}
+	return code;
 }
 
 }	// extern "C"

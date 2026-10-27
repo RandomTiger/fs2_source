@@ -17,9 +17,10 @@ struct Fs2Api {
 	int	(*frame)(void);
 	int	(*shutdown)(void);
 	void	(*set_fatal_return)(int);
+	void	(*set_fiber)(int);
 	const char *(*last_error)(void);
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), last_error(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), last_error(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -34,8 +35,9 @@ struct Fs2Api {
 		frame = (int (*)(void))GetProcAddress(module, "fs2_frame");
 		shutdown = (int (*)(void))GetProcAddress(module, "fs2_shutdown");
 		set_fatal_return = (void (*)(int))GetProcAddress(module, "fs2_set_fatal_return");
+		set_fiber = (void (*)(int))GetProcAddress(module, "fs2_set_fiber");
 		last_error = (const char *(*)(void))GetProcAddress(module, "fs2_last_error");
-		if ( !api_version || !set_hooks || !init || !frame || !shutdown || !set_fatal_return || !last_error || (api_version() != FS2_API_VERSION) ) {
+		if ( !api_version || !set_hooks || !init || !frame || !shutdown || !set_fatal_return || !set_fiber || !last_error || (api_version() != FS2_API_VERSION) ) {
 			FreeLibrary(module);
 			module = NULL;
 			return 0;

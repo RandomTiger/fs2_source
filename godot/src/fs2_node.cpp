@@ -18,6 +18,9 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_fatal_return", "on"), &Fs2Game::set_fatal_return);
 	ClassDB::bind_method(D_METHOD("get_fatal_return"), &Fs2Game::get_fatal_return);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fatal_return"), "set_fatal_return", "get_fatal_return");
+	ClassDB::bind_method(D_METHOD("set_fiber_mode", "mode"), &Fs2Game::set_fiber_mode);
+	ClassDB::bind_method(D_METHOD("get_fiber_mode"), &Fs2Game::get_fiber_mode);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "fiber_mode", PROPERTY_HINT_ENUM, "Off,Fiber,Stress"), "set_fiber_mode", "get_fiber_mode");
 	ADD_SIGNAL(MethodInfo("finished", PropertyInfo(Variant::INT, "exit_code")));
 	ADD_SIGNAL(MethodInfo("fatal", PropertyInfo(Variant::STRING, "message")));
 }
@@ -34,6 +37,7 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	}
 	frame_count = 0;
 	api.set_fatal_return(fatal_return ? 1 : 0);
+	api.set_fiber(fiber_mode);
 	if (!api.init(cmdline.utf8().get_data(), root_dir.utf8().get_data())) {
 		UtilityFunctions::printerr("Fs2Game: fs2_init failed");
 		return false;
