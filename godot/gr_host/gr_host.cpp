@@ -163,7 +163,7 @@ void h_flip()
 	H.frame = FRAME_NONE;
 }
 void h_flip_window(uintptr_t, int, int, int, int) { h_flip(); }
-void h_set_palette(ubyte *, int) { }				// 32 bit host: no palette (to confirm before R1-4 proper)
+void h_set_palette(ubyte *, int) { }				// same as dummy and D3D: nothing. BmpMan reads gr_palette, set by gr_set_palette_internal (R1_checks 1b)
 void h_fade_in(int) { }
 void h_fade_out(int) { }
 void h_flash(int, int, int) { }
@@ -531,8 +531,9 @@ int h_zbuffer_get() { return GR_ZBUFF_NONE; }			// dummy's value
 int h_zbuffer_set(int) { return GR_ZBUFF_NONE; }
 void h_zbuffer_clear(int) { }
 
-// DECISION (R1-4): the dummy returns 0 here. The host captures through the sink and returns a real id, because
-// gr_restore_screen(id) must show it; callers that test the id for 0 will behave differently from the dummy.
+// CHECKED (docs/R1_checks.md 1d): the dummy returns 0. The host returns a real id, because gr_restore_screen(id) must show
+// it. Every caller branches on the sign only (id >= 0, id == -1), never on 0, and the host id is never negative (a failed
+// capture returns 0 like the dummy), so each branch goes the way it goes with the dummy.
 int h_save_screen()
 {
 	ensure_frame();
@@ -554,7 +555,7 @@ void h_dump_frame() { }
 void h_dump_frame_stop() { }
 void h_set_gamma(float g) { ensure_frame(); if (drawing()) { H.sink->set_gamma(H.sink->user, g); } }
 
-uint h_lock() { return 1; }						// dummy's value; no pixel access (to confirm before R1-4 proper)
+uint h_lock() { return 1; }						// dummy's value; every caller discards it (R1_checks 1a)
 void h_unlock() { }
 
 void h_get_region(int, int w, int h, ubyte *data)
@@ -569,6 +570,8 @@ void h_get_region(int, int w, int h, ubyte *data)
 	}
 }
 
+// Same as dummy: no gr_screen.fog_* / current_fog_* writes (ObjectSort reads them; with the dummy it always re-calls fog_set).
+// Fog state, when added, stays in the host's own state (R1_checks 1c).
 void h_fog_set(int, int, int, int, float, float) { }
 void h_get_pixel(int, int, int *, int *, int *) { }
 void h_set_cull(int) { }
