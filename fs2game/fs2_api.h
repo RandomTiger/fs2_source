@@ -37,7 +37,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 3
+#define FS2_API_VERSION 4
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -77,6 +77,24 @@ FS2_API const char *fs2_last_error(void);
 // ended, -1 on a fatal Error() handed back or when game init failed (fs2_last_error has the text). fs2_shutdown then
 // frees the fiber and returns the game's exit code.
 FS2_API void fs2_set_fiber(int mode);
+
+// G4: the host's events go into the game through these sinks, the ones the Windows window procedure calls. Call them only from
+// inside the poll_events hook (that is where the game takes the host's events, and the recorder puts them at the same point). A
+// recording being replayed ignores them; a recording being made stores them.
+// Keys: code is the game's key code (the DirectInput scan code, +0x80 for an extended key, as KEY_* in Key.h), state 1 down and 0
+// up, latency_ms the time since the key was pressed. Right shift and right alt are the caller's to fold into the left ones.
+#define FS2_MOUSE_LEFT		1
+#define FS2_MOUSE_RIGHT		2
+#define FS2_MOUSE_MIDDLE	4
+FS2_API void fs2_input_key(unsigned int code, int state, unsigned int latency_ms);
+// A mouse button (FS2_MOUSE_*) went down (set = 1) or up (set = 0).
+FS2_API void fs2_input_mouse_button(unsigned int button, int set);
+// The game window got (1) or lost (0) the keyboard focus.
+FS2_API void fs2_input_focus(int got);
+// The player closed the game window: the game quits as it does for WM_CLOSE.
+FS2_API void fs2_input_close(void);
+// The size of the game's screen in pixels, for mapping the host window's cursor onto it. 0 and 0 before fs2_init.
+FS2_API void fs2_screen_size(int *w, int *h);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

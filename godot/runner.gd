@@ -8,6 +8,8 @@
 #                     FS2_FORCE_ERROR_FRAME=<n>); the process stays up and FS2_CMD2 then runs. Needs FS2_CMD2.
 #   FS2_FIBER  optional: 1 runs the game on a fiber (G3), stress also yields at every os_poll
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
+#   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
+#               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
 extends Node
 
 var game
@@ -21,6 +23,9 @@ var smoke_last := 0
 var smoke_max_gap := 0
 var smoke_calls := 0
 var smoke_second := 0
+var inject := false
+var inject_step := 0
+var inject_next := 600
 
 func _ready() -> void:
 	var dll := OS.get_environment("FS2_DLL")
@@ -39,6 +44,9 @@ func _ready() -> void:
 		return
 	add_child(game)
 	smoke = OS.get_environment("FS2_SMOKE") == "1"
+	inject = OS.get_environment("FS2_INJECT") == "1"
+	if smoke or inject:
+		get_tree().auto_accept_quit = false	# G4: a window close request goes to the game (it posts quit-game) instead of killing Godot
 	if smoke:
 		smoke_label = Label.new()
 		smoke_label.position = Vector2(20, 20)
@@ -93,7 +101,51 @@ func _restart() -> void:
 	if not game.start(OS.get_environment("FS2_DLL"), OS.get_environment("FS2_ROOT"), cmds[0]):
 		get_tree().quit(1)
 
+func _inject_tick() -> void:
+	# one synthetic event group every 120 game resumes, from game frame 600 on (the mission is running by then)
+	if game.get_frame_count() < inject_next or inject_step >= 8:
+		return
+	inject_next += 120
+	var vp := get_viewport().get_visible_rect().size
+	match inject_step:
+		0, 1, 2:
+			var k := InputEventKey.new()
+			k.physical_keycode = [KEY_A, KEY_SPACE, KEY_F5][inject_step]
+			k.keycode = k.physical_keycode
+			k.pressed = true
+			Input.parse_input_event(k)
+			var u := k.duplicate()
+			u.pressed = false
+			Input.parse_input_event(u)
+		3, 4, 5:
+			var m := InputEventMouseMotion.new()
+			m.position = vp * Vector2([0.25, 0.5, 0.75][inject_step - 3], 0.5)
+			m.global_position = m.position
+			Input.parse_input_event(m)
+		6:
+			var b := InputEventMouseButton.new()
+			b.button_index = MOUSE_BUTTON_LEFT
+			b.position = vp * 0.5
+			b.pressed = true
+			Input.parse_input_event(b)
+			var bu := b.duplicate()
+			bu.pressed = false
+			Input.parse_input_event(bu)
+		7:
+			var b2 := InputEventMouseButton.new()
+			b2.button_index = MOUSE_BUTTON_RIGHT
+			b2.position = vp * 0.5
+			b2.pressed = true
+			Input.parse_input_event(b2)
+			var b2u := b2.duplicate()
+			b2u.pressed = false
+			Input.parse_input_event(b2u)
+	print("inject: step ", inject_step, " at game frame ", game.get_frame_count())
+	inject_step += 1
+
 func _process(_delta: float) -> void:
+	if inject:
+		_inject_tick()
 	if not smoke:
 		return
 	var now := Time.get_ticks_msec()

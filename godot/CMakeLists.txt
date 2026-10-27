@@ -10,7 +10,7 @@ set(GODOTCPP_TARGET template_debug CACHE STRING "")
 set(GODOTCPP_API_VERSION 4.7 CACHE STRING "")
 add_subdirectory(${GODOT_CPP_DIR} godot-cpp)
 
-add_library(fs2godot SHARED src/register_types.cpp src/fs2_node.cpp src/fs2_node.h)
+add_library(fs2godot SHARED src/register_types.cpp src/fs2_node.cpp src/fs2_node.h src/host_hooks_godot.cpp src/host_hooks_godot.h)
 target_include_directories(fs2godot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../fs2game)
 target_link_libraries(fs2godot PRIVATE godot-cpp)
 set_target_properties(fs2godot PROPERTIES

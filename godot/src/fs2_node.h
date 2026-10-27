@@ -4,10 +4,12 @@
 #ifndef FS2_NODE_H
 #define FS2_NODE_H
 
+#include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 #include "fs2_loader.h"
+#include "host_hooks_godot.h"
 
 namespace godot {
 
@@ -20,6 +22,7 @@ class Fs2Game : public Node {
 	int frame_count = 0;
 	bool fatal_return = false;
 	int fiber_mode = 0;
+	bool forward_input = true;
 
 protected:
 	static void _bind_methods();
@@ -43,6 +46,15 @@ public:
 	void set_fiber_mode(int m) { fiber_mode = m < 0 ? 0 : (m > 2 ? 2 : m); }
 	int get_fiber_mode() const { return fiber_mode; }
 
+	// G4: Godot's keyboard, mouse and window events go to the game through the host queue (host_hooks_godot). Off: the game gets none.
+	void set_forward_input(bool on) { forward_input = on; }
+	bool get_forward_input() const { return forward_input; }
+	void on_focus_in() { if (forward_input) fs2host::push_focus(true); }
+	void on_focus_out() { if (forward_input) fs2host::push_focus(false); }
+	void on_close_requested() { if (forward_input) fs2host::push_close(); }
+
+	void _ready() override;
+	void _input(const Ref<InputEvent> &event) override;
 	void _process(double delta) override;
 };
 

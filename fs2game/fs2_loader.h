@@ -19,8 +19,13 @@ struct Fs2Api {
 	void	(*set_fatal_return)(int);
 	void	(*set_fiber)(int);
 	const char *(*last_error)(void);
+	void	(*input_key)(unsigned int, int, unsigned int);
+	void	(*input_mouse_button)(unsigned int, int);
+	void	(*input_focus)(int);
+	void	(*input_close)(void);
+	void	(*screen_size)(int *, int *);
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), last_error(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -37,6 +42,16 @@ struct Fs2Api {
 		set_fatal_return = (void (*)(int))GetProcAddress(module, "fs2_set_fatal_return");
 		set_fiber = (void (*)(int))GetProcAddress(module, "fs2_set_fiber");
 		last_error = (const char *(*)(void))GetProcAddress(module, "fs2_last_error");
+		input_key = (void (*)(unsigned int, int, unsigned int))GetProcAddress(module, "fs2_input_key");
+		input_mouse_button = (void (*)(unsigned int, int))GetProcAddress(module, "fs2_input_mouse_button");
+		input_focus = (void (*)(int))GetProcAddress(module, "fs2_input_focus");
+		input_close = (void (*)(void))GetProcAddress(module, "fs2_input_close");
+		screen_size = (void (*)(int *, int *))GetProcAddress(module, "fs2_screen_size");
+		if ( !input_key || !input_mouse_button || !input_focus || !input_close || !screen_size ) {
+			FreeLibrary(module);
+			module = NULL;
+			return 0;
+		}
 		if ( !api_version || !set_hooks || !init || !frame || !shutdown || !set_fatal_return || !set_fiber || !last_error || (api_version() != FS2_API_VERSION) ) {
 			FreeLibrary(module);
 			module = NULL;

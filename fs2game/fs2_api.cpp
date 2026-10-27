@@ -16,7 +16,14 @@
 #include "Replay.h"
 #include "GameSequence.h"
 #include "GameCtx.h"
+#include "Key.h"
+#include "Mouse.h"
+#include "2d.h"
 #include "fs2_api.h"
+
+static_assert(FS2_MOUSE_LEFT == MOUSE_LEFT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
+static_assert(FS2_MOUSE_RIGHT == MOUSE_RIGHT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
+static_assert(FS2_MOUSE_MIDDLE == MOUSE_MIDDLE_BUTTON, "FS2_MOUSE_* must match Mouse.h");
 
 static host_hooks Api_hooks;
 static int Api_hooks_set = 0;
@@ -212,6 +219,37 @@ int fs2_frame(void)
 	result = game_host_frame();
 	Api_fatal_armed = 0;
 	return result;
+}
+
+// G4: the host's event sinks (fs2_api.h), the calls win32_message_handler makes for the same events
+void fs2_input_key(unsigned int code, int state, unsigned int latency_ms)
+{
+	key_mark(code, state, latency_ms);
+}
+
+void fs2_input_mouse_button(unsigned int button, int set)
+{
+	mouse_mark_button(button, set);	// FS2_MOUSE_* are the game's MOUSE_*_BUTTON bits
+}
+
+void fs2_input_focus(int got)
+{
+	if ( got ) {
+		key_got_focus();
+	} else {
+		key_lost_focus();
+	}
+}
+
+void fs2_input_close(void)
+{
+	gameseq_post_event(GS_EVENT_QUIT_GAME);
+}
+
+void fs2_screen_size(int *w, int *h)
+{
+	*w = gr_screen.max_w;
+	*h = gr_screen.max_h;
 }
 
 void fs2_set_fiber(int mode)
