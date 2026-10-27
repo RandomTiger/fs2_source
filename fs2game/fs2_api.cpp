@@ -5,18 +5,41 @@
 #include <windows.h>
 #include <direct.h>
 #include <string.h>
+#include <stdio.h>
+#include <setjmp.h>
 
 #include "pstypes.h"
 #include "SystemVars.h"
 #include "HostHooks.h"
+#include "HostFatal.h"
 #include "FreeSpace.h"
 #include "Replay.h"
+#include "GameSequence.h"
 #include "fs2_api.h"
 
 static host_hooks Api_hooks;
 static int Api_hooks_set = 0;
 static int Api_vm_ready = 0;
 static int Api_running = 0;
+static int Api_fatal_return = 0;
+static int Api_fatal_armed = 0;
+static int Api_fatal_hit = 0;	// an Error() was handed back: the game may be mid-mission
+static jmp_buf Api_fatal_jmp;
+static char Api_error_text[1024] = "";
+
+// the host_fatal callback (P1): an Error() while a call into the game is armed leaves for the caller, never back into the
+// game. Anything else, or an Error() outside such a call, returns 0 and the built-in behaviour (process exit) follows.
+static int api_fatal(int kind, const char *text, const char *file, int line)
+{
+	if ( (kind != HOST_FATAL_ERROR) || !Api_fatal_armed ) {
+		return 0;
+	}
+	_snprintf(Api_error_text, sizeof(Api_error_text) - 1, "%s (%s line %d)", text, file ? file : "", line);
+	Api_error_text[sizeof(Api_error_text) - 1] = 0;
+	Api_fatal_armed = 0;
+	Api_fatal_hit = 1;
+	longjmp(Api_fatal_jmp, 1);
+}
 
 // the -headless option as a whole token, as WinMainSub looks for it
 static int api_cmdline_has(const char *cmdline, const char *option)
@@ -97,10 +120,22 @@ int fs2_init(const char *cmdline, const char *root_dir)
 		return 0;
 	}
 
-	if ( !game_host_init(cmd, root) ) {
+	// P1: with fs2_set_fatal_return on, an Error() during init leaves here (the setjmp), the game half started; the
+	// caller's fs2_shutdown closes it
+	int started;
+	host_fatal_set(Api_fatal_return ? api_fatal : NULL);
+	Api_fatal_armed = 0;
+	Api_running = 1;
+	if ( Api_fatal_return && setjmp(Api_fatal_jmp) ) {
 		return 0;
 	}
-	Api_running = 1;
+	Api_fatal_armed = Api_fatal_return;
+	started = game_host_init(cmd, root);
+	Api_fatal_armed = 0;
+	if ( !started ) {
+		Api_running = 0;
+		return 0;
+	}
 	return 1;
 }
 
@@ -109,7 +144,24 @@ int fs2_frame(void)
 	if ( !Api_running ) {
 		return 0;
 	}
-	return game_host_frame();
+	int result;
+	if ( Api_fatal_return && setjmp(Api_fatal_jmp) ) {
+		return -1;
+	}
+	Api_fatal_armed = Api_fatal_return;
+	result = game_host_frame();
+	Api_fatal_armed = 0;
+	return result;
+}
+
+void fs2_set_fatal_return(int on)
+{
+	Api_fatal_return = on ? 1 : 0;
+}
+
+const char *fs2_last_error(void)
+{
+	return Api_error_text;
 }
 
 int fs2_shutdown(void)
@@ -118,6 +170,22 @@ int fs2_shutdown(void)
 		return 1;
 	}
 	Api_running = 0;
+	Api_fatal_armed = 0;
+	if ( Api_fatal_hit ) {
+		// after a handed-back Error() the game is wherever it stopped, often mid-mission: walk it out through the game
+		// sequence as a quit does, so the mission is closed before game_host_shutdown. A second Error() ends the walk.
+		// A running recording or replay cannot follow that (its stream wants the next recorded input): end it first.
+		Api_fatal_hit = 0;
+		replay_abandon();
+		if ( setjmp(Api_fatal_jmp) == 0 ) {
+			Api_fatal_armed = 1;
+			gameseq_post_event(GS_EVENT_QUIT_GAME);
+			for ( int i = 0; (i < 16) && game_host_frame(); i++ ) {
+			}
+		}
+		Api_fatal_armed = 0;
+	}
+	host_fatal_set(NULL);
 	return game_host_shutdown();
 }
 

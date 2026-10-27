@@ -52,3 +52,50 @@ function Autotest-Result([string]$logSrc, [string]$dest) {
 	if ($bad.Count) { return "AUTOTEST PASS but $($bad[0].Line.Trim())" }
 	return 'AUTOTEST PASS'
 }
+
+# Restart check (D-055) and forced-Error check (P1, steward D-20261022-143927), shared by dll_check and godot_check.
+# Two missions of the set run one after the other in ONE host process ($Launch gets both command lines).
+#   restart  both runs must pass: exit 0, REPLAY OK, trace = the recorded one (fs1demo: exit 0 + autotest.log clean-run rule)
+#   fatal    an Error() is forced in the first run (FS2_FORCE_ERROR_FRAME); the DLL hands it back (FS2_FATAL_RETURN=1), the host
+#            process stays up and the second run must pass as above. The first run is not scored except that it must report the fatal.
+# $Launch: scriptblock(cmd1, cmd2, outPrefix) -> exit code of the host process; it writes <outPrefix>.out.txt / .err.txt.
+# Returns one summary line starting with PASS or FAIL.
+function Test-HostRestart($gs, [string]$Run, [string]$Out, [string]$TraceDiff, [scriptblock]$Launch, [string]$Kind, [string]$Host2) {
+    $recs = @($gs.Missions)
+    if ($recs -contains 'sm1-01' -and $recs -contains 'sm3-06') { $a = 'sm1-01'; $b = 'sm3-06' } else { $a = $recs[0]; $b = $recs[1] }
+    if (-not $b) { return "FAIL $Kind check ($($gs.Name)): needs two missions" }
+    $t1 = Join-Path $Out "${Kind}_1.trace"; $t2 = Join-Path $Out "${Kind}_2.trace"
+    $ra = if ($gs.RecDir) { Join-Path $gs.RecDir "$a.fs2rec" } else { $null }
+    $rb = if ($gs.RecDir) { Join-Path $gs.RecDir "$b.fs2rec" } else { $null }
+    Remove-Item $t1, $t2, "$ra.replay.log", "$rb.replay.log", (Join-Path $Run 'autotest.log') -ErrorAction SilentlyContinue
+    $c1 = (& $gs.Flags $a '%T') -replace '%T', $t1
+    $c2 = (& $gs.Flags $b '%T') -replace '%T', $t2
+    # a fatal Error() mid-mission leaves the game not bit-identical for a replay (see godot_questions.md), so the run after it plays live
+    $live = ($Kind -eq 'fatal') -or (-not $gs.RecDir)
+    if ($live -and $gs.RecDir) { $c2 = "-window -autotest -headless -at_mission $b -at_time 30" }
+    if ($Kind -eq 'fatal') { $env:FS2_FATAL_RETURN = '1'; $env:FS2_FORCE_ERROR_FRAME = '150' }
+    $code = & $Launch $c1 $c2 (Join-Path $Out "${Host2}_$Kind")
+    Remove-Item Env:FS2_FATAL_RETURN, Env:FS2_FORCE_ERROR_FRAME -ErrorAction SilentlyContinue
+    $line = "$Kind check ($($gs.Name): $a then $b, one process) $Host2 exit=$code"
+    $ok = ($code -eq 0)
+    $txt = ''
+    foreach ($f in "${Host2}_$Kind.out.txt", "${Host2}_$Kind.err.txt") { $p = Join-Path $Out $f; if (Test-Path $p) { $txt += (Get-Content -Raw $p) } }
+    if ($Kind -eq 'fatal') {
+        if ($txt -match 'fatal error') { $line += ' | fatal handed back, process alive' } else { $ok = $false; $line += ' | NO FATAL SEEN' }
+    }
+    if (-not $live) {
+        if ($Kind -eq 'restart') {
+            $v = (& $TraceDiff ([IO.Path]::ChangeExtension($ra, '.trace')) $t1 | Select-String '^(MATCH|DIVERGED)' | Select-Object -First 1).Line
+            $line += " | first: $v"; if ($v -notmatch '^MATCH') { $ok = $false }
+        }
+        $v = (& $TraceDiff ([IO.Path]::ChangeExtension($rb, '.trace')) $t2 | Select-String '^(MATCH|DIVERGED)' | Select-Object -First 1).Line
+        $line += " | second: $v"; if ($v -notmatch '^MATCH') { $ok = $false }
+        $l = if (Test-Path "$rb.replay.log") { (Select-String "$rb.replay.log" -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line } else { 'NO LOG' }
+        $line += " | $l"; if ($l -notmatch '^REPLAY OK') { $ok = $false }
+        Remove-Item "$ra.replay.log", "$rb.replay.log" -ErrorAction SilentlyContinue
+    } else {
+        $r = Autotest-Result (Join-Path $Run 'autotest.log') (Join-Path $Out "${Host2}_$Kind.autotest.log")
+        $line += " | second: $r [$Fs1DemoRule]"; if ($r -ne 'AUTOTEST PASS') { $ok = $false }
+    }
+    return $(if ($ok) { "PASS $line" } else { "FAIL $line" })
+}

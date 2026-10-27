@@ -107,6 +107,20 @@ foreach ($m in $Missions) {
 	$line | Add-Content $summary
 	$line
 }
+$launch = {
+    param($c1, $c2, $pre)
+    $a = "`"$dll`" `"$run`" `"$($c1 -replace '"', '\"')`" `"$($c2 -replace '"', '\"')`""
+    Wait-NoGame
+    $p = Start-Process $runner -ArgumentList $a -PassThru -NoNewWindow -RedirectStandardOutput "$pre.out.txt" -RedirectStandardError "$pre.err.txt"; $null = $p.Handle
+    if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; return 'TIMEOUT' }
+    return $p.ExitCode
+}
+foreach ($kind in 'restart', 'fatal') {
+    Wait-NoGame
+    $r = Test-HostRestart $gs $run $Out $td $launch $kind 'fs2run'
+    $r | Add-Content $summary; $r
+    if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
+}
 "DONE pass=$pass fail=$fail" | Add-Content $summary
 "DONE pass=$pass fail=$fail"
 if ($fail) { exit 1 }

@@ -15,7 +15,11 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_frames_per_process"), &Fs2Game::get_frames_per_process);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "frames_per_process", PROPERTY_HINT_RANGE, "1,1000"),
 		"set_frames_per_process", "get_frames_per_process");
+	ClassDB::bind_method(D_METHOD("set_fatal_return", "on"), &Fs2Game::set_fatal_return);
+	ClassDB::bind_method(D_METHOD("get_fatal_return"), &Fs2Game::get_fatal_return);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fatal_return"), "set_fatal_return", "get_fatal_return");
 	ADD_SIGNAL(MethodInfo("finished", PropertyInfo(Variant::INT, "exit_code")));
+	ADD_SIGNAL(MethodInfo("fatal", PropertyInfo(Variant::STRING, "message")));
 }
 
 bool Fs2Game::start(const String &dll_path, const String &root_dir, const String &cmdline)
@@ -29,6 +33,7 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		return false;
 	}
 	frame_count = 0;
+	api.set_fatal_return(fatal_return ? 1 : 0);
 	if (!api.init(cmdline.utf8().get_data(), root_dir.utf8().get_data())) {
 		UtilityFunctions::printerr("Fs2Game: fs2_init failed");
 		return false;
@@ -43,7 +48,15 @@ bool Fs2Game::step()
 		return false;
 	}
 	for (int i = 0; i < frames_per_process; i++) {
-		if (!api.frame()) {
+		int r = api.frame();
+		if (r < 0) {
+			running = false;
+			String message = String::utf8(api.last_error());
+			api.shutdown();
+			emit_signal("fatal", message);
+			return false;
+		}
+		if (r == 0) {
 			running = false;
 			int code = api.shutdown();
 			emit_signal("finished", code);

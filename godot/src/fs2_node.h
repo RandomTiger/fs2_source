@@ -18,6 +18,7 @@ class Fs2Game : public Node {
 	bool running = false;
 	int frames_per_process = 8;
 	int frame_count = 0;
+	bool fatal_return = false;
 
 protected:
 	static void _bind_methods();
@@ -32,6 +33,9 @@ public:
 	int get_frame_count() const { return frame_count; }
 	void set_frames_per_process(int n) { frames_per_process = n < 1 ? 1 : n; }
 	int get_frames_per_process() const { return frames_per_process; }
+	// P1: hand a fatal Error() back as the "fatal" signal instead of ending the process (fs2_set_fatal_return)
+	void set_fatal_return(bool on) { fatal_return = on; api.module ? api.set_fatal_return(on ? 1 : 0) : (void)0; }
+	bool get_fatal_return() const { return fatal_return; }
 
 	void _process(double delta) override;
 };

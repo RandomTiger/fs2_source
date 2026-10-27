@@ -37,7 +37,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 1
+#define FS2_API_VERSION 2
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -56,8 +56,19 @@ FS2_API int fs2_set_hooks(const fs2_hooks *hooks);
 // trailing slash; the current directory is set to it). Returns 1 when the game is running, 0 when it failed.
 FS2_API int fs2_init(const char *cmdline, const char *root_dir);
 
-// Run one frame. Returns 1 to go on, 0 when the game has ended (then call fs2_shutdown).
+// Run one frame. Returns 1 to go on, 0 when the game has ended (then call fs2_shutdown), or -1 when a fatal Error() was
+// handed to the host (see fs2_set_fatal_return; then read fs2_last_error and call fs2_shutdown).
 FS2_API int fs2_frame(void);
+
+// Fatal errors (P1, D-20261022-143927). Off by default: an Error() ends the process with the game's exit code, as the
+// exe does. With on = 1 an Error() in fs2_init or fs2_frame leaves the game at once and returns control to the caller:
+// fs2_init returns 0, fs2_frame returns -1, and fs2_last_error has the message. The game never continues after it. The
+// caller then calls fs2_shutdown, which closes what it can, and may call fs2_init again. Asserts and warnings are
+// unchanged. Provisional shape, see godot_questions.md.
+FS2_API void fs2_set_fatal_return(int on);
+
+// The text of the last Error() that fs2_set_fatal_return handed back ("" if none). Valid until the next one.
+FS2_API const char *fs2_last_error(void);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

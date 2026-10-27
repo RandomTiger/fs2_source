@@ -7,7 +7,7 @@ Pass = Godot exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x6
 Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative]
 -Quick  the per-commit quick set (14 custom + sm1-01 + sm3-06), taken from the 'custom' list below if present.
 Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot in C:\dev\Tools\godot_4.7.2, FS2game64<c>.dll,
-FS2vs2022<c>64.exe, tools\bin\TraceDiff.exe. Restart check (two recordings in one process) is reported "not yet run".
+FS2vs2022<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
 #>
 param(
 	[string]$Config = 'r',
@@ -110,8 +110,20 @@ foreach ($m in $Missions) {
 	$line
 }
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD -ErrorAction SilentlyContinue
-$r = "restart check (two recordings in one process): not yet run (needs P2)"
-$r | Add-Content $summary; $r
+$launch = {
+    param($c1, $c2, $pre)
+    Wait-NoGame
+    $env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = $c1; $env:FS2_CMD2 = $c2
+    $p = Start-Process $Godot -ArgumentList "--headless --path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput "$pre.out.txt" -RedirectStandardError "$pre.err.txt"; $null = $p.Handle
+    $code = if ($p.WaitForExit(1800000)) { $p.ExitCode } else { Stop-Process $p -Force; 'TIMEOUT' }
+    Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_CMD2 -ErrorAction SilentlyContinue
+    return $code
+}
+foreach ($kind in 'restart', 'fatal') {
+    $r = Test-HostRestart $gs $run $Out $td $launch $kind 'godot'
+    $r | Add-Content $summary; $r
+    if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
+}
 "DONE pass=$pass fail=$fail" | Add-Content $summary
 "DONE pass=$pass fail=$fail"
 if ($fail) { exit 1 }
