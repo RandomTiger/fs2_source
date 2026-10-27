@@ -179,14 +179,18 @@ void os_init(char * wclass, char * title, char *app_name, char *version_string )
 void os_set_title( char * title )
 {
 	strcpy( szWinTitle, title );
-	SetWindowText( hwndApp, szWinTitle );
+	if ( hwndApp ) {	// Claude: -headless has no window (P3)
+		SetWindowText( hwndApp, szWinTitle );
+	}
 }
 
 // call at program end
 void os_cleanup()
 {
 	// Tell the app to quit
-	PostMessage( hwndApp, WM_DESTROY, 0, 0 );
+	if ( hwndApp ) {	// Claude: -headless has no window (P3)
+		PostMessage( hwndApp, WM_DESTROY, 0, 0 );
+	}
 	
 	#ifndef NDEBUG
 		outwnd_close();
@@ -597,6 +601,15 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 // create the main window
 BOOL win32_create_window()
 {
+	// Claude: -headless creates no window and no window class; os_get_window() stays NULL.  Keys, mouse and clock come from the host hooks (P3).
+	if(Cmdline_headless){
+		main_window_inited = 1;
+		#ifndef NDEBUG
+			outwnd_init(1);
+		#endif
+		return TRUE;
+	}
+
 	int windowed = 0;
 	int hires = 0;
 	char *ptr = os_config_read_string(NULL, NOX("Videocard"), NULL);	
@@ -644,10 +657,7 @@ BOOL win32_create_window()
 
 	// Make a 32x32 window.  It never should get shown, because the graphics code
 	// will then size it.
-	if(Cmdline_headless){
-		// Claude: -headless: a message-only window, never shown.  Keys and the mouse come from the recording.
-		hwndApp = CreateWindow( szWinClass, szWinTitle, 0, 0, 0, 0, 0, HWND_MESSAGE, (HMENU)NULL, hInst, (LPSTR)NULL);
-	} else if(windowed){
+	if(windowed){	// Claude: the -headless branch moved to the top of the function (P3)
 		hwndApp = CreateWindow( szWinClass, szWinTitle,
 									style,   
 									CW_USEDEFAULT,
@@ -675,7 +685,7 @@ BOOL win32_create_window()
 		outwnd_init(1);
 	#endif	
 
-	if(windowed && !Cmdline_headless){	// Claude: -headless shows no window
+	if(windowed){
 		ShowWindow( hwndApp, SW_SHOWNORMAL );
 		UpdateWindow( hwndApp );
 	}
