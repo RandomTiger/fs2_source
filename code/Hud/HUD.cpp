@@ -1480,6 +1480,8 @@ void hud_render_multi_ping()
 // Called just before HUD_render_2d, under the same conditions, so the game does the same things in the same order.
 void HUD_update_2d()
 {
+	hud_squadmsg_frame_clear();	// Claude: P7-7
+
 	if ( hud_disabled() ) {
 		return;
 	}
@@ -1498,6 +1500,12 @@ void HUD_update_2d()
 
 		// the training message queue, voice and text, from message_training_display
 		message_training_update();
+	}
+
+	// Claude: P7-7: the squad menu's logic, which HUD_render_2d ran while drawing: not under the -nodraw gate, same HUD and detail-flag
+	// conditions as the drawing (this function is only called with DETAIL_FLAG_HUD, and returns above when hud_disabled)
+	if ( Players->flags & PLAYER_FLAGS_MSG_MODE ) {
+		hud_squadmsg_update();
 	}
 }
 
@@ -1699,8 +1707,10 @@ void HUD_render_2d(float frametime)
 	// to deal with the message.  hud_sqaudmsg_do_frame will return 0 if the key
 	// wasn't used in messaging mode, otherwise 1.  In the event the key was used,
 	// return immediately out of this function.
-	if ( Players->flags & PLAYER_FLAGS_MSG_MODE ) {
-		if ( hud_squadmsg_do_frame() ){
+	// Claude: P7-7: the menu's logic ran in HUD_update_2d (hud_squadmsg_update); this only draws it
+	if ( hud_squadmsg_frame_ran() ) {
+		hud_squadmsg_show();
+		if ( hud_squadmsg_frame_used() ){
 			return;
 		}
 	}

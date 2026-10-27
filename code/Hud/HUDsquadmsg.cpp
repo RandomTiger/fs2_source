@@ -1162,8 +1162,7 @@ void hud_squadmsg_display_menu( char *title )
 	}
 
 	// determine if we should put the text "[more]" at top or bottom to indicate you can page up or down
-	hud_targetbox_start_flash(TBOX_FLASH_SQUADMSG);
-	hud_targetbox_maybe_flash(TBOX_FLASH_SQUADMSG);
+	// Claude: P7-7: the targetbox flash is started by hud_squadmsg_flash, with the logic
 	if ( First_menu_item > 0 ) {
 		gr_printf( Menu_pgup_coords[gr_screen.res][0], Menu_pgup_coords[gr_screen.res][1], XSTR( "[pgup]", 312) );
 	}
@@ -2088,6 +2087,13 @@ static void hud_squadmsg_command_show()
 	hud_squadmsg_display_menu( XSTR( "What Command", 321) );
 }
 
+// Claude: P7-7: the targetbox flash a menu starts, moved out of hud_squadmsg_display_menu, which only draws now
+static void hud_squadmsg_flash()
+{
+	hud_targetbox_start_flash(TBOX_FLASH_SQUADMSG);
+	hud_targetbox_maybe_flash(TBOX_FLASH_SQUADMSG);
+}
+
 // function to put up window in upper right to allow for player to select the type
 // of entity to select for a message (i.e. a wing or a ship)
 void hud_squadmsg_type_select( )
@@ -2179,7 +2185,7 @@ void hud_squadmsg_type_select( )
 	}
 
 do_main_menu:
-	hud_squadmsg_type_select_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {							// when k != -1, we have a key that associates with menu item
 		Assert ( k < Num_menu_items );
@@ -2214,7 +2220,7 @@ void hud_squadmsg_ship_select()
 		hud_squadmsg_count_ships( 1 );
 	}
 
-	hud_squadmsg_ship_select_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {						// if true, we have selected a ship.
 		if ( Msg_shortcut_command == -1 ) {
@@ -2241,7 +2247,7 @@ void hud_squadmsg_wing_select()
 		hud_squadmsg_count_wings( 1 );
 	}
 
-	hud_squadmsg_wing_select_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {						// if true, we have selected a ship.
 		if ( Msg_shortcut_command == -1 ) {									// do normal menu stuff when no hoykey active
@@ -2377,7 +2383,7 @@ void hud_squadmsg_reinforcement_select()
 	}
 
 //	hud_squadmsg_display_menu( "Select Reinforcement" );
-	hud_squadmsg_reinforcement_select_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 	if (k != -1) {
 		int rnum;
@@ -2484,7 +2490,7 @@ void hud_squadmsg_ship_command()
 		}
 	}
 
-	hud_squadmsg_command_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 
 	// when we get a valid goal, we must add the goal to the ai ship's goal list
@@ -2545,7 +2551,7 @@ void hud_squadmsg_wing_command()
 		}
 	}
 
-	hud_squadmsg_command_show();	// Claude: P7-6
+	// Claude: P7-7: hud_squadmsg_show draws the menu
 	k = hud_squadmsg_get_key();
 	if ( k != -1 ) {
 
@@ -2743,9 +2749,12 @@ int hud_squadmsg_hotkey_select( int k )
 // get called if the player flag PLAYER_FLAG_MSG_MODE is set.  Parameter is the key
 // that was hit this frame
 
-int hud_squadmsg_do_frame( )
+// Claude: P7-7: this was hud_squadmsg_do_frame, called from HUD_render_2d. It is the menu's logic only now; hud_squadmsg_update
+// calls it from HUD_update_2d and hud_squadmsg_show draws the result.
+static int hud_squadmsg_frame( )
 {
 	int target_changed;
+	int rebuilt = 0;
 
 	Assert ( Player->flags & PLAYER_FLAGS_MSG_MODE );		// be sure that messaging mode is set!!!
 
@@ -2769,9 +2778,7 @@ int hud_squadmsg_do_frame( )
 		target_changed = 1;
 	}
 
-	// setup color/font info 
-	// hud_set_default_color();
-	hud_set_gauge_color(HUD_MESSAGE_BOX);
+	// Claude: P7-7: the drawing colour is set by hud_squadmsg_show
 
 	// check for multiplayer mode - this is really a special case checker for support ship requesting and aborting
 	if((Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_AM_MASTER) && (Squad_msg_mode == SM_MODE_REPAIR_REARM || Squad_msg_mode == SM_MODE_REPAIR_REARM_ABORT)){
@@ -2803,8 +2810,19 @@ int hud_squadmsg_do_frame( )
 	}
 
 	// draw top of frame
-	hud_squadmsg_top_show();	// Claude: P7-6
+	// Claude: P7-7: the targetbox flash the menu's drawing started, in the same place relative to the menu's logic
+	switch( Squad_msg_mode ) {
+	case SM_MODE_TYPE_SELECT:
+	case SM_MODE_SHIP_SELECT:
+	case SM_MODE_WING_SELECT:
+	case SM_MODE_SHIP_COMMAND:
+	case SM_MODE_WING_COMMAND:
+	case SM_MODE_REINFORCEMENTS:
+		hud_squadmsg_flash();
+		break;
+	}
 
+run_mode:	// Claude: P7-7
 	switch( Squad_msg_mode ) {
 
 	case SM_MODE_TYPE_SELECT:
@@ -2857,14 +2875,79 @@ int hud_squadmsg_do_frame( )
 
 	}
 
-	// be sure to reset the clip region
-	HUD_reset_clip();		// JAS: Is this needed?
+	// Claude: P7-7: a key can have moved to a menu that is built on its first frame (Num_menu_items == -1). The menu is drawn
+	// right after this, so build it now, as the next frame would; the key was used up, so this only builds.
+	if ( !rebuilt && (Player->flags & PLAYER_FLAGS_MSG_MODE) && (Num_menu_items == -1) ) {
+		rebuilt = 1;
+		goto run_mode;
+	}
 
 	if ( Msg_key_used || target_changed ) {
 		Msg_mode_timestamp = timestamp(DEFAULT_MSG_TIMEOUT);
 		return 1;
 	} else
 		return 0;
+}
+
+// Claude: P7-7: the menu's logic for this frame, from HUD_update_2d, whether or not the HUD is drawn.
+// Same conditions as before: only in messaging mode, only with the 2D HUD on.
+static int Squad_frame_ran = 0;		// hud_squadmsg_update ran this frame
+static int Squad_frame_used = 0;	// and the player used it (what hud_squadmsg_do_frame returned), so the ping is not drawn
+
+void hud_squadmsg_frame_clear()
+{
+	Squad_frame_ran = 0;
+	Squad_frame_used = 0;
+}
+
+int hud_squadmsg_frame_ran()
+{
+	return Squad_frame_ran;
+}
+
+int hud_squadmsg_frame_used()
+{
+	return Squad_frame_used;
+}
+
+void hud_squadmsg_update()
+{
+	Squad_frame_ran = 1;
+	Squad_frame_used = hud_squadmsg_frame();
+}
+
+// Claude: P7-7: draw the menu the logic left, if messaging mode is still on
+void hud_squadmsg_show()
+{
+	if ( !Squad_frame_ran || !(Player->flags & PLAYER_FLAGS_MSG_MODE) ) {
+		return;
+	}
+
+	hud_set_gauge_color(HUD_MESSAGE_BOX);
+	hud_squadmsg_top_show();
+
+	switch( Squad_msg_mode ) {
+	case SM_MODE_TYPE_SELECT:
+		hud_squadmsg_type_select_show();
+		break;
+	case SM_MODE_SHIP_SELECT:
+		hud_squadmsg_ship_select_show();
+		break;
+	case SM_MODE_WING_SELECT:
+		hud_squadmsg_wing_select_show();
+		break;
+	case SM_MODE_SHIP_COMMAND:
+	case SM_MODE_WING_COMMAND:
+		hud_squadmsg_command_show();
+		break;
+	case SM_MODE_REINFORCEMENTS:
+		hud_squadmsg_reinforcement_select_show();
+		break;
+	default:
+		break;
+	}
+
+	HUD_reset_clip();
 }
 
 void hud_add_issued_order(char *name, int order, char *target)
