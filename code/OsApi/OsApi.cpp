@@ -103,6 +103,7 @@
 #include "cmdline.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "GameCtx.h"	// Claude: P6
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI DEFINES/VARS
@@ -706,6 +707,7 @@ void os_poll()
 
 	replay_os_poll();
 	autotest_poll_done();	// Claude: for the autotest stuck dump (D-053)
+	game_ctx_poll_yield();	// Claude: P6, the fallback yield of a game running as a coroutine; nothing when it is not
 }
 
 void debug_int3()

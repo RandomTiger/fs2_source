@@ -21,6 +21,7 @@
 #include "Replay.h"
 #include "Autotest.h"
 #include "ExceptionHandler.h"
+#include "GameCtx.h"	// Claude: P6
 
 #define EXE_FNAME			("fs2.exe")
 #define LAUNCHER_FNAME	("freespace2.exe")
@@ -137,6 +138,66 @@ static void host_cmdline_set(char *cmdline, int cmdline_size, const char *option
 	}
 	memmove(v + strlen(value), v + n, strlen(v + n) + 1);
 	memcpy(v, value, strlen(value));
+}
+
+// Claude: P6, the fiber test switch.  Environment variable FS2_FIBER=1 runs the game (init, frames and shutdown) as a
+// coroutine on a Windows fiber under a host loop that resumes it once per host frame; the game yields in gr_flip
+// and after several os_polls with no flip.  FS2_FIBER=stress also yields at every os_poll.  Unset, nothing changes.
+struct fiber_run {
+	char	*cmdline;
+	char	*root_dir;
+	int	init_ok;
+	int	code;
+};
+
+static void fiber_run_proc(void *arg)
+{
+	fiber_run *r = (fiber_run *)arg;
+	__try
+	{
+		r->init_ok = game_host_init(r->cmdline, r->root_dir);
+		if ( r->init_ok ) {
+			while ( game_host_frame() ) {
+			}
+			r->code = game_host_shutdown();
+		}
+	}
+	__except(RecordExceptionInfo(GetExceptionInformation(), "Freespace 2 Game Fiber"))
+	{
+	}
+}
+
+// one game run: init, frames, shutdown.  Returns 0 if init failed (as the exe always did), else 1 with the exit code in *code
+static int host_run_game(char *cmdline, char *root_dir, int *code)
+{
+	const char *mode = getenv("FS2_FIBER");	// Claude: P6 test switch
+	if ( mode && *mode ) {
+		fiber_run r = { cmdline, root_dir, 0, -1 };	// -1 if the game fiber ends on an exception
+		if ( !game_ctx_start(fiber_run_proc, &r, 1024 * 1024, (stricmp(mode, "stress") == 0)) ) {
+			return 0;
+		}
+		int resumes = 0;
+		while ( game_ctx_resume() ) {
+			resumes++;
+		}
+		char msg[128];
+		sprintf(msg, "fiber: %d resumes, %d flip yields, %d os_poll yields\n", resumes + 1, game_ctx_flip_yields(), game_ctx_poll_yields());
+		OutputDebugString(msg);
+		fputs(msg, stderr);
+		game_ctx_end();
+		*code = r.code;
+		return r.init_ok;
+	}
+
+	if ( !game_host_init(cmdline, root_dir) ) {
+		return 0;
+	}
+
+	while ( game_host_frame() ) {
+	}
+
+	*code = game_host_shutdown();
+	return 1;
 }
 
 int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCmdShow)
@@ -295,14 +356,9 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 
 	int code;
 	for (;;) {
-		if ( !game_host_init(cmdline, root_dir) ) {
+		if ( !host_run_game(cmdline, root_dir, &code) ) {	// Claude: P6, was game_host_init, the frame loop and game_host_shutdown
 			return 1;
 		}
-
-		while ( game_host_frame() ) {
-		}
-
-		code = game_host_shutdown();
 		if ( code ) {
 			break;
 		}

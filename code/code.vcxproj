@@ -423,6 +423,7 @@
     <ClCompile Include="OsApi\HostFatal.cpp" />
     <ClCompile Include="OsApi\HostHooks.cpp" />
     <ClCompile Include="OsApi\HostHooksWin32.cpp" />
+    <ClCompile Include="OsApi\GameCtx.cpp" />
     <ClCompile Include="OsApi\OsApi.cpp" />
     <ClCompile Include="OsApi\OsRegistry.cpp" />
     <ClCompile Include="OsApi\OutWnd.cpp" />
@@ -687,6 +688,7 @@
     <ClInclude Include="Observer\Observer.h" />
     <ClInclude Include="OsApi\HostFatal.h" />
     <ClInclude Include="OsApi\HostHooks.h" />
+    <ClInclude Include="OsApi\GameCtx.h" />
     <ClInclude Include="OsApi\MONOPUB.H" />
     <ClInclude Include="OsApi\OsApi.h" />
     <ClInclude Include="OsApi\OsRegistry.h" />
