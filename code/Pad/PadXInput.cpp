@@ -90,7 +90,7 @@ static float pad_xinput_stick(SHORT v)
 	return (f < -1.0f) ? -1.0f : f;
 }
 
-int pad_backend_poll(pad_state *out)
+int pad_xinput_poll(pad_state *out)
 {
 	pad_xinput_state xs;
 	WORD b;

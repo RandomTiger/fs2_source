@@ -3,11 +3,14 @@
 #include "host_hooks_godot.h"
 
 #include <deque>
+#include <math.h>
 #include <string.h>
 
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
 #include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/input_event_joypad_button.hpp>
+#include <godot_cpp/classes/input_event_joypad_motion.hpp>
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
@@ -321,10 +324,19 @@ static int h_joy_count(void)
 	return 16;
 }
 
+// The headless gate has no device, so the game's input test (-at_input joyhost / padhost, InputTest.h) feeds its script in as
+// synthetic joypad events on device 0, and the hooks then read it back through Godot's Input like a real device's.
+// 0 none, 1 a stick (an unknown device: the joystick path), 2 a pad (a known mapping: the pad path).
+static int Synth_kind = 0;
+static const int SYNTH_DEVICE = 0;
+
 static bool joy_connected(int stick)
 {
 	if (stick < 0 || stick >= 16) {
 		return false;
+	}
+	if (Synth_kind != 0 && stick == SYNTH_DEVICE) {
+		return true;
 	}
 	return Input::get_singleton()->get_connected_joypads().has(stick);
 }
@@ -334,7 +346,7 @@ static int h_joy_caps(int stick, fs2_joy_caps *caps)
 	if (!joy_connected(stick)) {
 		return 1;
 	}
-	CharString name = Input::get_singleton()->get_joy_name(stick).utf8();
+	CharString name = (Synth_kind != 0 && stick == SYNTH_DEVICE) ? String("synthetic").utf8() : Input::get_singleton()->get_joy_name(stick).utf8();
 	memset(caps->name, 0, sizeof(caps->name));
 	strncpy(caps->name, name.get_data(), sizeof(caps->name) - 1);
 	// Godot does not report an axis count; a mapped pad has six
@@ -342,12 +354,14 @@ static int h_joy_caps(int stick, fs2_joy_caps *caps)
 	return 0;
 }
 
-// -1..1 to the WinMM range 0..65535, centre 32767
+// -1..1 to the WinMM range 0..65535, centre 32768 (the inverse of winmm_to_axis, so the input test's known answers round-trip
+// exactly; the old (v+1)*32767.5 was one to two units off at the extremes and on the quarter points, which the test caught)
 static unsigned int axis_to_winmm(float v)
 {
 	if (v < -1.0f) v = -1.0f;
 	if (v > 1.0f) v = 1.0f;
-	return (unsigned int)((v + 1.0f) * 32767.5f);
+	long r = lroundf(v * 32768.0f) + 32768;
+	return (unsigned int)(r > 65535 ? 65535 : r);
 }
 
 // one read of the stick, once per frame from joy_poll (D-20261022-143926)
@@ -388,6 +402,129 @@ static int h_joy_read(int stick, fs2_joy_state *st)
 	return 0;
 }
 
+// The pad: the first connected device Godot has a standard mapping for (a pad, as opposed to a stick or wheel), read in Godot's
+// own button and axis order, which is PadState's. Sticks stay -1..1 with +y down, triggers 0..1, as Godot reports them.
+static int h_pad_poll(fs2_pad_state *out)
+{
+	Input *in = Input::get_singleton();
+	int dev = -1;
+
+	memset(out, 0, sizeof(*out));
+	if (Synth_kind == 2) {
+		dev = SYNTH_DEVICE;
+	} else {
+		TypedArray<int> pads = in->get_connected_joypads();
+		for (int i = 0; i < pads.size(); i++) {
+			int d = pads[i];
+			if (Synth_kind != 0 && d == SYNTH_DEVICE) {
+				continue;
+			}
+			if (in->is_joy_known(d)) {
+				dev = d;
+				break;
+			}
+		}
+	}
+	if (dev < 0) {
+		return 0;
+	}
+	out->connected = 1;
+	for (int a = 0; a < FS2_PAD_AXES; a++) {
+		float v = in->get_joy_axis(dev, (JoyAxis)a);
+		float lo = (a >= JOY_AXIS_TRIGGER_LEFT) ? 0.0f : -1.0f;
+		out->axis[a] = v < lo ? lo : (v > 1.0f ? 1.0f : v);
+	}
+	for (int b = 0; b < FS2_PAD_BUTTONS; b++) {
+		out->button[b] = in->is_joy_button_pressed(dev, (JoyButton)b) ? 1 : 0;
+	}
+	return 1;
+}
+
+// The input test's script, as synthetic events. Only what changed is sent; events from outside the main loop reach the Input
+// state only after a flush.
+static float Synth_axis[6];
+static bool Synth_button[32];
+static bool Synth_fresh = true;
+
+static void synth_axis(int a, float v)
+{
+	if (!Synth_fresh && Synth_axis[a] == v) {
+		return;
+	}
+	Synth_axis[a] = v;
+	Ref<InputEventJoypadMotion> e;
+	e.instantiate();
+	e->set_device(SYNTH_DEVICE);
+	e->set_axis((JoyAxis)a);
+	e->set_axis_value(v);
+	Input::get_singleton()->parse_input_event(e);
+}
+
+static void synth_button(int b, bool down)
+{
+	if (!Synth_fresh && Synth_button[b] == down) {
+		return;
+	}
+	Synth_button[b] = down;
+	Ref<InputEventJoypadButton> e;
+	e.instantiate();
+	e->set_device(SYNTH_DEVICE);
+	e->set_button_index((JoyButton)b);
+	e->set_pressed(down);
+	Input::get_singleton()->parse_input_event(e);
+}
+
+static float winmm_to_axis(unsigned int a)
+{
+	float v = ((float)a - 32768.0f) / 32768.0f;
+	return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
+}
+
+static void h_input_script(const fs2_input_script *sc)
+{
+	if (Synth_kind != sc->kind) {
+		Synth_kind = sc->kind;
+		Synth_fresh = true;
+	}
+	if (sc->kind == 1) {
+		for (int a = 0; a < 6; a++) {
+			synth_axis(a, winmm_to_axis(sc->joy.axes[a]));
+		}
+		unsigned int pov = sc->joy.pov;
+		bool up = false, right = false, down = false, left = false;
+		if (pov != 0xFFFF) {
+			up = (pov >= 31500 || pov <= 4500);
+			right = (pov >= 4500 && pov <= 13500);
+			down = (pov >= 13500 && pov <= 22500);
+			left = (pov >= 22500 && pov <= 31500);
+		}
+		for (int b = 0; b < 32; b++) {
+			if (b >= JOY_BUTTON_DPAD_UP && b <= JOY_BUTTON_DPAD_RIGHT) {
+				continue;
+			}
+			synth_button(b, (sc->joy.buttons >> b) & 1);
+		}
+		synth_button(JOY_BUTTON_DPAD_UP, up);
+		synth_button(JOY_BUTTON_DPAD_DOWN, down);
+		synth_button(JOY_BUTTON_DPAD_LEFT, left);
+		synth_button(JOY_BUTTON_DPAD_RIGHT, right);
+	} else if (sc->kind == 2) {
+		for (int a = 0; a < FS2_PAD_AXES; a++) {
+			synth_axis(a, sc->pad.axis[a]);
+		}
+		for (int b = 0; b < FS2_PAD_BUTTONS; b++) {
+			synth_button(b, sc->pad.button[b] != 0);
+		}
+	}
+	Synth_fresh = false;
+	Input::get_singleton()->flush_buffered_events();
+}
+
+void (*input_script_sink())(const fs2_input_script *)
+{
+	return h_input_script;
+}
+
 void fill(fs2_hooks *h)
 {
 	h->time_counter = h_time_counter;
@@ -399,6 +536,7 @@ void fill(fs2_hooks *h)
 	h->joy_count = h_joy_count;
 	h->joy_caps = h_joy_caps;
 	h->joy_read = h_joy_read;
+	h->pad_poll = h_pad_poll;
 }
 
 } // namespace fs2host

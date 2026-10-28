@@ -15,8 +15,11 @@ namespace fs2host {
 
 // Use this DLL's sinks and read the host's state afresh. Call after the DLL is loaded, before fs2_set_hooks / fs2_init.
 void attach(Fs2Api *api);
-// The nine hooks of fs2_api.h, ready for fs2_set_hooks.
+// The ten hooks of fs2_api.h, ready for fs2_set_hooks.
 void fill(fs2_hooks *hooks);
+// The sink for the game's input test (fs2_set_input_script_sink): turns its scripted joystick or pad into synthetic joypad
+// events on device 0, which the joystick and pad hooks then read back. Used only with -at_input joyhost / padhost.
+void (*input_script_sink())(const fs2_input_script *);
 // Forget queued events and key states (a new run starts clean).
 void reset();
 

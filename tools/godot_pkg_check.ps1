@@ -139,6 +139,12 @@ foreach ($kind in $(if ($NoHostChecks) { @() } else { 'restart', 'fatal' })) {
     $r | Add-Content $summary; $r
     if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
 }
+# joystick and pad through Godot's own input (-at_input joyhost / padhost, tools\godot_input_check.ps1), once per config with the autotest set
+if (-not $NoHostChecks -and $Set -eq 'autotest') {
+	$io = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'godot_input_check.ps1') -Config $Config -GameDir $run -Out (Join-Path $Out 'input') -Packaged 2>&1 | ForEach-Object { "$_" }
+	$io | Where-Object { $_ -match '^(FAIL |Autotest)' } | ForEach-Object { $_ | Add-Content $summary; $_ }
+	if ($LASTEXITCODE -ne 0) { $fail++; "FAIL input check (joy, pad): $($io | Select-Object -Last 1)" | Add-Content $summary } else { $pass++ }
+}
 "DONE pass=$pass fail=$fail" | Add-Content $summary
 "DONE pass=$pass fail=$fail"
 if ($fail) { exit 1 }

@@ -194,6 +194,7 @@
 #include "cfile.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "InputTest.h"	// Claude
 #include "OsRegistry.h"	// Claude
 
 // variables
@@ -255,6 +256,7 @@ cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
+cmdline_parm autotest_input_arg("-at_input", NULL);	// Claude: scripted joystick, see InputTest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
@@ -724,6 +726,9 @@ int parse_cmdline(char *cmdline)
 		}
 		if(autotest_shots_arg.found()){	// Claude: -at_shots
 			autotest_set_shots(autotest_shots_arg.str());
+		}
+		if(autotest_input_arg.found()){	// Claude: -at_input
+			input_test_set_cmdline(autotest_input_arg.str());
 		}
 	}
 

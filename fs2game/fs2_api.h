@@ -25,6 +25,16 @@ typedef struct fs2_joy_caps {
 	int	has_z, has_r, has_u, has_v;
 } fs2_joy_caps;
 
+// a control pad's state, as pad_state in code/Pad/PadState.h: 15 buttons and 6 axes in the standard gamepad order (Godot's
+// JoyButton and JoyAxis order), sticks -1..1 with +y down, triggers 0..1
+#define FS2_PAD_BUTTONS 15
+#define FS2_PAD_AXES 6
+typedef struct fs2_pad_state {
+	int	connected;
+	float	axis[FS2_PAD_AXES];
+	int	button[FS2_PAD_BUTTONS];
+} fs2_pad_state;
+
 // as host_hooks in code/OsApi/HostHooks.h. Every entry must be filled.
 typedef struct fs2_hooks {
 	long long	(*time_counter)(void);
@@ -36,10 +46,11 @@ typedef struct fs2_hooks {
 	int		(*joy_count)(void);
 	int		(*joy_caps)(int stick, fs2_joy_caps *caps);
 	int		(*joy_read)(int stick, fs2_joy_state *state);
+	int		(*pad_poll)(fs2_pad_state *out);
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 5
+#define FS2_API_VERSION 6
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -59,6 +70,17 @@ FS2_API int fs2_set_hooks(const fs2_hooks *hooks);
 // it returns 0 and the game keeps the null renderer (GR_DUMMY) as before. Under -headless the host renderer still reports "no
 // device" like the null renderer, so a compared run takes the same branches.
 FS2_API int fs2_set_render_sink(const fs2_render_sink *sink);
+
+// Input injection tests (D-20261028-103747): with -autotest -at_input joyhost or padhost the scripted stick or pad is not put in the
+// game's host table; the game hands each frame's scripted state to this sink instead, and the host feeds it into its own input, so the
+// game reads it back through the host's real joystick or pad hooks. kind is 1 for a stick (joy is valid), 2 for a pad (pad is valid).
+// Called on the game's thread, once at start-up with the idle state and then after each gameplay frame. Call before fs2_init; NULL clears.
+typedef struct fs2_input_script {
+	int		kind;
+	fs2_joy_state	joy;
+	fs2_pad_state	pad;
+} fs2_input_script;
+FS2_API int fs2_set_input_script_sink(void (*sink)(const fs2_input_script *script));
 
 // Start the game: cmdline is the game's command line (copied), root_dir the game's install folder (copied, no
 // trailing slash; the current directory is set to it). Returns 1 when the game is running, 0 when it failed.

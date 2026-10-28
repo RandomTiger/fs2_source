@@ -9,6 +9,10 @@
 
 // Fills *out from the first connected pad. Returns out->connected.
 // Loads XInput on the first call. Safe to call every frame.
+// This is the Windows host's entry in the host hook table (host_hooks.pad_poll, OsApi/HostHooks.h).
+int pad_xinput_poll(pad_state *out);
+
+// What the game calls: the read through the host table (HostHooks.cpp).
 int pad_backend_poll(pad_state *out);
 
 #endif

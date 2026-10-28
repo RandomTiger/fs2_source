@@ -20,12 +20,19 @@
 #include "Mouse.h"
 #include "2d.h"
 #include "fs2_api.h"
+#include "InputTest.h"
 
 extern int gr_host_attach_sink(const fs2_render_sink *sink);	// gr_host.cpp
 
 static_assert(FS2_MOUSE_LEFT == MOUSE_LEFT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
 static_assert(FS2_MOUSE_RIGHT == MOUSE_RIGHT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
 static_assert(FS2_MOUSE_MIDDLE == MOUSE_MIDDLE_BUTTON, "FS2_MOUSE_* must match Mouse.h");
+
+static_assert(sizeof(fs2_pad_state) == sizeof(pad_state), "fs2_pad_state must match Pad/PadState.h");
+static_assert(FS2_PAD_BUTTONS == PAD_NUM_BUTTONS, "fs2_pad_state must match Pad/PadState.h");
+static_assert(FS2_PAD_AXES == PAD_NUM_AXES, "fs2_pad_state must match Pad/PadState.h");
+static_assert(sizeof(fs2_joy_state) == sizeof(input_test_joy_state), "fs2_joy_state must match InputTest.h");
+static_assert(sizeof(fs2_input_script) == sizeof(input_test_script), "fs2_input_script must match InputTest.h");
 
 static host_hooks Api_hooks;
 static int Api_hooks_set = 0;
@@ -103,7 +110,7 @@ int fs2_set_hooks(const fs2_hooks *h)
 {
 	if ( (h == NULL) || (h->time_counter == NULL) || (h->time_frequency == NULL) || (h->poll_events == NULL)
 		|| (h->is_foreground == NULL) || (h->mouse_get_pos == NULL) || (h->mouse_set_pos == NULL)
-		|| (h->joy_count == NULL) || (h->joy_caps == NULL) || (h->joy_read == NULL) ) {
+		|| (h->joy_count == NULL) || (h->joy_caps == NULL) || (h->joy_read == NULL) || (h->pad_poll == NULL) ) {
 		return 0;
 	}
 	// the two structs have the same layout; the function pointers differ only in their types' names
@@ -116,6 +123,7 @@ int fs2_set_hooks(const fs2_hooks *h)
 	Api_hooks.joy_count = h->joy_count;
 	Api_hooks.joy_caps = (int (*)(int, host_joy_caps *))h->joy_caps;
 	Api_hooks.joy_read = (int (*)(int, host_joy_state *))h->joy_read;
+	Api_hooks.pad_poll = (int (*)(pad_state *))h->pad_poll;
 	Api_hooks_set = 1;
 	return 1;
 }
@@ -123,6 +131,12 @@ int fs2_set_hooks(const fs2_hooks *h)
 int fs2_set_render_sink(const fs2_render_sink *sink)
 {
 	return gr_host_attach_sink(sink);
+}
+
+int fs2_set_input_script_sink(void (*sink)(const fs2_input_script *script))
+{
+	input_test_set_host_sink((void (*)(const input_test_script *))sink);
+	return 1;
 }
 
 int fs2_init(const char *cmdline, const char *root_dir)
