@@ -539,6 +539,7 @@ typedef struct bitmap_entry	{
 } bitmap_entry;
 
 uint Bm_next_signature = 0x1234;
+void (*Bm_release_hook)(int handle) = NULL;	// Claude: R1, see BmpMan.h
 
 bitmap_entry bm_bitmaps[MAX_BITMAPS];
 
@@ -1948,6 +1949,10 @@ void bm_release(int handle)
 	if (be->ref_count != 0) {
 		nprintf(("BmpMan", "tried to unload %s that has a lock count of %d.. not unloading\n", be->filename, be->ref_count));
 		return;
+	}
+
+	if ( Bm_release_hook ) {
+		Bm_release_hook(handle);	// Claude: R1, a host drops what it cached for this handle (host-neutral, no logic)
 	}
 
 	bm_free_data(n);

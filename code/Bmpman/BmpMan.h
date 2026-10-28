@@ -197,6 +197,10 @@ int bm_unload( int n );
 // bm_create might reuse the slot.
 void bm_release(int n);
 
+// Claude: R1, called by bm_release for a bitmap it is about to free (after the lock check), so a host can drop textures cached
+// for the handle.  NULL unless a host sets it; it must not touch game state.
+extern void (*Bm_release_hook)(int handle);
+
 // This loads a bitmap sequence so we can draw with it later.
 // It returns a negative number if it couldn't load
 // the bitmap.   On success, it returns the bitmap
