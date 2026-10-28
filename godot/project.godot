@@ -3,5 +3,5 @@ config_version=5
 
 [application]
 config/name="FS2 Godot"
-run/main_scene="res://runner.tscn"
+run/main_scene="res://launch.tscn"
 config/features=PackedStringArray("4.7")
