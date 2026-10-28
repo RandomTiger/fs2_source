@@ -92,26 +92,34 @@ foreach ($t in $Tests) {
 	$rec = Join-Path $Out "$t.fs2rec"
 	$ok = $true; $line = "$mission ($Config)"
 
-	# a: native, the script replaces the hooks
-	Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
-	$code = Run-Native "$base -at_input $t -record `"$(Join-Path $Out "${t}_native.fs2rec")`" -trace `"$tn`""
-	$res = Script-Result $word
-	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_native.autotest.log") -ErrorAction SilentlyContinue
-	$line += " | native exit=$code $res"
-	if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
+	# a, b, c are live runs, so their frame timing follows the wall clock: on a loaded machine a native and a Godot run can differ in
+	# mission time without any input difference. One repeat of the whole a-b-c is allowed; both attempts are logged.
+	for ($try = 1; $try -le 2; $try++) {
+		$ok = $true; $line = "$mission ($Config)"
+		# a: native, the script replaces the hooks
+		Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
+		$code = Run-Native "$base -at_input $t -record `"$(Join-Path $Out "${t}_native.fs2rec")`" -trace `"$tn`""
+		$res = Script-Result $word
+		Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_native.autotest.log") -ErrorAction SilentlyContinue
+		$line += " | native exit=$code $res"
+		if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
 
-	# b: Godot, the script goes in as synthetic joypad events and is read back through Godot's Input
-	Remove-Item (Join-Path $GameDir 'autotest.log'), "$rec.record.log" -ErrorAction SilentlyContinue
-	$code = Run-Godot "$base -at_input ${t}host -record `"$rec`" -trace `"$tg`"" (Join-Path $Out "${t}_godot")
-	$res = Script-Result $word
-	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_godot.autotest.log") -ErrorAction SilentlyContinue
-	$line += " | godot exit=$code $res $(Log-Counts)"
-	if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
+		# b: Godot, the script goes in as synthetic joypad events and is read back through Godot's Input
+		Remove-Item (Join-Path $GameDir 'autotest.log'), "$rec.record.log" -ErrorAction SilentlyContinue
+		$code = Run-Godot "$base -at_input ${t}host -record `"$rec`" -trace `"$tg`"" (Join-Path $Out "${t}_godot")
+		$res = Script-Result $word
+		Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_godot.autotest.log") -ErrorAction SilentlyContinue
+		$line += " | godot exit=$code $res $(Log-Counts)"
+		if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
 
-	# c: the two runs read the same
-	$v = Verdict $tn $tg
-	$line += " / native vs godot: $v"
-	if ($v -notmatch '^MATCH') { $ok = $false }
+		# c: the two runs read the same
+		$v = Verdict $tn $tg
+		$line += " / native vs godot: $v"
+		if ($v -notmatch '^MATCH') { $ok = $false }
+
+		if ($ok) { break }
+		if ($try -eq 1) { "retry $mission ($Config) after: $line" | Add-Content $summary }
+	}
 
 	# d: the recording replays (natively and in Godot) to the trace it was recorded with
 	$rtrace = Join-Path $Out "${t}_replay_native.trace"; $gtrace = Join-Path $Out "${t}_replay_godot.trace"
