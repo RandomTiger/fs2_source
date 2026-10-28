@@ -5,12 +5,12 @@ godot\build\pkg\ holding FS2Godot.exe + FS2Godot.pck + fs2godot_rel.dll. -Stage 
 (fs2game64r.dll) into a data folder, which is the whole install: the exe then runs from there with no arguments.
 
 Usage: tools\godot_package.ps1 [-Godot exe] [-GodotCpp dir] [-Stage dir] [-GameDir dir] [-NoBuild]
-Locations come from the machine profile: -Godot / FS2_GODOT (the 4.7.2 editor exe, used only to export), -GodotCpp / FS2_GODOT_CPP
+Locations come from the machine profile: -Godot, default $env:GODOT_ENGINE_4_7\Godot_v4.7.2-stable_win64_console.exe (used only to export), -GodotCpp / FS2_GODOT_CPP
 (godot-cpp checkout, pinned in godot\README.md), -GameDir / PATH_FS2 (folder holding fs2game64r.dll, for -Stage).
 The export template must be in %APPDATA%\Godot\export_templates\4.7.2.stable (official release, SHA512-checked, not rebuilt).
 #>
 param(
-	[string]$Godot = $env:FS2_GODOT,
+	[string]$Godot,
 	[string]$GodotCpp = $env:FS2_GODOT_CPP,
 	[string]$Stage,
 	[string]$GameDir = $env:PATH_FS2,
@@ -20,7 +20,8 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $repo 'godot'
 $pkg = Join-Path $proj 'build\pkg'
-if (-not $Godot -or -not (Test-Path $Godot)) { throw 'Godot 4.7.2 editor exe not found: pass -Godot or set FS2_GODOT (machine profile)' }
+if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
+if (-not (Test-Path $Godot)) { throw "Godot 4.7.2 exe not found: $Godot" }
 if (-not $NoBuild -and (-not $GodotCpp -or -not (Test-Path $GodotCpp))) { throw 'godot-cpp not found: pass -GodotCpp or set FS2_GODOT_CPP (machine profile)' }
 $tpl = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable\windows_release_x86_64.exe'
 if (-not (Test-Path $tpl)) { throw "Export template missing: $tpl (official 4.7.2-stable templates, installed unmodified)" }

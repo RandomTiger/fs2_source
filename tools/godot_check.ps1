@@ -6,7 +6,7 @@ Pass = Godot exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x6
 
 Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative] [-Fiber 1|stress]
 -Quick  the per-commit quick set (14 custom + sm1-01 + sm3-06), taken from the 'custom' list below if present.
-Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot in C:\dev\Tools\godot_4.7.2, FS2game64<c>.dll,
+Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot 4.7.2 in the folder $env:GODOT_ENGINE_4_7 (or -Godot exe), FS2game64<c>.dll,
 FS2vs2022<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
 #>
 param(
@@ -15,7 +15,7 @@ param(
 	[string[]]$Missions,
 	[string]$Set = 'autotest',
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe',
+	[string]$Godot,	# default: Godot_v4.7.2-stable_win64_console.exe in $env:GODOT_ENGINE_4_7
 	[switch]$Quick,
 	[switch]$NoNative,
 	[string]$Fiber,	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
@@ -26,6 +26,7 @@ param(
 )
 $repo = Split-Path $PSScriptRoot
 if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { 'C:\Users\Claude\fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
+if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')

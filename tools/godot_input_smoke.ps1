@@ -6,7 +6,8 @@ replayed natively and through Godot: both must say REPLAY OK and the traces must
 Usage: tools\godot_input_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Out dir]
 #>
 param([string]$Config = 'r', [string]$Mission = 'sm1-01', [string]$Out,
-	[string]$GameDir = $env:PATH_FS2, [string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64.exe')
+	[string]$GameDir = $env:PATH_FS2, [string]$Godot)
+if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64.exe' }
 $repo = Split-Path $PSScriptRoot
 if (-not $Out) { $Out = Join-Path $repo ('replays\godot_input_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -37,7 +38,7 @@ $np = Start-Process ".\FS2vs2022${Config}64.exe" -ArgumentList $rc -PassThru -Wa
 $res += "native replay exit=$($np.ExitCode): " + ((Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line)
 $env:FS2_DLL = Join-Path $GameDir "FS2game64$Config.dll"; $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'
 $env:FS2_CMD = "-window -autotest -headless -replay `"$Out\inject.fs2rec`" -trace `"$Out\replay_godot.trace`""
-$p = Start-Process 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe' -ArgumentList "--headless --path `"$(Join-Path $repo 'godot')`"" -PassThru -Wait -RedirectStandardOutput "$Out\replay_godot.out.txt"
+$p = Start-Process (Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe') -ArgumentList "--headless --path `"$(Join-Path $repo 'godot')`"" -PassThru -Wait -RedirectStandardOutput "$Out\replay_godot.out.txt"
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER -ErrorAction SilentlyContinue
 $res += "godot replay exit=$($p.ExitCode): " + ((Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line)
 $res += "TraceDiff live vs native replay: " + (& $td "$Out\inject.trace" "$Out\replay_native.trace" | Select-Object -Last 1)
