@@ -3,7 +3,7 @@
 Code and project files only. No game data (read at run time through cfile).
 
 ## Pins
-- Godot 4.7.2-stable win64, from github.com/godotengine/godot-builds, in `C:\dev\Tools\godot_4.7.2\` (not in git).
+- Godot 4.7.2-stable win64, from github.com/godotengine/godot-builds, in a folder named by the env var `GODOT_ENGINE_4_7` on every machine (e.g. `C:\dev\Tools\godot_4.7.2`, holding `Godot_v4.7.2-stable_win64.exe`, `_console.exe` and the export templates `.tpz`; not in git). All Godot scripts derive the exe from it; `-Godot <exe>` overrides.
   Zip SHA512 starts `83decd58fd`. A bump is its own brief.
 - godot-cpp 10.0.0-stable, commit `507ed9d840c01a3c5b2a39af8bb4000bfac30bf5`, in `C:\dev\Tools\godot-cpp` (not in git). API 4.7.
 
@@ -18,11 +18,11 @@ First use of a fresh checkout: `godot --headless --path godot --import` (tools/g
 `tools\godot_check.ps1 [-Config r|d] [-Missions a,b] [-Quick]`; runner.gd reads FS2_DLL, FS2_ROOT, FS2_CMD (and FS2_CMD2 for the restart check).
 
 ## Package (batch P)
-`tools\godot_package.ps1 -Godot <4.7.2 editor exe> -GodotCpp <godot-cpp> [-Stage <data dir> -GameDir <dir with FS2game64r.dll>]`
+`tools\godot_package.ps1 [-Godot <exe override>] -GodotCpp <godot-cpp> [-Stage <data dir> -GameDir <dir with FS2game64r.dll>]`
 builds the template_release wrapper (`bin/fs2godot_rel.dll`), exports preset "Windows Desktop" with the stock 4.7.2-stable
 Windows release template (official, unmodified, installed per user in `%APPDATA%\Godot\export_templates\4.7.2.stable`, never in
 git) and leaves `build/pkg/FS2Godot.exe` + `FS2Godot.pck` + `fs2godot_rel.dll`. Install = those three files plus `FS2game64r.dll`
-in the game's data folder. Locations also read from FS2_GODOT, FS2_GODOT_CPP, PATH_FS2 (machine profile).
+in the game's data folder. Locations also read from GODOT_ENGINE_4_7 (the engine folder; unset is an error unless -Godot is given), FS2_GODOT_CPP, PATH_FS2 (machine profile).
 Launch (`launch.gd`, the main scene): no arguments and no environment variables; the data folder is the exe's folder, else the
 current folder, first valid wins (`*.vp` there or in `Data\`); `--fs2-root <dir>` names it instead. None valid: the folders tried
 are shown in a message box (stderr under --headless) and the exit code is 3 (4: fs2game64r.dll missing). Config, pilots and logs
