@@ -91,6 +91,9 @@ After each simulation step `game_frame` copies every object in use, in used-list
 ## BmpMan is on the renderer's side (decision D-044)
 A leak is logic reading presentation state, or reaching presentation by a path other than this interface. BmpMan's pixel conversion (`bm_lock`, the `BM_SELECT_*` pointers, the `Gr_current_*`, `Gr_t_*`, `Gr_ta_*` and `Bm_pixel_format` globals) is presentation: it turns image files into the renderer's texture format, and nothing on the logic side reads it. Its boundary is `BmpMan.h`. A host either reuses BmpMan and sets its format globals from its own texture format, or replaces it behind `BmpMan.h`. Either way nothing in BmpMan names a Godot type.
 
+## Render backend seam: bitmap release notification (decision D-20261028-213454)
+A render backend registered with `gr_host_backend_register` (`Graphics/2d.h`) may also set `Bm_release_hook` (`Bmpman/BmpMan.h`, `void (*)(int handle)`, NULL by default). `bm_release` calls it for a user bitmap just before the data is freed, after the lock check, so the backend can drop textures it cached for that handle. It is a sibling setter of the registration, not part of the platform table in `HostHooks.h`. The hook must not touch game state, read a clock or random stream, or change what `bm_release` returns; with it unset, nothing changes.
+
 ## Size of a backend
 About 200 functions, or about 120 if cfile stays in the game. Render is about 65 to 70 plus about 25 for textures, audio 56, input 47, platform about 28. The renderer branches and colour-global reads outside the seams are now capability queries (`gr_screen.hardware`, `gr_screen.texture_bpp`, `gr_texture_memory`).
 
