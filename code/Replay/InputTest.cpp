@@ -56,6 +56,8 @@ static int Input_test_failures = 0;
 static char *Input_test_name = "Joystick script";	// for the log
 static input_test_joy_state Input_test_joy;	// the scripted stick's state for the next polls
 static pad_state Input_test_pad;			// the scripted pad's state for this frame's poll
+static int Input_test_host_kind = 0;		// -at_input joyhost (1) or padhost (2): the host feeds the script into its own input
+static void (*Input_test_sink)(const input_test_script *script) = NULL;	// the host's sink for that
 
 static void input_test_logf(char *format, ...)
 {
@@ -70,6 +72,14 @@ static void input_test_logf(char *format, ...)
 }
 
 static void input_test_install_host();
+static void input_test_push_host();
+static void joy_test_idle(input_test_joy_state *st);
+static void pad_test_idle(pad_state *st);
+
+void input_test_set_host_sink(void (*sink)(const input_test_script *script))
+{
+	Input_test_sink = sink;
+}
 
 void input_test_set_cmdline(char *what)
 {
@@ -82,8 +92,25 @@ void input_test_set_cmdline(char *what)
 		input_test_install_host();
 		Input_test_pad.connected = 1;		// from game start, so joy_init leaves the stick to the pad
 		input_test_logf("Input test: the scripted pad stands in for the real one (-at_input pad)\n");
+	} else if (what && (!stricmp(what, "joyhost") || !stricmp(what, "padhost"))) {
+		Input_test_host_kind = !stricmp(what, "joyhost") ? 1 : 2;
+		if (Input_test_host_kind == 1) {
+			Input_test_joy_inject = 1;		// the setup checks and the script as for -at_input joy, but the host table is left alone
+		} else {
+			Input_test_pad_inject = 1;
+		}
+		if (Input_test_sink == NULL) {
+			input_test_logf("FATAL: -at_input %s needs a host that registered an input script sink\n", what);
+			Input_test_failures++;
+		} else {
+			input_test_logf("Input test: the host feeds the scripted %s into its own input (-at_input %s)\n", (Input_test_host_kind == 1) ? "joystick" : "pad", what);
+			joy_test_idle(&Input_test_joy);
+			pad_test_idle(&Input_test_pad);
+			Input_test_pad.connected = (Input_test_host_kind == 2);
+			input_test_push_host();		// from game start, so joy_init finds the device
+		}
 	} else {
-		input_test_logf("FATAL: -at_input needs 'joy' or 'pad', got '%s'\n", what ? what : "");
+		input_test_logf("FATAL: -at_input needs 'joy', 'pad', 'joyhost' or 'padhost', got '%s'\n", what ? what : "");
 		Input_test_failures++;
 	}
 }
@@ -346,8 +373,26 @@ static int input_test_host_pad_poll(pad_state *out)
 	return 1;
 }
 
+// the script's state for the host to feed into its own input (-at_input joyhost / padhost)
+static void input_test_push_host()
+{
+	input_test_script script;
+
+	if (!Input_test_host_kind || (Input_test_sink == NULL)) {
+		return;
+	}
+	memset(&script, 0, sizeof(script));
+	script.kind = Input_test_host_kind;
+	script.joy = Input_test_joy;
+	script.pad = Input_test_pad;
+	Input_test_sink(&script);
+}
+
 static void input_test_install_host()
 {
+	if (Input_test_host_kind) {
+		return;		// the host's own entries stay in the table
+	}
 	Input_test_hooks = Host_hooks;
 	if (Input_test_joy_inject) {
 		Input_test_hooks.joy_count = input_test_host_joy_count;
@@ -492,6 +537,7 @@ void input_test_mission_start()
 	Input_test_pad_script = (strstr(The_mission.notes, INPUT_TEST_PAD_NOTE) != NULL);
 	joy_test_idle(&Input_test_joy);
 	pad_test_idle(&Input_test_pad);
+	input_test_push_host();
 	if (Input_test_joy_script) {
 		Input_test_name = "Joystick script";
 		Input_test_joy_asked = 1;
@@ -537,6 +583,7 @@ void input_test_frame()
 	pad_test_script(Input_test_step, &Input_test_pad);		// this frame's pad_frame polls it
 	Input_test_step++;
 	joy_test_script(Input_test_step, &Input_test_joy);		// the next frame's os_poll reads it
+	input_test_push_host();
 }
 
 int input_test_failed()

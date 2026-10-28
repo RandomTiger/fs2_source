@@ -71,6 +71,8 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestJoy` | The joystick read: a scripted stick (`-at_input joy`, recording only) taps a button, holds and releases fire and moves the stick; each frame's reads and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input joy -at_pilot AutotestPilot' -NoPlayerNpc` |
 | `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps South and a shoulder, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
 
+In the Godot host the same two scripts run as `-at_input joyhost` / `padhost`: the script becomes synthetic Godot joypad events and is read back through Godot's Input (`tools/godot_input_check.ps1`, run by `godot_check.ps1` and `godot_pkg_check.ps1`).
+
 ### Length (decision D-043)
 A test mission plays to its end when it ends itself, or when its last scripted event comes before the time limit its notes set (`-at_time`). New test missions end themselves. The figures are kept here, not in the mission notes: a recording checks the mission file's bytes, so editing the notes would stop it replaying. From the headless replays of 2026-10-16:
 

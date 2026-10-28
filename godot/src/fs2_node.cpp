@@ -63,6 +63,9 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	fs2_hooks hooks;
 	fs2host::attach(&api);
 	fs2host::fill(&hooks);
+	if (api.set_input_script_sink != nullptr) {
+		api.set_input_script_sink(fs2host::input_script_sink());
+	}
 	if (!api.set_hooks(&hooks)) {
 		UtilityFunctions::printerr("Fs2Game: fs2_set_hooks refused the hook table");
 		return false;

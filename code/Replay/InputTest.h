@@ -28,6 +28,11 @@
  * control_info with a known answer for the default pad settings, and logs "Pad script: FAIL ...".  The
  * recording keeps the pad's output (RT_INPUT_DEVICE), so a replay checks that.
  *
+ * -at_input joyhost and -at_input padhost run the same two scripts and checks, but leave the host table alone: each
+ * frame the script's state goes to a sink the host registered (fs2_set_input_script_sink), the host feeds it into its own
+ * joystick or pad input, and the game reads it back through the host's real joy_* or pad_poll entries. The known answers are
+ * the same, so a host's reader is right when its answers match the scripted-table run (D-20261028-103747).
+ *
  * The script's stick state has the shape of the host layer's joystick read (axes 0..65535, centre 32768,
  * a button bit mask, the POV in hundredths of a degree or 65535 centred), and its pad state is a pad_state,
  * so a host on any layer can return them from its own table.
@@ -36,11 +41,21 @@
 #ifndef _FS2_INPUT_TEST_H
 #define _FS2_INPUT_TEST_H
 
+#include "../Pad/PadState.h"
+
 typedef struct input_test_joy_state {
 	unsigned int axes[6];
 	unsigned int buttons;
 	unsigned int pov;
 } input_test_joy_state;
+
+// -at_input joyhost / padhost: the script's state for the host to feed into its own input (see the file comment)
+typedef struct input_test_script {
+	int kind;							// 1 stick (joy), 2 pad (pad)
+	input_test_joy_state joy;
+	pad_state pad;
+} input_test_script;
+void input_test_set_host_sink(void (*sink)(const input_test_script *script));	// the host's sink, before the game starts
 
 void input_test_set_cmdline(char *what);	// -at_input (called from parse_cmdline, with -autotest)
 void input_test_joy_read(input_test_joy_state *st);	// the scripted stick's state now
