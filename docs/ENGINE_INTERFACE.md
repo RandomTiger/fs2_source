@@ -30,8 +30,9 @@ The recorder already hooks about 28 seam functions. Each is a value the game tak
 - window and events: `poll_events` (pumps the host's events into `key_mark`, `mouse_mark` and the focus), `is_foreground`;
 - mouse: `mouse_get_pos`, `mouse_set_pos`, in the game window's client coordinates;
 - joystick: `joy_count`, `joy_caps`, `joy_read` (all six axes, buttons and POV, calibrated). Button timing stays in `Joy.cpp`.
+- control pad: `pad_poll` fills a `pad_state` (`Pad/PadState.h`: 15 buttons and 6 axes in the standard gamepad order, sticks -1..1 with +y down, triggers 0..1, `connected`) from the first connected pad and returns `connected`; with no pad it zeroes the state and returns 0. The game calls it every frame through `pad_backend_poll` (`HostHooks.cpp`); the pad core and `PadGame.cpp` are unchanged. The Windows host fills it with `pad_xinput_poll` (`PadXInput.cpp`), the state the pad backend always gave; a host fills it from its own pad input (D-20261028-103747).
 
-The recorder's wraps stay on the game side of the table (`timer_get_*`, `os_foreground`, `mouse_get_cursor_pos`, `joy_get_pos`, `joystick_read_raw_axis`, the `joy_*` button reads), so the recorded values, tags and order are the same whichever host fills it. The `*_live` functions behind those wraps are the game's own, not the host's. The Windows host fills `host_hooks_windows` (`HostHooksWin32.cpp`); `-headless` fills `host_hooks_headless`: the same clock, no events, always in the foreground, the mouse at rest, a joystick driver with no stick attached. Sound stays behind its own interface and files behind cfile, with the root from the host.
+The recorder's wraps stay on the game side of the table (`timer_get_*`, `os_foreground`, `mouse_get_cursor_pos`, `joy_get_pos`, `joystick_read_raw_axis`, the `joy_*` button reads), so the recorded values, tags and order are the same whichever host fills it. The `*_live` functions behind those wraps are the game's own, not the host's. The Windows host fills `host_hooks_windows` (`HostHooksWin32.cpp`); `-headless` fills `host_hooks_headless`: the same clock, no events, always in the foreground, the mouse at rest, a joystick driver with no stick attached, no pad. Sound stays behind its own interface and files behind cfile, with the root from the host.
 
 ## The gameplay random stream belongs to the game
 `rand()` and `srand()` in game code are the game's own copy of the MSVC CRT generator (`fs2_rand`, `GlobalIncs/SystemVars.cpp`), so the host's threads and libraries cannot shift it. The host never calls the game's `rand`; the gameplay stream is owned by logic (D-039).
@@ -70,7 +71,7 @@ The version string (`get_version_string`) stays in the game; it uses no Windows 
 ## Debug services and the pad are platform backends (decision D-047)
 `GlobalIncs/WinDebug.cpp` and `Pad/PadXInput.cpp` are Windows implementations behind headers that carry no Windows types; another host replaces them, as it replaces OsApi.
 - `pstypes.h`: `Assert`, `Error` and `Warning`, and the `vm_malloc`, `vm_strdup` and `vm_free` allocator. `Error` terminates. Under autotest none of them shows a dialog: each is logged through `autotest_report`, `Assert` and `Warning` carry on, and `Error` exits with code 1. Otherwise the Windows backend shows a dialog, copies the text to the clipboard and can dump the call stack; another host may only log.
-- `PadXInput.h`: the pad backend, or a null one that reports no pad. `PadGame.cpp` and the pad core hold the logic.
+- `PadXInput.h`: the Windows pad backend (`pad_xinput_poll`, the Windows host's `pad_poll`); another host fills `pad_poll` itself, and the headless host reports no pad. `PadGame.cpp` and the pad core hold the logic.
 
 ## Settings (decisions D-016, D-056)
 The game reads its settings from `fs2.ini` at the host root (`os_config_set_dir`, from `game_host_init`; `-ini <file>` names another), never the registry. `OsApi/OsRegistry.cpp` is the Windows implementation of `os_config_read_*` and `os_config_write_*`; another host may keep the same file or serve the same keys. By class:
@@ -92,3 +93,6 @@ A leak is logic reading presentation state, or reaching presentation by a path o
 
 ## Size of a backend
 About 200 functions, or about 120 if cfile stays in the game. Render is about 65 to 70 plus about 25 for textures, audio 56, input 47, platform about 28. The renderer branches and colour-global reads outside the seams are now capability queries (`gr_screen.hardware`, `gr_screen.texture_bpp`, `gr_texture_memory`).
+
+## Input injection tests (decision D-20261028-103747)
+`-autotest -at_input joy|pad` puts a scripted stick or pad in the host table (`Replay/InputTest.cpp`: a copy of the table in use with `joy_count`/`joy_caps`/`joy_read`, or `pad_poll`, replaced), and the missions `AutotestJoy` and `AutotestPad` check the game's reading of it against known answers (`docs/AUTOTEST.md`). A port's host runs the same two missions and answers.

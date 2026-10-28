@@ -6,6 +6,7 @@
 
 #include "HostHooks.h"
 #include "OsApi.h"
+#include "../Pad/PadXInput.h"
 
 static longlong host_win32_time_counter()
 {
@@ -94,6 +95,7 @@ const host_hooks host_hooks_windows = {
 	host_win32_joy_count,
 	host_win32_joy_caps,
 	host_win32_joy_read,
+	pad_xinput_poll,
 };
 
 static void host_headless_poll_events()
@@ -131,6 +133,13 @@ static int host_headless_joy_read(int stick, host_joy_state *state)
 	return 1;
 }
 
+// no pad (D-051)
+static int host_headless_pad_poll(pad_state *out)
+{
+	memset(out, 0, sizeof(*out));
+	return 0;
+}
+
 const host_hooks host_hooks_headless = {
 	host_win32_time_counter,
 	host_win32_time_frequency,
@@ -141,4 +150,5 @@ const host_hooks host_hooks_headless = {
 	host_headless_joy_count,
 	host_headless_joy_caps,
 	host_headless_joy_read,
+	host_headless_pad_poll,
 };
