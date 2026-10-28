@@ -120,7 +120,7 @@ int tex_get(int bitmap_id, int type)
 	if (t.sink_id != 0 && t.type == type) { return t.sink_id; }
 
 	ubyte flags = 0;
-	ubyte bpp = (ubyte)H.texture_bpp;
+	ubyte bpp = 16;			// the game's convention: ask for 16, BmpMan upgrades to 32 for gr_screen.texture_bpp == 32
 	switch (type) {
 	case TCACHE_TYPE_AABITMAP: flags = BMP_AABITMAP; bpp = 8; break;
 	case TCACHE_TYPE_NORMAL: flags = BMP_TEX_OTHER; break;
@@ -139,7 +139,7 @@ int tex_get(int bitmap_id, int type)
 		fs2host::to_a8(src, w, h, w, px.data());
 		format = FS2_SINK_TEX_A8;
 	} else {
-		const fs2host::PixLayout &l = fs2host::layout_for_texture_bpp(H.texture_bpp);
+		const fs2host::PixLayout &l = fs2host::layout_for_texture_bpp(bmp->bpp == 32 ? 32 : 16);
 		px.resize(fs2host::rgba8_bytes(w, h));
 		fs2host::to_rgba8(src, w, h, w * l.bytes, l, px.data());
 		format = FS2_SINK_TEX_RGBA8;
