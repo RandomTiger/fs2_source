@@ -7,8 +7,8 @@ hooks (joy_read, pad_poll). The same known-answer checks run on what comes back.
 Per config and per test (joy, pad), in the gate folder:
   a  native x64 run with -at_input <joy|pad>: the log must say PASS, trace T_n
   b  stock `godot --headless` + fs2godot + FS2game64<c>.dll with -at_input <joy|pad>host, recording R: PASS, trace T_g
-  c  TraceDiff T_n vs T_g must MATCH
-  d  R replayed natively and in Godot: REPLAY OK, both traces MATCH the recorded one
+  c  each recording (native's and Godot's) replayed natively and in Godot: REPLAY OK, trace MATCHes the one it was recorded with
+     (the two live traces are compared and logged but not scored: live frame timing follows the wall clock)
 
 Usage: tools\godot_input_check.ps1 [-Config r|d] [-Out dir] [-GameDir dir] [-Tests joy,pad] [-Packaged]
 -Packaged  run (b) and (d) through the packaged FS2Godot.exe in GameDir (godot_pkg_check copies it there) instead of the stock Godot.
@@ -89,54 +89,43 @@ foreach ($t in $Tests) {
 	$word = if ($t -eq 'joy') { 'Joystick' } else { 'Pad' }
 	$base = "-window -autotest -headless -at_mission $mission -at_pilot AutotestPilot -at_time 20"
 	$tn = Join-Path $Out "${t}_native.trace"; $tg = Join-Path $Out "${t}_godot.trace"
-	$rec = Join-Path $Out "$t.fs2rec"
+	$recN = Join-Path $Out "${t}_native.fs2rec"; $recG = Join-Path $Out "${t}_godot.fs2rec"
 	$ok = $true; $line = "$mission ($Config)"
+	# the game never overwrites an output file, so start clean
+	Remove-Item $tn, $tg, $recN, $recG, "$recN.record.log", "$recG.record.log" -ErrorAction SilentlyContinue
 
-	# a, b, c are live runs, so their frame timing follows the wall clock: on a loaded machine a native and a Godot run can differ in
-	# mission time without any input difference. One repeat of the whole a-b-c is allowed; both attempts are logged.
-	for ($try = 1; $try -le 2; $try++) {
-		$ok = $true; $line = "$mission ($Config)"
-		# a: native, the script replaces the hooks
-		Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
-		$code = Run-Native "$base -at_input $t -record `"$(Join-Path $Out "${t}_native.fs2rec")`" -trace `"$tn`""
-		$res = Script-Result $word
-		Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_native.autotest.log") -ErrorAction SilentlyContinue
-		$line += " | native exit=$code $res"
-		if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
+	# a: native, the script replaces the hooks (live, recorded)
+	Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
+	$code = Run-Native "$base -at_input $t -record `"$recN`" -trace `"$tn`""
+	$res = Script-Result $word
+	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_native.autotest.log") -ErrorAction SilentlyContinue
+	$line += " | native exit=$code $res"
+	if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
 
-		# b: Godot, the script goes in as synthetic joypad events and is read back through Godot's Input
-		Remove-Item (Join-Path $GameDir 'autotest.log'), "$rec.record.log" -ErrorAction SilentlyContinue
-		$code = Run-Godot "$base -at_input ${t}host -record `"$rec`" -trace `"$tg`"" (Join-Path $Out "${t}_godot")
-		$res = Script-Result $word
-		Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_godot.autotest.log") -ErrorAction SilentlyContinue
-		$line += " | godot exit=$code $res $(Log-Counts)"
-		if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
+	# b: Godot, the script goes in as synthetic joypad events and is read back through Godot's Input (live, recorded)
+	Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
+	$code = Run-Godot "$base -at_input ${t}host -record `"$recG`" -trace `"$tg`"" (Join-Path $Out "${t}_godot")
+	$res = Script-Result $word
+	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $Out "${t}_godot.autotest.log") -ErrorAction SilentlyContinue
+	$line += " | godot exit=$code $res $(Log-Counts)"
+	if (($code -ne 0) -or ($res -notmatch 'PASS$')) { $ok = $false }
 
-		# c: the two runs read the same
-		$v = Verdict $tn $tg
-		$line += " / native vs godot: $v"
-		if ($v -notmatch '^MATCH') { $ok = $false }
+	# the two live runs are only logged, not scored: their frame timing follows the wall clock, so mission time can differ by a
+	# frame or two on a loaded machine with identical input (seen natively against natively too)
+	$line += " / live native vs godot (not scored): $(Verdict $tn $tg)"
 
-		if ($ok) { break }
-		if ($try -eq 1) { "retry $mission ($Config) after: $line" | Add-Content $summary }
-	}
-
-	# d: the recording replays (natively and in Godot) to the trace it was recorded with
-	$rtrace = Join-Path $Out "${t}_replay_native.trace"; $gtrace = Join-Path $Out "${t}_replay_godot.trace"
-	Remove-Item "$rec.replay.log" -ErrorAction SilentlyContinue
-	$code = Run-Native "-window -autotest -headless -replay `"$rec`" -trace `"$rtrace`""
-	$rr = if (Test-Path "$rec.replay.log") { (Select-String "$rec.replay.log" -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line } else { 'NO LOG' }
-	$line += " | replay native exit=$code $rr"
-	if (($code -ne 0) -or ($rr -notmatch '^REPLAY OK')) { $ok = $false }
-	Remove-Item "$rec.replay.log" -ErrorAction SilentlyContinue
-	$code = Run-Godot "-window -autotest -headless -replay `"$rec`" -trace `"$gtrace`"" (Join-Path $Out "${t}_replay_godot")
-	$rr = if (Test-Path "$rec.replay.log") { (Select-String "$rec.replay.log" -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line } else { 'NO LOG' }
-	$line += " | replay godot exit=$code $rr"
-	if (($code -ne 0) -or ($rr -notmatch '^REPLAY OK')) { $ok = $false }
-	foreach ($pair in @(@('recorded vs replay native', $tg, $rtrace), @('recorded vs replay godot', $tg, $gtrace))) {
-		$v = Verdict $pair[1] $pair[2]
-		$line += " / $($pair[0]): $v"
-		if ($v -notmatch '^MATCH') { $ok = $false }
+	# c: each recording replays, natively and in Godot, to the trace it was recorded with (the deterministic comparison)
+	foreach ($r in @(@('native', $recN, $tn), @('godot', $recG, $tg))) {
+		foreach ($host_ in 'native', 'godot') {
+			$out_ = Join-Path $Out "${t}_$($r[0])rec_replay_$host_.trace"
+			Remove-Item $out_, "$($r[1]).replay.log" -ErrorAction SilentlyContinue
+			$cmd = "-window -autotest -headless -replay `"$($r[1])`" -trace `"$out_`""
+			$code = if ($host_ -eq 'native') { Run-Native $cmd } else { Run-Godot $cmd (Join-Path $Out "${t}_$($r[0])rec_replay_godot") }
+			$rr = if (Test-Path "$($r[1]).replay.log") { (Select-String "$($r[1]).replay.log" -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line } else { 'NO LOG' }
+			$v = Verdict $r[2] $out_
+			$line += " | $($r[0]) rec in $host_ exit=$code $rr / $v"
+			if (($code -ne 0) -or ($rr -notmatch '^REPLAY OK') -or ($v -notmatch '^MATCH')) { $ok = $false }
+		}
 	}
 	if ($Config -eq 'd' -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
