@@ -22,6 +22,8 @@ param(
 	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see fs2_tools\l1_lib.ps1
 	[int]$Seed,	# L1: seed of the 3 random missions (logged; same seed, same picks)
 	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
+	[switch]$Shown,	# gate C (D-20261027-190104): Godot run in a real window (no --headless), host renderer (FS2_GR_HOST=1), game without -headless; native baseline unchanged
+	[switch]$NoDraw,	# the -nodraw host-mode subset: -nodraw instead of -headless in the Godot run, host renderer; native baseline unchanged
 	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
@@ -92,9 +94,13 @@ foreach ($m in $Missions) {
 	}
 	Remove-Item (Join-Path $run 'autotest.log') -ErrorAction SilentlyContinue
 	Wait-NoGame
-	$env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = ($flags -replace '%T', $gtrace)
+	$gflags = $flags
+	if ($Shown) { $gflags = $gflags -replace ' -headless', ''; $env:FS2_GR_HOST = '1' }
+	if ($NoDraw) { $gflags = $gflags -replace ' -headless', ' -nodraw'; $env:FS2_GR_HOST = '1' }
+	$gargs = if ($Shown) { "--path `"$proj`"" } else { "--headless --path `"$proj`"" }
+	$env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = ($gflags -replace '%T', $gtrace)
 	if ($Fiber) { $env:FS2_FIBER = $Fiber }
-	$p = Start-Process $Godot -ArgumentList "--headless --path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out "${m}_godot.out.txt") -RedirectStandardError (Join-Path $Out "${m}_godot.err.txt"); $null = $p.Handle
+	$p = Start-Process $Godot -ArgumentList $gargs -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out "${m}_godot.out.txt") -RedirectStandardError (Join-Path $Out "${m}_godot.err.txt"); $null = $p.Handle
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $gcode = 'TIMEOUT' } else { $gcode = $p.ExitCode }
 	Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue
 	$gres = Replay-Result $rec (Join-Path $Out "${m}_godot.replay.log")
