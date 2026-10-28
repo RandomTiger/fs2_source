@@ -365,7 +365,7 @@ void h_rect(int x, int y, int w, int h)
 	if (!drawing()) { return; }
 	const color &c = gr_screen.current_color;
 	solid_rect((float)(x + gr_screen.offset_x), (float)(y + gr_screen.offset_y), (float)(x + w + gr_screen.offset_x),
-		(float)(y + h + gr_screen.offset_y), c.red, c.green, c.blue, c.alpha);
+		(float)(y + h + gr_screen.offset_y), H.gamma_lookup[c.red], H.gamma_lookup[c.green], H.gamma_lookup[c.blue], c.alpha); // D3D draws rects through the tmapper, which runs the colour through the gamma table
 }
 
 void h_shade(int x, int y, int w, int h)
@@ -375,7 +375,7 @@ void h_shade(int x, int y, int w, int h)
 	const shader &s = gr_screen.current_shader;
 	// the same scaling as gr_d3d_shade
 	solid_rect((float)(x + gr_screen.offset_x), (float)(y + gr_screen.offset_y), (float)(x + w + gr_screen.offset_x),
-		(float)(y + h + gr_screen.offset_y), (int)(s.r * 255.0f), (int)(s.g * 255.0f), (int)(s.b * 255.0f), (int)(s.c * 255.0f * 6.0f));
+		(float)(y + h + gr_screen.offset_y), H.gamma_lookup[(int)(s.r * 255.0f)], H.gamma_lookup[(int)(s.g * 255.0f)], H.gamma_lookup[(int)(s.b * 255.0f)], (int)(s.c * 255.0f * 6.0f));
 }
 
 void h_pixel(int x, int y)

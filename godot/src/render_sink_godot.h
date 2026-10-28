@@ -81,6 +81,7 @@ private:
 
 	godot::RID cur_item, cur_parent;	// the open item that further batches of the same signature join
 	uint32_t cur_sig = 0;
+	int next_index = 0;
 	godot::RID parent;			// where new items go: pending_root, or the clip item
 	int clip[4] = { 0, 0, 0, 0 };
 	bool clipped = false;

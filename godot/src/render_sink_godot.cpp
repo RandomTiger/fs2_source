@@ -108,6 +108,8 @@ RID GodotSink::new_item(const RID &under)
 		item = rs->canvas_item_create();
 	}
 	rs->canvas_item_set_parent(item, under);
+	// Godot sorts sibling items by draw index, and its sort of more than 16 is not stable: give every item its own index
+	rs->canvas_item_set_draw_index(item, next_index++);
 	return item;
 }
 
@@ -183,6 +185,7 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 		s->vp->set_size(Vector2i(w, h));
 	}
 	// a frame that was started and never ended is dropped
+	s->next_index = 0;
 	s->batcher.discard();
 	s->release_items(s->pending_items, s->pending_root);
 	s->release_meshes(s->pending_meshes);
@@ -442,10 +445,29 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 	s->batcher.add(*d, v, nv, idx, ni, tw, th);
 }
 
-int GodotSink::s_capture(void *u, int32_t)
+// The capture is the last frame the viewport has rendered (the frame on show), as read_region does.
+int GodotSink::s_capture(void *u, int32_t id)
 {
-	static_cast<GodotSink *>(u)->batcher.flush();
-	return 0;
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->batcher.flush();
+	if (s->vp == nullptr || id == 0) {
+		return 0;
+	}
+	RenderingServer::get_singleton()->force_draw(false); // render what frame_end has shown: the viewport has not drawn it yet
+	Ref<Image> img = s->vp->get_texture()->get_image();
+	if (img.is_null() || img->is_empty()) {
+		return 0;
+	}
+	img->convert(Image::FORMAT_RGBA8);
+	auto it = s->textures.find(id);
+	if (it != s->textures.end()) {
+		s->retire(it->second.rid);
+	}
+	Tex t;
+	t.rid = RenderingServer::get_singleton()->texture_2d_create(img);
+	t.w = img->get_width(); t.h = img->get_height(); t.format = FS2_SINK_TEX_RGBA8; t.flags = 0;
+	s->textures[id] = t;
+	return 1;
 }
 
 int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
@@ -456,6 +478,7 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
 		return 0;
 	}
+	RenderingServer::get_singleton()->force_draw(false); // render what frame_end has shown: the viewport has not drawn it yet
 	Ref<Image> img = s->vp->get_texture()->get_image();
 	if (img.is_null() || img->is_empty()) {
 		return 0;
