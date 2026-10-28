@@ -7,6 +7,7 @@
 #define _HOST_HOOKS_H
 
 #include "pstypes.h"
+#include "../Pad/PadState.h"
 
 // a joystick read: calibrated positions of all six axes (x, y, z, r, u, v), the buttons as bits, the POV hat
 typedef struct host_joy_state {
@@ -40,6 +41,11 @@ typedef struct host_hooks {
 	int		(*joy_count)();
 	int		(*joy_caps)(int stick, host_joy_caps *caps);
 	int		(*joy_read)(int stick, host_joy_state *state);
+
+	// control pad: fill *out (pad_state, Pad/PadState.h) with the first connected pad and return out->connected;
+	// with no pad, zero *out and return 0. Same bits as the pad backend gave: buttons and axes in the standard
+	// gamepad order, sticks -1..1 with +y down, triggers 0..1. Safe to call every frame.
+	int		(*pad_poll)(pad_state *out);
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -49,7 +55,7 @@ extern host_hooks Host_hooks;
 void host_hooks_set(const host_hooks *h);
 
 // The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
-// events, always in the foreground, the mouse at rest at (0, 0), a joystick driver with no stick attached
+// events, always in the foreground, the mouse at rest at (0, 0), a joystick driver with no stick attached, and no pad
 extern const host_hooks host_hooks_windows;
 extern const host_hooks host_hooks_headless;
 
