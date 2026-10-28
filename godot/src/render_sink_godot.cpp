@@ -4,6 +4,7 @@
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world2d.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/color.hpp>
@@ -368,11 +369,21 @@ void GodotSink::emit(const Batch &b)
 		a8 = (it->second.format == FS2_SINK_TEX_A8);
 		tflags = it->second.flags;
 	}
-	RID item = new_item(parent);
-	pending_items.push_back(item);
-	rs->canvas_item_set_default_texture_filter(item, (tflags & FS2_SINK_TEXF_LINEAR) ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
-	rs->canvas_item_set_default_texture_repeat(item, (tflags & FS2_SINK_TEXF_REPEAT) ? RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED : RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
-	rs->canvas_item_set_material(item, material_for(b.key.blend, a8, b.key.perspective != 0));
+	// Consecutive batches with the same material and sampling share one canvas item (one draw command each): thousands of items per frame lose draws in Godot's canvas renderer.
+	const uint32_t sig = ((uint32_t)b.key.blend << 8) | (a8 ? 4u : 0u) | (b.key.perspective != 0 ? 2u : 0u) | 0x10000u | ((tflags & FS2_SINK_TEXF_LINEAR) ? 0x20000u : 0u) | ((tflags & FS2_SINK_TEXF_REPEAT) ? 0x40000u : 0u);
+	RID item;
+	if (cur_item.is_valid() && cur_sig == sig && cur_parent == parent && !pending_items.empty() && pending_items.back() == cur_item) {
+		item = cur_item;
+	} else {
+		item = new_item(parent);
+		pending_items.push_back(item);
+		rs->canvas_item_set_default_texture_filter(item, (tflags & FS2_SINK_TEXF_LINEAR) ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+		rs->canvas_item_set_default_texture_repeat(item, (tflags & FS2_SINK_TEXF_REPEAT) ? RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED : RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+		rs->canvas_item_set_material(item, material_for(b.key.blend, a8, b.key.perspective != 0));
+		cur_item = item;
+		cur_sig = sig;
+		cur_parent = parent;
+	}
 
 	PackedInt32Array indices;
 	PackedVector2Array points, uvs;
@@ -437,10 +448,34 @@ int GodotSink::s_capture(void *u, int32_t)
 	return 0;
 }
 
-int GodotSink::s_read_region(void *u, int, int, int, int, uint8_t *)
+int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 {
-	static_cast<GodotSink *>(u)->batcher.flush();
-	return 0;
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->batcher.flush();
+	// the last frame the viewport has rendered (D3D reads the back buffer, which at the start of a frame still holds the last frame)
+	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
+		return 0;
+	}
+	Ref<Image> img = s->vp->get_texture()->get_image();
+	if (img.is_null() || img->is_empty()) {
+		return 0;
+	}
+	img->convert(Image::FORMAT_RGBA8);
+	const int iw = img->get_width(), ih = img->get_height();
+	const PackedByteArray data = img->get_data();
+	const uint8_t *src = data.ptr();
+	for (int row = 0; row < h; row++) {
+		for (int col = 0; col < w; col++) {
+			uint8_t *d = out + ((size_t)row * (size_t)w + (size_t)col) * 4;
+			const int sx = x + col, sy = y + row;
+			if (sx < 0 || sy < 0 || sx >= iw || sy >= ih) {
+				d[0] = d[1] = d[2] = 0; d[3] = 255;
+			} else {
+				memcpy(d, src + ((size_t)sy * (size_t)iw + (size_t)sx) * 4, 4);
+			}
+		}
+	}
+	return 1;
 }
 
 void GodotSink::s_set_gamma(void *, float) {}
