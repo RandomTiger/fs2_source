@@ -9,6 +9,7 @@
 #   FS2_FIBER  optional: 1 runs the game on a fiber (G3), stress also yields at every os_poll
 #   FS2_GR_HOST  optional: 1 draws the game through an Fs2Screen (the host renderer, GR_HOST) instead of the null renderer; under
 #               godot --headless the game still takes the "no device" side (D7), so traces equal the null renderer's (gate B)
+#   FS2_SHOT   optional: path of a PNG; the window is saved there once the game has run FS2_SHOT_FRAME resumes (default 300), then Godot quits (R1-5)
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
@@ -26,6 +27,8 @@ var smoke_max_gap := 0
 var smoke_calls := 0
 var smoke_second := 0
 var inject := false
+var shot_path := OS.get_environment("FS2_SHOT")
+var shot_frame := int(OS.get_environment("FS2_SHOT_FRAME")) if OS.get_environment("FS2_SHOT_FRAME") != "" else 300
 var inject_step := 0
 var inject_next := 600
 
@@ -150,6 +153,11 @@ func _inject_tick() -> void:
 	inject_step += 1
 
 func _process(_delta: float) -> void:
+	if shot_path != "" and game.get_frame_count() >= shot_frame:
+		var img := get_viewport().get_texture().get_image()
+		print("runner: screenshot ", shot_path, " ", img.get_size(), " save=", img.save_png(shot_path))
+		get_tree().quit(0)
+		return
 	if inject:
 		_inject_tick()
 	if not smoke:
