@@ -432,6 +432,7 @@
 #include "Beam.h"
 #include "Swarm.h"
 #include "DataSetProfile.h"	// Claude
+#include "GameView.h"	// Claude: P7
 
 /*
  *  Global variables
@@ -680,6 +681,7 @@ void obj_init()
 	Object_inited = 1;
 	memset( Objects, 0, sizeof(object)*MAX_OBJECTS );
 	Viewer_obj = NULL;
+	game_view_object_clear();	// Claude: P7
 
 	list_init( &obj_free_list );
 	list_init( &obj_used_list );

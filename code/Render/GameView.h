@@ -50,6 +50,14 @@ int game_view_bitmap_width(vector *pos, float rad, int bw, int bh, int *w);
 // The eye of the game view, unscaled: what Eye_position and Eye_matrix are after game_view_set.
 void game_view_eye(vector *eye_pos, matrix *eye_orient);
 
+// Claude: P7: the object the game view was set from: Viewer_obj as game_view_set found it, NULL when the
+// view is not from a ship. Gameplay reads it in the next frame's logic, so it is the previous frame's
+// view object, one frame late, exactly as the Viewer_obj reads it replaces were.
+object *game_view_object();
+
+// Claude: P7: forget the view object (new mission, with obj_init).
+void game_view_object_clear();
+
 // Set OF_WAS_RENDERED on every object in the game view's view cone and clear it on the
 // rest. obj_render_all used to do this while drawing.
 void game_view_update_was_rendered();

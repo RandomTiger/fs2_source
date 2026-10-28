@@ -291,6 +291,14 @@ static void movie_picture_tables()
 		alpha = NULL;
 	}
 
+	// Claude: P7-4, a host backend that draws textured polys takes the texture format
+	if ((gr_screen.mode == GR_HOST) && Gr_bitmap_poly) {
+		red = &Gr_t_red;
+		green = &Gr_t_green;
+		blue = &Gr_t_blue;
+		alpha = &Gr_t_alpha;
+	}
+
 	for (i = 0; i < 256; i++) {
 		Movie_ty[i] = 298 * (i - 16) + 128;
 		Movie_trv[i] = 409 * (i - 128);
