@@ -1734,6 +1734,11 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 		bpp = 32;
 	}
 
+	// Claude: P7-3, the same 32 bit texture upgrade for a host backend, which says so with gr_screen.texture_bpp
+	if ( (bpp == 16) && (flags & BMP_TEX_ANY) && (gr_screen.mode == GR_HOST) && (gr_screen.texture_bpp == 32) && ((bm_bitmaps[bitmapnum].type == BM_TYPE_PCX) || (bm_bitmaps[bitmapnum].type == BM_TYPE_ANI) || ((bm_bitmaps[bitmapnum].type == BM_TYPE_USER) && (bm_bitmaps[bitmapnum].info.user.bpp == 32))) )	{
+		bpp = 32;
+	}
+
 	be = &bm_bitmaps[bitmapnum];
 	bmp = &be->bm;
 
@@ -2404,6 +2409,8 @@ void BM_SELECT_SCREEN_FORMAT()
 		}
 	} else if(gr_screen.mode == GR_DUMMY){
 		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
+	} else if(gr_screen.mode == GR_HOST){	// Claude: P7-3, 32 bit ARGB like Direct3D at 32 bit; the host's init sets the Gr_*red/green/blue/alpha formats
+		bm_set_components = bm_set_components_argb_d3d_32_screen;
 	}
 }
 
@@ -2427,6 +2434,8 @@ void BM_SELECT_TEX_FORMAT()
 		}
 	} else if(gr_screen.mode == GR_DUMMY){
 		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
+	} else if(gr_screen.mode == GR_HOST){	// Claude: P7-3, 32 bit ARGB like Direct3D at 32 bit; the host's init sets the Gr_*red/green/blue/alpha formats
+		bm_set_components = bm_set_components_argb_d3d_32_tex;
 	}
 }
 
@@ -2450,6 +2459,8 @@ void BM_SELECT_ALPHA_TEX_FORMAT()
 		}
 	} else if(gr_screen.mode == GR_DUMMY){
 		bm_set_components = bm_set_components_dummy;	// Claude: null renderer
+	} else if(gr_screen.mode == GR_HOST){	// Claude: P7-3, 32 bit ARGB like Direct3D at 32 bit; the host's init sets the Gr_*red/green/blue/alpha formats
+		bm_set_components = bm_set_components_argb_d3d_32_tex;
 	}
 }
 

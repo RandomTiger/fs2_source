@@ -7819,11 +7819,21 @@ void display_title_screen()
 		gr_start_frame();
 	}
 
+	// Claude: P7-4, a host backend draws between start and stop frame as well
+	if(gr_screen.mode == GR_HOST){
+		gr_start_frame();
+	}
+
 	// set
 	gr_set_bitmap(title_bitmap);
 
 	// draw
 	gr_bitmap(0, 0);
+
+	// Claude: P7-4
+	if(gr_screen.mode == GR_HOST){
+		gr_stop_frame();
+	}
 
 	// d3d	
 	if((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)){
@@ -7855,8 +7865,14 @@ void title_screen_hold()
 			extern void d3d_start_frame();
 			d3d_start_frame();
 		}
+		if (gr_screen.mode == GR_HOST) {	// Claude: P7-4
+			gr_start_frame();
+		}
 		gr_set_bitmap(Title_screen_bitmap);
 		gr_bitmap(0, 0);
+		if (gr_screen.mode == GR_HOST) {	// Claude: P7-4
+			gr_stop_frame();
+		}
 		if ((gr_screen.mode == GR_DIRECT3D) && (Gr_bitmap_poly)) {
 			extern void d3d_stop_frame();
 			d3d_stop_frame();

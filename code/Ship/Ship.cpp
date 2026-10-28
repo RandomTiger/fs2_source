@@ -714,6 +714,7 @@
 #include "HudArtillery.h"
 #include "Autotest.h"	// Claude
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "GameView.h"	// Claude: P7
 
 	#define MAX_SHIP_SUBOBJECTS		700			//	Reduced from 1000 to 400 by MK on 4/1/98.  	// Claude: retail value on every data set; was 360 under FS2_DEMO (batch 5, D-20261019-135403 path c)
 																// Highest I saw was 164 in sm2-03a which Sandeep says has a lot of ships.
@@ -4056,11 +4057,11 @@ void ship_process_post(object * obj, float frametime)
 		// code will do sparks on other ships in multiplayer though.
 		// JAS: Actually in external view, you can see sparks, so I don't do sparks
 		// on the Viewer_obj, not Player_obj.
-		if ( (obj != Viewer_obj) && timestamp_elapsed(Ships[num].next_hit_spark) )	{
+		if ( (obj != game_view_object()) && timestamp_elapsed(Ships[num].next_hit_spark) )	{	// Claude: P7: game_view_object() is the previous frame's view object, as Viewer_obj was here
 			shipfx_emit_spark(num,-1);	// -1 means choose random spark location
 		}
 
-		if ( obj != Viewer_obj )	{
+		if ( obj != game_view_object() )	{	// Claude: P7: previous frame's view object, as above
 			shipfx_do_damaged_arcs_frame( shipp );
 		}
 
