@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -34,6 +35,8 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_pace_realtime"), &Fs2Game::get_pace_realtime);
 	ClassDB::bind_method(D_METHOD("set_pace_hz", "hz"), &Fs2Game::set_pace_hz);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Fs2Game::get_stats);
+	ClassDB::bind_method(D_METHOD("perf_start", "out_dir", "tag", "sample_hz"), &Fs2Game::perf_start);
+	ClassDB::bind_method(D_METHOD("perf_finish"), &Fs2Game::perf_finish);
 	ClassDB::bind_method(D_METHOD("set_screen", "screen"), &Fs2Game::set_screen);
 	ClassDB::bind_method(D_METHOD("get_screen"), &Fs2Game::get_screen);
 	ClassDB::bind_method(D_METHOD("on_focus_in"), &Fs2Game::on_focus_in);
@@ -115,7 +118,18 @@ bool Fs2Game::step()
 		if (screen != nullptr && skip_stale_draws) {
 			static_cast<Fs2Screen *>(screen)->set_frames_left(n - i);
 		}
-		int r = api.frame();
+		int r;
+		if (fs2perf::g_on) {
+			fs2perf::g_game_frame.store((uint32_t)frame_count, std::memory_order_relaxed);
+			const fs2perf::Totals before = fs2perf::g_tot;
+			const uint64_t g0 = fs2perf::now_ns();
+			fs2perf::g_in_step.store(1, std::memory_order_relaxed);
+			r = api.frame();
+			fs2perf::g_in_step.store(0, std::memory_order_relaxed);
+			perf.add_game((uint32_t)frame_count, g0, fs2perf::now_ns(), before);
+		} else {
+			r = api.frame();
+		}
 		if (r < 0) {
 			running = false;
 			String message = String::utf8(api.last_error());
@@ -137,11 +151,60 @@ bool Fs2Game::step()
 	return true;
 }
 
+bool Fs2Game::perf_start(const String &out_dir, const String &tag, int sample_hz)
+{
+	if (!perf.start(out_dir.utf8().get_data(), tag.utf8().get_data(), sample_hz)) {
+		return false;
+	}
+	if (screen != nullptr) {
+		RenderingServer::get_singleton()->viewport_set_measure_render_time(static_cast<Fs2Screen *>(screen)->get_viewport_rid(), true);
+	}
+	perf_last_process_ns = 0;
+	return true;
+}
+
+void Fs2Game::perf_finish()
+{
+	perf.finish();
+}
+
 void Fs2Game::_process(double)
 {
-	if (running) {
-		step();
+	if (!running) {
+		return;
 	}
+	if (!fs2perf::g_on) {
+		step();
+		return;
+	}
+	// per Godot frame record: the interval since the last call, what the game step cost, what the sink took, and what Godot reports for the frame before
+	const uint64_t p0 = fs2perf::now_ns();
+	const fs2perf::Totals before = fs2perf::g_tot;
+	const int f0 = frame_count;
+	step();
+	const uint64_t p1 = fs2perf::now_ns();
+	fs2perf::GodotRec r = {};
+	r.start_ms = (double)(p0 - perf.t_start_ns) / 1e6;
+	r.interval_us = perf_last_process_ns ? (uint32_t)((p0 - perf_last_process_ns) / 1000) : 0;
+	perf_last_process_ns = p0;
+	r.step_us = (uint32_t)((p1 - p0) / 1000);
+	uint64_t sink = 0;
+	for (int i = 0; i < fs2perf::Z_COUNT; i++) {
+		sink += fs2perf::g_tot.excl_ns[i] - before.excl_ns[i];
+	}
+	r.sink_us = (uint32_t)(sink / 1000);
+	r.games = frame_count - f0;
+	RenderingServer *rs = RenderingServer::get_singleton();
+	r.rs_draw_calls = rs->get_rendering_info(RenderingServer::RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME);
+	r.rs_objects = rs->get_rendering_info(RenderingServer::RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME);
+	r.rs_prims = rs->get_rendering_info(RenderingServer::RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME);
+	r.tex_mem = rs->get_rendering_info(RenderingServer::RENDERING_INFO_TEXTURE_MEM_USED);
+	if (screen != nullptr) {
+		const RID vp = static_cast<Fs2Screen *>(screen)->get_viewport_rid();
+		r.vp_cpu_ms = rs->viewport_get_measured_render_time_cpu(vp);
+		r.vp_gpu_ms = rs->viewport_get_measured_render_time_gpu(vp);
+	}
+	perf.godot.push_back(r);
 }
 
 void Fs2Game::_ready()

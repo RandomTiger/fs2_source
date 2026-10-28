@@ -1,4 +1,5 @@
 #include "render_sink_godot.h"
+#include "perf_prof.h"
 
 #include <cstring>
 
@@ -135,6 +136,7 @@ void GodotSink::shutdown()
 RID GodotSink::new_item(const RID &under)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
+	fs2perf::count(fs2perf::C_CANVAS_ITEMS);
 	RID item;
 	if (!spare_items.empty()) {
 		item = spare_items.back();
@@ -227,9 +229,12 @@ void GodotSink::sync_batcher_clip()
 int GodotSink::s_frame_begin(void *u, int w, int h)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::count(fs2perf::C_SINK_FRAME_BEGIN);
 	if (s->vp == nullptr || s->frames_left > 1) {
 		return 0;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_FRAME_BEGIN);
+	fs2perf::count(fs2perf::C_SINK_FRAME_ACCEPTED);
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if (w != s->width || h != s->height) {
 		s->width = w;
@@ -261,6 +266,7 @@ void GodotSink::s_frame_end(void *u)
 	if (!s->in_frame) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_FRAME_END);
 	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
 	if (s->in_run) {
 		s->end_run();
@@ -288,6 +294,8 @@ void GodotSink::s_clear(void *u, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 	if (!s->in_frame) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_CLEAR);
+	fs2perf::count(fs2perf::C_SINK_CLEAR);
 	s->batcher.flush();
 	if (s->in_run) {
 		// inside a depth run the clear is a full-screen opaque quad of the run, no depth test
@@ -319,6 +327,8 @@ void GodotSink::s_set_clip(void *u, int x, int y, int w, int h)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
 	if (s->in_frame) {
+		fs2perf::Zone _pz(fs2perf::Z_SET_CLIP);
+		fs2perf::count(fs2perf::C_SINK_SET_CLIP);
 		s->set_clip_state(x, y, w, h);
 	}
 }
@@ -353,6 +363,9 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	if (!s->in_frame || id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
+	fs2perf::count(fs2perf::C_TEX_CREATE);
+	fs2perf::count(fs2perf::C_TEX_BYTES, (uint64_t)w * h * (format == FS2_SINK_TEX_A8 ? 1 : 4));
 	s->batcher.flush(); // pending draws resolve their texture id at emit: they must see the old one
 	const bool a8 = (format == FS2_SINK_TEX_A8);
 	PackedByteArray bytes;
@@ -373,6 +386,8 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 void GodotSink::s_texture_free(void *u, int32_t id)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_TEX_FREE);
+	fs2perf::count(fs2perf::C_TEX_FREE);
 	s->batcher.flush();
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
@@ -439,6 +454,8 @@ void GodotSink::emit(const Batch &b)
 	if (!in_frame) {
 		return;
 	}
+	fs2perf::count(fs2perf::C_BATCHES);
+	fs2perf::count(fs2perf::C_BATCH_VERTS, (uint64_t)b.nverts());
 	if (b.key.depth != 0) {
 		run_batches.push_back(b); // placed at depth_end
 		return;
@@ -449,6 +466,7 @@ void GodotSink::emit(const Batch &b)
 // A batch becomes one canvas item with one array draw (affine) or one mesh draw (perspective: the mesh carries CUSTOM0).
 void GodotSink::emit_canvas(const Batch &b)
 {
+	fs2perf::Zone _pz(fs2perf::Z_EMIT_CANVAS);
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const int nv = b.nverts();
 	const int ni = (int)b.idx.size();
@@ -506,6 +524,8 @@ void GodotSink::emit_canvas(const Batch &b)
 	arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
 	arrays[RenderingServer::ARRAY_CUSTOM0] = custom;
 	arrays[RenderingServer::ARRAY_INDEX] = indices;
+	fs2perf::Zone _pm(fs2perf::Z_MESH_BUILD);
+	fs2perf::count(fs2perf::C_MESHES);
 	RID mesh;
 	if (!spare_meshes.empty()) {
 		mesh = spare_meshes.back();
@@ -525,6 +545,10 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 	if (!s->in_frame || s->clip_empty || nv <= 0 || ni < 3) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DRAW_TRIS);
+	fs2perf::count(fs2perf::C_SINK_DRAW_CALLS);
+	fs2perf::count(fs2perf::C_SINK_VERTS, (uint64_t)nv);
+	fs2perf::count(fs2perf::C_SINK_INDICES, (uint64_t)ni);
 	int tw = 0, th = 0;
 	if (d->texture != 0) {
 		auto it = s->textures.find(d->texture);
@@ -543,6 +567,8 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 int GodotSink::s_capture(void *u, int32_t id)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_CAPTURE);
+	fs2perf::count(fs2perf::C_CAPTURE);
 	s->batcher.flush();
 	if (s->vp == nullptr || id == 0) {
 		return 0;
@@ -567,6 +593,9 @@ int GodotSink::s_capture(void *u, int32_t id)
 int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_READ_REGION);
+	fs2perf::count(fs2perf::C_READ_REGION);
+	fs2perf::count(fs2perf::C_READ_BYTES, (uint64_t)(w > 0 ? w : 0) * (uint64_t)(h > 0 ? h : 0) * 4);
 	s->batcher.flush();
 	// the last frame the viewport has rendered (D3D reads the back buffer, which at the start of a frame still holds the last frame)
 	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
@@ -607,6 +636,7 @@ void GodotSink::s_depth_begin(void *u)
 	if (!s->in_frame || s->in_run) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DEPTH);
 	s->batcher.flush();
 	s->in_run = true;
 	s->run_epoch = 0;
@@ -632,6 +662,7 @@ void GodotSink::s_depth_clear(void *u, int, int, int, int)
 	if (!s->in_frame || !s->in_run) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DEPTH);
 	s->batcher.flush();
 	bool any_depth = false;
 	for (const Batch &b : s->run_batches) {
@@ -654,6 +685,7 @@ static Batch canvas_form(const Batch &b)
 
 void GodotSink::end_run()
 {
+	fs2perf::Zone _pz(fs2perf::Z_RUN_END);
 	batcher.flush();
 	in_run = false;
 	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
@@ -673,6 +705,7 @@ void GodotSink::end_run()
 	}
 	if (first >= 0) {
 		Layer l = acquire_layer();
+		fs2perf::count(fs2perf::C_LAYERS);
 		for (int i = first; i <= last; i++) {
 			add_to_layer(l, run_batches[i], i - first);
 		}
@@ -831,6 +864,9 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
+	fs2perf::Zone _pz(fs2perf::Z_LAYER_ADD);
+	fs2perf::count(fs2perf::C_LAYER_BATCHES);
+	fs2perf::count(fs2perf::C_MESHES);
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
 	uint32_t tflags = 0;
