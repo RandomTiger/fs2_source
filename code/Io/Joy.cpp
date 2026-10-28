@@ -214,6 +214,7 @@
 #include "Replay.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
 #include "DataSetProfile.h"	// Claude
+#include "InputTestJoy.h"	// Claude: -at_input joy, the joystick test's scripted stick (InputTest.h)
 
 #define PRECALIBRATED 1
 
