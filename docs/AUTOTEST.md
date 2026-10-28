@@ -69,6 +69,7 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestLeaks` | Where sound or drawing fed gameplay (D-031): a voiced message cut short by its speaker's death, looping sounds across a kill, EMP missiles hitting the player, nebula lightning in an active storm |
 | `AutotestTraining` | Training messages: voiced, unvoiced, delayed with a set duration, two queued at once (D-031) |
 | `AutotestJoy` | The joystick read: a scripted stick (`-at_input joy`, recording only) taps a button, holds and releases fire and moves the stick; each frame's reads and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input joy -at_pilot AutotestPilot' -NoPlayerNpc` |
+| `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps South and a shoulder, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
 
 ### Length (decision D-043)
 A test mission plays to its end when it ends itself, or when its last scripted event comes before the time limit its notes set (`-at_time`). New test missions end themselves. The figures are kept here, not in the mission notes: a recording checks the mission file's bytes, so editing the notes would stop it replaying. From the headless replays of 2026-10-16:
@@ -89,6 +90,7 @@ A test mission plays to its end when it ends itself, or when its last scripted e
 | `AutotestSupport` | 'Weapons fixed' true, 82.0 s | time limit 240 s |
 | `AutotestTraining` | 'Done' true, 66.1 s | time limit 90 s |
 | `AutotestJoy` | joystick script, frame 200 (no events) | time limit 20 s |
+| `AutotestPad` | pad script, frame 200 (no events) | time limit 20 s |
 | `AutotestWeapons` | 'Unlock' true, 118.3 s | time limit 180 s |
 
 - A mission whose `$Notes:` contain `autotest: mission controls vulnerability` sets the player's vulnerability itself, through the `invulnerable` flag and the `ship-vulnerable` and `ship-invulnerable` sexps. Autotest then stops forcing the player invulnerable. A mission can use this to let the player die and so end itself, for example in a supernova.
