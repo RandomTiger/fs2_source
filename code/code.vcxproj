@@ -521,8 +521,6 @@
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Replay\Autotest.h" />
     <ClInclude Include="Replay\InputTest.h" />
-    <ClInclude Include="Replay\InputTestJoy.h" />
-    <ClInclude Include="Replay\InputTestPad.h" />
     <ClInclude Include="Replay\LoadTimes.h" />
     <ClInclude Include="Replay\Replay.h" />
     <ClInclude Include="Replay\StateTrace.h" />

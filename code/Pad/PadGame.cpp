@@ -8,7 +8,6 @@
 #include "PadGame.h"
 #include "PadCore.h"
 #include "PadXInput.h"
-#include "../Replay/InputTestPad.h"	// Claude: -at_input pad (autotest) stands a scripted pad in for the backend
 
 #include "Physics.h"
 #include "Player.h"

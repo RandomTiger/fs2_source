@@ -10,6 +10,7 @@
 #include "pstypes.h"
 #include "fix.h"
 #include "InputTest.h"
+#include "HostHooks.h"
 #include "Autotest.h"
 #include "joy.h"
 #include "ControlsConfig.h"
@@ -68,13 +69,17 @@ static void input_test_logf(char *format, ...)
 	autotest_note(text);
 }
 
+static void input_test_install_host();
+
 void input_test_set_cmdline(char *what)
 {
 	if (what && !stricmp(what, "joy")) {
 		Input_test_joy_inject = 1;
+		input_test_install_host();
 		input_test_logf("Input test: the scripted joystick stands in for the real one (-at_input joy)\n");
 	} else if (what && !stricmp(what, "pad")) {
 		Input_test_pad_inject = 1;
+		input_test_install_host();
 		Input_test_pad.connected = 1;		// from game start, so joy_init leaves the stick to the pad
 		input_test_logf("Input test: the scripted pad stands in for the real one (-at_input pad)\n");
 	} else {
@@ -84,7 +89,7 @@ void input_test_set_cmdline(char *what)
 }
 
 // ---------------------------------------------------------------------------------------------------
-// the scripted joystick, standing in for WinMM (Joy.cpp, through InputTestJoy.h)
+// the scripted joystick, as the test host's joy_count, joy_caps and joy_read
 
 static void joy_test_idle(input_test_joy_state *st)
 {
@@ -97,57 +102,39 @@ static void joy_test_idle(input_test_joy_state *st)
 	st->pov = JOY_TEST_POV_CENTRED;
 }
 
-int input_test_joy_injected()
-{
-	return Input_test_joy_inject;
-}
-
 void input_test_joy_read(input_test_joy_state *st)
 {
 	*st = Input_test_joy;
 }
 
-UINT input_test_joyGetNumDevs()
+// the test host: a copy of the table in use with the joystick entries, or the pad entry, replaced by the script's.
+// The other entries pass through to the real host, so one flag changes one device (D-20261028-103747).
+static host_hooks Input_test_hooks;
+
+static int input_test_host_joy_count()
 {
-	if (!Input_test_joy_inject) {
-		return joyGetNumDevs();
-	}
 	return 1;
 }
 
-MMRESULT input_test_joyGetDevCaps(UINT_PTR id, JOYCAPS *caps, UINT size)
+static int input_test_host_joy_caps(int stick, host_joy_caps *caps)
 {
-	if (!Input_test_joy_inject) {
-		return joyGetDevCaps(id, caps, size);
+	if (stick != JOY_TEST_STICK) {
+		return 1;
 	}
-	if (id != JOY_TEST_STICK) {
-		return JOYERR_PARMS;
-	}
-	memset(caps, 0, size);
-	strcpy(caps->szPname, "Autotest scripted joystick");
-	caps->wNumAxes = 4;
-	caps->wNumButtons = 32;
-	caps->wCaps = JOYCAPS_HASZ | JOYCAPS_HASR | JOYCAPS_HASPOV | JOYCAPS_POV4DIR;
-	return JOYERR_NOERROR;
+	memset(caps, 0, sizeof(*caps));
+	strcpy(caps->name, "Autotest scripted joystick");
+	caps->has_z = 1;
+	caps->has_r = 1;
+	return 0;
 }
 
-MMRESULT input_test_joyGetPosEx(UINT id, JOYINFOEX *ji)
+static int input_test_host_joy_read(int stick, host_joy_state *st)
 {
-	if (!Input_test_joy_inject) {
-		return joyGetPosEx(id, ji);
+	if (stick != JOY_TEST_STICK) {
+		return 1;
 	}
-	if (id != JOY_TEST_STICK) {
-		return JOYERR_UNPLUGGED;
-	}
-	ji->dwXpos = Input_test_joy.axes[0];
-	ji->dwYpos = Input_test_joy.axes[1];
-	ji->dwZpos = Input_test_joy.axes[2];
-	ji->dwRpos = Input_test_joy.axes[3];
-	ji->dwUpos = Input_test_joy.axes[4];
-	ji->dwVpos = Input_test_joy.axes[5];
-	ji->dwButtons = Input_test_joy.buttons;
-	ji->dwPOV = Input_test_joy.pov;
-	return JOYERR_NOERROR;
+	input_test_joy_read((input_test_joy_state *) st);	// same fields, same order
+	return 0;
 }
 
 // the script: the stick state that frame 'step''s polls read
@@ -340,7 +327,7 @@ static void joy_test_check(int step)
 
 // ---------------------------------------------------------------------------------------------------
 
-// the scripted pad, standing in for the pad backend (PadGame.cpp, through InputTestPad.h)
+// the scripted pad, as the test host's pad_poll
 
 // the script, in gameplay frames from the first one; a frame's state is what that frame's pad_frame polls
 #define PAD_TEST_TAP			20			// South (Target next hostile, press) and the right shoulder (Fire secondary, hold) down for this frame only
@@ -353,13 +340,24 @@ static void joy_test_check(int step)
 #define PAD_TEST_DEAD_END		180			// centred again
 #define PAD_TEST_END			200			// the last check
 
-int input_test_pad_poll(pad_state *out)
+static int input_test_host_pad_poll(pad_state *out)
 {
-	if (!Input_test_pad_inject) {
-		return pad_backend_poll(out);
-	}
 	*out = Input_test_pad;
 	return 1;
+}
+
+static void input_test_install_host()
+{
+	Input_test_hooks = Host_hooks;
+	if (Input_test_joy_inject) {
+		Input_test_hooks.joy_count = input_test_host_joy_count;
+		Input_test_hooks.joy_caps = input_test_host_joy_caps;
+		Input_test_hooks.joy_read = input_test_host_joy_read;
+	}
+	if (Input_test_pad_inject) {
+		Input_test_hooks.pad_poll = input_test_host_pad_poll;
+	}
+	host_hooks_set(&Input_test_hooks);
 }
 
 static void pad_test_idle(pad_state *st)
