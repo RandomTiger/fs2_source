@@ -708,6 +708,8 @@ GodotSink::Layer GodotSink::acquire_layer()
 		rs->viewport_attach_camera(l.viewport, l.camera);
 		rs->viewport_set_transparent_background(l.viewport, true);
 		rs->viewport_set_disable_2d(l.viewport, true);
+		// HDR 2D: the 3D pass writes its float buffer out unconverted, so the game's sRGB values blend as D3D blends them
+		rs->viewport_set_use_hdr_2d(l.viewport, true);
 		if (vp != nullptr) {
 			rs->viewport_set_parent_viewport(l.viewport, vp->get_viewport_rid());
 		}
@@ -765,7 +767,8 @@ void GodotSink::drop_materials_of(const RID &tex)
 }
 
 // One spatial shader per (blend, depth mode, A8, filter, repeat); one material per shader and texture. Unshaded; the
-// texture and vertex colour are the game's sRGB values, turned linear for the 3D pass (blending there is linear).
+// texture and vertex colour are the game's sRGB values, kept as they are: the layer is HDR 2D, so blending happens on
+// those values, as in D3D (R1-9).
 RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const RID &tex)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
@@ -791,7 +794,6 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 		code += lin ? "filter_linear, " : "filter_nearest, ";
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
-		code += "vec3 s2l(vec3 c) { return mix(c * 0.0773993808, pow((c + 0.055) * 0.9478672986, vec3(2.4)), step(0.04045, c)); }\n";
 		code += "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\nvoid fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 		if (a8) {
 			code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n";
@@ -800,7 +802,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 		if (blend == FS2_SINK_BLEND_OPAQUE) {
 			code += "\tc.a = 1.0;\n";
 		}
-		code += "\tALBEDO = s2l(clamp(c.rgb, 0.0, 1.0));\n\tALPHA = c.a;\n}\n";
+		code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 		sh = rs->shader_create();
 		rs->shader_set_code(sh, code);
 		spatial_shaders[skey] = sh;
