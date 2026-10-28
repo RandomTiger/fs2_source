@@ -644,7 +644,7 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		tint_r = gr_screen.current_color.red; tint_g = gr_screen.current_color.green; tint_b = gr_screen.current_color.blue;
 	}
 	if (gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER) {
-		// D3D with additive caps: src*alpha + dst, colour scaled by the bitmap alpha
+		// D3D with additive caps: ONE:ONE (vertex and texture alpha unused), colour scaled by the bitmap alpha
 		blend = FS2_SINK_BLEND_ADD;
 		if (gr_screen.current_alpha <= 1.0f) {
 			const int a = (int)(gr_screen.current_alpha * 255.0f);

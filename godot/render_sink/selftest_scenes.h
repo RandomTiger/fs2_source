@@ -164,7 +164,7 @@ static const Probe scene_textures_probes[] = {
 	{ 70, 170, 136, 8, 32, 5, "texture alpha 128 times vertex red over the background" },
 	{ 165, 170, 0, 255, 0, 2, "A8: covered half takes the vertex colour" },
 	{ 215, 170, 16, 16, 64, 2, "A8: uncovered half shows the background" },
-	{ 310, 170, 100, 100, 0, 5, "add: src*a + dst" },
+	{ 310, 170, 100, 200, 0, 5, "add: src + dst, alpha ignored (D3D ONE:ONE)" },
 	{ 429, 170, 255, 255, 0, 2, "tile one, last pixel" },
 	{ 430, 170, 0, 255, 255, 2, "tile two, first pixel: no seam" },
 	{ 70, 250, 255, 0, 0, 2, "id 8 before the free is red" },

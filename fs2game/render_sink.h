@@ -41,7 +41,7 @@ extern "C" {
 /* blend modes of a draw */
 #define FS2_SINK_BLEND_OPAQUE	0	/* replace */
 #define FS2_SINK_BLEND_ALPHA	1	/* src*a + dst*(1-a) */
-#define FS2_SINK_BLEND_ADD	2	/* src*a + dst (GR_ALPHABLEND_FILTER where the D3D device allows it) */
+#define FS2_SINK_BLEND_ADD	2	/* src + dst, alpha ignored: D3D's ONE:ONE for GR_ALPHABLEND_FILTER (R1-9) */
 
 /* draw flags */
 #define FS2_SINK_DRAWF_PERSPECTIVE	1	/* vertices carry a usable sw: divide u,v per pixel by the interpolated sw */

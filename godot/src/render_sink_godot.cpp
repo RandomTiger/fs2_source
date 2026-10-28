@@ -401,7 +401,8 @@ RID GodotSink::material_for(int blend, bool a8, bool persp)
 	}
 	if (!materials[i].is_valid()) {
 		RenderingServer *rs = RenderingServer::get_singleton();
-		const char *mode = blend == FS2_SINK_BLEND_ADD ? "blend_add" : (blend == FS2_SINK_BLEND_OPAQUE ? "blend_disabled" : "blend_mix");
+		// ADD is D3D's ONE:ONE: premultiplied blending with alpha 0 adds the colour and leaves the alpha alone
+		const char *mode = blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha" : (blend == FS2_SINK_BLEND_OPAQUE ? "blend_disabled" : "blend_mix");
 		String code = String("shader_type canvas_item;\nrender_mode ") + mode + ";\nvarying vec4 vcol;\n";
 		if (persp) {
 			code += "varying vec3 pc;\n";
@@ -418,6 +419,8 @@ RID GodotSink::material_for(int blend, bool a8, bool persp)
 		code += "\tCOLOR = vcol * t;\n";
 		if (blend == FS2_SINK_BLEND_OPAQUE) {
 			code += "\tCOLOR.a = 1.0;\n";
+		} else if (blend == FS2_SINK_BLEND_ADD) {
+			code += "\tCOLOR.a = 0.0;\n";
 		}
 		code += "}\n";
 		shaders[i] = rs->shader_create();
@@ -615,7 +618,9 @@ void GodotSink::s_depth_end(void *u)
 }
 
 // Depth cleared in a rectangle: everything drawn after it is in front of everything before it. Approximation: the
-// whole layer, not only the rectangle.
+// whole layer, not only the rectangle. The same as D3D while the depth draws after the clear do not overlap earlier
+// ones outside the rectangle; in the missions checked (R1-9) they are the target box model, whose z is near 0 and
+// wins either way.
 void GodotSink::s_depth_clear(void *u, int, int, int, int)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
@@ -785,7 +790,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 		sh = sit->second;
 	} else {
 		String code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, ";
-		code += blend == FS2_SINK_BLEND_ADD ? "blend_add, " : "blend_mix, ";
+		code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";	// ADD: ONE:ONE, see material_for
 		code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
 		if (zmode == 0 || zmode == 3) {
 			code += ", depth_test_disabled";
@@ -801,6 +806,8 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 		code += "\tvec4 c = vcol * t;\n";
 		if (blend == FS2_SINK_BLEND_OPAQUE) {
 			code += "\tc.a = 1.0;\n";
+		} else if (blend == FS2_SINK_BLEND_ADD) {
+			code += "\tc.a = 0.0;\n";
 		}
 		code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 		sh = rs->shader_create();
