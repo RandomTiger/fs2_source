@@ -1,4 +1,4 @@
-// gr_host.cpp  (R1-4 draft)
+// gr_host.cpp  (R1-4 draft; depth runs R1-8)
 // The neutral host renderer: fills gr_screen's gf_ table like gr_dummy_init does, but the drawing calls become
 // fs2_render_sink draws (render_sink.h). It lives in the game DLL; the sink behind it is the Godot wrapper or a test fake.
 //
@@ -13,6 +13,14 @@
 // Draft scope: state, clip, colour, rect/shade/line/pixel/gradient/circle, tmapper, bitmap/aabitmap, string, frame
 // calls, texture cache. Not yet: sectioned bitmaps (TMAP_FLAG_BITMAP_SECTION), fog, shaders on 3D polys, cross_fade,
 // glow redraw pass of tmapper, pixel fog. Compile check: see README, "R1-4 draft".
+//
+// Depth (R1-8, sink v2): gr_zbuffer_get/set still return the dummy's GR_ZBUFF_NONE, so a caller's save/restore pair hands
+// back NONE. The host keeps its own shadow of the D3D mode, never visible to the game: a get() followed by a set() saves
+// the mode on a host stack, and a set(NONE) with no get() before it is taken as the matching restore. Draws then carry
+// the D3D depth state of gr_d3d_tmapper_internal (FULL, or READ for scalers and additive polys) and the D3D sz. A
+// gr_zbuffer_clear(TRUE) opens a sink depth run (or clears depth in the clip rect inside one); gr_zbuffer_clear(FALSE)
+// and gr_flip close it. Known miss: a set(NONE) that is not a restore but comes inside a saved scope (the background
+// model, MR_NO_ZBUFFER, under the starfield's save) pops the scope instead of turning depth off.
 
 #include "2d.h"
 #include "GrInternal.h"
@@ -69,6 +77,16 @@ struct Host {
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
+	// depth shadow (see top): host only, the game reads none of it
+	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
+	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
+	int zstack[32];
+	int zsp = 0;
+	bool zget_pending = false;		// get() seen, the next set() is the save half of a pair
+	int zget_saved = GR_ZBUFF_NONE;
+	bool run_open = false;			// a sink depth run is open (drawn frames only)
+	int zbias = 0;
+	int cull = 0;
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
@@ -84,6 +102,7 @@ void send_clip()
 // first call that needs the sink in a frame: ask whether this frame is drawn
 void ensure_frame()
 {
+	H.zget_pending = false;		// a draw (or a clear) between get() and set(): no save pair
 	if (H.frame != FRAME_NONE || H.sink == nullptr) { return; }
 	H.frame = H.sink->frame_begin(H.sink->user, gr_screen.max_w, gr_screen.max_h) ? FRAME_OPEN : FRAME_SKIPPED;
 	if (drawing()) {
@@ -108,9 +127,13 @@ void draw(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16
 
 fs2_sink_draw plain_draw(int texture, int blend, unsigned flags = 0)
 {
-	fs2_sink_draw d;
+	fs2_sink_draw d = {};
 	d.texture = texture; d.blend = blend; d.flags = flags;
 	d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
+	// fog state of the call, reserved in sink v2 (R1-10)
+	d.fog_mode = H.fog_mode;
+	d.fog_rgb[0] = clamp8(H.fog_r); d.fog_rgb[1] = clamp8(H.fog_g); d.fog_rgb[2] = clamp8(H.fog_b); d.fog_rgb[3] = 255;
+	d.fog_near = H.fog_near; d.fog_far = H.fog_far;
 	return d;
 }
 
@@ -119,6 +142,7 @@ fs2_sink_vertex vtx(float x, float y, float u, float v, int r, int g, int b, int
 	fs2_sink_vertex s;
 	s.x = x; s.y = y; s.sw = 1.0f; s.u = u; s.v = v;
 	s.r = clamp8(r); s.g = clamp8(g); s.b = clamp8(b); s.a = clamp8(a);
+	s.z = 0.99f;	// D3D's sz of 2D draws
 	return s;
 }
 
@@ -231,11 +255,21 @@ int tex_get(int bitmap_id, int type, bool repeat = false, int sx = 0, int sy = 0
 
 // ---- gf_ table: state (identical effects to the dummy / D3D bookkeeping) ----------------------------------------
 
+void depth_run_end()
+{
+	if (H.run_open && drawing()) { H.sink->depth_end(H.sink->user); }
+	H.run_open = false;
+}
+
 void h_flip()
 {
 	ensure_frame();
+	depth_run_end();
 	if (drawing()) { H.sink->frame_end(H.sink->user); }
 	H.frame = FRAME_NONE;
+	// D3D keeps the mode across a flip; the save stack belongs to one frame
+	H.zsp = 0;
+	H.zget_pending = false;
 }
 void h_flip_window(uintptr_t, int, int, int, int) { h_flip(); }
 void h_set_palette(ubyte *, int) { }				// same as dummy and D3D: nothing. BmpMan reads gr_palette, set by gr_set_palette_internal (R1_checks 1b)
@@ -589,11 +623,20 @@ void h_string(int sx, int sy, char *s)
 // 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled and sectioned uvs).
 // Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING), pixel fog (TMAP_FLAG_PIXEL_FOG) and vertex/table fog; see the
 // notes at h_fog_set. They need mission-path support (R1-8) and, for fog, a sink capability.
-void tmapper_internal(int nv, vertex *verts[], uint flags)
+void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = false)
 {
 	if (nv < 3 || nv > 32) { return; }
 	ensure_frame();
 	if (!drawing()) { return; }
+
+	// depth state as gr_d3d_tmapper_internal picks it
+	const bool zbuffering = H.zmode != GR_ZBUFF_NONE;
+	unsigned zflags = 0;
+	if (zbuffering) {
+		zflags = (is_scaler || gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER) ? FS2_SINK_DRAWF_ZREAD
+			: (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
+		if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
+	}
 
 	int blend, alpha = 255;
 	int tint_r = 255, tint_g = 255, tint_b = 255;
@@ -643,11 +686,17 @@ void tmapper_internal(int nv, vertex *verts[], uint flags)
 		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
 		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
+		if (zbuffering || (flags & TMAP_FLAG_NEBULA)) {
+			out[i].z = va->z / 30000.0f;		// D3D: z_mult
+			if (out[i].z > 0.98f) { out[i].z = 0.98f; }
+		}
 	}
 	for (int i = 0; i < nv - 2; i++) { idx[i * 3] = 0; idx[i * 3 + 1] = (uint16_t)(i + 1); idx[i * 3 + 2] = (uint16_t)(i + 2); }
 
-	const unsigned dflags = (flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0;
-	draw(plain_draw(tex, blend, dflags), out, nv, idx, (nv - 2) * 3);
+	const unsigned dflags = ((flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0) | zflags | (H.cull ? FS2_SINK_DRAWF_CULL : 0);
+	fs2_sink_draw d = plain_draw(tex, blend, dflags);
+	d.zbias = H.zbias;
+	draw(d, out, nv, idx, (nv - 2) * 3);
 }
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
@@ -683,7 +732,7 @@ void h_scaler(vertex *va, vertex *vb)
 	v[1].sx = cx1; v[1].sy = cy0; v[1].u = cu1; v[1].v = cv0;
 	v[2].sx = cx1; v[2].sy = cy1; v[2].u = cu1; v[2].v = cv1;
 	v[3].sx = cx0; v[3].sy = cy1; v[3].u = cu0; v[3].v = cv1;
-	tmapper_internal(4, vl, TMAP_FLAG_TEXTURED);
+	tmapper_internal(4, vl, TMAP_FLAG_TEXTURED, true);
 }
 
 void h_aascaler(vertex *, vertex *) { }			// D3D's is empty too
@@ -693,9 +742,48 @@ void h_aascaler(vertex *, vertex *) { }			// D3D's is empty too
 void h_start_frame() { }
 void h_stop_frame() { }
 void h_print_screen(char *) { }
-int h_zbuffer_get() { return GR_ZBUFF_NONE; }			// dummy's value
-int h_zbuffer_set(int) { return GR_ZBUFF_NONE; }
-void h_zbuffer_clear(int) { }
+// Returns are the dummy's; the mode itself lives in the host shadow (see top).
+int h_zbuffer_get()
+{
+	H.zget_pending = true;
+	H.zget_saved = H.zglobal ? H.zmode : GR_ZBUFF_NONE;	// what gr_d3d_zbuffer_get would have returned
+	return GR_ZBUFF_NONE;
+}
+int h_zbuffer_set(int mode)
+{
+	if (H.zget_pending) {
+		if (H.zsp < 32) { H.zstack[H.zsp] = H.zget_saved; }
+		H.zsp++;
+		H.zmode = mode;
+	} else if (mode != GR_ZBUFF_NONE) {
+		H.zmode = mode;
+	} else if (H.zsp > 0) {
+		H.zsp--;
+		H.zmode = H.zsp < 32 ? H.zstack[H.zsp] : GR_ZBUFF_NONE;
+	} else {
+		H.zmode = H.zglobal ? GR_ZBUFF_FULL : GR_ZBUFF_NONE;
+	}
+	H.zget_pending = false;
+	return GR_ZBUFF_NONE;
+}
+void h_zbuffer_clear(int mode)
+{
+	ensure_frame();
+	H.zsp = 0;
+	if (mode) {
+		H.zglobal = true;
+		H.zmode = GR_ZBUFF_FULL;
+		if (drawing()) {
+			if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
+			H.sink->depth_clear(H.sink->user, gr_screen.clip_left + gr_screen.offset_x, gr_screen.clip_top + gr_screen.offset_y,
+				gr_screen.clip_width, gr_screen.clip_height);
+		}
+	} else {
+		H.zglobal = false;
+		H.zmode = GR_ZBUFF_NONE;
+		depth_run_end();
+	}
+}
 
 // CHECKED (docs/R1_checks.md 1d): the dummy returns 0. The host returns a real id, because gr_restore_screen(id) must show
 // it. Every caller branches on the sign only (id >= 0, id == -1), never on 0, and the host id is never negative (a failed
@@ -756,7 +844,7 @@ void h_fog_set(int mode, int r, int g, int b, float fnear, float ffar)
 	H.fog_mode = mode; H.fog_r = r; H.fog_g = g; H.fog_b = b; H.fog_near = fnear; H.fog_far = ffar;
 }
 void h_get_pixel(int, int, int *, int *, int *) { }
-void h_set_cull(int) { }
+void h_set_cull(int cull) { H.cull = cull; }
 // gr_d3d_cross_fade: no blend, the first bitmap up to half way and the second after
 void h_cross_fade(int bmap1, int bmap2, int x1, int y1, int x2, int y2, float pct)
 {
@@ -774,7 +862,7 @@ int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale,
 	return tex_get(bitmap_id, bitmap_type, false, sx, sy) != 0;
 }
 
-void h_zbias(int) { }
+void h_zbias(int bias) { H.zbias = bias; }
 void h_flush() { H.flush_pending = true; }
 void h_preload_init() { }
 int h_preload(int, int) { return 0; }
@@ -886,6 +974,7 @@ void host_init()
 
 void host_cleanup()
 {
+	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
@@ -911,7 +1000,8 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	gr_host_backend_register(nullptr);
 	if (sink == nullptr || sink->version != FS2_RENDER_SINK_VERSION || sink->size < sizeof(fs2_render_sink)) { return 0; }
 	if (!sink->frame_begin || !sink->frame_end || !sink->clear || !sink->set_clip || !sink->texture_create || !sink->texture_free
-		|| !sink->texture_free_all || !sink->draw_tris || !sink->capture_to_texture || !sink->read_region || !sink->set_gamma) {
+		|| !sink->texture_free_all || !sink->draw_tris || !sink->capture_to_texture || !sink->read_region || !sink->set_gamma
+		|| !sink->depth_begin || !sink->depth_end || !sink->depth_clear) {
 		return 0;
 	}
 	H.sink_copy = *sink;

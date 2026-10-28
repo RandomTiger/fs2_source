@@ -1,4 +1,4 @@
-/* render_sink.h  (R1-0)
+/* render_sink.h  (R1-0, v2 R1-8)
  * The render sink: what gr_host (the neutral gf_* backend inside the game DLL) needs from whoever shows the pixels.
  * The Godot wrapper implements it with RenderingServer (render_sink_godot.*); a recording fake implements it for tests
  * (fake_sink.h). Plain C types only (D-20261027-190100): no CRT object, allocation or free crosses it, no Godot type,
@@ -13,6 +13,11 @@
  *    the same either way. frame_end() is only called for a frame that frame_begin() accepted.
  *
  * Coordinates are game screen pixels, y down, origin top left, in the size given to frame_begin().
+ *
+ * v2 (R1-8, D2 hybrid): depth runs. Draws between depth_begin() and depth_end() are depth tested against each other
+ * (FS2_SINK_DRAWF_ZREAD / ZWRITE, vertex z) and the run is composited, in call order, with the draws around it.
+ * depth_clear() clears depth in a rect inside a run (later draws are in front of everything before the clear).
+ * Draws outside a run are plain 2D: flags ZREAD/ZWRITE and z are ignored. Fog fields are reserved (R1-10).
  */
 #ifndef FS2_RENDER_SINK_H
 #define FS2_RENDER_SINK_H
@@ -23,7 +28,7 @@
 extern "C" {
 #endif
 
-#define FS2_RENDER_SINK_VERSION 1
+#define FS2_RENDER_SINK_VERSION 2
 
 /* texture formats handed to texture_create() */
 #define FS2_SINK_TEX_RGBA8	0	/* 4 bytes per pixel, r g b a in memory order */
@@ -40,8 +45,13 @@ extern "C" {
 
 /* draw flags */
 #define FS2_SINK_DRAWF_PERSPECTIVE	1	/* vertices carry a usable sw: divide u,v per pixel by the interpolated sw */
-#define FS2_SINK_DRAWF_ZREAD		2	/* depth state of the call, carried for the mission path (R1-8); ignored on canvas */
-#define FS2_SINK_DRAWF_ZWRITE		4
+#define FS2_SINK_DRAWF_ZREAD		2	/* depth test against the run (inside a depth run only) */
+#define FS2_SINK_DRAWF_ZWRITE		4	/* write depth (inside a depth run only) */
+#define FS2_SINK_DRAWF_CULL		8	/* the game had back-face culling on; informational, the sink may ignore it */
+
+/* fog modes (reserved, R1-10) */
+#define FS2_SINK_FOG_NONE	0
+#define FS2_SINK_FOG_LINEAR	1
 
 /* texture ids chosen by the host; 0 means "no texture" */
 typedef struct fs2_sink_vertex {
@@ -49,6 +59,7 @@ typedef struct fs2_sink_vertex {
 	float sw;		/* 1/w of the projected vertex (D3D rhw); only meaningful with FS2_SINK_DRAWF_PERSPECTIVE */
 	float u, v;		/* texel position in 0..1 of the texture (not premultiplied by sw) */
 	uint8_t r, g, b, a;	/* vertex colour, straight alpha, 0..255 */
+	float z;		/* v2: depth 0 (near) .. 1 (far), the D3D sz; only meaningful inside a depth run */
 } fs2_sink_vertex;
 
 typedef struct fs2_sink_draw {
@@ -56,6 +67,11 @@ typedef struct fs2_sink_draw {
 	int32_t blend;		/* FS2_SINK_BLEND_* */
 	uint32_t flags;		/* FS2_SINK_DRAWF_* */
 	uint8_t tint[4];	/* r g b a multiplier on vertex colour (255 = none) */
+	/* v2 */
+	int32_t zbias;		/* gr_zbias of the call: larger is drawn nearer at equal z (decals) */
+	int32_t fog_mode;	/* reserved (R1-10): FS2_SINK_FOG_*, set by the host, ignored by the sink until then */
+	uint8_t fog_rgb[4];	/* reserved: fog colour r g b, [3] unused */
+	float fog_near, fog_far;	/* reserved: fog distances in world units */
 } fs2_sink_draw;
 
 typedef struct fs2_render_sink {
@@ -85,6 +101,12 @@ typedef struct fs2_render_sink {
 	/* Read back a region of the frame drawn so far as RGBA8, w*h*4 bytes into out (get_region, screenshots). 1 = done. */
 	int  (*read_region)(void *user, int x, int y, int w, int h, uint8_t *out);
 	void (*set_gamma)(void *user, float gamma);
+
+	/* v2: depth runs (see top). Runs do not nest; depth_end without a run, or depth_clear outside one, is ignored.
+	 * frame_end closes an open run. A run holds a fresh, cleared depth buffer. */
+	void (*depth_begin)(void *user);
+	void (*depth_end)(void *user);
+	void (*depth_clear)(void *user, int x, int y, int w, int h);
 } fs2_render_sink;
 
 #ifdef __cplusplus

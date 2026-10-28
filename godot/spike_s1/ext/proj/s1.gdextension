@@ -1,0 +1,8 @@
+[configuration]
+entry_symbol = "s1_library_init"
+compatibility_minimum = "4.3"
+
+[libraries]
+windows.debug.x86_64 = "res://bin/s1ext.dll"
+windows.editor.x86_64 = "res://bin/s1ext.dll"
+windows.release.x86_64 = "res://bin/s1ext.dll"

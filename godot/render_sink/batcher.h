@@ -1,4 +1,4 @@
-/* batcher.h  (R1-3)
+/* batcher.h  (R1-3, depth runs R1-8)
  * Merges the sink's draw_tris() calls into batches: consecutive draws with the same (texture, blend, perspective) become one
  * set of arrays, so a mission frame of thousands of gf_tmapper polys is a few canvas items, not one per poly (D-20261027-190101).
  * Order is exact: only neighbours merge and triangles keep their index order, so the painted result is the one of the
@@ -11,6 +11,11 @@
  * perspective batched: custom = (u*sw, v*sw, sw) per vertex and the shader divides per pixel. If all sw are equal, affine
  * interpolation is already exact and the draw joins an ordinary batch. The fallback mode subdivides such triangles on the
  * CPU until the affine error is under a tolerance, and emits plain affine batches.
+ *
+ * Depth runs (R1-8, sink v2): between set_depth_run(true) and set_depth_run(false) every draw becomes a depth batch
+ * (key.depth = 1): the key adds the depth mode of the call, the clear epoch and the z bias, each vertex keeps its z and
+ * always carries custom = (u*sw, v*sw, sw), and each triangle is clipped on the CPU to the clip rectangle (a 3D pass
+ * has no per item scissor). The sink decides where depth batches are drawn.
  *
  * Plain C++17 over render_sink.h: no Godot type, tested against a software reference (sink_check) and timed there.
  */
@@ -29,7 +34,15 @@ struct BatchKey {
 	int32_t texture = 0;
 	int32_t blend = 0;
 	int32_t perspective = 0;	// 1: custom holds (u*sw, v*sw, sw) and the shader divides
-	bool operator==(const BatchKey &o) const { return texture == o.texture && blend == o.blend && perspective == o.perspective; }
+	int32_t depth = 0;		// 1: a depth batch (inside a depth run); the fields below are 0 otherwise
+	int32_t zmode = 0;		// 0 no test, 1 test, 2 test and write, 3 write only
+	int32_t epoch = 0;		// depth clears seen in the run before this batch
+	int32_t zbias = 0;
+	bool operator==(const BatchKey &o) const
+	{
+		return texture == o.texture && blend == o.blend && perspective == o.perspective && depth == o.depth && zmode == o.zmode
+			&& epoch == o.epoch && zbias == o.zbias;
+	}
 	bool operator!=(const BatchKey &o) const { return !(*this == o); }
 };
 
@@ -39,9 +52,10 @@ struct Batch {
 	std::vector<float> uv;		// u v per vertex
 	std::vector<float> col;		// r g b a per vertex, 0..1, tint applied
 	std::vector<float> custom;	// u*sw v*sw sw 0 per vertex; only filled when key.perspective
+	std::vector<float> z;		// depth 0..1 per vertex; only filled when key.depth
 	std::vector<int32_t> idx;
 	int nverts() const { return (int)(pos.size() / 2); }
-	void clear() { pos.clear(); uv.clear(); col.clear(); custom.clear(); idx.clear(); }
+	void clear() { pos.clear(); uv.clear(); col.clear(); custom.clear(); z.clear(); idx.clear(); }
 };
 
 class BatchEmitter {
@@ -69,10 +83,19 @@ public:
 	const BatcherStats &stats() const { return st; }
 	void reset_stats() { st = BatcherStats(); }
 
+	// Depth run state; the caller flushes first. epoch: depth clears so far in the run. clip: x y w h of later draws.
+	void set_depth_run(bool on, int epoch, int cx, int cy, int cw, int ch)
+	{
+		run = on; run_epoch = epoch;
+		clip_x0 = (float)cx; clip_y0 = (float)cy; clip_x1 = (float)(cx + cw); clip_y1 = (float)(cy + ch);
+	}
+	bool in_depth_run() const { return run; }
+
 	// tex_w/tex_h: size of the draw's texture in texels (0 = untextured); only the subdivision tolerance uses them.
 	void add(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni, int tex_w, int tex_h)
 	{
 		if (nv <= 0 || ni < 3) { return; }
+		if (run) { add_depth(d, v, nv, idx, ni); return; }
 		st.draws++;
 		st.triangles_in += ni / 3;
 		bool persp = false;
@@ -123,6 +146,82 @@ private:
 	PerspectiveMode mode = PERSPECTIVE_SHADER;
 	Batch cur;
 	BatcherStats st;
+	bool run = false;
+	int run_epoch = 0;
+	float clip_x0 = 0, clip_y0 = 0, clip_x1 = 0, clip_y1 = 0;
+
+	// a vertex of a depth batch: everything that is linear in screen space
+	struct DV { float x, y, z, us, vs, sw, r, g, b, a; };
+
+	static void clip_edge(std::vector<DV> &poly, std::vector<DV> &tmp, int axis, float val, bool keep_greater)
+	{
+		tmp.clear();
+		const size_t n = poly.size();
+		for (size_t i = 0; i < n; i++) {
+			const DV &a = poly[i], &b = poly[(i + 1) % n];
+			const float av = axis == 0 ? a.x : a.y, bv = axis == 0 ? b.x : b.y;
+			const bool ain = keep_greater ? av >= val : av <= val, bin = keep_greater ? bv >= val : bv <= val;
+			if (ain) { tmp.push_back(a); }
+			if (ain != bin) {
+				const float t = (val - av) / (bv - av);
+				DV m;
+				float *pm = &m.x; const float *pa = &a.x, *pb = &b.x;
+				for (int k = 0; k < 10; k++) { pm[k] = pa[k] + (pb[k] - pa[k]) * t; }
+				tmp.push_back(m);
+			}
+		}
+		poly.swap(tmp);
+	}
+
+	void add_depth(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
+	{
+		st.draws++;
+		st.triangles_in += ni / 3;
+		const bool zr = (d.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (d.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+		BatchKey key;
+		key.texture = d.texture; key.blend = d.blend; key.perspective = 1; key.depth = 1;
+		key.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
+		key.epoch = run_epoch;
+		key.zbias = key.zmode != 0 ? d.zbias : 0;
+		const bool persp = (d.flags & FS2_SINK_DRAWF_PERSPECTIVE) != 0;
+		const float tr = d.tint[0] / 255.0f, tg = d.tint[1] / 255.0f, tb = d.tint[2] / 255.0f, ta = d.tint[3] / 255.0f;
+		std::vector<DV> poly, tmp;
+		for (int t = 0; t + 2 < ni; t += 3) {
+			poly.clear();
+			if (idx[t] >= nv || idx[t + 1] >= nv || idx[t + 2] >= nv) { continue; }
+			bool inside = true;
+			for (int k = 0; k < 3; k++) {
+				const fs2_sink_vertex &s = v[idx[t + k]];
+				DV q;
+				q.x = s.x; q.y = s.y; q.z = s.z;
+				q.sw = (persp && s.sw > 0.0f) ? s.sw : 1.0f;
+				q.us = s.u * q.sw; q.vs = s.v * q.sw;
+				q.r = s.r / 255.0f * tr; q.g = s.g / 255.0f * tg; q.b = s.b / 255.0f * tb; q.a = s.a / 255.0f * ta;
+				if (q.x < clip_x0 || q.x > clip_x1 || q.y < clip_y0 || q.y > clip_y1) { inside = false; }
+				poly.push_back(q);
+			}
+			if (!inside) {
+				clip_edge(poly, tmp, 0, clip_x0, true);
+				if (poly.size() >= 3) { clip_edge(poly, tmp, 0, clip_x1, false); }
+				if (poly.size() >= 3) { clip_edge(poly, tmp, 1, clip_y0, true); }
+				if (poly.size() >= 3) { clip_edge(poly, tmp, 1, clip_y1, false); }
+				if (poly.size() < 3) { continue; }
+			}
+			prepare(key, (int)poly.size());
+			const int base = cur.nverts();
+			for (const DV &q : poly) {
+				cur.pos.push_back(q.x); cur.pos.push_back(q.y);
+				cur.z.push_back(q.z);
+				cur.uv.push_back(q.us / q.sw); cur.uv.push_back(q.vs / q.sw);
+				cur.col.push_back(q.r); cur.col.push_back(q.g); cur.col.push_back(q.b); cur.col.push_back(q.a);
+				cur.custom.push_back(q.us); cur.custom.push_back(q.vs); cur.custom.push_back(q.sw); cur.custom.push_back(0.0f);
+			}
+			for (size_t k = 1; k + 1 < poly.size(); k++) {
+				cur.idx.push_back(base); cur.idx.push_back(base + (int)k); cur.idx.push_back(base + (int)k + 1);
+				st.triangles_out++;
+			}
+		}
+	}
 
 	static Vtx make(const fs2_sink_vertex &s, float tr, float tg, float tb, float ta)
 	{

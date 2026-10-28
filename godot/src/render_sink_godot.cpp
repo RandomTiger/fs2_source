@@ -14,6 +14,8 @@
 #include <godot_cpp/variant/packed_float32_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
+#include <godot_cpp/variant/packed_vector3_array.hpp>
+#include <godot_cpp/variant/transform3d.hpp>
 #include <godot_cpp/variant/rect2.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
@@ -51,6 +53,9 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.capture_to_texture = &GodotSink::s_capture;
 	sink.read_region = &GodotSink::s_read_region;
 	sink.set_gamma = &GodotSink::s_set_gamma;
+	sink.depth_begin = &GodotSink::s_depth_begin;
+	sink.depth_end = &GodotSink::s_depth_end;
+	sink.depth_clear = &GodotSink::s_depth_clear;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -59,6 +64,26 @@ void GodotSink::shutdown()
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if (rs != nullptr) {
+		release_layers(pending_layers);
+		release_layers(shown_layers);
+		for (Layer &l : spare_layers) {
+			free_layer(l);
+		}
+		for (auto &m : spatial_materials) {
+			rs->free_rid(m.second);
+		}
+		for (auto &sh : spatial_shaders) {
+			rs->free_rid(sh.second);
+		}
+		if (composite_material.is_valid()) {
+			rs->free_rid(composite_material);
+		}
+		if (composite_shader.is_valid()) {
+			rs->free_rid(composite_shader);
+		}
+		if (white_tex.is_valid()) {
+			rs->free_rid(white_tex);
+		}
 		release_items(pending_items, pending_root);
 		release_items(shown_items, shown_root);
 		for (RID &r : spare_items) {
@@ -87,6 +112,15 @@ void GodotSink::shutdown()
 		}
 	}
 	batcher.discard();
+	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
+	spare_layers.clear();
+	spatial_materials.clear();
+	spatial_shaders.clear();
+	composite_material = RID();
+	composite_shader = RID();
+	white_tex = RID();
+	run_batches.clear();
+	in_run = false;
 	spare_items.clear();
 	spare_meshes.clear();
 	pending_meshes.clear();
@@ -164,12 +198,29 @@ void GodotSink::set_clip_state(int x, int y, int w, int h)
 	clip_empty = n_empty;
 	if (!n_clipped) {
 		clipped = false;
+		if (in_run) {
+			sync_batcher_clip();
+			return;
+		}
 		parent = pending_root;
 		return;
 	}
 	clip[0] = x; clip[1] = y; clip[2] = w; clip[3] = h;
 	clipped = true;
+	if (in_run) {
+		sync_batcher_clip(); // a depth run clips on the CPU; the canvas clip item is opened when the run ends
+		return;
+	}
 	open_clip_item();
+}
+
+void GodotSink::sync_batcher_clip()
+{
+	if (clipped) {
+		batcher.set_depth_run(in_run, run_epoch, clip[0], clip[1], clip[2], clip[3]);
+	} else {
+		batcher.set_depth_run(in_run, run_epoch, 0, 0, width, height);
+	}
 }
 
 int GodotSink::s_frame_begin(void *u, int w, int h)
@@ -187,6 +238,10 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 	// a frame that was started and never ended is dropped
 	s->next_index = 0;
 	s->batcher.discard();
+	s->in_run = false;
+	s->run_batches.clear();
+	s->batcher.set_depth_run(false, 0, 0, 0, 0, 0);
+	s->release_layers(s->pending_layers);
 	s->release_items(s->pending_items, s->pending_root);
 	s->release_meshes(s->pending_meshes);
 	s->pending_root = rs->canvas_item_create();
@@ -205,9 +260,14 @@ void GodotSink::s_frame_end(void *u)
 	if (!s->in_frame) {
 		return;
 	}
+	if (s->in_run) {
+		s->end_run();
+	}
 	s->batcher.flush();
 	RenderingServer *rs = RenderingServer::get_singleton();
 	rs->canvas_item_set_visible(s->pending_root, true);
+	s->release_layers(s->shown_layers);
+	s->shown_layers.swap(s->pending_layers);
 	s->release_items(s->shown_items, s->shown_root);
 	s->release_meshes(s->shown_meshes);
 	s->shown_root = s->pending_root;
@@ -226,6 +286,22 @@ void GodotSink::s_clear(void *u, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 		return;
 	}
 	s->batcher.flush();
+	if (s->in_run) {
+		// inside a depth run the clear is a full-screen opaque quad of the run, no depth test
+		s->batcher.set_depth_run(true, s->run_epoch, 0, 0, s->width, s->height);
+		const float W = (float)s->width, Hh = (float)s->height;
+		fs2_sink_vertex v[4] = {};
+		v[1].x = W; v[2].x = W; v[2].y = Hh; v[3].y = Hh;
+		for (fs2_sink_vertex &q : v) { q.r = r; q.g = g; q.b = b; q.a = a; q.sw = 1.0f; }
+		static const uint16_t idx[6] = { 0, 1, 2, 0, 2, 3 };
+		fs2_sink_draw d = {};
+		d.blend = FS2_SINK_BLEND_OPAQUE;
+		d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
+		s->batcher.add(d, v, 4, idx, 6, 0, 0);
+		s->batcher.flush();
+		s->sync_batcher_clip();
+		return;
+	}
 	// a clear is a full-screen rectangle at this point of the order, ignoring the clip
 	RenderingServer *rs = RenderingServer::get_singleton();
 	RID item = s->new_item(s->pending_root);
@@ -259,6 +335,7 @@ void GodotSink::age_dying(bool force_all)
 	for (size_t i = 0; i < dying.size(); i++) {
 		dying[i].age++;
 		if (force_all || dying[i].age >= 2) {
+			drop_materials_of(dying[i].rid);
 			rs->free_rid(dying[i].rid);
 		} else {
 			dying[keep++] = dying[i];
@@ -351,12 +428,21 @@ RID GodotSink::material_for(int blend, bool a8, bool persp)
 	return materials[i];
 }
 
-// A batch becomes one canvas item with one array draw (affine) or one mesh draw (perspective: the mesh carries CUSTOM0).
 void GodotSink::emit(const Batch &b)
 {
 	if (!in_frame) {
 		return;
 	}
+	if (b.key.depth != 0) {
+		run_batches.push_back(b); // placed at depth_end
+		return;
+	}
+	emit_canvas(b);
+}
+
+// A batch becomes one canvas item with one array draw (affine) or one mesh draw (perspective: the mesh carries CUSTOM0).
+void GodotSink::emit_canvas(const Batch &b)
+{
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const int nv = b.nverts();
 	const int ni = (int)b.idx.size();
@@ -502,5 +588,306 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 }
 
 void GodotSink::s_set_gamma(void *, float) {}
+
+// ---- depth runs (R1-8) ------------------------------------------------------------------------------------------
+
+static const int MAX_EPOCH = 24;	// depth clears per run told apart; later ones share the nearest band
+
+void GodotSink::s_depth_begin(void *u)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (!s->in_frame || s->in_run) {
+		return;
+	}
+	s->batcher.flush();
+	s->in_run = true;
+	s->run_epoch = 0;
+	s->run_batches.clear();
+	s->sync_batcher_clip();
+}
+
+void GodotSink::s_depth_end(void *u)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (s->in_frame && s->in_run) {
+		s->end_run();
+	}
+}
+
+// Depth cleared in a rectangle: everything drawn after it is in front of everything before it. Approximation: the
+// whole layer, not only the rectangle.
+void GodotSink::s_depth_clear(void *u, int, int, int, int)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (!s->in_frame || !s->in_run) {
+		return;
+	}
+	s->batcher.flush();
+	bool any_depth = false;
+	for (const Batch &b : s->run_batches) {
+		if (b.key.zmode != 0) { any_depth = true; break; }
+	}
+	if (any_depth && s->run_epoch < MAX_EPOCH) {
+		s->run_epoch++;
+	}
+	s->sync_batcher_clip();
+}
+
+// A depth batch drawn on the canvas: its geometry is already clipped and carries custom, so it is a perspective batch.
+static Batch canvas_form(const Batch &b)
+{
+	Batch c = b;
+	c.key.depth = 0; c.key.zmode = 0; c.key.epoch = 0; c.key.zbias = 0; c.key.perspective = 1;
+	c.z.clear();
+	return c;
+}
+
+void GodotSink::end_run()
+{
+	batcher.flush();
+	in_run = false;
+	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	int first = -1, last = -1;
+	for (int i = 0; i < (int)run_batches.size(); i++) {
+		if (run_batches[i].key.zmode != 0) {
+			if (first < 0) { first = i; }
+			last = i;
+		}
+	}
+	parent = pending_root;
+	cur_item = RID();
+	const int n = (int)run_batches.size();
+	for (int i = 0; i < (first < 0 ? n : first); i++) {
+		emit_canvas(canvas_form(run_batches[i]));
+	}
+	if (first >= 0) {
+		Layer l = acquire_layer();
+		for (int i = first; i <= last; i++) {
+			add_to_layer(l, run_batches[i], i - first);
+		}
+		if (!composite_material.is_valid()) {
+			composite_shader = rs->shader_create();
+			rs->shader_set_code(composite_shader, "shader_type canvas_item;\nrender_mode blend_premul_alpha;\nvoid fragment() { COLOR = texture(TEXTURE, UV); }\n");
+			composite_material = rs->material_create();
+			rs->material_set_shader(composite_material, composite_shader);
+		}
+		RID item = new_item(pending_root);
+		pending_items.push_back(item);
+		rs->canvas_item_set_material(item, composite_material);
+		rs->canvas_item_add_texture_rect(item, Rect2(0.0f, 0.0f, (float)width, (float)height), l.texture);
+		pending_layers.push_back(l);
+		cur_item = RID();
+		for (int i = last + 1; i < n; i++) {
+			emit_canvas(canvas_form(run_batches[i]));
+		}
+	}
+	run_batches.clear();
+	cur_item = RID();
+	if (clipped) {
+		open_clip_item();
+	} else {
+		parent = pending_root;
+	}
+}
+
+GodotSink::Layer GodotSink::acquire_layer()
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	Layer l;
+	if (!spare_layers.empty()) {
+		l = spare_layers.back();
+		spare_layers.pop_back();
+	} else {
+		l.scenario = rs->scenario_create();
+		l.viewport = rs->viewport_create();
+		l.camera = rs->camera_create();
+		rs->camera_set_transform(l.camera, Transform3D());
+		rs->camera_set_use_vertical_aspect(l.camera, false);
+		rs->viewport_set_scenario(l.viewport, l.scenario);
+		rs->viewport_attach_camera(l.viewport, l.camera);
+		rs->viewport_set_transparent_background(l.viewport, true);
+		rs->viewport_set_disable_2d(l.viewport, true);
+		if (vp != nullptr) {
+			rs->viewport_set_parent_viewport(l.viewport, vp->get_viewport_rid());
+		}
+		rs->viewport_set_active(l.viewport, true);
+		l.texture = rs->viewport_get_texture(l.viewport);
+	}
+	if (l.w != width || l.h != height) {
+		l.w = width;
+		l.h = height;
+		rs->viewport_set_size(l.viewport, width, height);
+		// keep height: y spans [-h/2, h/2], x follows the aspect, so a pixel is one unit
+		rs->camera_set_orthogonal(l.camera, (float)height, 0.5f, 30000.0f);
+	}
+	rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_ALWAYS);
+	return l;
+}
+
+void GodotSink::release_layers(std::vector<Layer> &layers)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (Layer &l : layers) {
+		for (RID &i : l.instances) {
+			rs->free_rid(i);
+		}
+		l.instances.clear();
+		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
+		spare_layers.push_back(l);
+	}
+	layers.clear();
+}
+
+void GodotSink::free_layer(Layer &l)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (RID &i : l.instances) {
+		rs->free_rid(i);
+	}
+	l.instances.clear();
+	rs->free_rid(l.viewport);
+	rs->free_rid(l.camera);
+	rs->free_rid(l.scenario);
+}
+
+void GodotSink::drop_materials_of(const RID &tex)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (auto it = spatial_materials.begin(); it != spatial_materials.end();) {
+		if (it->first.second == (int64_t)tex.get_id()) {
+			rs->free_rid(it->second);
+			it = spatial_materials.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+// One spatial shader per (blend, depth mode, A8, filter, repeat); one material per shader and texture. Unshaded; the
+// texture and vertex colour are the game's sRGB values, turned linear for the 3D pass (blending there is linear).
+RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const RID &tex)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const bool lin = (texflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (texflags & FS2_SINK_TEXF_REPEAT) != 0;
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
+	const std::pair<uint32_t, int64_t> mkey(skey, (int64_t)tex.get_id());
+	auto mit = spatial_materials.find(mkey);
+	if (mit != spatial_materials.end()) {
+		return mit->second;
+	}
+	RID sh;
+	auto sit = spatial_shaders.find(skey);
+	if (sit != spatial_shaders.end()) {
+		sh = sit->second;
+	} else {
+		String code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, ";
+		code += blend == FS2_SINK_BLEND_ADD ? "blend_add, " : "blend_mix, ";
+		code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
+		if (zmode == 0 || zmode == 3) {
+			code += ", depth_test_disabled";
+		}
+		code += ";\nuniform sampler2D tex : ";
+		code += lin ? "filter_linear, " : "filter_nearest, ";
+		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
+		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
+		code += "vec3 s2l(vec3 c) { return mix(c * 0.0773993808, pow((c + 0.055) * 0.9478672986, vec3(2.4)), step(0.04045, c)); }\n";
+		code += "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\nvoid fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+		if (a8) {
+			code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n";
+		}
+		code += "\tvec4 c = vcol * t;\n";
+		if (blend == FS2_SINK_BLEND_OPAQUE) {
+			code += "\tc.a = 1.0;\n";
+		}
+		code += "\tALBEDO = s2l(clamp(c.rgb, 0.0, 1.0));\n\tALPHA = c.a;\n}\n";
+		sh = rs->shader_create();
+		rs->shader_set_code(sh, code);
+		spatial_shaders[skey] = sh;
+	}
+	RID m = rs->material_create();
+	rs->material_set_shader(m, sh);
+	rs->material_set_param(m, "tex", tex);
+	spatial_materials[mkey] = m;
+	return m;
+}
+
+// One mesh instance per batch. The camera looks down -z from the origin; a vertex at screen (x, y) is at
+// (x - w/2, h/2 - y). Its distance: later clear epochs nearer, then the game's z, then the z bias. Godot sorts the
+// (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
+void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool a8 = false;
+	uint32_t tflags = 0;
+	RID tex;
+	if (b.key.texture != 0) {
+		auto it = textures.find(b.key.texture);
+		if (it == textures.end()) {
+			return;
+		}
+		tex = it->second.rid;
+		a8 = (it->second.format == FS2_SINK_TEX_A8);
+		tflags = it->second.flags;
+	} else {
+		if (!white_tex.is_valid()) {
+			PackedByteArray px;
+			px.resize(4);
+			px.fill(255);
+			white_tex = rs->texture_2d_create(Image::create_from_data(1, 1, false, Image::FORMAT_RGBA8, px));
+		}
+		tex = white_tex;
+	}
+	const int nv = b.nverts();
+	const int ni = (int)b.idx.size();
+	if (nv <= 0 || ni < 3 || (int)b.z.size() != nv || (int)b.custom.size() != nv * 4) {
+		return;
+	}
+	const int epoch = b.key.epoch < MAX_EPOCH ? b.key.epoch : MAX_EPOCH;
+	const float origin = 29000.0f - 0.25f * (float)order;
+	PackedVector3Array pos;
+	PackedVector2Array uvs;
+	PackedColorArray colors;
+	PackedFloat32Array custom;
+	PackedInt32Array indices;
+	pos.resize(nv);
+	uvs.resize(nv);
+	colors.resize(nv);
+	custom.resize((int64_t)nv * 4);
+	indices.resize(ni);
+	const float hw = 0.5f * (float)width, hh = 0.5f * (float)height;
+	Vector3 *pp = pos.ptrw();
+	for (int i = 0; i < nv; i++) {
+		const float d = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f + b.z[i] * 1000.0f - (float)b.key.zbias * 2.0f;
+		pp[i] = Vector3(b.pos[i * 2] - hw, hh - b.pos[i * 2 + 1], origin - d);
+	}
+	std::memcpy(uvs.ptrw(), b.uv.data(), sizeof(float) * 2 * (size_t)nv);
+	std::memcpy(colors.ptrw(), b.col.data(), sizeof(float) * 4 * (size_t)nv);
+	std::memcpy(custom.ptrw(), b.custom.data(), sizeof(float) * 4 * (size_t)nv);
+	std::memcpy(indices.ptrw(), b.idx.data(), sizeof(int32_t) * (size_t)ni);
+	Array arrays;
+	arrays.resize(RenderingServer::ARRAY_MAX);
+	arrays[RenderingServer::ARRAY_VERTEX] = pos;
+	arrays[RenderingServer::ARRAY_COLOR] = colors;
+	arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
+	arrays[RenderingServer::ARRAY_CUSTOM0] = custom;
+	arrays[RenderingServer::ARRAY_INDEX] = indices;
+	RID mesh;
+	if (!spare_meshes.empty()) {
+		mesh = spare_meshes.back();
+		spare_meshes.pop_back();
+	} else {
+		mesh = rs->mesh_create();
+	}
+	const int64_t fmt = (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT;
+	rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)fmt);
+	rs->mesh_surface_set_material(mesh, 0, spatial_material(b.key.blend, b.key.zmode, a8, tflags, tex));
+	pending_meshes.push_back(mesh);
+	RID inst = rs->instance_create2(mesh, l.scenario);
+	rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+	rs->instance_set_pivot_data(inst, 0.0f, false);
+	rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+	l.instances.push_back(inst);
+}
 
 } // namespace fs2sink

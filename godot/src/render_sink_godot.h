@@ -4,10 +4,17 @@
 //
 // A game frame builds a fresh set of canvas items under a hidden root; frame_end() makes that root the visible one and
 // frees the previous one ("latest frame wins": a frame that was never rendered is simply replaced).
+//
+// Depth runs (R1-8, D2 hybrid, sink v2): the draws of a run are collected as depth batches. At depth_end the draws before
+// the first depth-tested one and after the last go on the canvas as usual; the ones in between go to a world layer: a
+// RenderingServer viewport with its own scenario and an orthographic camera, one mesh instance per batch, depth tested
+// on the GPU, and the layer's texture is composited into the canvas at that point of the order (premultiplied alpha).
+// Layers are pooled and owned by the frame like the canvas items.
 #ifndef FS2_RENDER_SINK_GODOT_H
 #define FS2_RENDER_SINK_GODOT_H
 
 #include <map>
+#include <utility>
 #include <vector>
 
 #include <godot_cpp/classes/sub_viewport.hpp>
@@ -74,6 +81,29 @@ private:
 	TriBatcher batcher;
 
 	godot::RID material_for(int blend, bool a8, bool persp);
+	void emit_canvas(const Batch &b);
+
+	// depth runs
+	struct Layer {
+		godot::RID viewport, scenario, camera, texture;
+		int w = 0, h = 0;
+		std::vector<godot::RID> instances;
+	};
+	std::vector<Layer> pending_layers, shown_layers, spare_layers;
+	bool in_run = false;
+	int run_epoch = 0;
+	std::vector<Batch> run_batches;
+	godot::RID composite_shader, composite_material, white_tex;
+	std::map<uint32_t, godot::RID> spatial_shaders;
+	std::map<std::pair<uint32_t, int64_t>, godot::RID> spatial_materials;	// (shader key, texture rid id)
+	Layer acquire_layer();
+	void release_layers(std::vector<Layer> &layers);
+	void free_layer(Layer &l);
+	void end_run();
+	void sync_batcher_clip();
+	godot::RID spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const godot::RID &tex);
+	void add_to_layer(Layer &l, const Batch &b, int order);
+	void drop_materials_of(const godot::RID &tex);
 	godot::RID mesh_for_batch(const Batch &b);
 	void release_meshes(std::vector<godot::RID> &meshes);
 	void age_dying(bool force_all);
@@ -103,6 +133,9 @@ private:
 	static int s_capture(void *u, int32_t id);
 	static int s_read_region(void *u, int x, int y, int w, int h, uint8_t *out);
 	static void s_set_gamma(void *u, float g);
+	static void s_depth_begin(void *u);
+	static void s_depth_end(void *u);
+	static void s_depth_clear(void *u, int x, int y, int w, int h);
 };
 
 } // namespace fs2sink

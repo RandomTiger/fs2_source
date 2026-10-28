@@ -1,4 +1,4 @@
-// fake_sink.h  (R1-0)
+// fake_sink.h  (R1-0, v2 R1-8)
 // A recording fake of the render sink: every call is appended to a list, and the rules of render_sink.h are checked
 // (no call outside a frame, no call in a frame that was refused, textures exist when drawn, indices in range).
 // Header only, plain C++17, no game and no Godot type, so gr_host and the batcher are testable without either.
@@ -16,7 +16,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -49,6 +49,9 @@ public:
 		table.capture_to_texture = &FakeSink::s_capture;
 		table.read_region = &FakeSink::s_read_region;
 		table.set_gamma = &FakeSink::s_set_gamma;
+		table.depth_begin = &FakeSink::s_depth_begin;
+		table.depth_end = &FakeSink::s_depth_end;
+		table.depth_clear = &FakeSink::s_depth_clear;
 	}
 
 	int count(Cmd::Kind k) const
@@ -72,6 +75,7 @@ public:
 private:
 	fs2_render_sink table = {};
 	bool in_frame = false;
+	bool in_depth = false;
 	std::set<int32_t> textures;
 
 	void err(const char *what) { errors.push_back(what); }
@@ -96,6 +100,7 @@ private:
 		s->add(Cmd::FrameEnd);
 		s->frames_ended++;
 		s->in_frame = false;
+		s->in_depth = false;
 	}
 	static void s_clear(void *u, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 	{
@@ -170,6 +175,30 @@ private:
 		FakeSink *s = me(u);
 		s->need_frame("set_gamma outside a frame");
 		s->add(Cmd::Gamma).f = g;
+	}
+	static void s_depth_begin(void *u)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("depth_begin outside a frame");
+		if (s->in_depth) { s->err("depth_begin inside a depth run"); }
+		s->in_depth = true;
+		s->add(Cmd::DepthBegin);
+	}
+	static void s_depth_end(void *u)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("depth_end outside a frame");
+		if (!s->in_depth) { s->err("depth_end without a depth run"); }
+		s->in_depth = false;
+		s->add(Cmd::DepthEnd);
+	}
+	static void s_depth_clear(void *u, int x, int y, int w, int h)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("depth_clear outside a frame");
+		if (!s->in_depth) { s->err("depth_clear outside a depth run"); }
+		Cmd &c = s->add(Cmd::DepthClear);
+		c.a = x; c.b = y; c.c = w; c.d = h;
 	}
 };
 

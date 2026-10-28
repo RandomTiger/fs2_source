@@ -31,14 +31,14 @@ struct Scene {
 
 inline fs2_sink_vertex vtx(float x, float y, uint8_t r, uint8_t g, uint8_t b, uint8_t a, float u = 0, float v = 0, float sw = 1)
 {
-	fs2_sink_vertex q;
+	fs2_sink_vertex q = {};
 	q.x = x; q.y = y; q.sw = sw; q.u = u; q.v = v; q.r = r; q.g = g; q.b = b; q.a = a;
 	return q;
 }
 
 inline void draw(fs2_render_sink *s, int tex, int blend, uint32_t flags, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
 {
-	fs2_sink_draw d;
+	fs2_sink_draw d = {};
 	d.texture = tex; d.blend = blend; d.flags = flags;
 	d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
 	s->draw_tris(s->user, &d, v, nv, idx, ni);
