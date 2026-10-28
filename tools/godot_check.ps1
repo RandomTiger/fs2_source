@@ -6,7 +6,7 @@ Pass = Godot exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x6
 
 Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative] [-Fiber 1|stress]
 -Quick  the per-commit quick set (14 custom + sm1-01 + sm3-06), taken from the 'custom' list below if present.
-Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot in C:\dev\Tools\godot_4.7.2, FS2game64<c>.dll,
+Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot 4.7.2 in the folder $env:GODOT_ENGINE_4_7 (or -Godot exe), FS2game64<c>.dll,
 FS2vs2022<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
 #>
 param(
@@ -15,17 +15,20 @@ param(
 	[string[]]$Missions,
 	[string]$Set = 'autotest',
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe',
+	[string]$Godot,	# default: Godot_v4.7.2-stable_win64_console.exe in $env:GODOT_ENGINE_4_7
 	[switch]$Quick,
 	[switch]$NoNative,
 	[string]$Fiber,	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
 	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see fs2_tools\l1_lib.ps1
 	[int]$Seed,	# L1: seed of the 3 random missions (logged; same seed, same picks)
 	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
+	[switch]$Shown,	# gate C (D-20261027-190104): Godot run in a real window (no --headless), host renderer (FS2_GR_HOST=1), game without -headless; native baseline unchanged
+	[switch]$NoDraw,	# the -nodraw host-mode subset: -nodraw instead of -headless in the Godot run, host renderer; native baseline unchanged
 	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
 if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { 'C:\Users\Claude\fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
+if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')
@@ -92,9 +95,13 @@ foreach ($m in $Missions) {
 	}
 	Remove-Item (Join-Path $run 'autotest.log') -ErrorAction SilentlyContinue
 	Wait-NoGame
-	$env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = ($flags -replace '%T', $gtrace)
+	$gflags = $flags
+	if ($Shown) { $gflags = $gflags -replace ' -headless', ''; $env:FS2_GR_HOST = '1' }
+	if ($NoDraw) { $gflags = $gflags -replace ' -headless', ' -nodraw'; $env:FS2_GR_HOST = '1' }
+	$gargs = if ($Shown) { "--path `"$proj`"" } else { "--headless --path `"$proj`"" }
+	$env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = ($gflags -replace '%T', $gtrace)
 	if ($Fiber) { $env:FS2_FIBER = $Fiber }
-	$p = Start-Process $Godot -ArgumentList "--headless --path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out "${m}_godot.out.txt") -RedirectStandardError (Join-Path $Out "${m}_godot.err.txt"); $null = $p.Handle
+	$p = Start-Process $Godot -ArgumentList $gargs -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out "${m}_godot.out.txt") -RedirectStandardError (Join-Path $Out "${m}_godot.err.txt"); $null = $p.Handle
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $gcode = 'TIMEOUT' } else { $gcode = $p.ExitCode }
 	Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue
 	$gres = Replay-Result $rec (Join-Path $Out "${m}_godot.replay.log")

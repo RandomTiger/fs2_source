@@ -18,12 +18,13 @@ param(
 	[string]$Config = 'r',
 	[string]$Out,
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe',
+	[string]$Godot,	# default: Godot_v4.7.2-stable_win64_console.exe in $env:GODOT_ENGINE_4_7,
 	[string[]]$Tests = @('joy', 'pad'),
 	[switch]$Packaged
 )
 $repo = Split-Path $PSScriptRoot
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
+if (-not $Godot -and -not $Packaged) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set, and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\godot_input_" + $Config + '_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path

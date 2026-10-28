@@ -6,7 +6,8 @@ checks the window is not reported hung. Proof goes to <Out>: smoke.out.txt, smok
 Usage: tools\godot_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Seconds 90] [-Out dir]
 #>
 param([string]$Config = 'r', [string]$Mission = 'sm1-01', [int]$Seconds = 90, [string]$Out,
-	[string]$GameDir = $env:PATH_FS2, [string]$Godot = 'C:\dev\Tools\godot_4.7.2\Godot_v4.7.2-stable_win64.exe')
+	[string]$GameDir = $env:PATH_FS2, [string]$Godot)
+if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64.exe' }
 $repo = Split-Path $PSScriptRoot
 if (-not $Out) { $Out = Join-Path $repo ('replays\godot_smoke_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null

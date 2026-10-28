@@ -72,6 +72,7 @@ struct Host {
 	int next_sink_id = 1;
 	int next_capture_id = 1;
 	std::unordered_map<uint64_t, HostTex> tex;	// see tex_key()
+	std::vector<int> release_pending;	// sink textures of released bitmaps, freed at the start of the next accepted frame (bm_release hook)
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
@@ -112,6 +113,8 @@ void ensure_frame()
 			H.tex.clear();
 			H.flush_pending = false;
 		}
+		for (int id : H.release_pending) { H.sink->texture_free(H.sink->user, id); }
+		H.release_pending.clear();
 		send_clip();
 	}
 }
@@ -171,6 +174,22 @@ enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_SECTI
 inline uint64_t tex_key(int bitmap_id, int kind, int sx, int sy)
 {
 	return ((uint64_t)(uint32_t)bitmap_id << 16) | ((uint64_t)(kind & 15) << 8) | ((uint64_t)(sx & 15) << 4) | (uint64_t)(sy & 15);
+}
+
+// BmpMan is freeing a user bitmap (Bm_release_hook): drop every texture cached for the handle, so the cache does not grow and a
+// reused handle never shows the old picture. Host side only; the sink frees at the next accepted frame.
+void on_bm_release(int handle)
+{
+	for (int kind = 0; kind <= TK_SECTION; kind++) {
+		for (int sx = 0; sx < MAX_BMAP_SECTIONS_X; sx++) {
+			for (int sy = 0; sy < MAX_BMAP_SECTIONS_Y; sy++) {
+				auto it = H.tex.find(tex_key(handle, kind, sx, sy));
+				if (it == H.tex.end()) { continue; }
+				if (it->second.sink_id != 0) { H.release_pending.push_back(it->second.sink_id); }
+				H.tex.erase(it);
+			}
+		}
+	}
 }
 
 // AABITMAP data is a palette index 0..14 (15 = 1, above 15 = 0), turned into coverage through the gamma table as D3D does
@@ -823,15 +842,27 @@ void h_set_gamma(float g) { build_gamma(g); }
 uint h_lock() { return 1; }						// dummy's value; every caller discards it (R1_checks 1a)
 void h_unlock() { }
 
+// Packs the sink's RGBA8 into the screen's own pixel format (gr_screen.bytes_per_pixel and the Gr_red/green/blue/alpha guns that
+// host_init set), the layout D3D's get_region copies out of its back buffer; callers (Autotest shots, neb2) read it with the guns.
+inline uint32_t pack_gun(const color_gun &g, int v8)
+{
+	if (g.bits <= 0) { return 0; }
+	return ((uint32_t)(v8 >> (8 - (g.bits > 8 ? 8 : g.bits))) << g.shift) & (uint32_t)g.mask;
+}
+
 void h_get_region(int, int w, int h, ubyte *data)
 {
 	ensure_frame();
-	if (!drawing() || data == nullptr) { return; }
+	if (!drawing() || data == nullptr || w <= 0 || h <= 0) { return; }
+	const int bytes = gr_screen.bytes_per_pixel;
+	if (bytes != 2 && bytes != 4) { return; }
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
 	if (!H.sink->read_region(H.sink->user, 0, 0, w, h, px.data())) { return; }
-	// DRAFT: the caller's pixel layout is the screen's; 32 bit host screen, so ARGB8888 bytes (b g r a in memory)
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
-		data[i * 4 + 0] = px[i * 4 + 2]; data[i * 4 + 1] = px[i * 4 + 1]; data[i * 4 + 2] = px[i * 4 + 0]; data[i * 4 + 3] = px[i * 4 + 3];
+		const uint8_t *s = &px[i * 4];		// r g b a
+		const uint32_t v = pack_gun(Gr_red, s[0]) | pack_gun(Gr_green, s[1]) | pack_gun(Gr_blue, s[2]) | pack_gun(Gr_alpha, s[3]);
+		if (bytes == 4) { memcpy(data + i * 4, &v, 4); }
+		else { const uint16_t v16 = (uint16_t)v; memcpy(data + i * 2, &v16, 2); }
 	}
 }
 
@@ -899,6 +930,7 @@ int Saved_bitmap_poly = 0;
 
 void host_init()
 {
+	Bm_release_hook = on_bm_release;
 	set_formats_32();
 	Saved_bitmap_poly = Gr_bitmap_poly;
 	Gr_bitmap_poly = 1;		// Barracks and Movie draw through gr_tmapper then, as under 32 bit Direct3D
@@ -978,6 +1010,8 @@ void host_cleanup()
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
+	H.release_pending.clear();
+	Bm_release_hook = nullptr;
 	H.frame = FRAME_NONE;
 	Gr_bitmap_poly = Saved_bitmap_poly;
 }
