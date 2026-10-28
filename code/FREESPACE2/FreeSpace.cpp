@@ -2178,6 +2178,10 @@ void game_init()
 
 	int trying_d3d = 0;
 	
+	// Claude: P7-8, a backend registered with gr_host_backend_register takes the choice; with none, the chain below is as before
+	if (gr_host_backend_registered()) {
+		gr_init(Game_profile->headless_gr_mode, GR_HOST);	// the data set's UI art mode, like the null renderer
+	} else
 	if (Cmdline_nographics) {
 		gr_init(Game_profile->headless_gr_mode, GR_DUMMY);	// Claude: no graphics device; the data set's UI art mode (GR_640 on FS1, GR_1024 on FS2, #101)
 	} else if (!Is_standalone && ptr && (strstr(ptr, NOX("3DFX Glide")))) {

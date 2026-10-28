@@ -485,6 +485,11 @@ void gr_host_backend_register(const gr_host_backend *backend)
 	Gr_host_backend = backend;
 }
 
+int gr_host_backend_registered()
+{
+	return Gr_host_backend != NULL;	// Claude: P7-8
+}
+
 int gr_host_no_device()
 {
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->no_device;
