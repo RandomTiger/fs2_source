@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <vector>
 
-#include "../gr_host/tex_convert.h"
+#include "tex_convert.h"
 #include "batcher.h"
 #include "fake_sink.h"
 #include "selftest_scenes.h"

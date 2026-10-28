@@ -23,6 +23,7 @@ class Fs2Game : public Node {
 	bool fatal_return = false;
 	int fiber_mode = 0;
 	bool forward_input = true;
+	Node *screen = nullptr;	// an Fs2Screen: when set, the game draws through it (fs2_set_render_sink)
 
 protected:
 	static void _bind_methods();
@@ -45,6 +46,10 @@ public:
 	// that also yields at every os_poll (stress). Set before start().
 	void set_fiber_mode(int m) { fiber_mode = m < 0 ? 0 : (m > 2 ? 2 : m); }
 	int get_fiber_mode() const { return fiber_mode; }
+
+	// R1-5: draw the game through this Fs2Screen (GR_HOST); null keeps the null renderer. Set before start().
+	void set_screen(Node *n);
+	Node *get_screen() const { return screen; }
 
 	// G4: Godot's keyboard, mouse and window events go to the game through the host queue (host_hooks_godot). Off: the game gets none.
 	void set_forward_input(bool on) { forward_input = on; }

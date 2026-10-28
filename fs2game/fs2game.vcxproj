@@ -108,9 +108,12 @@
     <ClCompile Include="..\code\FREESPACE2\FreeSpaceWin32.cpp" />
     <ClCompile Include="..\code\FREESPACE2\LevelPaging.cpp" />
     <ClCompile Include="fs2_api.cpp" />
+    <ClCompile Include="gr_host.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fs2_api.h" />
+    <ClInclude Include="render_sink.h" />
+    <ClInclude Include="tex_convert.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\code\code.vcxproj">

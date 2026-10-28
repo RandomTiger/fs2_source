@@ -7,6 +7,8 @@
 #   FS2_FATAL_RETURN  optional, 1: the first run must end in a fatal Error() handed back to Godot (P1; force one with
 #                     FS2_FORCE_ERROR_FRAME=<n>); the process stays up and FS2_CMD2 then runs. Needs FS2_CMD2.
 #   FS2_FIBER  optional: 1 runs the game on a fiber (G3), stress also yields at every os_poll
+#   FS2_GR_HOST  optional: 1 draws the game through an Fs2Screen (the host renderer, GR_HOST) instead of the null renderer; under
+#               godot --headless the game still takes the "no device" side (D7), so traces equal the null renderer's (gate B)
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
@@ -43,6 +45,10 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	add_child(game)
+	if OS.get_environment("FS2_GR_HOST") == "1":
+		var scr: Node = ClassDB.instantiate("Fs2Screen")
+		add_child(scr)
+		game.set_screen(scr)
 	smoke = OS.get_environment("FS2_SMOKE") == "1"
 	inject = OS.get_environment("FS2_INJECT") == "1"
 	if smoke or inject:

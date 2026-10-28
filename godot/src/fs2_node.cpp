@@ -1,4 +1,5 @@
 #include "fs2_node.h"
+#include "fs2_screen.h"
 
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
@@ -26,11 +27,18 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_forward_input", "on"), &Fs2Game::set_forward_input);
 	ClassDB::bind_method(D_METHOD("get_forward_input"), &Fs2Game::get_forward_input);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "forward_input"), "set_forward_input", "get_forward_input");
+	ClassDB::bind_method(D_METHOD("set_screen", "screen"), &Fs2Game::set_screen);
+	ClassDB::bind_method(D_METHOD("get_screen"), &Fs2Game::get_screen);
 	ClassDB::bind_method(D_METHOD("on_focus_in"), &Fs2Game::on_focus_in);
 	ClassDB::bind_method(D_METHOD("on_focus_out"), &Fs2Game::on_focus_out);
 	ClassDB::bind_method(D_METHOD("on_close_requested"), &Fs2Game::on_close_requested);
 	ADD_SIGNAL(MethodInfo("finished", PropertyInfo(Variant::INT, "exit_code")));
 	ADD_SIGNAL(MethodInfo("fatal", PropertyInfo(Variant::STRING, "message")));
+}
+
+void Fs2Game::set_screen(Node *n)
+{
+	screen = (n != nullptr && Object::cast_to<Fs2Screen>(n) != nullptr) ? n : nullptr;
 }
 
 bool Fs2Game::start(const String &dll_path, const String &root_dir, const String &cmdline)
@@ -51,6 +59,13 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	if (!api.set_hooks(&hooks)) {
 		UtilityFunctions::printerr("Fs2Game: fs2_set_hooks refused the hook table");
 		return false;
+	}
+	if (screen != nullptr) {
+		if (!api.set_render_sink(static_cast<Fs2Screen *>(screen)->get_sink())) {
+			UtilityFunctions::printerr("Fs2Game: fs2_set_render_sink refused the sink, the null renderer stays");
+		}
+	} else {
+		api.set_render_sink(nullptr);
 	}
 	api.set_fatal_return(fatal_return ? 1 : 0);
 	api.set_fiber(fiber_mode);

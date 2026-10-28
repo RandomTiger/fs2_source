@@ -18,9 +18,9 @@
 #include "GrInternal.h"
 #include "bmpman.h"
 #include "Font.h"
+#include "cmdline.h"
 
-#include "host_stub.h"
-#include "../render_sink/render_sink.h"
+#include "render_sink.h"
 #include "tex_convert.h"
 
 #include <vector>
@@ -37,7 +37,8 @@ struct HostTex {
 };
 
 struct Host {
-	const fs2_render_sink *sink = nullptr;
+	fs2_render_sink sink_copy = {};		// the DLL keeps its own copy of the sink table (the caller's may move or die)
+	const fs2_render_sink *sink = nullptr;	// &sink_copy while attached
 	int frame = FRAME_NONE;
 	int texture_bpp = 32;			// 32 default; 16 selectable (ColourDepth=16 / -force_16bit)
 	int next_sink_id = 1;
@@ -596,8 +597,39 @@ void h_texture_memory(int *total, int *this_frame) { *total = 0; *this_frame = 0
 
 // ---- backend -----------------------------------------------------------------------------------------------------
 
+// the screen, texture and alpha-texture formats of a 32 bit ARGB8888 device (as Direct3D's 32 bit path sets them); BmpMan's
+// BM_SELECT cases and the sink's texture formats agree with these. Restored in host_cleanup.
+void set_argb8888(color_gun &g, int bits, int shift, int mask)
+{
+	g.bits = bits; g.shift = shift; g.scale = 1; g.mask = mask;
+}
+
+void set_formats_32()
+{
+	color_gun *sets[3][4] = { { &Gr_red, &Gr_green, &Gr_blue, &Gr_alpha }, { &Gr_t_red, &Gr_t_green, &Gr_t_blue, &Gr_t_alpha },
+		{ &Gr_ta_red, &Gr_ta_green, &Gr_ta_blue, &Gr_ta_alpha } };
+	for (int i = 0; i < 3; i++) {
+		set_argb8888(*sets[i][0], 8, 16, 0x00ff0000);
+		set_argb8888(*sets[i][1], 8, 8, 0x0000ff00);
+		set_argb8888(*sets[i][2], 8, 0, 0x000000ff);
+		set_argb8888(*sets[i][3], 8, 24, (int)0xff000000);
+	}
+	Gr_current_red = &Gr_red;
+	Gr_current_green = &Gr_green;
+	Gr_current_blue = &Gr_blue;
+	Gr_current_alpha = &Gr_alpha;
+}
+
+gr_host_backend Backend;
+int Saved_bitmap_poly = 0;
+
 void host_init()
 {
+	set_formats_32();
+	Saved_bitmap_poly = Gr_bitmap_poly;
+	Gr_bitmap_poly = 1;		// Barracks and Movie draw through gr_tmapper then, as under 32 bit Direct3D
+	// D7: a headless run counts as "no device" exactly as the null renderer does, so compared runs take the same branches
+	Backend.no_device = Cmdline_nographics ? 1 : 0;
 	gr_screen.bits_per_pixel = 32;
 	gr_screen.bytes_per_pixel = 4;
 	gr_screen.hardware = 1;
@@ -671,6 +703,7 @@ void host_cleanup()
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
 	H.frame = FRAME_NONE;
+	Gr_bitmap_poly = Saved_bitmap_poly;
 }
 
 void host_force_windowed() { }
@@ -678,24 +711,32 @@ void host_activate(int) { }
 
 } // namespace
 
-// ---- entry points for the Godot wrapper ---------------------------------------------------------------------------
-
-// The sink must outlive the backend. Call before gr_init(.., GR_HOST).
-void gr_host_set_sink(const fs2_render_sink *sink) { H.sink = sink; }
+// ---- entry point for fs2_api (fs2_set_render_sink) ---------------------------------------------------------------
 
 // 32 (default) or 16. Call before gr_init.
 void gr_host_set_texture_bpp(int bpp) { H.texture_bpp = (bpp == 16) ? 16 : 32; }
 
-// The backend to hand to gr_host_backend_register().
-gr_host_backend gr_host_make_backend()
+// Attach a sink and register the host backend, or with NULL (or a table that does not fit this build) detach and unregister,
+// so the game falls back to the null renderer. The table is copied. Call before the game starts. Returns 1 when attached.
+int gr_host_attach_sink(const fs2_render_sink *sink)
 {
-	gr_host_backend b;
-	b.init = host_init;
-	b.cleanup = host_cleanup;
-	b.force_windowed = host_force_windowed;
-	b.activate = host_activate;
-	b.bitmap = h_bitmap;
-	b.bitmap_ex = h_bitmap_ex;
-	b.no_device = 0;
-	return b;
+	H.sink = nullptr;
+	gr_host_backend_register(nullptr);
+	if (sink == nullptr || sink->version != FS2_RENDER_SINK_VERSION || sink->size < sizeof(fs2_render_sink)) { return 0; }
+	if (!sink->frame_begin || !sink->frame_end || !sink->clear || !sink->set_clip || !sink->texture_create || !sink->texture_free
+		|| !sink->texture_free_all || !sink->draw_tris || !sink->capture_to_texture || !sink->read_region || !sink->set_gamma) {
+		return 0;
+	}
+	H.sink_copy = *sink;
+	H.sink_copy.size = sizeof(fs2_render_sink);
+	H.sink = &H.sink_copy;
+	Backend.init = host_init;
+	Backend.cleanup = host_cleanup;
+	Backend.force_windowed = host_force_windowed;
+	Backend.activate = host_activate;
+	Backend.bitmap = h_bitmap;
+	Backend.bitmap_ex = h_bitmap_ex;
+	Backend.no_device = 0;
+	gr_host_backend_register(&Backend);
+	return 1;
 }

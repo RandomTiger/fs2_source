@@ -7,6 +7,8 @@
 #ifndef FS2_API_H
 #define FS2_API_H
 
+#include "render_sink.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,7 +39,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 4
+#define FS2_API_VERSION 5
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -51,6 +53,12 @@ FS2_API int fs2_api_version(void);
 // entry, returns 0 and changes nothing. Without a call the built-in host is used: the headless one when the
 // command line has -headless, else the Windows one.
 FS2_API int fs2_set_hooks(const fs2_hooks *hooks);
+
+// R1-5: the render sink (render_sink.h) that shows the game's pixels. Call before fs2_init; the table is copied. With a valid
+// table the game draws through the host renderer (GR_HOST); with NULL, or a table of another version or with an empty entry,
+// it returns 0 and the game keeps the null renderer (GR_DUMMY) as before. Under -headless the host renderer still reports "no
+// device" like the null renderer, so a compared run takes the same branches.
+FS2_API int fs2_set_render_sink(const fs2_render_sink *sink);
 
 // Start the game: cmdline is the game's command line (copied), root_dir the game's install folder (copied, no
 // trailing slash; the current directory is set to it). Returns 1 when the game is running, 0 when it failed.

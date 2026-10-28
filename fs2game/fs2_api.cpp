@@ -21,6 +21,8 @@
 #include "2d.h"
 #include "fs2_api.h"
 
+extern int gr_host_attach_sink(const fs2_render_sink *sink);	// gr_host.cpp
+
 static_assert(FS2_MOUSE_LEFT == MOUSE_LEFT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
 static_assert(FS2_MOUSE_RIGHT == MOUSE_RIGHT_BUTTON, "FS2_MOUSE_* must match Mouse.h");
 static_assert(FS2_MOUSE_MIDDLE == MOUSE_MIDDLE_BUTTON, "FS2_MOUSE_* must match Mouse.h");
@@ -116,6 +118,11 @@ int fs2_set_hooks(const fs2_hooks *h)
 	Api_hooks.joy_read = (int (*)(int, host_joy_state *))h->joy_read;
 	Api_hooks_set = 1;
 	return 1;
+}
+
+int fs2_set_render_sink(const fs2_render_sink *sink)
+{
+	return gr_host_attach_sink(sink);
 }
 
 int fs2_init(const char *cmdline, const char *root_dir)

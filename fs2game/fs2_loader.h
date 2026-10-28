@@ -13,6 +13,7 @@ struct Fs2Api {
 	HMODULE	module;
 	int	(*api_version)(void);
 	int	(*set_hooks)(const fs2_hooks *);
+	int	(*set_render_sink)(const fs2_render_sink *);
 	int	(*init)(const char *, const char *);
 	int	(*frame)(void);
 	int	(*shutdown)(void);
@@ -25,7 +26,7 @@ struct Fs2Api {
 	void	(*input_close)(void);
 	void	(*screen_size)(int *, int *);
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -36,6 +37,7 @@ struct Fs2Api {
 		}
 		api_version = (int (*)(void))GetProcAddress(module, "fs2_api_version");
 		set_hooks = (int (*)(const fs2_hooks *))GetProcAddress(module, "fs2_set_hooks");
+		set_render_sink = (int (*)(const fs2_render_sink *))GetProcAddress(module, "fs2_set_render_sink");
 		init = (int (*)(const char *, const char *))GetProcAddress(module, "fs2_init");
 		frame = (int (*)(void))GetProcAddress(module, "fs2_frame");
 		shutdown = (int (*)(void))GetProcAddress(module, "fs2_shutdown");
@@ -52,7 +54,7 @@ struct Fs2Api {
 			module = NULL;
 			return 0;
 		}
-		if ( !api_version || !set_hooks || !init || !frame || !shutdown || !set_fatal_return || !set_fiber || !last_error || (api_version() != FS2_API_VERSION) ) {
+		if ( !api_version || !set_hooks || !set_render_sink || !init || !frame || !shutdown || !set_fatal_return || !set_fiber || !last_error || (api_version() != FS2_API_VERSION) ) {
 			FreeLibrary(module);
 			module = NULL;
 			return 0;
