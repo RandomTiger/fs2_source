@@ -195,6 +195,7 @@
 #include "Replay.h"
 #include "Autotest.h"
 #include "OsRegistry.h"	// Claude
+#include "OsApi.h"	// Claude: Os_no_window
 
 // variables
 class cmdline_parm {
@@ -232,6 +233,7 @@ cmdline_parm client_dodamage("-clientdamage", NULL);
 cmdline_parm pof_spew("-pofspew", NULL);
 cmdline_parm force_16bit("-force_16bit", NULL);	// Claude: was -32bit, now that 32 bit is the default
 cmdline_parm headless_arg("-headless", NULL);	// Claude: no window, graphics or sound device
+cmdline_parm nowindow_arg("-nowindow", NULL);	// Claude: test stand-in for a host-set Os_no_window; honoured only with -nographics
 cmdline_parm nographics_arg("-nographics", NULL);	// Claude: no graphics device: the null renderer, and no drawing
 cmdline_parm nosounddevice_arg("-nosounddevice", NULL);	// Claude: the sound system with no device (Sound.cpp)
 cmdline_parm nodraw_arg("-nodraw", NULL);	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
@@ -657,6 +659,11 @@ int parse_cmdline(char *cmdline)
 	if(nographics_arg.found()){
 		Cmdline_nographics = 1;
 		Cmdline_nodraw = 1;
+	}
+
+	// Claude: no window handle at all; D3D needs one, so only with no graphics device (-nographics or -headless)
+	if(nowindow_arg.found() && Cmdline_nographics){
+		Os_no_window = 1;
 	}
 
 	// mouse coords

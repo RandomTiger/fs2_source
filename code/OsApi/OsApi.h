@@ -51,6 +51,10 @@ int os_foreground();
 // Returns the handle to the main window
 uint os_get_window();
 
+// Claude: set by a host before os_init when it has its own window or none: the game then creates no window and os_get_window() returns 0.
+// Everything that needs a window handle must cope with 0 (DirectSound already returns "no sound" for it).  Never set with a game-drawn renderer.
+extern int Os_no_window;
+
 
 // process management --------------------------------------------------------------
 

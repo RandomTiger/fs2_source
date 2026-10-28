@@ -122,6 +122,7 @@ static int			Os_inited = 0;
 static CRITICAL_SECTION Os_lock;
 
 int Os_debugger_running = 0;
+int Os_no_window = 0;	// Claude: set by a host that has its own window (or none) before os_init: the game creates no window and os_get_window() stays NULL
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI FORWARD DECLARATIONS
@@ -178,14 +179,18 @@ void os_init(char * wclass, char * title, char *app_name, char *version_string )
 void os_set_title( char * title )
 {
 	strcpy( szWinTitle, title );
-	SetWindowText( hwndApp, szWinTitle );
+	if ( hwndApp ) {	// Claude: Os_no_window has no window
+		SetWindowText( hwndApp, szWinTitle );
+	}
 }
 
 // call at program end
 void os_cleanup()
 {
 	// Tell the app to quit
-	PostMessage( hwndApp, WM_DESTROY, 0, 0 );
+	if ( hwndApp ) {	// Claude: Os_no_window has no window
+		PostMessage( hwndApp, WM_DESTROY, 0, 0 );
+	}
 	
 	#ifndef NDEBUG
 		outwnd_close();
@@ -588,6 +593,15 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 // create the main window
 BOOL win32_create_window()
 {
+	// Claude: Os_no_window: no window and no window class, os_get_window() stays NULL (the same for any host that supplies its own)
+	if(Os_no_window){
+		main_window_inited = 1;
+		#ifndef NDEBUG
+			outwnd_init(1);
+		#endif
+		return TRUE;
+	}
+
 	int windowed = 0;
 	int hires = 0;
 	char *ptr = os_config_read_string(NULL, NOX("Videocard"), NULL);	
