@@ -10,6 +10,7 @@
 #   FS2_GR_HOST  optional: 1 draws the game through an Fs2Screen (the host renderer, GR_HOST) instead of the null renderer; under
 #               godot --headless the game still takes the "no device" side (D7), so traces equal the null renderer's (gate B)
 #   FS2_SHOT   optional: path of a PNG; the window is saved there once the game has run FS2_SHOT_FRAME resumes (default 300), then Godot quits (R1-5)
+#   FS2_SHOT_DIR optional: a folder; every FS2_SHOT_EVERY game resumes (default 300) a numbered PNG is saved there until the game finishes (menu tour)
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
@@ -27,6 +28,10 @@ var smoke_max_gap := 0
 var smoke_calls := 0
 var smoke_second := 0
 var inject := false
+var shot_dir := OS.get_environment("FS2_SHOT_DIR")
+var shot_every := int(OS.get_environment("FS2_SHOT_EVERY")) if OS.get_environment("FS2_SHOT_EVERY") != "" else 300
+var shot_next := 0
+var shot_n := 0
 var shot_path := OS.get_environment("FS2_SHOT")
 var shot_frame := int(OS.get_environment("FS2_SHOT_FRAME")) if OS.get_environment("FS2_SHOT_FRAME") != "" else 300
 var inject_step := 0
@@ -153,6 +158,11 @@ func _inject_tick() -> void:
 	inject_step += 1
 
 func _process(_delta: float) -> void:
+	if shot_dir != "" and game.get_frame_count() >= shot_next:
+		shot_next = game.get_frame_count() + shot_every
+		var im := get_viewport().get_texture().get_image()
+		im.save_png("%s/shot_%03d.png" % [shot_dir, shot_n])
+		shot_n += 1
 	if shot_path != "" and game.get_frame_count() >= shot_frame:
 		var img := get_viewport().get_texture().get_image()
 		print("runner: screenshot ", shot_path, " ", img.get_size(), " save=", img.save_png(shot_path))
