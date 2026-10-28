@@ -4,6 +4,7 @@
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/world2d.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -260,6 +261,7 @@ void GodotSink::s_frame_end(void *u)
 	if (!s->in_frame) {
 		return;
 	}
+	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
 	if (s->in_run) {
 		s->end_run();
 	}
@@ -277,6 +279,7 @@ void GodotSink::s_frame_end(void *u)
 	s->in_frame = false;
 	s->committed++;
 	s->age_dying(false);
+	s->stat_sink_usec += godot::Time::get_singleton()->get_ticks_usec() - t0;
 }
 
 void GodotSink::s_clear(void *u, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
@@ -531,7 +534,9 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 		tw = it->second.w;
 		th = it->second.h;
 	}
+	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
 	s->batcher.add(*d, v, nv, idx, ni, tw, th);
+	s->stat_sink_usec += godot::Time::get_singleton()->get_ticks_usec() - t0;
 }
 
 // The capture is the last frame the viewport has rendered (the frame on show), as read_region does.

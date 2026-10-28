@@ -227,6 +227,12 @@ void push_close()
 }
 
 // ---- the hooks ----
+// R1-feel: when the game last took an event from the queue (measurement only; nothing the game sees)
+static unsigned long long Consumed_count = 0;
+static long long Consumed_usec = 0;
+unsigned long long consumed_count(void) { return Consumed_count; }
+long long consumed_usec(void) { return Consumed_usec; }
+
 static long long h_time_counter(void)
 {
 	return (long long)Time::get_singleton()->get_ticks_usec();
@@ -255,6 +261,8 @@ static void h_poll_events(void)
 	while (!Queue.empty()) {
 		Event e = Queue.front();
 		Queue.pop_front();
+		Consumed_count++;
+		Consumed_usec = (long long)Time::get_singleton()->get_ticks_usec();
 		switch (e.type) {
 		case EV_KEY: {
 			unsigned int latency = (now > e.at_ms) ? (unsigned int)(now - e.at_ms) : 0;

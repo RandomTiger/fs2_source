@@ -40,6 +40,8 @@ public:
 	void set_frames_left(int n) { frames_left = n < 1 ? 1 : n; }
 
 	int frames_committed() const { return committed; }
+	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
+	unsigned long long stat_sink_usec = 0;
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
 	void set_perspective_mode(PerspectiveMode m) { batcher.set_perspective_mode(m); }

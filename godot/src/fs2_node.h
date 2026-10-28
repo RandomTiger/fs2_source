@@ -6,6 +6,7 @@
 
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 #include "fs2_loader.h"
@@ -24,6 +25,13 @@ class Fs2Game : public Node {
 	int fiber_mode = 0;
 	bool forward_input = true;
 	Node *screen = nullptr;	// an Fs2Screen: when set, the game draws through it (fs2_set_render_sink)
+	bool skip_stale_draws = true;	// R1-feel: with several game frames per Godot frame only the last is drawn (GodotSink::set_frames_left)
+	bool pace_realtime = false;	// R1-feel: step by the wall clock, pace_hz game frames per second, no sleeping inside the game (fs2_set_host_pacing)
+	int pace_hz = 120;
+	int pace_max_catchup = 4;	// game frames in one call at most; further lag is dropped (the game runs slow rather than spiralling)
+	double pace_acc_usec = 0;
+	unsigned long long pace_last_usec = 0;
+	unsigned long long stat_calls = 0, stat_game_usec = 0, stat_last_step_usec = 0;
 
 protected:
 	static void _bind_methods();
@@ -39,6 +47,13 @@ public:
 	void set_frames_per_process(int n) { frames_per_process = n < 1 ? 1 : n; }
 	int get_frames_per_process() const { return frames_per_process; }
 	// P1: hand a fatal Error() back as the "fatal" signal instead of ending the process (fs2_set_fatal_return)
+	void set_skip_stale_draws(bool on) { skip_stale_draws = on; }
+	bool get_skip_stale_draws() const { return skip_stale_draws; }
+	void set_pace_realtime(bool on) { pace_realtime = on; }
+	bool get_pace_realtime() const { return pace_realtime; }
+	void set_pace_hz(int hz) { pace_hz = hz < 1 ? 1 : hz; }
+	// R1-feel measurement: process calls, usec spent inside the game, last step usec, events the game has taken and when
+	Dictionary get_stats() const;
 	void set_fatal_return(bool on) { fatal_return = on; api.module ? api.set_fatal_return(on ? 1 : 0) : (void)0; }
 	bool get_fatal_return() const { return fatal_return; }
 

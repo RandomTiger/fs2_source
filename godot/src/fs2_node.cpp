@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -27,6 +28,12 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_forward_input", "on"), &Fs2Game::set_forward_input);
 	ClassDB::bind_method(D_METHOD("get_forward_input"), &Fs2Game::get_forward_input);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "forward_input"), "set_forward_input", "get_forward_input");
+	ClassDB::bind_method(D_METHOD("set_skip_stale_draws", "on"), &Fs2Game::set_skip_stale_draws);
+	ClassDB::bind_method(D_METHOD("get_skip_stale_draws"), &Fs2Game::get_skip_stale_draws);
+	ClassDB::bind_method(D_METHOD("set_pace_realtime", "on"), &Fs2Game::set_pace_realtime);
+	ClassDB::bind_method(D_METHOD("get_pace_realtime"), &Fs2Game::get_pace_realtime);
+	ClassDB::bind_method(D_METHOD("set_pace_hz", "hz"), &Fs2Game::set_pace_hz);
+	ClassDB::bind_method(D_METHOD("get_stats"), &Fs2Game::get_stats);
 	ClassDB::bind_method(D_METHOD("set_screen", "screen"), &Fs2Game::set_screen);
 	ClassDB::bind_method(D_METHOD("get_screen"), &Fs2Game::get_screen);
 	ClassDB::bind_method(D_METHOD("on_focus_in"), &Fs2Game::on_focus_in);
@@ -69,6 +76,11 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	}
 	api.set_fatal_return(fatal_return ? 1 : 0);
 	api.set_fiber(fiber_mode);
+	if (api.set_host_pacing != nullptr) {
+		api.set_host_pacing(pace_realtime ? 1 : 0);
+	}
+	pace_acc_usec = 0;
+	pace_last_usec = Time::get_singleton()->get_ticks_usec();
 	if (!api.init(cmdline.utf8().get_data(), root_dir.utf8().get_data())) {
 		UtilityFunctions::printerr("Fs2Game: fs2_init failed");
 		return false;
@@ -82,7 +94,27 @@ bool Fs2Game::step()
 	if (!running) {
 		return false;
 	}
-	for (int i = 0; i < frames_per_process; i++) {
+	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
+	int n = frames_per_process;
+	if (pace_realtime) {
+		pace_acc_usec += (double)(t0 - pace_last_usec);
+		pace_last_usec = t0;
+		const double period = 1000000.0 / pace_hz;
+		n = (int)(pace_acc_usec / period);
+		if (n > pace_max_catchup) {
+			n = pace_max_catchup;
+			pace_acc_usec = 0;
+		} else {
+			pace_acc_usec -= n * period;
+		}
+		if (n == 0) {
+			return true;
+		}
+	}
+	for (int i = 0; i < n; i++) {
+		if (screen != nullptr && skip_stale_draws) {
+			static_cast<Fs2Screen *>(screen)->set_frames_left(n - i);
+		}
 		int r = api.frame();
 		if (r < 0) {
 			running = false;
@@ -99,6 +131,9 @@ bool Fs2Game::step()
 		}
 		frame_count++;
 	}
+	stat_last_step_usec = Time::get_singleton()->get_ticks_usec() - t0;
+	stat_game_usec += stat_last_step_usec;
+	stat_calls++;
 	return true;
 }
 
@@ -128,4 +163,20 @@ void Fs2Game::_input(const Ref<InputEvent> &event)
 	Viewport *vp = get_viewport();
 	Vector2 size = (vp != NULL) ? vp->get_visible_rect().size : Vector2(1, 1);
 	fs2host::push_input(event, size.x, size.y);
+}
+
+Dictionary Fs2Game::get_stats() const
+{
+	Dictionary d;
+	d["calls"] = (int64_t)stat_calls;
+	d["game_frames"] = frame_count;
+	d["game_usec"] = (int64_t)stat_game_usec;
+	d["last_step_usec"] = (int64_t)stat_last_step_usec;
+	if (screen != nullptr) {
+		d["sink_usec"] = (int64_t)static_cast<Fs2Screen *>(screen)->sink_core().stat_sink_usec;
+		d["sink_frames"] = static_cast<Fs2Screen *>(screen)->get_frames_committed();
+	}
+	d["input_consumed"] = (int64_t)fs2host::consumed_count();
+	d["input_consumed_usec"] = (int64_t)fs2host::consumed_usec();
+	return d;
 }

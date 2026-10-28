@@ -86,6 +86,10 @@ FS2_API const char *fs2_last_error(void);
 // frees the fiber and returns the game's exit code.
 FS2_API void fs2_set_fiber(int mode);
 
+// R1-feel: optional (the API version stays 5). With on = 1 the host paces the frames by the wall clock, so the game no longer sleeps to its
+// 120 fps cap; the cap still sets Frametime (1/120 s per frame), so game time and recorded behaviour are unchanged. Call before fs2_init.
+FS2_API void fs2_set_host_pacing(int on);
+
 // G4: the host's events go into the game through these sinks, the ones the Windows window procedure calls. Call them only from
 // inside the poll_events hook (that is where the game takes the host's events, and the recorder puts them at the same point). A
 // recording being replayed ignores them; a recording being made stores them.

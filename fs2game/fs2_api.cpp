@@ -264,6 +264,12 @@ void fs2_set_fiber(int mode)
 	Api_fiber_mode = (mode < 0) ? 0 : (mode > 2) ? 2 : mode;
 }
 
+extern "C++" int Game_host_paced;
+void fs2_set_host_pacing(int on)
+{
+	Game_host_paced = on ? 1 : 0;
+}
+
 void fs2_set_fatal_return(int on)
 {
 	Api_fatal_return = on ? 1 : 0;

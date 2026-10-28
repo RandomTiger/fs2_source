@@ -26,6 +26,10 @@ void push_input(const godot::Ref<godot::InputEvent> &event, float viewport_w, fl
 void push_focus(bool got);
 void push_close();
 
+// Measurement only (R1-feel): how many events the game has taken from the queue, and when it took the last (ticks_usec).
+unsigned long long consumed_count(void);
+long long consumed_usec(void);
+
 // The Godot key to the game's key code (Key.h), 0 for a key the game has no code for. location is godot::KeyLocation.
 unsigned int key_code(int physical_keycode, int location);
 

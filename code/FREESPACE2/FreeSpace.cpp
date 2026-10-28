@@ -656,6 +656,7 @@ float flFrametime;
 #endif
 
 int	Framerate_cap = 120;
+int	Game_host_paced = 0;	// Claude: R1-feel, 1 when the host paces the frames by the wall clock (fs2_set_host_pacing); the cap then only sets Frametime, it does not sleep
 int	Show_mem = 0;
 int	Show_cpu = 0;
 int	Show_target_debug_info = 0;
@@ -4382,7 +4383,7 @@ void game_set_frametime(int state)
 		if (Frametime < cap) {
 			thistime = cap - Frametime;
 			//mprintf(("Sleeping for %6.3f seconds.\n", f2fl(thistime)));
-			if (!replay_should_read()) {	// Claude: while a replay feeds the clock from the recording, waiting only costs wall time
+			if (!replay_should_read() && !Game_host_paced) {	// Claude: while a replay feeds the clock from the recording, waiting only costs wall time
 				os_sleep(int(f2fl(thistime) * 1000.0f));
 			}
 			Frametime = cap;

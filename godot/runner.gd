@@ -12,6 +12,11 @@
 #   FS2_SHOT   optional: path of a PNG; the window is saved there once the game has run FS2_SHOT_FRAME resumes (default 300), then Godot quits (R1-5)
 #   FS2_SHOT_DIR optional: a folder; every FS2_SHOT_EVERY game resumes (default 300) a numbered PNG is saved there until the game finishes (menu tour)
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
+#   FS2_STATS  optional: 1 measures the run (R1-feel) and prints one "feel:" summary at the end: Godot frame time spread, game and Godot frames per second,
+#               input-to-draw latency (needs FS2_LAT_EVERY: a synthetic key every N Godot frames; stamps from Godot's _input to the frame_post_draw that follows the game taking it)
+#   FS2_PACE  optional: 1 steps the game by the wall clock (120 game frames per second, whatever the Godot frame rate) and the game no longer sleeps to its frame cap; default 1 for live play (window, no -replay, no -autotest), 0 otherwise
+#   FS2_SKIP_STALE  optional: 0 draws every game frame of a batch (the old behaviour); default 1 draws only the last
+#   FS2_VSYNC  optional: 0 off, 1 on (default: the project setting); FS2_MAXFPS caps Godot's frame rate
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
 extends Node
@@ -84,6 +89,18 @@ func _ready() -> void:
 		game.fiber_mode = 1
 	if OS.get_environment("FS2_FRAMES") != "":
 		game.frames_per_process = int(OS.get_environment("FS2_FRAMES"))
+	# live play (a window, no replay, no autotest) is stepped by the wall clock; FS2_PACE=0 or 1 overrides
+	var pace_env := OS.get_environment("FS2_PACE")
+	if pace_env == "1" or (pace_env == "" and DisplayServer.get_name() != "headless" and not (" -replay" in " " + cmds[0] or " -autotest" in " " + cmds[0])):
+		game.set_pace_realtime(true)
+	if OS.get_environment("FS2_SKIP_STALE") == "0":
+		game.set_skip_stale_draws(false)
+	if OS.get_environment("FS2_VSYNC") != "":
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if OS.get_environment("FS2_VSYNC") == "1" else DisplayServer.VSYNC_DISABLED)
+	if OS.get_environment("FS2_MAXFPS") != "":
+		Engine.max_fps = int(OS.get_environment("FS2_MAXFPS"))
+	if st_on:
+		_stats_setup()
 	print("runner: Godot ", Engine.get_version_info().string)
 	if not game.start(dll, root, cmds[0]):
 		get_tree().quit(1)
@@ -100,6 +117,8 @@ func _on_fatal(message: String) -> void:
 	call_deferred("_restart")
 
 func _on_finished(code: int) -> void:
+	if st_on:
+		_stats_report()
 	if expect_fatal:
 		printerr("runner: expected a fatal error in the first run, the game finished with ", code)
 		get_tree().quit(1)
@@ -158,6 +177,8 @@ func _inject_tick() -> void:
 	inject_step += 1
 
 func _process(_delta: float) -> void:
+	if st_on:
+		_stats_tick()
 	if shot_dir != "" and game.get_frame_count() >= shot_next:
 		shot_next = game.get_frame_count() + shot_every
 		var im := get_viewport().get_texture().get_image()
@@ -186,3 +207,105 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if smoke and (event is InputEventMouseMotion or event is InputEventKey or event is InputEventMouseButton):
 		print("smoke: input event ", event.as_text(), " at ", Time.get_ticks_msec(), " ms")
+
+# ---- R1-feel measurement (FS2_STATS=1) ----
+var st_on := OS.get_environment("FS2_STATS") == "1"
+var st_deltas: PackedFloat64Array = PackedFloat64Array()
+var st_last_usec := 0
+var st_first_usec := 0
+var st_lat_every := int(OS.get_environment("FS2_LAT_EVERY")) if OS.get_environment("FS2_LAT_EVERY") != "" else 0
+var st_lat_pending := false
+var st_lat_in := 0
+var st_lat_before := 0
+var st_lat_next := 0
+var st_lats: PackedFloat64Array = PackedFloat64Array()
+var st_lat_queue: PackedFloat64Array = PackedFloat64Array()
+var st_calls0 := 0
+var st_frames0 := 0
+var st_warm := int(OS.get_environment("FS2_STATS_WARM")) if OS.get_environment("FS2_STATS_WARM") != "" else 300	# Godot frames ignored at the start (loading, mission start)
+var st_gms := PackedFloat64Array()
+var st_sink_prev := 0
+
+func _stats_setup() -> void:
+	RenderingServer.frame_post_draw.connect(_stats_post_draw)
+
+func _stats_post_draw() -> void:
+	if st_lat_pending:
+		var s: Dictionary = game.get_stats()
+		if s["input_consumed"] > st_lat_before:
+			var now := Time.get_ticks_usec()
+			st_lats.append((now - st_lat_in) / 1000.0)
+			st_lat_queue.append((s["input_consumed_usec"] - st_lat_in) / 1000.0)
+			st_lat_pending = false
+
+func _stats_tick() -> void:
+	var now := Time.get_ticks_usec()
+	if st_last_usec != 0:
+		var n := st_deltas.size()
+		if n == 0 and st_warm > 0:
+			st_warm -= 1
+		else:
+			if n == 0:
+				st_first_usec = now
+				var s0: Dictionary = game.get_stats()
+				st_calls0 = s0["calls"]
+				st_frames0 = s0["game_frames"]
+			st_deltas.append((now - st_last_usec) / 1000.0)
+			st_gms.append(float(game.get_stats()["last_step_usec"]) / 1000.0)
+			var sk: int = int(game.get_stats().get("sink_usec", 0))
+			if st_gms[-1] > 9.0 and OS.get_environment("FS2_STATS_SLOW") == "1":
+				print("slow: step %.1f ms sink %.1f ms godot_dt %.1f" % [st_gms[-1], (sk - st_sink_prev) / 1000.0, st_deltas[-1]])
+			st_sink_prev = sk
+	st_last_usec = now
+	if st_lat_every > 0 and st_deltas.size() > 0 and not st_lat_pending and st_deltas.size() >= st_lat_next:
+		# a key press the game does not act on (Scroll Lock), taken from the queue like any other
+		var k := InputEventKey.new()
+		k.physical_keycode = KEY_SCROLLLOCK
+		k.keycode = KEY_SCROLLLOCK
+		k.pressed = true
+		st_lat_before = game.get_stats()["input_consumed"]
+		st_lat_in = Time.get_ticks_usec()
+		st_lat_pending = true
+		Input.parse_input_event(k)
+		var u := k.duplicate()
+		u.pressed = false
+		Input.parse_input_event(u)
+		st_lat_before = st_lat_before	# the release counts too: the press is the first of two
+		st_lat_next = st_deltas.size() + st_lat_every + (randi() % 7)
+
+func _pct(a: PackedFloat64Array, p: float) -> float:
+	if a.size() == 0:
+		return 0.0
+	var b := a.duplicate()
+	b.sort()
+	return b[min(b.size() - 1, int(p * b.size()))]
+
+func _stats_report() -> void:
+	if st_deltas.size() < 10:
+		print("feel: too few frames (", st_deltas.size(), ")")
+		return
+	var sum := 0.0
+	for d in st_deltas:
+		sum += d
+	var mean := sum / st_deltas.size()
+	var v := 0.0
+	for d in st_deltas:
+		v += (d - mean) * (d - mean)
+	var sd := sqrt(v / st_deltas.size())
+	var secs := (Time.get_ticks_usec() - st_first_usec) / 1e6
+	var s: Dictionary = game.get_stats()
+	var gf: int = int(s["game_frames"]) - st_frames0
+	var calls: int = int(s["calls"]) - st_calls0
+	print("feel: godot_frames=%d secs=%.2f godot_fps=%.1f game_frames=%d game_fps=%.1f game_per_call=%.2f" % [calls, secs, calls / secs, gf, gf / secs, float(gf) / max(1, calls)])
+	print("feel: godot_frame_ms mean=%.2f sd=%.2f p50=%.2f p95=%.2f p99=%.2f max=%.2f spread(p99-p50)=%.2f" % [mean, sd, _pct(st_deltas, 0.5), _pct(st_deltas, 0.95), _pct(st_deltas, 0.99), _pct(st_deltas, 1.0), _pct(st_deltas, 0.99) - _pct(st_deltas, 0.5)])
+	print("feel: game_ms_per_call=%.2f (time inside the game DLL per Godot frame)" % [float(s["game_usec"]) / 1000.0 / max(1, int(s["calls"]))])
+	print("feel: sink_ms_per_drawn_frame=%.2f drawn_frames=%d (of all game frames %d)" % [float(s.get("sink_usec", 0)) / 1000.0 / max(1, int(s.get("sink_frames", 1))), int(s.get("sink_frames", 0)), int(s["game_frames"])])
+	print("feel: game_step_ms p50=%.2f p95=%.2f p99=%.2f max=%.2f" % [_pct(st_gms, 0.5), _pct(st_gms, 0.95), _pct(st_gms, 0.99), _pct(st_gms, 1.0)])
+	if st_lats.size() > 0:
+		print("feel: input_to_draw_ms n=%d mean=%.1f p50=%.1f p95=%.1f max=%.1f ; of which waiting for the game to take it: p50=%.1f" % [st_lats.size(), _mean(st_lats), _pct(st_lats, 0.5), _pct(st_lats, 0.95), _pct(st_lats, 1.0), _pct(st_lat_queue, 0.5)])
+
+func _mean(a: PackedFloat64Array) -> float:
+	var t := 0.0
+	for x in a:
+		t += x
+	return t / max(1, a.size())
