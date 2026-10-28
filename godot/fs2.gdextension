@@ -5,4 +5,4 @@ compatibility_minimum = "4.3"
 [libraries]
 windows.debug.x86_64 = "res://bin/fs2godot.dll"
 windows.editor.x86_64 = "res://bin/fs2godot.dll"
-windows.release.x86_64 = "res://bin/fs2godot.dll"
+windows.release.x86_64 = "res://bin/fs2godot_rel.dll"
