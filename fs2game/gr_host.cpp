@@ -19,14 +19,34 @@
 #include "bmpman.h"
 #include "Font.h"
 #include "cmdline.h"
+// Line.h's INT_CLIPLINE scales with the Win32 MulDiv; this is the same (rounds to nearest, halves away from zero)
+static inline int MulDiv(int number, int numerator, int denominator)
+{
+	if (denominator == 0) { return -1; }
+	long long prod = (long long)number * (long long)numerator;
+	const bool neg = (prod < 0) != (denominator < 0);
+	if (prod < 0) { prod = -prod; }
+	const long long den = denominator < 0 ? -(long long)denominator : (long long)denominator;
+	long long q = (prod + den / 2) / den;
+	return (int)(neg ? -q : q);
+}
+#include "Line.h"
+#include "Cfile.h"
+#include "Nebula.h"
+#include "PalMan.h"
+#include "Neb.h"
+#include <cstring>
 
 #include "render_sink.h"
 #include "tex_convert.h"
 
 #include <vector>
+#include <unordered_map>
 #include <cmath>
 
 namespace {
+
+#define NEBULA_COLORS 20		// as GrD3DRender.cpp
 
 enum FrameState { FRAME_NONE = 0, FRAME_OPEN = 1, FRAME_SKIPPED = 2 };
 
@@ -43,7 +63,12 @@ struct Host {
 	int texture_bpp = 32;			// 32 default; 16 selectable (ColourDepth=16 / -force_16bit)
 	int next_sink_id = 1;
 	int next_capture_id = 1;
-	std::vector<HostTex> tex;		// indexed by bm handle * 2 + (aabitmap ? 1 : 0)
+	std::unordered_map<uint64_t, HostTex> tex;	// see tex_key()
+	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
+	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
+	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
+	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
+	float fog_near = 0.0f, fog_far = 0.0f;
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
@@ -61,7 +86,15 @@ void ensure_frame()
 {
 	if (H.frame != FRAME_NONE || H.sink == nullptr) { return; }
 	H.frame = H.sink->frame_begin(H.sink->user, gr_screen.max_w, gr_screen.max_h) ? FRAME_OPEN : FRAME_SKIPPED;
-	if (drawing()) { send_clip(); }
+	if (drawing()) {
+		if (H.flush_pending) {
+			// bitmap textures only: a screen saved with save_screen survives a flush, as in D3D
+			for (auto &kv : H.tex) { if (kv.second.sink_id != 0) { H.sink->texture_free(H.sink->user, kv.second.sink_id); } }
+			H.tex.clear();
+			H.flush_pending = false;
+		}
+		send_clip();
+	}
 }
 
 // ---- helpers --------------------------------------------------------------------------------------------------
@@ -109,48 +142,89 @@ void solid_rect(float x0, float y0, float x1, float y1, int r, int g, int b, int
 
 // ---- texture cache --------------------------------------------------------------------------------------------
 
-// Upload bitmap as the type asked for. Only legal in an accepted frame. Returns the sink id or 0.
-int tex_get(int bitmap_id, int type)
+enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_SECTION = 4 };
+
+inline uint64_t tex_key(int bitmap_id, int kind, int sx, int sy)
+{
+	return ((uint64_t)(uint32_t)bitmap_id << 16) | ((uint64_t)(kind & 15) << 8) | ((uint64_t)(sx & 15) << 4) | (uint64_t)(sy & 15);
+}
+
+// AABITMAP data is a palette index 0..14 (15 = 1, above 15 = 0), turned into coverage through the gamma table as D3D does
+void aa_to_a8(const uint8_t *src, int w, int h, int src_pitch, uint8_t *dst)
+{
+	uint8_t xlat[256];
+	for (int i = 0; i < 256; i++) {
+		int v = i;
+		if (v == 15) { v = 1; } else if (v > 15) { v = 0; }
+		xlat[i] = (uint8_t)H.gamma_lookup[(v * 255) / 15];
+	}
+	for (int y = 0; y < h; y++) {
+		const uint8_t *row = src + (size_t)y * (size_t)src_pitch;
+		for (int x = 0; x < w; x++) { dst[(size_t)y * (size_t)w + (size_t)x] = xlat[row[x]]; }
+	}
+}
+
+// Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
+// type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); sx,sy = the section of a TCACHE_TYPE_BITMAP_SECTION.
+int tex_get(int bitmap_id, int type, bool repeat = false, int sx = 0, int sy = 0)
 {
 	if (!drawing() || bitmap_id < 0) { return 0; }
 	const bool aa = (type == TCACHE_TYPE_AABITMAP);
-	const size_t slot = (size_t)bitmap_id * 2 + (aa ? 1 : 0);
-	if (slot >= H.tex.size()) { H.tex.resize(slot + 64, HostTex{ 0, 0, 0, 0 }); }
-	HostTex &t = H.tex[slot];
-	if (t.sink_id != 0 && t.type == type) { return t.sink_id; }
+	const bool section = (type == TCACHE_TYPE_BITMAP_SECTION);
+	int kind = TK_NORMAL;
+	if (aa) { kind = TK_AA; }
+	else if (section) { kind = TK_SECTION; }
+	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
+	else if (repeat) { kind = TK_REPEAT; }
+	if (!section) { sx = sy = 0; }
+	if (section && (sx < 0 || sy < 0 || sx >= MAX_BMAP_SECTIONS_X || sy >= MAX_BMAP_SECTIONS_Y)) { return 0; }
+	const uint64_t key = tex_key(bitmap_id, kind, sx, sy);
+	auto found = H.tex.find(key);
+	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
 
+	// the flags D3D's texture loaders ask bm_lock for (d3d_create_texture, d3d_create_texture_sectioned)
 	ubyte flags = 0;
 	ubyte bpp = 16;			// the game's convention: ask for 16, BmpMan upgrades to 32 for gr_screen.texture_bpp == 32
-	switch (type) {
-	case TCACHE_TYPE_AABITMAP: flags = BMP_AABITMAP; bpp = 8; break;
-	case TCACHE_TYPE_NORMAL: flags = BMP_TEX_OTHER; break;
-	case TCACHE_TYPE_XPARENT: flags = BMP_TEX_XPARENT; break;
-	default: flags = BMP_TEX_OTHER; break;
-	}
+	if (aa) { flags = BMP_AABITMAP; bpp = 8; }
+	else if (section) { flags = BMP_TEX_XPARENT; }
+	else if (type == TCACHE_TYPE_XPARENT) { flags = BMP_TEX_XPARENT; }
+	else { flags = BMP_TEX_OTHER | BMP_TEX_XPARENT; }		// TCACHE_TYPE_NORMAL
 	bitmap *bmp = bm_lock(bitmap_id, bpp, flags);
 	if (bmp == nullptr) { return 0; }
 
-	const int w = bmp->w, h = bmp->h;
+	int w = bmp->w, h = bmp->h;
 	const uint8_t *src = (const uint8_t *)bmp->data;
 	std::vector<uint8_t> px;
 	int format;
 	if (aa) {
 		px.resize(fs2host::a8_bytes(w, h));
-		fs2host::to_a8(src, w, h, w, px.data());
+		aa_to_a8(src, w, h, w, px.data());
 		format = FS2_SINK_TEX_A8;
 	} else {
+		const int bytes = (bmp->bpp == 32) ? 4 : 2;
 		const fs2host::PixLayout &l = fs2host::layout_for_texture_bpp(bmp->bpp == 32 ? 32 : 16);
+		int pitch = w * bytes;
+		if (section) {
+			// the sub rectangle of the sectioned bitmap, at the section's own size (no power of two padding)
+			int secw = 0, sech = 0;
+			bm_get_section_size(bitmap_id, sx, sy, &secw, &sech);
+			const int ox = bmp->sections.sx[sx], oy = bmp->sections.sy[sy];
+			if (secw < 1 || sech < 1 || ox + secw > w || oy + sech > h) { bm_unlock(bitmap_id); return 0; }
+			src += ((size_t)oy * (size_t)w + (size_t)ox) * (size_t)bytes;
+			w = secw; h = sech;
+		}
 		px.resize(fs2host::rgba8_bytes(w, h));
-		fs2host::to_rgba8(src, w, h, w * l.bytes, l, px.data());
+		fs2host::to_rgba8(src, w, h, pitch, l, px.data());
 		format = FS2_SINK_TEX_RGBA8;
 	}
 	bm_unlock(bitmap_id);
 
-	if (t.sink_id != 0) { H.sink->texture_free(H.sink->user, t.sink_id); }
+	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
-	// 16 bit textures keep integer texels for the UI and bilinear elsewhere, as the D3D path does
-	const uint32_t tf = (aa ? 0 : FS2_SINK_TEXF_LINEAR);
+	// UI text and bitmap sections keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
+	uint32_t tf = (aa || section) ? 0 : FS2_SINK_TEXF_LINEAR;
+	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
 	H.sink->texture_create(H.sink->user, t.sink_id, w, h, format, tf, px.data());
 	return t.sink_id;
 }
@@ -167,7 +241,6 @@ void h_flip_window(uintptr_t, int, int, int, int) { h_flip(); }
 void h_set_palette(ubyte *, int) { }				// same as dummy and D3D: nothing. BmpMan reads gr_palette, set by gr_set_palette_internal (R1_checks 1b)
 void h_fade_in(int) { }
 void h_fade_out(int) { }
-void h_flash(int, int, int) { }
 
 void h_set_clip(int x, int y, int w, int h)
 {
@@ -314,67 +387,114 @@ void h_pixel(int x, int y)
 		(float)(y + 1 + gr_screen.offset_y), c.red, c.green, c.blue, c.alpha);
 }
 
-// a 1 pixel wide line as a quad along the segment
+// A segment already clipped to the clip rectangle, colour ca at (x1,y1) and cb at (x2,y2). Axis aligned segments cover the
+// pixels from one end to the other inclusive, as D3D's line list does; others are a one pixel wide strip along the segment.
+void segment(int x1, int y1, int x2, int y2, const int ca[4], const int cb[4])
+{
+	const float ox = (float)gr_screen.offset_x, oy = (float)gr_screen.offset_y;
+	const int blend = (ca[3] < 255 || cb[3] < 255) ? FS2_SINK_BLEND_ALPHA : FS2_SINK_BLEND_OPAQUE;
+	static const uint16_t idx[6] = { 0, 1, 2, 0, 2, 3 };
+	if (x1 == x2 || y1 == y2) {
+		const bool flip = (x1 > x2) || (y1 > y2);
+		const int *c0 = flip ? cb : ca, *c1 = flip ? ca : cb;
+		const int lx = x1 < x2 ? x1 : x2, hx = x1 < x2 ? x2 : x1, ly = y1 < y2 ? y1 : y2, hy = y1 < y2 ? y2 : y1;
+		if (x1 == x2) {
+			quad(lx + ox, ly + oy, lx + 1 + ox, hy + 1 + oy, 0, 0, 0, 0, 0, blend, c0, c0, c1, c1);
+		} else {
+			quad(lx + ox, ly + oy, hx + 1 + ox, ly + 1 + oy, 0, 0, 0, 0, 0, blend, c0, c1, c1, c0);
+		}
+		return;
+	}
+	const float ax = (float)x1 + ox + 0.5f, ay = (float)y1 + oy + 0.5f, bx = (float)x2 + ox + 0.5f, by = (float)y2 + oy + 0.5f;
+	const float dx = bx - ax, dy = by - ay;
+	const float len = std::sqrt(dx * dx + dy * dy);
+	const float nx = -dy / len * 0.5f, ny = dx / len * 0.5f;
+	const fs2_sink_vertex v[4] = { vtx(ax + nx, ay + ny, 0, 0, ca[0], ca[1], ca[2], ca[3]), vtx(bx + nx, by + ny, 0, 0, cb[0], cb[1], cb[2], cb[3]),
+		vtx(bx - nx, by - ny, 0, 0, cb[0], cb[1], cb[2], cb[3]), vtx(ax - nx, ay - ny, 0, 0, ca[0], ca[1], ca[2], ca[3]) };
+	draw(plain_draw(0, blend), v, 4, idx, 6);
+}
+
+// gr_d3d_line: clipped like INT_CLIPLINE, drawn alpha blended in the current colour. Frame already checked.
+void line_in_frame(int x1, int y1, int x2, int y2)
+{
+	int clipped = 0, swapped = 0;
+	INT_CLIPLINE(x1, y1, x2, y2, gr_screen.clip_left, gr_screen.clip_top, gr_screen.clip_right, gr_screen.clip_bottom, return, clipped = 1, swapped = 1);
+	(void)clipped; (void)swapped;
+	const color &c = gr_screen.current_color;
+	const int col[4] = { c.red, c.green, c.blue, c.alpha };
+	segment(x1, y1, x2, y2, col, col);
+}
+
 void h_line(int x1, int y1, int x2, int y2)
 {
 	ensure_frame();
 	if (!drawing()) { return; }
-	const color &c = gr_screen.current_color;
-	const float ax = (float)(x1 + gr_screen.offset_x) + 0.5f, ay = (float)(y1 + gr_screen.offset_y) + 0.5f;
-	const float bx = (float)(x2 + gr_screen.offset_x) + 0.5f, by = (float)(y2 + gr_screen.offset_y) + 0.5f;
-	float dx = bx - ax, dy = by - ay;
-	const float len = std::sqrt(dx * dx + dy * dy);
-	if (len < 0.001f) { h_pixel(x1, y1); return; }
-	const float nx = -dy / len * 0.5f, ny = dx / len * 0.5f;
-	static const uint16_t idx[6] = { 0, 1, 2, 0, 2, 3 };
-	const fs2_sink_vertex v[4] = { vtx(ax + nx, ay + ny, 0, 0, c.red, c.green, c.blue, c.alpha), vtx(bx + nx, by + ny, 0, 0, c.red, c.green, c.blue, c.alpha),
-		vtx(bx - nx, by - ny, 0, 0, c.red, c.green, c.blue, c.alpha), vtx(ax - nx, ay - ny, 0, 0, c.red, c.green, c.blue, c.alpha) };
-	draw(plain_draw(0, c.alpha < 255 ? FS2_SINK_BLEND_ALPHA : FS2_SINK_BLEND_OPAQUE), v, 4, idx, 6);
+	line_in_frame(x1, y1, x2, y2);
 }
 
 void h_aaline(vertex *v1, vertex *v2) { h_line((int)v1->sx, (int)v1->sy, (int)v2->sx, (int)v2->sy); }
 
-// the colour fades from the current colour (alpha as set) to nothing along the line direction
+// gr_d3d_gradient: the colour (alpha as set) at the first point fades to alpha 0 at the second; a plain line without alpha
 void h_gradient(int x1, int y1, int x2, int y2)
 {
 	ensure_frame();
 	if (!drawing()) { return; }
 	const color &c = gr_screen.current_color;
-	const int a = c.is_alphacolor ? c.alpha : 255;
-	const int on[4] = { c.red, c.green, c.blue, a }, off[4] = { c.red, c.green, c.blue, 0 };
-	const float ox = (float)gr_screen.offset_x, oy = (float)gr_screen.offset_y;
-	if (std::abs(x2 - x1) >= std::abs(y2 - y1)) {
-		const int lo = x1 < x2 ? x1 : x2;
-		const int hi = x1 < x2 ? x2 : x1;
-		const bool fade_right = x2 >= x1;
-		quad(lo + ox, y1 + oy, hi + ox, y1 + 1 + oy, 0, 0, 0, 0, 0, FS2_SINK_BLEND_ALPHA, fade_right ? on : off, fade_right ? off : on,
-			fade_right ? off : on, fade_right ? on : off);
-	} else {
-		const int lo = y1 < y2 ? y1 : y2;
-		const int hi = y1 < y2 ? y2 : y1;
-		const bool fade_down = y2 >= y1;
-		quad(x1 + ox, lo + oy, x1 + 1 + ox, hi + oy, 0, 0, 0, 0, 0, FS2_SINK_BLEND_ALPHA, fade_down ? on : off, fade_down ? on : off,
-			fade_down ? off : on, fade_down ? off : on);
-	}
+	if (!c.is_alphacolor) { line_in_frame(x1, y1, x2, y2); return; }
+	int clipped = 0, swapped = 0;
+	INT_CLIPLINE(x1, y1, x2, y2, gr_screen.clip_left, gr_screen.clip_top, gr_screen.clip_right, gr_screen.clip_bottom, return, clipped = 1, swapped = 1);
+	(void)clipped;
+	const int on[4] = { c.red, c.green, c.blue, c.alpha }, off[4] = { c.red, c.green, c.blue, 0 };
+	// INT_CLIPLINE orders the ends top to bottom; when it swapped them the opaque colour belongs to the second end
+	if (swapped) { segment(x1, y1, x2, y2, off, on); } else { segment(x1, y1, x2, y2, on, off); }
 }
 
-// a filled disc, d = diameter as in gr_d3d_circle; DRAFT: D3D's is an outline-and-fill walk, to be matched in R1-5
+// gr_d3d_circle: the same midpoint walk, filled with horizontal lines, d = diameter
 void h_circle(int xc, int yc, int d)
 {
 	ensure_frame();
 	if (!drawing()) { return; }
-	const color &c = gr_screen.current_color;
-	const float r = d * 0.5f, cx = (float)(xc + gr_screen.offset_x), cy = (float)(yc + gr_screen.offset_y);
-	const int N = 32;
-	fs2_sink_vertex v[N + 1];
-	uint16_t idx[N * 3];
-	v[0] = vtx(cx, cy, 0, 0, c.red, c.green, c.blue, c.alpha);
-	for (int i = 0; i < N; i++) {
-		const float a = 6.2831853f * (float)i / (float)N;
-		v[1 + i] = vtx(cx + r * std::cos(a), cy + r * std::sin(a), 0, 0, c.red, c.green, c.blue, c.alpha);
-		idx[i * 3] = 0; idx[i * 3 + 1] = (uint16_t)(1 + i); idx[i * 3 + 2] = (uint16_t)(1 + (i + 1) % N);
+	int p, x, y, r;
+	r = d / 2;
+	p = 3 - d;
+	x = 0;
+	y = r;
+	if ((xc + r) < gr_screen.clip_left) { return; }
+	if ((xc - r) > gr_screen.clip_right) { return; }
+	if ((yc + r) < gr_screen.clip_top) { return; }
+	if ((yc - r) > gr_screen.clip_bottom) { return; }
+	while (x < y) {
+		line_in_frame(xc - y, yc - x, xc + y, yc - x);
+		line_in_frame(xc - y, yc + x, xc + y, yc + x);
+		if (p < 0) {
+			p = p + (x << 2) + 6;
+		} else {
+			line_in_frame(xc - x, yc - y, xc + x, yc - y);
+			line_in_frame(xc - x, yc + y, xc + x, yc + y);
+			p = p + ((x - y) << 2) + 10;
+			y--;
+		}
+		x++;
 	}
-	draw(plain_draw(0, c.alpha < 255 ? FS2_SINK_BLEND_ALPHA : FS2_SINK_BLEND_OPAQUE), v, N + 1, idx, N * 3);
+	if (x == y) {
+		line_in_frame(xc - x, yc - y, xc + x, yc - y);
+		line_in_frame(xc - x, yc + y, xc + x, yc + y);
+	}
+}
+
+// gr_d3d_flash: the whole clip rectangle, added to the screen
+void h_flash(int r, int g, int b)
+{
+	r = r < 0 ? 0 : (r > 255 ? 255 : r);
+	g = g < 0 ? 0 : (g > 255 ? 255 : g);
+	b = b < 0 ? 0 : (b > 255 ? 255 : b);
+	if (!(r || g || b)) { return; }
+	ensure_frame();
+	if (!drawing()) { return; }
+	const int c[4] = { r, g, b, 255 };
+	quad((float)(gr_screen.clip_left + gr_screen.offset_x), (float)(gr_screen.clip_top + gr_screen.offset_y),
+		(float)(gr_screen.clip_right + gr_screen.offset_x), (float)(gr_screen.clip_bottom + gr_screen.offset_y),
+		0, 0, 0, 0, 0, FS2_SINK_BLEND_ADD, c, c, c, c);
 }
 
 // bitmap pieces: every section of gr_screen.current_bitmap drawn clipped, the way gr_d3d_bitmap_ex does
@@ -466,14 +586,16 @@ void h_string(int sx, int sy, char *s)
 	}
 }
 
-// 3D polys: a fan of nv vertices. Colour rules follow gr_d3d_tmapper_internal (RGB gouraud through the gamma table).
-void h_tmapper(int nv, vertex *verts[], uint flags)
+// 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled and sectioned uvs).
+// Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING), pixel fog (TMAP_FLAG_PIXEL_FOG) and vertex/table fog; see the
+// notes at h_fog_set. They need mission-path support (R1-8) and, for fog, a sink capability.
+void tmapper_internal(int nv, vertex *verts[], uint flags)
 {
 	if (nv < 3 || nv > 32) { return; }
 	ensure_frame();
 	if (!drawing()) { return; }
 
-	int blend = FS2_SINK_BLEND_OPAQUE, alpha = 255;
+	int blend, alpha = 255;
 	int tint_r = 255, tint_g = 255, tint_b = 255;
 	if (!(flags & TMAP_FLAG_TEXTURED)) {
 		tint_r = gr_screen.current_color.red; tint_g = gr_screen.current_color.green; tint_b = gr_screen.current_color.blue;
@@ -491,7 +613,11 @@ void h_tmapper(int nv, vertex *verts[], uint flags)
 
 	int tex = 0;
 	if (flags & TMAP_FLAG_TEXTURED) {
-		tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_XPARENT);
+		if (flags & TMAP_FLAG_BITMAP_SECTION) {
+			tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_BITMAP_SECTION, false, gr_screen.current_bitmap_sx, gr_screen.current_bitmap_sy);
+		} else {
+			tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, (flags & TMAP_FLAG_TILED) != 0);
+		}
 		if (tex == 0) { return; }
 	}
 
@@ -500,28 +626,67 @@ void h_tmapper(int nv, vertex *verts[], uint flags)
 	for (int i = 0; i < nv; i++) {
 		const vertex *va = verts[i];
 		int r = tint_r, g = tint_g, b = tint_b;
-		if ((flags & TMAP_FLAG_RAMP) && (flags & TMAP_FLAG_GOURAUD)) {
-			r = g = b = Gr_gamma_lookup[va->b];
+		if (flags & TMAP_FLAG_NEBULA) {
+			const int pal = (va->b * (NEBULA_COLORS - 1)) / 255;
+			const ubyte *neb_palette = Cfile_fs1_data ? Nebula_fs1_ramp : gr_palette;
+			r = neb_palette[pal * 3 + 0]; g = neb_palette[pal * 3 + 1]; b = neb_palette[pal * 3 + 2];
+		} else if ((flags & TMAP_FLAG_RAMP) && (flags & TMAP_FLAG_GOURAUD)) {
+			r = g = b = H.gamma_lookup[va->b];
 		} else if ((flags & TMAP_FLAG_RGB) && (flags & TMAP_FLAG_GOURAUD)) {
-			r = Gr_gamma_lookup[va->r]; g = Gr_gamma_lookup[va->g]; b = Gr_gamma_lookup[va->b];
+			r = H.gamma_lookup[va->r]; g = H.gamma_lookup[va->g]; b = H.gamma_lookup[va->b];
 		}
 		const int a = (flags & TMAP_FLAG_ALPHA) ? va->a : alpha;
-		out[i] = vtx(va->sx + (float)gr_screen.offset_x, va->sy + (float)gr_screen.offset_y, va->u, va->v, r, g, b, a);
+		// positions on the 1/16 pixel grid, as D3D snaps them
+		const float sx = (float)(int)(va->sx * 16.0f) / 16.0f + (float)gr_screen.offset_x;
+		const float sy = (float)(int)(va->sy * 16.0f) / 16.0f + (float)gr_screen.offset_y;
+		float u = 0.0f, v = 0.0f;
+		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
+		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
 	}
 	for (int i = 0; i < nv - 2; i++) { idx[i * 3] = 0; idx[i * 3 + 1] = (uint16_t)(i + 1); idx[i * 3 + 2] = (uint16_t)(i + 2); }
 
-	unsigned dflags = (flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0;
-	fs2_sink_draw d = plain_draw(tex, blend, dflags);
-	// TILED polys repeat the texture (uv > 1); the sink fixes that per texture, so the host needs a repeat variant (R1-5)
-	draw(d, out, nv, idx, (nv - 2) * 3);
+	const unsigned dflags = (flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0;
+	draw(plain_draw(tex, blend, dflags), out, nv, idx, (nv - 2) * 3);
 }
 
+void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
+
+#define SCALE_UV(x, x0, x1, y0, y1) (((((x) - (x0)) * ((y1) - (y0))) / ((x1) - (x0))) + (y0))
+
+// gr_d3d_scaler: clip the two corner vertices to the clip rectangle, moving the uvs with them, then a textured quad
 void h_scaler(vertex *va, vertex *vb)
 {
-	// scaler quads are two screen points plus size in sw; mirrored in R1-5 with the other bitmap scalers
-	(void)va; (void)vb;
+	const float x0 = va->sx, y0 = va->sy, x1 = vb->sx, y1 = vb->sy;
+	const float u0 = va->u, v0 = va->v, u1 = vb->u, v1 = vb->v;
+	const float xmin = (float)gr_screen.clip_left, ymin = (float)gr_screen.clip_top;
+	const float xmax = (float)gr_screen.clip_right, ymax = (float)gr_screen.clip_bottom;
+
+	if ((y1 <= y0) || (x1 <= x0)) { return; }
+	if ((x1 < xmin) || (x0 > xmax)) { return; }
+	if ((y1 < ymin) || (y0 > ymax)) { return; }
+
+	float cu0 = u0, cv0 = v0, cu1 = u1, cv1 = v1, cx0 = x0, cy0 = y0, cx1 = x1, cy1 = y1;
+	if (x0 < xmin) { cu0 = SCALE_UV(xmin, x0, x1, u0, u1); cx0 = xmin; }
+	if (x1 > xmax) { cu1 = SCALE_UV(xmax, x0, x1, u0, u1); cx1 = xmax; }
+	if (y0 < ymin) { cv0 = SCALE_UV(ymin, y0, y1, v0, v1); cy0 = ymin; }
+	if (y1 > ymax) { cv1 = SCALE_UV(ymax, y0, y1, v0, v1); cy1 = ymax; }
+
+	if ((int)cx1 <= (int)cx0) { return; }
+	if ((int)cy1 <= (int)cy0) { return; }
+
+	vertex v[4];
+	vertex *vl[4];
+	std::memset(v, 0, sizeof(v));
+	for (int i = 0; i < 4; i++) { vl[i] = &v[i]; v[i].sw = va->sw; v[i].z = va->z; }
+	v[0].sx = cx0; v[0].sy = cy0; v[0].u = cu0; v[0].v = cv0;
+	v[1].sx = cx1; v[1].sy = cy0; v[1].u = cu1; v[1].v = cv0;
+	v[2].sx = cx1; v[2].sy = cy1; v[2].u = cu1; v[2].v = cv1;
+	v[3].sx = cx0; v[3].sy = cy1; v[3].u = cu0; v[3].v = cv1;
+	tmapper_internal(4, vl, TMAP_FLAG_TEXTURED);
 }
+
+void h_aascaler(vertex *, vertex *) { }			// D3D's is empty too
 
 // ---- frame / misc ------------------------------------------------------------------------------------------------
 
@@ -554,7 +719,18 @@ void h_free_screen(int id) { if (drawing() && id > 0) { H.sink->texture_free(H.s
 void h_dump_frame_start(int, int) { }
 void h_dump_frame() { }
 void h_dump_frame_stop() { }
-void h_set_gamma(float g) { ensure_frame(); if (drawing()) { H.sink->set_gamma(H.sink->user, g); } }
+// The gamma table the textures and vertex colours go through, as gr_d3d_set_gamma builds it; the game's own Gr_gamma and
+// Gr_gamma_lookup stay as they are with the dummy. Textures baked with the old table are dropped on the next accepted frame.
+void build_gamma(float gamma)
+{
+	if (gamma < 0.01f) { gamma = 1.0f; }
+	for (int i = 0; i < 256; i++) {
+		int v = (int)(std::pow((float)i / 255.0f, 1.0f / gamma) * 255.0f);
+		H.gamma_lookup[i] = v > 255 ? 255 : (v < 0 ? 0 : v);
+	}
+	H.flush_pending = true;
+}
+void h_set_gamma(float g) { build_gamma(g); }
 
 uint h_lock() { return 1; }						// dummy's value; every caller discards it (R1_checks 1a)
 void h_unlock() { }
@@ -572,24 +748,34 @@ void h_get_region(int, int w, int h, ubyte *data)
 }
 
 // Same as dummy: no gr_screen.fog_* / current_fog_* writes (ObjectSort reads them; with the dummy it always re-calls fog_set).
-// Fog state, when added, stays in the host's own state (R1_checks 1c).
-void h_fog_set(int, int, int, int, float, float) { }
+// The fog state lives in the host (R1_checks 1c). It is NOT applied to draws yet: D3D fogs per vertex (linear in z, factor in
+// the specular alpha) and per pixel (average backbuffer colour), and the sink has no per vertex fog or fog colour. Needs a
+// sink capability (version bump), so it waits for the manager's decision. Menus do not fog.
+void h_fog_set(int mode, int r, int g, int b, float fnear, float ffar)
+{
+	H.fog_mode = mode; H.fog_r = r; H.fog_g = g; H.fog_b = b; H.fog_near = fnear; H.fog_far = ffar;
+}
 void h_get_pixel(int, int, int *, int *, int *) { }
 void h_set_cull(int) { }
-void h_cross_fade(int, int, int, int, int, int, float) { }
+// gr_d3d_cross_fade: no blend, the first bitmap up to half way and the second after
+void h_cross_fade(int bmap1, int bmap2, int x1, int y1, int x2, int y2, float pct)
+{
+	if (pct <= 50) { gr_set_bitmap(bmap1); gr_bitmap(x1, y1); }
+	else { gr_set_bitmap(bmap2); gr_bitmap(x2, y2); }
+}
 void h_filter_set(int) { }
 
 // uploads in accepted frames only; 0 when the frame is skipped (callers then draw nothing, as the sink would not either)
-int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int, int, int, int)
+int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int, int sx, int sy, int)
 {
 	ensure_frame();
 	if (u_scale) { *u_scale = 1.0f; }
 	if (v_scale) { *v_scale = 1.0f; }
-	return tex_get(bitmap_id, bitmap_type) != 0;
+	return tex_get(bitmap_id, bitmap_type, false, sx, sy) != 0;
 }
 
 void h_zbias(int) { }
-void h_flush() { }
+void h_flush() { H.flush_pending = true; }
 void h_preload_init() { }
 int h_preload(int, int) { return 0; }
 void h_preload_done() { }
@@ -634,6 +820,7 @@ void host_init()
 	gr_screen.bytes_per_pixel = 4;
 	gr_screen.hardware = 1;
 	gr_screen.texture_bpp = H.texture_bpp;
+	build_gamma(Gr_gamma);
 
 	gr_screen.gf_flip = h_flip;
 	gr_screen.gf_flip_window = h_flip_window;
@@ -664,7 +851,7 @@ void host_init()
 	gr_screen.gf_aaline = h_aaline;
 	gr_screen.gf_pixel = h_pixel;
 	gr_screen.gf_scaler = h_scaler;
-	gr_screen.gf_aascaler = h_scaler;
+	gr_screen.gf_aascaler = h_aascaler;
 	gr_screen.gf_tmapper = h_tmapper;
 	gr_screen.gf_print_screen = h_print_screen;
 	gr_screen.gf_start_frame = h_start_frame;
