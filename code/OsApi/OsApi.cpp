@@ -124,6 +124,7 @@ static int			Os_inited = 0;
 static CRITICAL_SECTION Os_lock;
 
 int Os_debugger_running = 0;
+static int Os_host_window = 0;	// Claude: shown host mode, no game window: os_get_window() returns the desktop window
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI FORWARD DECLARATIONS
@@ -218,6 +219,9 @@ int os_win32_is_foreground()
 uintptr_t os_get_window()
 {
 	// Claude: x64, HWNDs only use the low 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
+	if (!hwndApp && Os_host_window) {	// Claude: shown host mode, see win32_create_window
+		return (uintptr_t)GetDesktopWindow();
+	}
 	return (uintptr_t)hwndApp;
 }
 
@@ -604,6 +608,19 @@ BOOL win32_create_window()
 {
 	// Claude: -headless creates no window and no window class; os_get_window() stays NULL.  Keys, mouse and clock come from the host hooks (P3).
 	if(Cmdline_headless){
+		main_window_inited = 1;
+		#ifndef NDEBUG
+			outwnd_init(1);
+		#endif
+		return TRUE;
+	}
+
+	// Claude: a host backend is registered (shown host mode): the host has its own window, so the game creates no window and no class.
+	// os_get_window() then returns the desktop window as a valid fallback handle (Os_host_window; DirectSound needs one).  The cursor lines match the path below.
+	if(gr_host_backend_registered()){
+		Os_host_window = 1;
+		ShowCursor(0);
+		ClipCursor(NULL);
 		main_window_inited = 1;
 		#ifndef NDEBUG
 			outwnd_init(1);
