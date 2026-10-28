@@ -597,6 +597,9 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 	fs2perf::count(fs2perf::C_READ_REGION);
 	fs2perf::count(fs2perf::C_READ_BYTES, (uint64_t)(w > 0 ? w : 0) * (uint64_t)(h > 0 ? h : 0) * 4);
 	s->batcher.flush();
+	if (kSkipNebFogRead && x == 0 && y == 0 && w > 0 && h > 0 && (long long)w * h <= kNebFogReadMaxPixels) {
+		return 0; // the neb2 fog-colour read: see kSkipNebFogRead
+	}
 	// the last frame the viewport has rendered (D3D reads the back buffer, which at the start of a frame still holds the last frame)
 	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
 		return 0;

@@ -25,6 +25,15 @@
 
 namespace fs2sink {
 
+// Switch point for the nebula fog-colour read (perf pass group 2, D-20261028-233135). neb2_pre_render reads a 32x32 corner of the
+// screen (Neb.cpp ESIZE) every frame; the host does not use it (fog is not drawn until R2; neb2_get_pixel is called only by the
+// D3D backend), and the read is a synchronous GPU round trip (6.5-10 ms per drawn frame in nebula missions). While true, a
+// read of at most kNebFogReadMaxPixels pixels at (0,0) is answered "no data" without touching the GPU, which leaves the game's
+// buffer untouched, as the dummy renderer does. Larger reads (Autotest screenshots) are served as before.
+// R2 (fog) MUST set this false, or replace the read with an asynchronous one, and cost it again.
+constexpr bool kSkipNebFogRead = true;
+constexpr int kNebFogReadMaxPixels = 32 * 32;
+
 class GodotSink : public BatchEmitter {
 public:
 	GodotSink() {}
