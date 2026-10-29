@@ -1,6 +1,7 @@
 #include "fs2_node.h"
 #include "fs2_screen.h"
 
+#include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -84,6 +85,20 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	api.set_fiber(fiber_mode);
 	if (api.set_host_pacing != nullptr) {
 		api.set_host_pacing(pace_realtime ? 1 : 0);
+	}
+	// D-20261029-060953: interactive shown play gives DirectSound Godot's own window. A headless Godot has none, and a game started with
+	// -headless or -nosounddevice has no sound device, so compared runs (gates, record, replay) keep the no-device side untouched.
+	if (api.set_window_handle != nullptr) {
+		const String cmd_padded = String(" ") + cmdline + " ";
+		const bool no_device = cmd_padded.contains(" -nosounddevice ") || cmd_padded.contains(" -headless ");
+		DisplayServer *ds = DisplayServer::get_singleton();
+		if (ds != nullptr && ds->get_name() != "headless" && !no_device) {
+			const int64_t hwnd = ds->window_get_native_handle(DisplayServer::WINDOW_HANDLE, 0);
+			api.set_window_handle((unsigned long long)hwnd);
+			UtilityFunctions::print("Fs2Game: sound window handle 0x", String::num_int64(hwnd, 16), " passed to the game (fs2_set_window_handle)");
+		} else {
+			api.set_window_handle(0);
+		}
 	}
 	pace_acc_usec = 0;
 	pace_last_usec = Time::get_singleton()->get_ticks_usec();
