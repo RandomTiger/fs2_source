@@ -125,6 +125,7 @@ static CRITICAL_SECTION Os_lock;
 
 int Os_debugger_running = 0;
 static int Os_host_window = 0;	// Claude: shown host mode, no game window: os_get_window() returns the desktop window
+int Os_no_window = 0;	// Claude: set by a host that has its own window (or none) before os_init: the game creates no window and os_get_window() stays NULL
 
 // ----------------------------------------------------------------------------------------------------
 // OSAPI FORWARD DECLARATIONS
@@ -181,7 +182,7 @@ void os_init(char * wclass, char * title, char *app_name, char *version_string )
 void os_set_title( char * title )
 {
 	strcpy( szWinTitle, title );
-	if ( hwndApp ) {	// Claude: -headless has no window (P3)
+	if ( hwndApp ) {	// Claude: -headless (P3) and Os_no_window have no window
 		SetWindowText( hwndApp, szWinTitle );
 	}
 }
@@ -190,7 +191,7 @@ void os_set_title( char * title )
 void os_cleanup()
 {
 	// Tell the app to quit
-	if ( hwndApp ) {	// Claude: -headless has no window (P3)
+	if ( hwndApp ) {	// Claude: -headless (P3) and Os_no_window have no window
 		PostMessage( hwndApp, WM_DESTROY, 0, 0 );
 	}
 	
@@ -620,7 +621,8 @@ LRESULT CALLBACK win32_message_handler(HWND hwnd,UINT msg,WPARAM wParam, LPARAM 
 BOOL win32_create_window()
 {
 	// Claude: -headless creates no window and no window class; os_get_window() stays NULL.  Keys, mouse and clock come from the host hooks (P3).
-	if(Cmdline_headless){
+	// Claude: Os_no_window: the same, for any host that supplies its own window (or none)
+	if(Cmdline_headless || Os_no_window){
 		main_window_inited = 1;
 		#ifndef NDEBUG
 			outwnd_init(1);

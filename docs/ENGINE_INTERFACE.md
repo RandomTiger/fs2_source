@@ -19,6 +19,8 @@ Counts are for game code. `Network`, `Inetfile`, FRED and the tools are left out
 | | `OsApi/OsRegistry.h` | Settings (`os_config_*`, registry or ini, D-016) | 8 |
 | | `CFile/cfile.h` | Files and VP archives | ~80 (can stay in the game over a file-system adapter) |
 
+**The game window (`Os_no_window`).** `OsApi.h` exports `Os_no_window`. A host that has its own window, or none, sets it to 1 before `os_init`: the game then creates no window and no window class, and `os_get_window()` returns 0. It is 0 by default, so every other path (the D3D game, `-window`, `-headless`) is unchanged, and `-headless` still gets its hidden message-only window. `-nowindow` sets it from the command line as a test stand-in, honoured only with `-nographics` or `-headless`. D3D needs a window handle, so never set it with a renderer the game draws itself. The users of the handle with 0: `os_set_title` and `os_cleanup` skip the window; message boxes have no owner. Still to do for a host that sets it: `ds_init` (`Sound/ds.cpp`) returns -1 for a null handle, so sound is off (the same as `-nosounddevice`); the sound task needs DirectSound's `SetCooperativeLevel` to get a handle from the host (the desktop window or the host's own), or a sound backend that needs none. The DirectInput mouse and joystick set-up (`Mouse.cpp`, `Joy.cpp`, `Joy_ff.cpp`) also take the handle; a host that provides input through its own seam does not run them.
+
 Optional or not carried: CD audio (`RBAudio.h`), force feedback (`Joy_ff.h`), multiplayer voice (`rtvoice.h`, D-014).
 
 ## The recorder's hooks are the platform boundary

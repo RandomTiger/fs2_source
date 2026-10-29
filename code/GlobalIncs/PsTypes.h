@@ -313,16 +313,7 @@ typedef struct vertex {
 // any texture type
 #define	BMP_TEX_ANY				( BMP_TEX_XPARENT | BMP_TEX_NONDARK | BMP_TEX_OTHER )
 
-// max res == 1024x768. max texture size == 256
-#define MAX_BMAP_SECTIONS_X				4
-#define MAX_BMAP_SECTIONS_Y				3
-#define MAX_BMAP_SECTION_SIZE				256
-typedef struct bitmap_section_info {
-	ushort sx[MAX_BMAP_SECTIONS_X];		// x offset of each section
-	ushort sy[MAX_BMAP_SECTIONS_Y];		// y offset of each section
-
-	ubyte num_x, num_y;						// number of x and y sections
-} bitmap_section_info;
+// Claude: bitmap_section_info and MAX_BMAP_SECTION* removed; D3D keeps its own 256 pixel tile grid (GrD3DInternal.h)
 
 typedef struct bitmap {
 	short	w, h;		// Width and height
@@ -333,7 +324,7 @@ typedef struct bitmap {
 	ubyte *palette;	// If bpp==8, this is pointer to palette.   If the BMP_NO_PALETTE_MAP flag
 							// is not set, this palette just points to the screen palette. (gr_palette)
 
-	bitmap_section_info sections;
+	// Claude: sections removed (D3D tiles itself)
 } bitmap;
 
 //This are defined in MainWin.c

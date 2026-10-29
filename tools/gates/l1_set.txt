@@ -1,0 +1,24 @@
+# L1 smoke: the fixed set. Owned by the manager (GATING_PLAN_v2, D-20261027-102606). One entry per line: <kind> <name>  # why
+# kinds:
+#   features <glob>   feature-test autotests: every recordings\autotest recording matching the glob
+#   fs2 <name>        recordings\autotest (FS2 retail), Release and Debug, TraceDiff 0
+#   fs1 <name>        recordings\fs1 (FS1 retail), Release and Debug, TraceDiff 0
+#   fs2demo <name>    recordings\demo (FS2 demo), Release and Debug, TraceDiff 0
+#   fs1demo <name>    FS1 demo mission, no recording: clean-run rule (D-20261026-203028 / D-20261026-223829), Release and Debug
+# A coverage gap found only by L2 adds its mission here (plan, "When L1 fails" item 5).
+# fs1 names avoid clashes with recordings\autotest (replay_check matches by name only).
+
+features Autotest*       # the 14 feature tests: AI, Arrivals, Chain, Damage, Flow, Leaks, Neb x3, Player, Support, Training, Weapons
+
+fs2 sm1-01               # first campaign mission; Release/Debug cross-check mission in regression.txt
+fs2 sm3-06               # nebula; the other cross-check mission in regression.txt
+fs2 sm1-07               # forward-interpolate assert, guardian on a ship that left, hiding-variable renames (regression.txt)
+fs2 sm2-07               # voice timer: the sound device decided when a message ended (regression.txt)
+
+fs1 md-01                # FS1 md group
+fs1 sm1-02a              # FS1 campaign, act 1
+fs1 sm2-05a              # FS1 campaign, act 2
+fs1 sm3-06a              # FS1 campaign, act 3
+
+fs2demo SPDemo-01        # FS2 demo set: one exe serves four data sets, so one mission per demo set (steward gap note)
+fs1demo demo01           # FS1 demo set: no recording, clean-run rule
