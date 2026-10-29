@@ -102,6 +102,9 @@ void GodotSink::shutdown()
 		for (Dying &d : dying) {
 			rs->free_rid(d.rid);
 		}
+		for (Pooled &p : tex_pool) {
+			rs->free_rid(p.rid);
+		}
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
@@ -129,6 +132,7 @@ void GodotSink::shutdown()
 	shown_meshes.clear();
 	textures.clear();
 	dying.clear();
+	tex_pool.clear();
 	vp = nullptr;
 	in_frame = false;
 }
@@ -333,10 +337,11 @@ void GodotSink::s_set_clip(void *u, int x, int y, int w, int h)
 	}
 }
 
-void GodotSink::retire(const RID &r)
+void GodotSink::retire(const Tex &t)
 {
 	Dying d;
-	d.rid = r;
+	d.rid = t.rid;
+	d.w = t.w; d.h = t.h; d.format = t.format;
 	dying.push_back(d);
 }
 
@@ -349,12 +354,22 @@ void GodotSink::age_dying(bool force_all)
 		dying[i].age++;
 		if (force_all || dying[i].age >= 2) {
 			drop_materials_of(dying[i].rid);
-			rs->free_rid(dying[i].rid);
+			if (kTexturePool && !force_all) {
+				Pooled p;
+				p.rid = dying[i].rid; p.w = dying[i].w; p.h = dying[i].h; p.format = dying[i].format;
+				tex_pool.push_back(p);
+			} else {
+				rs->free_rid(dying[i].rid);
+			}
 		} else {
 			dying[keep++] = dying[i];
 		}
 	}
 	dying.resize(keep);
+	while (tex_pool.size() > kTexPoolMax) {
+		rs->free_rid(tex_pool.front().rid);
+		tex_pool.erase(tex_pool.begin());
+	}
 }
 
 void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t flags, const uint8_t *pixels)
@@ -375,10 +390,25 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	Ref<Image> img = Image::create_from_data(w, h, false, a8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8, bytes);
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 	}
 	Tex t;
-	t.rid = RenderingServer::get_singleton()->texture_2d_create(img);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool reused = false;
+	if (kTexturePool) {
+		for (size_t i = s->tex_pool.size(); i-- > 0;) {
+			if (s->tex_pool[i].w == w && s->tex_pool[i].h == h && s->tex_pool[i].format == format) {
+				t.rid = s->tex_pool[i].rid;
+				s->tex_pool.erase(s->tex_pool.begin() + (std::ptrdiff_t)i);
+				rs->texture_2d_update(t.rid, img, 0);
+				reused = true;
+				break;
+			}
+		}
+	}
+	if (!reused) {
+		t.rid = rs->texture_2d_create(img);
+	}
 	t.w = w; t.h = h; t.format = format; t.flags = flags;
 	s->textures[id] = t;
 }
@@ -391,7 +421,7 @@ void GodotSink::s_texture_free(void *u, int32_t id)
 	s->batcher.flush();
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 		s->textures.erase(it);
 	}
 }
@@ -401,7 +431,7 @@ void GodotSink::s_texture_free_all(void *u)
 	GodotSink *s = static_cast<GodotSink *>(u);
 	s->batcher.flush();
 	for (auto &t : s->textures) {
-		s->retire(t.second.rid);
+		s->retire(t.second);
 	}
 	s->textures.clear();
 }
@@ -581,7 +611,7 @@ int GodotSink::s_capture(void *u, int32_t id)
 	img->convert(Image::FORMAT_RGBA8);
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 	}
 	Tex t;
 	t.rid = RenderingServer::get_singleton()->texture_2d_create(img);
