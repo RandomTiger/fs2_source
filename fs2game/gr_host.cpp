@@ -52,6 +52,10 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include <unordered_map>
 #include <cmath>
 
+// GrD3D.cpp's screen-depth flag: 1 = the screen is 32 bit. Only D3D init sets it; bm_get_components reads it to pick the
+// 32 bit read of screen-format pixels (D-20261029-095513). host_init sets it for the host's 32 bit screen.
+extern int D3D_32bit;
+
 namespace {
 
 #define NEBULA_COLORS 20		// as GrD3DRender.cpp
@@ -944,6 +948,7 @@ void set_formats_32()
 
 gr_host_backend Backend;
 int Saved_bitmap_poly = 0;
+int Saved_d3d_32bit = 0;
 
 void host_init()
 {
@@ -951,6 +956,10 @@ void host_init()
 	set_formats_32();
 	Saved_bitmap_poly = Gr_bitmap_poly;
 	Gr_bitmap_poly = 1;		// Barracks and Movie draw through gr_tmapper then, as under 32 bit Direct3D
+	// the screen is 32 bit (bits_per_pixel below), so screen-format reads (bm_get_components: neb2_get_pixel on the fog read)
+	// take the 32 bit path, as D3D init sets it for a 32 bit screen; at 0 they read the low 16 bits and lose red
+	Saved_d3d_32bit = D3D_32bit;
+	D3D_32bit = 1;
 	// D7: a headless run counts as "no device" exactly as the null renderer does, so compared runs take the same branches
 	Backend.no_device = Cmdline_nographics ? 1 : 0;
 	gr_screen.bits_per_pixel = 32;
@@ -1031,6 +1040,7 @@ void host_cleanup()
 	Bm_release_hook = nullptr;
 	H.frame = FRAME_NONE;
 	Gr_bitmap_poly = Saved_bitmap_poly;
+	D3D_32bit = Saved_d3d_32bit;
 }
 
 void host_force_windowed() { }
