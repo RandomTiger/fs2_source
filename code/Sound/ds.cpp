@@ -774,7 +774,7 @@ int ds_load_buffer(int *sid, int *hid, int *final_size, void *header, sound_info
 //	if (ds_using_ds3d()) {
 		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRL3D | DSBCAPS_MUTE3DATMAXDISTANCE;
 	} else {
-		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_LOCSOFTWARE;
+		BufferDesc.dwFlags = DSBCAPS_STATIC | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN | DSBCAPS_LOCSOFTWARE;	// Claude: AudioPan, pan control so snd_play pan is heard (D-20261024-063229)
 	}
 
 	// Create a new software buffer using the settings for this wave
