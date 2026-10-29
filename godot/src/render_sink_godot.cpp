@@ -617,7 +617,14 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 		th = it->second.h;
 	}
 	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
-	s->batcher.add(*d, v, nv, idx, ni, tw, th);
+	if constexpr (kNebFog == kNebFogOff) {
+		// kNebFog off: the draw is what it was before R2, fog fields ignored (the host still sets them for fogged polys)
+		fs2_sink_draw nofog = *d;
+		nofog.fog_mode = FS2_SINK_FOG_NONE;
+		s->batcher.add(nofog, v, nv, idx, ni, tw, th);
+	} else {
+		s->batcher.add(*d, v, nv, idx, ni, tw, th);
+	}
 	s->stat_sink_usec += godot::Time::get_singleton()->get_ticks_usec() - t0;
 }
 
