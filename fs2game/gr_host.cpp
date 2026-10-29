@@ -11,8 +11,9 @@
 //  - texture_bpp defaults to 32 (ARGB8888); 16 stays selectable through gr_host_set_texture_bpp()
 //
 // Draft scope: state, clip, colour, rect/shade/line/pixel/gradient/circle, tmapper, bitmap/aabitmap, string, frame
-// calls, texture cache. Not yet: sectioned bitmaps (TMAP_FLAG_BITMAP_SECTION), fog, shaders on 3D polys, cross_fade,
-// glow redraw pass of tmapper, pixel fog. Compile check: see README, "R1-4 draft".
+// calls, texture cache. Not yet: fog, shaders on 3D polys, cross_fade, glow redraw pass of tmapper, pixel fog.
+// Compile check: see README, "R1-4 draft". 2D bitmaps are never split into sections here: gr_bitmap is one whole quad
+// (h_bitmap), and a TMAP_FLAG_BITMAP_2D poly samples the whole bitmap, unfiltered (D-20261029-222605).
 //
 // Depth (R1-8, sink v2): gr_zbuffer_get/set still return the dummy's GR_ZBUFF_NONE, so a caller's save/restore pair hands
 // back NONE. The host keeps its own shadow of the D3D mode, never visible to the game: a get() followed by a set() saves
@@ -69,6 +70,21 @@ struct HostTex {
 	int w, h;
 };
 
+// texture cache key: (bitmap handle, bmpman signature, kind), see tex_get()
+struct TexKey {
+	int handle;
+	uint32_t signature;
+	int kind;
+	bool operator==(const TexKey &o) const { return handle == o.handle && signature == o.signature && kind == o.kind; }
+};
+struct TexKeyHash {
+	size_t operator()(const TexKey &k) const
+	{
+		const uint64_t v = ((uint64_t)(uint32_t)k.handle << 32) ^ ((uint64_t)k.signature << 4) ^ (uint64_t)(uint32_t)k.kind;
+		return std::hash<uint64_t>()(v);
+	}
+};
+
 struct Host {
 	fs2_render_sink sink_copy = {};		// the DLL keeps its own copy of the sink table (the caller's may move or die)
 	const fs2_render_sink *sink = nullptr;	// &sink_copy while attached
@@ -76,7 +92,7 @@ struct Host {
 	int texture_bpp = 32;			// 32 default; 16 selectable (ColourDepth=16 / -force_16bit)
 	int next_sink_id = 1;
 	int next_capture_id = 1;
-	std::unordered_map<uint64_t, HostTex> tex;	// see tex_key()
+	std::unordered_map<TexKey, HostTex, TexKeyHash> tex;	// see TexKey
 	std::vector<int> release_pending;	// sink textures of released bitmaps, freed at the start of the next accepted frame (bm_release hook)
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
@@ -174,26 +190,17 @@ void solid_rect(float x0, float y0, float x1, float y1, int r, int g, int b, int
 
 // ---- texture cache --------------------------------------------------------------------------------------------
 
-enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_SECTION = 4 };
-
-inline uint64_t tex_key(int bitmap_id, int kind, int sx, int sy)
-{
-	return ((uint64_t)(uint32_t)bitmap_id << 16) | ((uint64_t)(kind & 15) << 8) | ((uint64_t)(sx & 15) << 4) | (uint64_t)(sy & 15);
-}
+// TK_2D: a TMAP_FLAG_BITMAP_2D poly's texture, the whole bitmap unfiltered
+enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_2D = 4 };
 
 // BmpMan is freeing a user bitmap (Bm_release_hook): drop every texture cached for the handle, so the cache does not grow and a
 // reused handle never shows the old picture. Host side only; the sink frees at the next accepted frame.
 void on_bm_release(int handle)
 {
-	for (int kind = 0; kind <= TK_SECTION; kind++) {
-		for (int sx = 0; sx < MAX_BMAP_SECTIONS_X; sx++) {
-			for (int sy = 0; sy < MAX_BMAP_SECTIONS_Y; sy++) {
-				auto it = H.tex.find(tex_key(handle, kind, sx, sy));
-				if (it == H.tex.end()) { continue; }
-				if (it->second.sink_id != 0) { H.release_pending.push_back(it->second.sink_id); }
-				H.tex.erase(it);
-			}
-		}
+	for (auto it = H.tex.begin(); it != H.tex.end(); ) {
+		if (it->first.handle != handle) { ++it; continue; }
+		if (it->second.sink_id != 0) { H.release_pending.push_back(it->second.sink_id); }
+		it = H.tex.erase(it);
 	}
 }
 
@@ -213,28 +220,25 @@ void aa_to_a8(const uint8_t *src, int w, int h, int src_pitch, uint8_t *dst)
 }
 
 // Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
-// type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); sx,sy = the section of a TCACHE_TYPE_BITMAP_SECTION.
-int tex_get(int bitmap_id, int type, bool repeat = false, int sx = 0, int sy = 0)
+// type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
+int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
 {
 	if (!drawing() || bitmap_id < 0) { return 0; }
 	const bool aa = (type == TCACHE_TYPE_AABITMAP);
-	const bool section = (type == TCACHE_TYPE_BITMAP_SECTION);
 	int kind = TK_NORMAL;
 	if (aa) { kind = TK_AA; }
-	else if (section) { kind = TK_SECTION; }
+	else if (bitmap_2d) { kind = TK_2D; }
 	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
 	else if (repeat) { kind = TK_REPEAT; }
-	if (!section) { sx = sy = 0; }
-	if (section && (sx < 0 || sy < 0 || sx >= MAX_BMAP_SECTIONS_X || sy >= MAX_BMAP_SECTIONS_Y)) { return 0; }
-	const uint64_t key = tex_key(bitmap_id, kind, sx, sy);
+	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
 	auto found = H.tex.find(key);
 	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
 
-	// the flags D3D's texture loaders ask bm_lock for (d3d_create_texture, d3d_create_texture_sectioned)
+	// the flags D3D's texture loaders ask bm_lock for (d3d_create_texture; a 2D bitmap's tiles as d3d_create_texture_sectioned)
 	ubyte flags = 0;
 	ubyte bpp = 16;			// the game's convention: ask for 16, BmpMan upgrades to 32 for gr_screen.texture_bpp == 32
 	if (aa) { flags = BMP_AABITMAP; bpp = 8; }
-	else if (section) { flags = BMP_TEX_XPARENT; }
+	else if (bitmap_2d) { flags = BMP_TEX_XPARENT; }
 	else if (type == TCACHE_TYPE_XPARENT) { flags = BMP_TEX_XPARENT; }
 	else { flags = BMP_TEX_OTHER | BMP_TEX_XPARENT; }		// TCACHE_TYPE_NORMAL
 	bitmap *bmp = bm_lock(bitmap_id, bpp, flags);
@@ -251,16 +255,7 @@ int tex_get(int bitmap_id, int type, bool repeat = false, int sx = 0, int sy = 0
 	} else {
 		const int bytes = (bmp->bpp == 32) ? 4 : 2;
 		const fs2host::PixLayout &l = fs2host::layout_for_texture_bpp(bmp->bpp == 32 ? 32 : 16);
-		int pitch = w * bytes;
-		if (section) {
-			// the sub rectangle of the sectioned bitmap, at the section's own size (no power of two padding)
-			int secw = 0, sech = 0;
-			bm_get_section_size(bitmap_id, sx, sy, &secw, &sech);
-			const int ox = bmp->sections.sx[sx], oy = bmp->sections.sy[sy];
-			if (secw < 1 || sech < 1 || ox + secw > w || oy + sech > h) { bm_unlock(bitmap_id); return 0; }
-			src += ((size_t)oy * (size_t)w + (size_t)ox) * (size_t)bytes;
-			w = secw; h = sech;
-		}
+		const int pitch = w * bytes;
 		px.resize(fs2host::rgba8_bytes(w, h));
 		fs2host::to_rgba8(src, w, h, pitch, l, px.data());
 		format = FS2_SINK_TEX_RGBA8;
@@ -270,8 +265,8 @@ int tex_get(int bitmap_id, int type, bool repeat = false, int sx = 0, int sy = 0
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
-	// UI text and bitmap sections keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
-	uint32_t tf = (aa || section) ? 0 : FS2_SINK_TEXF_LINEAR;
+	// UI text and 2D bitmaps keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
+	uint32_t tf = (aa || bitmap_2d) ? 0 : FS2_SINK_TEXF_LINEAR;
 	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
 	H.sink->texture_create(H.sink->user, t.sink_id, w, h, format, tf, px.data());
 	return t.sink_id;
@@ -561,7 +556,7 @@ void h_flash(int r, int g, int b)
 		0, 0, 0, 0, 0, FS2_SINK_BLEND_ADD, c, c, c, c);
 }
 
-// bitmap pieces: every section of gr_screen.current_bitmap drawn clipped, the way gr_d3d_bitmap_ex does
+// bitmap pieces: a rectangle of gr_screen.current_bitmap drawn clipped as one quad, the way gr_d3d_bitmap_ex clips
 void bitmap_piece(int x, int y, int w, int h, int sx, int sy)
 {
 	ensure_frame();
@@ -650,7 +645,7 @@ void h_string(int sx, int sy, char *s)
 	}
 }
 
-// 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled and sectioned uvs).
+// 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled uvs).
 // Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING). Pixel fog (TMAP_FLAG_PIXEL_FOG) only sets the fog colour (see
 // the PIXEL_FOG block below); the fog itself is the sink's (R2).
 void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = false)
@@ -686,8 +681,9 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 
 	int tex = 0;
 	if (flags & TMAP_FLAG_TEXTURED) {
-		if (flags & TMAP_FLAG_BITMAP_SECTION) {
-			tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_BITMAP_SECTION, false, gr_screen.current_bitmap_sx, gr_screen.current_bitmap_sy);
+		if (flags & TMAP_FLAG_BITMAP_2D) {
+			// the whole bitmap as one texture; the poly's uvs span the whole bitmap (D-20261029-222605)
+			tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, false, true);
 		} else {
 			tex = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, (flags & TMAP_FLAG_TILED) != 0);
 		}
@@ -913,12 +909,13 @@ void h_cross_fade(int bmap1, int bmap2, int x1, int y1, int x2, int y2, float pc
 void h_filter_set(int) { }
 
 // uploads in accepted frames only; 0 when the frame is skipped (callers then draw nothing, as the sink would not either)
-int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int, int sx, int sy, int)
+// (the sx, sy section arguments are unused: the host uploads whole bitmaps only, D-20261029-222605)
+int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale, int, int, int, int)
 {
 	ensure_frame();
 	if (u_scale) { *u_scale = 1.0f; }
 	if (v_scale) { *v_scale = 1.0f; }
-	return tex_get(bitmap_id, bitmap_type, false, sx, sy) != 0;
+	return tex_get(bitmap_id, bitmap_type) != 0;
 }
 
 void h_zbias(int bias) { H.zbias = bias; }
