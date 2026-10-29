@@ -17,7 +17,7 @@
  * v2 (R1-8, D2 hybrid): depth runs. Draws between depth_begin() and depth_end() are depth tested against each other
  * (FS2_SINK_DRAWF_ZREAD / ZWRITE, vertex z) and the run is composited, in call order, with the draws around it.
  * depth_clear() clears depth in a rect inside a run (later draws are in front of everything before the clear).
- * Draws outside a run are plain 2D: flags ZREAD/ZWRITE and z are ignored. Fog fields are reserved (R1-10).
+ * Draws outside a run are plain 2D: flags ZREAD/ZWRITE and z are ignored. Fog fields: see below (R2, honoured by a sink that implements them).
  */
 #ifndef FS2_RENDER_SINK_H
 #define FS2_RENDER_SINK_H
@@ -49,7 +49,7 @@ extern "C" {
 #define FS2_SINK_DRAWF_ZWRITE		4	/* write depth (inside a depth run only) */
 #define FS2_SINK_DRAWF_CULL		8	/* the game had back-face culling on; informational, the sink may ignore it */
 
-/* fog modes (reserved, R1-10) */
+/* fog modes (R2) */
 #define FS2_SINK_FOG_NONE	0
 #define FS2_SINK_FOG_LINEAR	1
 
@@ -69,9 +69,9 @@ typedef struct fs2_sink_draw {
 	uint8_t tint[4];	/* r g b a multiplier on vertex colour (255 = none) */
 	/* v2 */
 	int32_t zbias;		/* gr_zbias of the call: larger is drawn nearer at equal z (decals) */
-	int32_t fog_mode;	/* reserved (R1-10): FS2_SINK_FOG_*, set by the host, ignored by the sink until then */
-	uint8_t fog_rgb[4];	/* reserved: fog colour r g b, [3] unused */
-	float fog_near, fog_far;	/* reserved: fog distances in world units */
+	int32_t fog_mode;	/* FS2_SINK_FOG_*, set by the host; a sink that does not implement fog ignores it */
+	uint8_t fog_rgb[4];	/* fog colour r g b, [3] unused */
+	float fog_near, fog_far;	/* fog distances in world units; vertex z is depth / 30000 (capped 0.98), so depth = z * 30000 */
 } fs2_sink_draw;
 
 typedef struct fs2_render_sink {

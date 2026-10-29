@@ -35,14 +35,18 @@ constexpr int kPrewarmFrames = 3;
 // Instance pool on/off (perf group 2 fix 3); false frees and creates the mesh instances every frame as before.
 constexpr bool kInstancePool = true;
 
-// Switch point for the nebula fog-colour read (perf pass group 2, D-20261028-233135). neb2_pre_render reads a 32x32 corner of the
-// screen (Neb.cpp ESIZE) every frame; the host does not use it (fog is not drawn until R2; neb2_get_pixel is called only by the
-// D3D backend), and the read is a synchronous GPU round trip (6.5-10 ms per drawn frame in nebula missions). While true, a
-// read of at most kNebFogReadMaxPixels pixels at (0,0) is answered "no data" without touching the GPU, which leaves the game's
-// buffer untouched, as the dummy renderer does. Larger reads (Autotest screenshots) are served as before.
-// R2 (fog) MUST set this false, or replace the read with an asynchronous one, and cost it again.
-constexpr bool kSkipNebFogRead = true;
-constexpr int kNebFogReadMaxPixels = 32 * 32;
+// The nebula fog-colour read (R2). neb2_pre_render renders a 32x32 background at the top left of the frame and reads it back
+// (gr_get_region, Neb.cpp ESIZE); neb2_get_pixel feeds it to the fogged polys (TMAP_FLAG_PIXEL_FOG), so the read now matters.
+// The old read (the shown frame, full size, a GPU round trip: 6.5-10 ms per drawn frame in nebula missions) is gone. The probe
+// below renders the frame built so far (pending_root and its layers) into a w x h viewport and reads that.
+//   kNebFogOff:  the read answers "no data" (the buffer stays as the dummy renderer leaves it; fog colour black)
+//   kNebFogSame: the probe is rendered and read in the same frame (exact; costs a render + a small readback)
+//   kNebFogLag:  the colour comes from the pre-render of drawn frame k - kNebFogLagFrames (fixed, counted in drawn frames, never
+//                depending on GPU timing; the first drawn frame and the one after a size change use the same-frame probe)
+constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2;
+constexpr int kNebFog = kNebFogOff;	// default off (D-20261029-052041); same and lag are switch states for measurement, never a default without Tom's ruling
+constexpr int kNebFogLagFrames = 1;
+constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
 
 class GodotSink : public BatchEmitter {
 public:
@@ -112,7 +116,7 @@ private:
 
 	godot::RID material_for(int blend, bool a8, bool persp);
 	godot::RID white_texture();
-	godot::RID spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt);
+	godot::RID spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool fog);
 	void prewarm();
 	void prewarm_release();
 	bool warmed = false;
@@ -124,6 +128,7 @@ private:
 	struct Layer {
 		godot::RID viewport, scenario, camera, texture;
 		int w = 0, h = 0;
+		bool probe_parent = false;	// its parent viewport is a fog probe slot (fog lag), not the game viewport
 		std::vector<godot::RID> instances;
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
@@ -139,7 +144,7 @@ private:
 	void free_layer(Layer &l);
 	void end_run();
 	void sync_batcher_clip();
-	godot::RID spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const godot::RID &tex);
+	godot::RID spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const godot::RID &tex, bool fog);
 	void add_to_layer(Layer &l, const Batch &b, int order);
 	void drop_materials_of(const godot::RID &tex);
 	godot::RID mesh_for_batch(const Batch &b);
@@ -170,6 +175,27 @@ private:
 	static void s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni);
 	static int s_capture(void *u, int32_t id);
 	static int s_read_region(void *u, int x, int y, int w, int h, uint8_t *out);
+	int probe_read(int w, int h, uint8_t *out);
+	godot::RID probe_vp;
+	int probe_w = 0, probe_h = 0;
+
+	// kNebFogLag: the pre-render (what the frame has drawn when the 32x32 read comes) is moved out of the frame into a slot with its
+	// own viewport, which Godot renders with the frame that follows; the colour of drawn frame k is read from the slot of drawn frame
+	// k - kNebFogLagFrames. A ring of kNebFogLagFrames + 1 slots. `stamp` is the value of `committed` when the slot was filled.
+	struct FogSlot {
+		godot::RID canvas, vp, root;
+		std::vector<godot::RID> items, meshes;
+		std::vector<Layer> layers;
+		int w = 0, h = 0;
+		int stamp = -1;
+		uint64_t drawn = 0;	// Godot frames drawn when it was filled: it is rendered once frames_drawn is higher
+		bool live = false;
+	};
+	FogSlot fog_slots[kNebFogLagFrames + 1];
+	int fog_read(int w, int h, uint8_t *out);
+	void fog_capture(int w, int h);
+	void fog_release_slot(FogSlot &s);
+	int fog_slot_pixels(FogSlot &s, int w, int h, uint8_t *out);
 	static void s_set_gamma(void *u, float g);
 	static void s_depth_begin(void *u);
 	static void s_depth_end(void *u);

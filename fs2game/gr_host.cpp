@@ -640,8 +640,8 @@ void h_string(int sx, int sy, char *s)
 }
 
 // 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled and sectioned uvs).
-// Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING), pixel fog (TMAP_FLAG_PIXEL_FOG) and vertex/table fog; see the
-// notes at h_fog_set. They need mission-path support (R1-8) and, for fog, a sink capability.
+// Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING). Pixel fog (TMAP_FLAG_PIXEL_FOG) only sets the fog colour (see
+// the PIXEL_FOG block below); the fog itself is the sink's (R2).
 void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = false)
 {
 	if (nv < 3 || nv > 32) { return; }
@@ -705,12 +705,24 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
 		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
-		if (zbuffering || (flags & TMAP_FLAG_NEBULA)) {
+		if (zbuffering || (flags & TMAP_FLAG_NEBULA) || H.fog_mode != GR_FOGMODE_NONE) {
 			out[i].z = va->z / 30000.0f;		// D3D: z_mult
 			if (out[i].z > 0.98f) { out[i].z = 0.98f; }
 		}
 	}
 	for (int i = 0; i < nv - 2; i++) { idx[i * 3] = 0; idx[i * 3 + 1] = (uint16_t)(i + 1); idx[i * 3 + 2] = (uint16_t)(i + 2); }
+
+	// gr_d3d_tmapper_internal, PIXEL_FOG: the fog colour is the average of the pre-rendered background behind the vertices
+	// (neb2_get_pixel reads the 32x32 buffer neb2_pre_render fills through h_get_region); the planes stay as they are
+	if (flags & TMAP_FLAG_PIXEL_FOG) {
+		int ra = 0, ga = 0, ba = 0;
+		for (int i = 0; i < nv; i++) {
+			int fr, fg, fb;
+			neb2_get_pixel((int)out[i].x, (int)out[i].y, &fr, &fg, &fb);
+			ra += fr; ga += fg; ba += fb;
+		}
+		gr_fog_set(GR_FOGMODE_FOG, ra / nv, ga / nv, ba / nv);
+	}
 
 	const unsigned dflags = ((flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0) | zflags | (H.cull ? FS2_SINK_DRAWF_CULL : 0);
 	fs2_sink_draw d = plain_draw(tex, blend, dflags);
@@ -856,6 +868,7 @@ void h_get_region(int, int w, int h, ubyte *data)
 	if (!drawing() || data == nullptr || w <= 0 || h <= 0) { return; }
 	const int bytes = gr_screen.bytes_per_pixel;
 	if (bytes != 2 && bytes != 4) { return; }
+	depth_run_end();	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
 	if (!H.sink->read_region(H.sink->user, 0, 0, w, h, px.data())) { return; }
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
@@ -867,12 +880,16 @@ void h_get_region(int, int w, int h, ubyte *data)
 }
 
 // Same as dummy: no gr_screen.fog_* / current_fog_* writes (ObjectSort reads them; with the dummy it always re-calls fog_set).
-// The fog state lives in the host (R1_checks 1c). It is NOT applied to draws yet: D3D fogs per vertex (linear in z, factor in
-// the specular alpha) and per pixel (average backbuffer colour), and the sink has no per vertex fog or fog colour. Needs a
-// sink capability (version bump), so it waits for the manager's decision. Menus do not fog.
+// The fog state lives in the host (R1_checks 1c) and goes to the sink on every draw (plain_draw). Mode NONE only switches fog
+// off (colour and planes stay). Planes < 0 mean "unchanged" (as gr_d3d_fog_set): that is the tmapper's PIXEL_FOG call, which
+// carries the colour. A call with planes is ObjectSort's; its colour argument is gr_screen.current_fog_color, which the host
+// never writes (it stays 0, D3D keeps it current), so the colour is kept. Menus do not fog.
 void h_fog_set(int mode, int r, int g, int b, float fnear, float ffar)
 {
-	H.fog_mode = mode; H.fog_r = r; H.fog_g = g; H.fog_b = b; H.fog_near = fnear; H.fog_far = ffar;
+	H.fog_mode = mode;
+	if (mode == GR_FOGMODE_NONE) { return; }
+	if (fnear >= 0.0f && ffar >= 0.0f) { H.fog_near = fnear; H.fog_far = ffar; }
+	else { H.fog_r = r; H.fog_g = g; H.fog_b = b; }
 }
 void h_get_pixel(int, int, int *, int *, int *) { }
 void h_set_cull(int cull) { H.cull = cull; }
