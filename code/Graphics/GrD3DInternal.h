@@ -170,6 +170,13 @@ void d3d_tcache_cleanup();
 void d3d_tcache_flush();
 void d3d_tcache_frame();
 
+// Claude: 2D bitmaps are drawn as 256 pixel tiles, on the grid bmpman's bitmap_section_info held (it was in PsTypes.h)
+#define MAX_BMAP_SECTIONS_X				4	// Claude: from PsTypes.h; the tile cache holds 4x3
+#define MAX_BMAP_SECTIONS_Y				3	// Claude: from PsTypes.h
+#define D3D_TILE_SIZE					256	// Claude: was MAX_BMAP_SECTION_SIZE
+void d3d_tile_grid(int bw, int bh, int *nx, int *ny);	// Claude: tiles across and down a bw x bh bitmap
+void d3d_tile_size(int bw, int bh, int tx, int ty, int *tw, int *th);	// Claude: size of tile (tx, ty); was bm_get_section_size
+
 // Flushes any pending operations
 void d3d_flush();
 
