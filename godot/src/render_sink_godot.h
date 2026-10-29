@@ -28,6 +28,10 @@ namespace fs2sink {
 // Texture pool on/off (perf group 2 fix 2); false is the old create/free-every-time behaviour.
 constexpr bool kTexturePool = true;
 constexpr size_t kTexPoolMax = 256;
+// Shader/pipeline pre-warm on/off (perf group 2 fix 4): at the first accepted frame the sink draws every canvas material and the common
+// depth-layer shaders once into private 16x16 viewports that nothing composites, so Godot builds the variants then, not mid-mission.
+constexpr bool kPrewarm = true;
+constexpr int kPrewarmFrames = 3;
 // Instance pool on/off (perf group 2 fix 3); false frees and creates the mesh instances every frame as before.
 constexpr bool kInstancePool = true;
 
@@ -107,6 +111,13 @@ private:
 	TriBatcher batcher;
 
 	godot::RID material_for(int blend, bool a8, bool persp);
+	godot::RID white_texture();
+	godot::RID spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt);
+	void prewarm();
+	void prewarm_release();
+	bool warmed = false;
+	int warm_age = 0;
+	std::vector<godot::RID> warm_viewports, warm_instances, warm_items, warm_misc;
 	void emit_canvas(const Batch &b);
 
 	// depth runs
