@@ -25,6 +25,25 @@
 
 namespace fs2sink {
 
+// Texture pool on/off (perf group 2 fix 2); false is the old create/free-every-time behaviour.
+constexpr bool kTexturePool = true;
+constexpr size_t kTexPoolMax = 256;
+// Shader/pipeline pre-warm on/off (perf group 2 fix 4): at the first accepted frame the sink draws every canvas material and the common
+// depth-layer shaders once into private 16x16 viewports that nothing composites, so Godot builds the variants then, not mid-mission.
+constexpr bool kPrewarm = true;
+constexpr int kPrewarmFrames = 3;
+// Instance pool on/off (perf group 2 fix 3); false frees and creates the mesh instances every frame as before.
+constexpr bool kInstancePool = true;
+
+// Switch point for the nebula fog-colour read (perf pass group 2, D-20261028-233135). neb2_pre_render reads a 32x32 corner of the
+// screen (Neb.cpp ESIZE) every frame; the host does not use it (fog is not drawn until R2; neb2_get_pixel is called only by the
+// D3D backend), and the read is a synchronous GPU round trip (6.5-10 ms per drawn frame in nebula missions). While true, a
+// read of at most kNebFogReadMaxPixels pixels at (0,0) is answered "no data" without touching the GPU, which leaves the game's
+// buffer untouched, as the dummy renderer does. Larger reads (Autotest screenshots) are served as before.
+// R2 (fog) MUST set this false, or replace the read with an asynchronous one, and cost it again.
+constexpr bool kSkipNebFogRead = true;
+constexpr int kNebFogReadMaxPixels = 32 * 32;
+
 class GodotSink : public BatchEmitter {
 public:
 	GodotSink() {}
@@ -75,7 +94,16 @@ private:
 	struct Dying {
 		godot::RID rid;
 		int age = 0;
+		int w = 0, h = 0, format = 0;
 	};
+	// Pool of dead textures (perf group 2 fix 2): a texture that has aged out is kept, not freed, and the next create of the
+	// same size and format re-uploads into it (texture_2d_update) instead of making a new GPU texture. Nebula missions free
+	// and re-create 48-80 bitmaps every drawn frame. kTexPoolMax bounds it; the oldest entry is freed beyond that.
+	struct Pooled {
+		godot::RID rid;
+		int w = 0, h = 0, format = 0;
+	};
+	std::vector<Pooled> tex_pool;
 	std::map<int32_t, Tex> textures;
 	std::vector<Dying> dying;
 	godot::RID shaders[12], materials[12];	// by blend + 3 * (a8 + 2 * perspective)
@@ -83,6 +111,13 @@ private:
 	TriBatcher batcher;
 
 	godot::RID material_for(int blend, bool a8, bool persp);
+	godot::RID white_texture();
+	godot::RID spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt);
+	void prewarm();
+	void prewarm_release();
+	bool warmed = false;
+	int warm_age = 0;
+	std::vector<godot::RID> warm_viewports, warm_instances, warm_items, warm_misc;
 	void emit_canvas(const Batch &b);
 
 	// depth runs
@@ -92,6 +127,7 @@ private:
 		std::vector<godot::RID> instances;
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
+	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
 	bool in_run = false;
 	int run_epoch = 0;
 	std::vector<Batch> run_batches;
@@ -109,7 +145,7 @@ private:
 	godot::RID mesh_for_batch(const Batch &b);
 	void release_meshes(std::vector<godot::RID> &meshes);
 	void age_dying(bool force_all);
-	void retire(const godot::RID &r);
+	void retire(const Tex &t);
 
 	godot::RID cur_item, cur_parent;	// the open item that further batches of the same signature join
 	uint32_t cur_sig = 0;

@@ -1,4 +1,5 @@
 #include "render_sink_godot.h"
+#include "perf_prof.h"
 
 #include <cstring>
 
@@ -65,6 +66,7 @@ void GodotSink::shutdown()
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if (rs != nullptr) {
+		prewarm_release();
 		release_layers(pending_layers);
 		release_layers(shown_layers);
 		for (Layer &l : spare_layers) {
@@ -101,6 +103,12 @@ void GodotSink::shutdown()
 		for (Dying &d : dying) {
 			rs->free_rid(d.rid);
 		}
+		for (Pooled &p : tex_pool) {
+			rs->free_rid(p.rid);
+		}
+		for (RID &r : spare_instances) {
+			rs->free_rid(r);
+		}
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
@@ -128,13 +136,18 @@ void GodotSink::shutdown()
 	shown_meshes.clear();
 	textures.clear();
 	dying.clear();
+	tex_pool.clear();
+	spare_instances.clear();
 	vp = nullptr;
 	in_frame = false;
+	warmed = false;
+	warm_age = 0;
 }
 
 RID GodotSink::new_item(const RID &under)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
+	fs2perf::count(fs2perf::C_CANVAS_ITEMS);
 	RID item;
 	if (!spare_items.empty()) {
 		item = spare_items.back();
@@ -227,10 +240,19 @@ void GodotSink::sync_batcher_clip()
 int GodotSink::s_frame_begin(void *u, int w, int h)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::count(fs2perf::C_SINK_FRAME_BEGIN);
 	if (s->vp == nullptr || s->frames_left > 1) {
 		return 0;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_FRAME_BEGIN);
+	fs2perf::count(fs2perf::C_SINK_FRAME_ACCEPTED);
 	RenderingServer *rs = RenderingServer::get_singleton();
+	if constexpr (kPrewarm) {
+		if (!s->warmed) {
+			s->warmed = true;
+			s->prewarm();
+		}
+	}
 	if (w != s->width || h != s->height) {
 		s->width = w;
 		s->height = h;
@@ -261,6 +283,10 @@ void GodotSink::s_frame_end(void *u)
 	if (!s->in_frame) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_FRAME_END);
+	if (!s->warm_viewports.empty() && ++s->warm_age >= kPrewarmFrames) {
+		s->prewarm_release();
+	}
 	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
 	if (s->in_run) {
 		s->end_run();
@@ -288,6 +314,8 @@ void GodotSink::s_clear(void *u, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 	if (!s->in_frame) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_CLEAR);
+	fs2perf::count(fs2perf::C_SINK_CLEAR);
 	s->batcher.flush();
 	if (s->in_run) {
 		// inside a depth run the clear is a full-screen opaque quad of the run, no depth test
@@ -319,14 +347,17 @@ void GodotSink::s_set_clip(void *u, int x, int y, int w, int h)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
 	if (s->in_frame) {
+		fs2perf::Zone _pz(fs2perf::Z_SET_CLIP);
+		fs2perf::count(fs2perf::C_SINK_SET_CLIP);
 		s->set_clip_state(x, y, w, h);
 	}
 }
 
-void GodotSink::retire(const RID &r)
+void GodotSink::retire(const Tex &t)
 {
 	Dying d;
-	d.rid = r;
+	d.rid = t.rid;
+	d.w = t.w; d.h = t.h; d.format = t.format;
 	dying.push_back(d);
 }
 
@@ -339,12 +370,22 @@ void GodotSink::age_dying(bool force_all)
 		dying[i].age++;
 		if (force_all || dying[i].age >= 2) {
 			drop_materials_of(dying[i].rid);
-			rs->free_rid(dying[i].rid);
+			if (kTexturePool && !force_all) {
+				Pooled p;
+				p.rid = dying[i].rid; p.w = dying[i].w; p.h = dying[i].h; p.format = dying[i].format;
+				tex_pool.push_back(p);
+			} else {
+				rs->free_rid(dying[i].rid);
+			}
 		} else {
 			dying[keep++] = dying[i];
 		}
 	}
 	dying.resize(keep);
+	while (tex_pool.size() > kTexPoolMax) {
+		rs->free_rid(tex_pool.front().rid);
+		tex_pool.erase(tex_pool.begin());
+	}
 }
 
 void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t flags, const uint8_t *pixels)
@@ -353,6 +394,9 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	if (!s->in_frame || id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
+	fs2perf::count(fs2perf::C_TEX_CREATE);
+	fs2perf::count(fs2perf::C_TEX_BYTES, (uint64_t)w * h * (format == FS2_SINK_TEX_A8 ? 1 : 4));
 	s->batcher.flush(); // pending draws resolve their texture id at emit: they must see the old one
 	const bool a8 = (format == FS2_SINK_TEX_A8);
 	PackedByteArray bytes;
@@ -362,10 +406,25 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	Ref<Image> img = Image::create_from_data(w, h, false, a8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8, bytes);
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 	}
 	Tex t;
-	t.rid = RenderingServer::get_singleton()->texture_2d_create(img);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool reused = false;
+	if (kTexturePool) {
+		for (size_t i = s->tex_pool.size(); i-- > 0;) {
+			if (s->tex_pool[i].w == w && s->tex_pool[i].h == h && s->tex_pool[i].format == format) {
+				t.rid = s->tex_pool[i].rid;
+				s->tex_pool.erase(s->tex_pool.begin() + (std::ptrdiff_t)i);
+				rs->texture_2d_update(t.rid, img, 0);
+				reused = true;
+				break;
+			}
+		}
+	}
+	if (!reused) {
+		t.rid = rs->texture_2d_create(img);
+	}
 	t.w = w; t.h = h; t.format = format; t.flags = flags;
 	s->textures[id] = t;
 }
@@ -373,10 +432,12 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 void GodotSink::s_texture_free(void *u, int32_t id)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_TEX_FREE);
+	fs2perf::count(fs2perf::C_TEX_FREE);
 	s->batcher.flush();
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 		s->textures.erase(it);
 	}
 }
@@ -386,7 +447,7 @@ void GodotSink::s_texture_free_all(void *u)
 	GodotSink *s = static_cast<GodotSink *>(u);
 	s->batcher.flush();
 	for (auto &t : s->textures) {
-		s->retire(t.second.rid);
+		s->retire(t.second);
 	}
 	s->textures.clear();
 }
@@ -439,6 +500,8 @@ void GodotSink::emit(const Batch &b)
 	if (!in_frame) {
 		return;
 	}
+	fs2perf::count(fs2perf::C_BATCHES);
+	fs2perf::count(fs2perf::C_BATCH_VERTS, (uint64_t)b.nverts());
 	if (b.key.depth != 0) {
 		run_batches.push_back(b); // placed at depth_end
 		return;
@@ -449,6 +512,7 @@ void GodotSink::emit(const Batch &b)
 // A batch becomes one canvas item with one array draw (affine) or one mesh draw (perspective: the mesh carries CUSTOM0).
 void GodotSink::emit_canvas(const Batch &b)
 {
+	fs2perf::Zone _pz(fs2perf::Z_EMIT_CANVAS);
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const int nv = b.nverts();
 	const int ni = (int)b.idx.size();
@@ -506,6 +570,8 @@ void GodotSink::emit_canvas(const Batch &b)
 	arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
 	arrays[RenderingServer::ARRAY_CUSTOM0] = custom;
 	arrays[RenderingServer::ARRAY_INDEX] = indices;
+	fs2perf::Zone _pm(fs2perf::Z_MESH_BUILD);
+	fs2perf::count(fs2perf::C_MESHES);
 	RID mesh;
 	if (!spare_meshes.empty()) {
 		mesh = spare_meshes.back();
@@ -525,6 +591,10 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 	if (!s->in_frame || s->clip_empty || nv <= 0 || ni < 3) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DRAW_TRIS);
+	fs2perf::count(fs2perf::C_SINK_DRAW_CALLS);
+	fs2perf::count(fs2perf::C_SINK_VERTS, (uint64_t)nv);
+	fs2perf::count(fs2perf::C_SINK_INDICES, (uint64_t)ni);
 	int tw = 0, th = 0;
 	if (d->texture != 0) {
 		auto it = s->textures.find(d->texture);
@@ -543,6 +613,8 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 int GodotSink::s_capture(void *u, int32_t id)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_CAPTURE);
+	fs2perf::count(fs2perf::C_CAPTURE);
 	s->batcher.flush();
 	if (s->vp == nullptr || id == 0) {
 		return 0;
@@ -555,7 +627,7 @@ int GodotSink::s_capture(void *u, int32_t id)
 	img->convert(Image::FORMAT_RGBA8);
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
-		s->retire(it->second.rid);
+		s->retire(it->second);
 	}
 	Tex t;
 	t.rid = RenderingServer::get_singleton()->texture_2d_create(img);
@@ -567,7 +639,13 @@ int GodotSink::s_capture(void *u, int32_t id)
 int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
+	fs2perf::Zone _pz(fs2perf::Z_READ_REGION);
+	fs2perf::count(fs2perf::C_READ_REGION);
+	fs2perf::count(fs2perf::C_READ_BYTES, (uint64_t)(w > 0 ? w : 0) * (uint64_t)(h > 0 ? h : 0) * 4);
 	s->batcher.flush();
+	if (kSkipNebFogRead && x == 0 && y == 0 && w > 0 && h > 0 && (long long)w * h <= kNebFogReadMaxPixels) {
+		return 0; // the neb2 fog-colour read: see kSkipNebFogRead
+	}
 	// the last frame the viewport has rendered (D3D reads the back buffer, which at the start of a frame still holds the last frame)
 	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
 		return 0;
@@ -607,6 +685,7 @@ void GodotSink::s_depth_begin(void *u)
 	if (!s->in_frame || s->in_run) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DEPTH);
 	s->batcher.flush();
 	s->in_run = true;
 	s->run_epoch = 0;
@@ -632,6 +711,7 @@ void GodotSink::s_depth_clear(void *u, int, int, int, int)
 	if (!s->in_frame || !s->in_run) {
 		return;
 	}
+	fs2perf::Zone _pz(fs2perf::Z_DEPTH);
 	s->batcher.flush();
 	bool any_depth = false;
 	for (const Batch &b : s->run_batches) {
@@ -654,6 +734,7 @@ static Batch canvas_form(const Batch &b)
 
 void GodotSink::end_run()
 {
+	fs2perf::Zone _pz(fs2perf::Z_RUN_END);
 	batcher.flush();
 	in_run = false;
 	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
@@ -673,6 +754,7 @@ void GodotSink::end_run()
 	}
 	if (first >= 0) {
 		Layer l = acquire_layer();
+		fs2perf::count(fs2perf::C_LAYERS);
 		for (int i = first; i <= last; i++) {
 			add_to_layer(l, run_batches[i], i - first);
 		}
@@ -742,7 +824,12 @@ void GodotSink::release_layers(std::vector<Layer> &layers)
 	RenderingServer *rs = RenderingServer::get_singleton();
 	for (Layer &l : layers) {
 		for (RID &i : l.instances) {
-			rs->free_rid(i);
+			if (kInstancePool) {
+				rs->instance_set_scenario(i, RID());
+				spare_instances.push_back(i);
+			} else {
+				rs->free_rid(i);
+			}
 		}
 		l.instances.clear();
 		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
@@ -789,6 +876,30 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 	if (mit != spatial_materials.end()) {
 		return mit->second;
 	}
+	RID sh = spatial_shader(blend, zmode, a8, lin, rpt);
+	RID m = rs->material_create();
+	rs->material_set_shader(m, sh);
+	rs->material_set_param(m, "tex", tex);
+	spatial_materials[mkey] = m;
+	return m;
+}
+
+RID GodotSink::white_texture()
+{
+	if (!white_tex.is_valid()) {
+		RenderingServer *rs = RenderingServer::get_singleton();
+		PackedByteArray px;
+		px.resize(4);
+		px.fill(255);
+		white_tex = rs->texture_2d_create(Image::create_from_data(1, 1, false, Image::FORMAT_RGBA8, px));
+	}
+	return white_tex;
+}
+
+RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
 	RID sh;
 	auto sit = spatial_shaders.find(skey);
 	if (sit != spatial_shaders.end()) {
@@ -819,11 +930,133 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 		rs->shader_set_code(sh, code);
 		spatial_shaders[skey] = sh;
 	}
-	RID m = rs->material_create();
-	rs->material_set_shader(m, sh);
-	rs->material_set_param(m, "tex", tex);
-	spatial_materials[mkey] = m;
-	return m;
+	return sh;
+}
+
+// Pre-warm (perf group 2 fix 4). Godot builds a shader, and the pipeline for a render target format, the first time something
+// that uses it is drawn; that was 29-77 ms on the first frame that used a material. This draws one tiny triangle with each
+// canvas material (both draw paths) into a 16x16 viewport of the SubViewport's format, and one per depth-layer shader the missions use into a 16x16 HDR viewport like the layers. Nothing composites these viewports, so what is drawn
+// is unchanged; they live kPrewarmFrames frame_ends and go. The shaders stay (they belong to the same caches the game uses).
+void GodotSink::prewarm()
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const int S = 16;
+	const RID tex = white_texture();
+	PackedInt32Array indices;
+	indices.resize(3);
+	indices.ptrw()[0] = 0; indices.ptrw()[1] = 1; indices.ptrw()[2] = 2;
+	PackedVector2Array p2, uv;
+	p2.resize(3); uv.resize(3);
+	p2.ptrw()[0] = Vector2(1, 1); p2.ptrw()[1] = Vector2(14, 1); p2.ptrw()[2] = Vector2(1, 14);
+	uv.ptrw()[0] = Vector2(0, 0); uv.ptrw()[1] = Vector2(1, 0); uv.ptrw()[2] = Vector2(0, 1);
+	PackedColorArray col;
+	col.resize(3);
+	col.fill(Color(1, 1, 1, 1));
+	PackedFloat32Array custom;
+	custom.resize(12);
+	for (int i = 0; i < 3; i++) {
+		custom.ptrw()[i * 4 + 0] = uv[i].x; custom.ptrw()[i * 4 + 1] = uv[i].y; custom.ptrw()[i * 4 + 2] = 1.0f; custom.ptrw()[i * 4 + 3] = 0.0f;
+	}
+
+	// canvas: same format as the game viewport (opaque background, no HDR)
+	RID cvp = rs->viewport_create();
+	rs->viewport_set_size(cvp, S, S);
+	rs->viewport_set_transparent_background(cvp, false);
+	rs->viewport_set_active(cvp, true);
+	rs->viewport_set_update_mode(cvp, RenderingServer::VIEWPORT_UPDATE_ALWAYS);
+	RID ccanvas = rs->canvas_create();
+	rs->viewport_attach_canvas(cvp, ccanvas);
+	warm_viewports.push_back(cvp);
+	warm_misc.push_back(ccanvas);
+	Array carrays;
+	carrays.resize(RenderingServer::ARRAY_MAX);
+	carrays[RenderingServer::ARRAY_VERTEX] = p2;
+	carrays[RenderingServer::ARRAY_COLOR] = col;
+	carrays[RenderingServer::ARRAY_TEX_UV] = uv;
+	carrays[RenderingServer::ARRAY_CUSTOM0] = custom;
+	carrays[RenderingServer::ARRAY_INDEX] = indices;
+	RID cmesh = rs->mesh_create();
+	rs->mesh_add_surface_from_arrays(cmesh, RenderingServer::PRIMITIVE_TRIANGLES, carrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)((int64_t)RenderingServer::ARRAY_FLAG_USE_2D_VERTICES | ((int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT)));
+	warm_misc.push_back(cmesh);
+	for (int i = 0; i < 12; i++) {
+		const int blend = i % 3, rest = i / 3;
+		const bool a8 = (rest & 1) != 0, persp = (rest & 2) != 0;
+		RID item = rs->canvas_item_create();
+		rs->canvas_item_set_parent(item, ccanvas);
+		rs->canvas_item_set_material(item, material_for(blend, a8, persp));
+		if (persp) {
+			rs->canvas_item_add_mesh(item, cmesh, Transform2D(), Color(1, 1, 1, 1), tex);
+		} else {
+			rs->canvas_item_add_triangle_array(item, indices, p2, col, uv, PackedInt32Array(), PackedFloat32Array(), tex);
+		}
+		warm_items.push_back(item);
+	}
+
+	// depth layers: same setup as acquire_layer()
+	RID scen = rs->scenario_create();
+	RID lvp = rs->viewport_create();
+	RID cam = rs->camera_create();
+	rs->camera_set_transform(cam, Transform3D());
+	rs->camera_set_use_vertical_aspect(cam, false);
+	rs->viewport_set_scenario(lvp, scen);
+	rs->viewport_attach_camera(lvp, cam);
+	rs->viewport_set_transparent_background(lvp, true);
+	rs->viewport_set_disable_2d(lvp, true);
+	rs->viewport_set_use_hdr_2d(lvp, true);
+	if (vp != nullptr) {
+		rs->viewport_set_parent_viewport(lvp, vp->get_viewport_rid());
+	}
+	rs->viewport_set_size(lvp, S, S);
+	rs->camera_set_orthogonal(cam, (float)S, 0.5f, 30000.0f);
+	rs->viewport_set_active(lvp, true);
+	rs->viewport_set_update_mode(lvp, RenderingServer::VIEWPORT_UPDATE_ALWAYS);
+	warm_viewports.push_back(lvp);
+	warm_misc.push_back(cam);
+	warm_misc.push_back(scen);
+	PackedVector3Array p3;
+	p3.resize(3);
+	p3.ptrw()[0] = Vector3(-6, -6, -10); p3.ptrw()[1] = Vector3(6, -6, -10); p3.ptrw()[2] = Vector3(-6, 6, -10);
+	Array sarrays;
+	sarrays.resize(RenderingServer::ARRAY_MAX);
+	sarrays[RenderingServer::ARRAY_VERTEX] = p3;
+	sarrays[RenderingServer::ARRAY_COLOR] = col;
+	sarrays[RenderingServer::ARRAY_TEX_UV] = uv;
+	sarrays[RenderingServer::ARRAY_CUSTOM0] = custom;
+	sarrays[RenderingServer::ARRAY_INDEX] = indices;
+	// the shader keys the 1999 campaign missions use (md-01, sm2-07, sm3-06 logged): skey = blend | zmode << 2 | A8 16 | linear 32 | repeat 64.
+	// Warming all 96 costs 0.5 s at load for seven that matter; any other combination just builds on first use as before.
+	static const int kWarmKeys[] = { 0, 1, 9, 17, 38, 41, 105 };
+	for (int skey : kWarmKeys) {
+		const int blend = skey & 3, zmode = (skey >> 2) & 3;
+		const bool a8 = (skey & 16) != 0, lin = (skey & 32) != 0, rpt = (skey & 64) != 0;
+		RID mesh = rs->mesh_create();
+		rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, sarrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)((int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT));
+		RID mat = rs->material_create();
+		rs->material_set_shader(mat, spatial_shader(blend, zmode, a8, lin, rpt));
+		rs->material_set_param(mat, "tex", tex);
+		rs->mesh_surface_set_material(mesh, 0, mat);
+		RID inst = rs->instance_create2(mesh, scen);
+		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+		warm_instances.push_back(inst);
+		warm_misc.push_back(mesh);
+		warm_misc.push_back(mat);
+	}
+}
+
+void GodotSink::prewarm_release()
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (rs == nullptr) {
+		return;
+	}
+	for (RID &r : warm_viewports) { rs->free_rid(r); }
+	for (RID &r : warm_instances) { rs->free_rid(r); }
+	for (RID &r : warm_items) { rs->free_rid(r); }
+	for (RID &r : warm_misc) { rs->free_rid(r); }
+	warm_viewports.clear();
+	warm_instances.clear();
+	warm_items.clear();
+	warm_misc.clear();
 }
 
 // One mesh instance per batch. The camera looks down -z from the origin; a vertex at screen (x, y) is at
@@ -831,6 +1064,9 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
+	fs2perf::Zone _pz(fs2perf::Z_LAYER_ADD);
+	fs2perf::count(fs2perf::C_LAYER_BATCHES);
+	fs2perf::count(fs2perf::C_MESHES);
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
 	uint32_t tflags = 0;
@@ -844,13 +1080,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 		a8 = (it->second.format == FS2_SINK_TEX_A8);
 		tflags = it->second.flags;
 	} else {
-		if (!white_tex.is_valid()) {
-			PackedByteArray px;
-			px.resize(4);
-			px.fill(255);
-			white_tex = rs->texture_2d_create(Image::create_from_data(1, 1, false, Image::FORMAT_RGBA8, px));
-		}
-		tex = white_tex;
+		tex = white_texture();
 	}
 	const int nv = b.nverts();
 	const int ni = (int)b.idx.size();
@@ -897,10 +1127,19 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)fmt);
 	rs->mesh_surface_set_material(mesh, 0, spatial_material(b.key.blend, b.key.zmode, a8, tflags, tex));
 	pending_meshes.push_back(mesh);
-	RID inst = rs->instance_create2(mesh, l.scenario);
-	rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
-	rs->instance_set_pivot_data(inst, 0.0f, false);
-	rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+	RID inst;
+	if (kInstancePool && !spare_instances.empty()) {
+		inst = spare_instances.back();
+		spare_instances.pop_back();
+		rs->instance_set_base(inst, mesh);
+		rs->instance_set_scenario(inst, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+	} else {
+		inst = rs->instance_create2(mesh, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		rs->instance_set_pivot_data(inst, 0.0f, false);
+		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+	}
 	l.instances.push_back(inst);
 }
 

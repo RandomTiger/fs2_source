@@ -11,6 +11,7 @@
 
 #include "fs2_loader.h"
 #include "host_hooks_godot.h"
+#include "perf_prof.h"
 
 namespace godot {
 
@@ -31,6 +32,8 @@ class Fs2Game : public Node {
 	int pace_max_catchup = 4;	// game frames in one call at most; further lag is dropped (the game runs slow rather than spiralling)
 	double pace_acc_usec = 0;
 	unsigned long long pace_last_usec = 0;
+	fs2perf::Recorder perf;	// performance pass: measurement only, inactive unless perf_start() was called
+	uint64_t perf_last_process_ns = 0;
 	unsigned long long stat_calls = 0, stat_game_usec = 0, stat_last_step_usec = 0;
 
 protected:
@@ -54,6 +57,9 @@ public:
 	void set_pace_hz(int hz) { pace_hz = hz < 1 ? 1 : hz; }
 	// R1-feel measurement: process calls, usec spent inside the game, last step usec, events the game has taken and when
 	Dictionary get_stats() const;
+	// Performance profile (measurement, off by default): record per game frame and per Godot frame, optionally sample the stack at sample_hz
+	bool perf_start(const String &out_dir, const String &tag, int sample_hz);
+	void perf_finish();
 	void set_fatal_return(bool on) { fatal_return = on; api.module ? api.set_fatal_return(on ? 1 : 0) : (void)0; }
 	bool get_fatal_return() const { return fatal_return; }
 

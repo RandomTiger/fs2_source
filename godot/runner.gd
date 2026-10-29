@@ -104,6 +104,11 @@ func _ready() -> void:
 	print("runner: Godot ", Engine.get_version_info().string)
 	if not game.start(dll, root, cmds[0]):
 		get_tree().quit(1)
+		return
+	# performance pass (measurement only): FS2_PERF_DIR + FS2_PERF_TAG, optional FS2_PERF_SAMPLE_HZ (stack sampler, 0 = off)
+	if OS.get_environment("FS2_PERF_DIR") != "":
+		var hz := int(OS.get_environment("FS2_PERF_SAMPLE_HZ")) if OS.get_environment("FS2_PERF_SAMPLE_HZ") != "" else 0
+		perf_on = game.perf_start(OS.get_environment("FS2_PERF_DIR"), OS.get_environment("FS2_PERF_TAG") if OS.get_environment("FS2_PERF_TAG") != "" else "run", hz)
 
 func _on_fatal(message: String) -> void:
 	print("runner: fatal error handed back to Godot: ", message)
@@ -116,7 +121,12 @@ func _on_fatal(message: String) -> void:
 	cmds.remove_at(0)
 	call_deferred("_restart")
 
+var perf_on := false
+
 func _on_finished(code: int) -> void:
+	if perf_on:
+		perf_on = false
+		game.perf_finish()
 	if st_on:
 		_stats_report()
 	if expect_fatal:
