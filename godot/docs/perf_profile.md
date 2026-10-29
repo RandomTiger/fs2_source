@@ -87,6 +87,25 @@ Group 1 = Enhanced. Group 2 = Godot now, ahead of a possible 3D refactor. Group 
 
 Order of value for normal missions: #3 first (30-40 % of sink), then #4 (hitches), #6. For nebula missions: #1 and #2 together are about 10 ms of 15 ms.
 
+## 8. Results (performance group 2)
+
+Each fix is its own commit on GodotPerf with a tag `GodotPerf-<fix>-<date>-L1green`. For every one: L1 green, and the gate C shot hashes (tools/perf_shots.ps1, a shown replay saved every 300 frames) identical to the run before the fix. Debug wrapper, Release game DLL, 120 Hz pace.
+
+| # | Fix | Commit | Switch | Before | After |
+|---|---|---|---|---|---|
+| 1 | Skip the nebula fog-colour read (32x32 at 0,0 only; larger reads such as Autotest screenshots still served) | e959b7c | `kSkipNebFogRead` | sm2-07 read_region 9.5 ms per drawn frame | 5 us. R2 must set the switch false or make the read asynchronous |
+| 2 | Texture pool (aged-out textures reused with texture_2d_update) | 03528f2 | `kTexturePool` | sm2-07 tex_create 31.5 us per call, 2.4 ms per drawn frame | 12.9 us, 1.0 ms |
+| 3 | Reuse layer mesh instances | d638f17 | `kInstancePool` | sm3-06 frame_end 1.62 ms per drawn frame, layer_add 15.0 us per call | 1.21 ms, 14.5 us. mesh_build unchanged: meshes were already pooled |
+| 4 | Pre-warm canvas materials and the seven depth-layer shaders the missions use | 3a39a4f | `kPrewarm` | first-use hitches of 36 ms (md-01 #45, sm3-06 #182) | none. Cost: Godot frame 1 (load) 85-105 ms -> about 190 ms |
+| 5 | Bulk append in `batcher.add` | reverted, not landed | | standalone sink_check: 44.5 -> 24 ns per triangle (affine), 60.5 -> 28.7 (perspective) | in the game draw_tris is 3.17 us per call before and after (3.168-3.190, run to run 0.01): below noise, so reverted. The per-call cost is not the batcher's vertex copy |
+| 6 | Sampled rerun of the sm3-10 219 ms frame_end hitch | measurement only | | | Not reproduced in two runs on the fixed build (one sampled at 1000 Hz, one clean): worst frame_end 3.8 ms. Cause unexplained; fix 3 may have removed it, not shown |
+
+Remaining hitches:
+- sm3-10, game frame 782 (first frame with 563 layer meshes): 30 ms, layer_add 15.4 ms against 6.7 ms on the frames around it. Looks like first use of a shader or material not in the pre-warm list; not confirmed.
+- md-01, Godot frame 76: 31 ms, of which the sink is 13 ms. It is not shader first use (pre-warm did not move it); the rest is game side or Godot.
+- Shader keys outside the seven pre-warmed ones still build on first use.
+- Mission load and last-frame hitches (section 3) are untouched.
+
 ## 7. Not measured / limits
 
 - Godot-internal time (shader compile, RenderingServer work) is attributed by module only; the Godot exe has no symbols.
