@@ -282,8 +282,10 @@ static unsigned int Cosmetic_rand_seed = 1;
 static unsigned int Cosmetic_draw_rand_seed = 1;
 int Cosmetic_rand_drawing = 0;
 
+extern unsigned int Bmlog_cosmetic_calls[2];	// Claude: BitmapLog.h
 int cosmetic_rand()
 {
+	Bmlog_cosmetic_calls[Cosmetic_rand_drawing ? 1 : 0]++;	// Claude: BitmapLog.h, counts only
 	unsigned int *seed = Cosmetic_rand_drawing ? &Cosmetic_draw_rand_seed : &Cosmetic_rand_seed;	// Claude: drawing stream
 	*seed = *seed * 214013 + 2531011;
 	return (*seed >> 16) & 0x7fff;

@@ -37,6 +37,7 @@
 #include "GrInternal.h"
 #include "SnazzyUI.h"
 #include "Popup.h"
+#include "InputTest.h"	// Claude: scripted input tests
 
 #ifdef _DEBUG
 #include <rtcapi.h>
@@ -1327,6 +1328,7 @@ void autotest_frame()
 		for (i = 0; i < MAX_GOALS; i++) {
 			Autotest_goal_state[i] = GOAL_INCOMPLETE;
 		}
+		input_test_mission_start();	// Claude: a scripted input test, if the mission notes ask for one
 	}
 
 	// every frame: the player may not exist on the first frame, and mission events can clear it
@@ -1351,6 +1353,7 @@ void autotest_frame()
 	}
 
 	autotest_log_events();
+	input_test_frame();	// Claude: scripted input tests
 }
 
 int autotest_popup(char *text)
@@ -1429,6 +1432,7 @@ int autotest_exit_code(int code)
 
 	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)
 	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
+	failed = input_test_failed() || failed;	// Claude: scripted input tests
 	for (i = 0; i < Autotest_num_sites; i++) {
 		autotest_logf("%6d x %s %s line %d\n", Autotest_sites[i].count, Autotest_sites[i].kind, Autotest_sites[i].file ? Autotest_sites[i].file : "", Autotest_sites[i].line);
 	}
