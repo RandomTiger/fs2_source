@@ -11,6 +11,7 @@
 #include "2d.h"
 #include "GrInternal.h"
 #include "SystemVars.h"
+#include "BmpMan.h"
 #include "BitmapLog.h"
 
 #define BMLOG_MAX_RANGES	256
@@ -82,7 +83,11 @@ void bmlog_jitter(int xin, int yin, int xout, int yout)
 void bmlog_bitmap(const char *kind, int x, int y, int w, int h, int sx, int sy)
 {
 	if (Bmlog_fp) {
-		fprintf(Bmlog_fp, "B %s h=%d %d %d %d %d %d %d ab=%d bb=%d a=%.3f\n", kind, gr_screen.current_bitmap, x, y, w, h, sx, sy,
+		int bw = 0, bh = 0;
+		if (gr_screen.current_bitmap >= 0) {
+			bm_get_info(gr_screen.current_bitmap, &bw, &bh);
+		}
+		fprintf(Bmlog_fp, "B %s h=%d bw=%d bh=%d %d %d %d %d %d %d ab=%d bb=%d a=%.3f\n", kind, gr_screen.current_bitmap, bw, bh, x, y, w, h, sx, sy,
 			gr_screen.current_alphablend_mode, gr_screen.current_bitblt_mode, gr_screen.current_alpha);
 	}
 }
@@ -112,7 +117,7 @@ static void bmlog_shot(int frame)
 	if ((bpp != 2) && (bpp != 4)) {
 		return;
 	}
-	sprintf(path, "%s\f%06d.bmp", Bmlog_shots, frame);
+	sprintf(path, "%s\\f%06d.bmp", Bmlog_shots, frame);
 	row = (w * 3 + 3) & ~3;
 	data = (ubyte *)malloc(w * h * bpp);
 	line = (ubyte *)malloc(row);

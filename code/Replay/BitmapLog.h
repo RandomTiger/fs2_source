@@ -7,7 +7,7 @@
  *                               LIST is comma separated frames or ranges, for example 100,250-260
  *
  * The log has, per frame, in the order they happen:
- *   B <kind> h=<handle> x y w h sx sy ab=<alphablend> bb=<bitblt> a=<alpha>    a 2D bitmap call at the GR layer
+ *   B <kind> h=<handle> bw=<bitmap w> bh=<bitmap h> x y w h sx sy ab=<alphablend> bb=<bitblt> a=<alpha>    a 2D bitmap call at the GR layer
  *                               (gr_bitmap, gr_bitmap_ex, gr_aabitmap, gr_aabitmap_ex), above the section split
  *   J xin yin xout yout         one emp_hud_jitter result (only while EMP is active)
  *   G 0|1                       one emp_should_blit_gauge result (only while EMP is active)
