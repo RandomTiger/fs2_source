@@ -22,11 +22,12 @@ namespace fs2perf {
 
 const char *const zone_names[Z_COUNT] = {
 	"frame_begin", "frame_end", "clear", "set_clip", "tex_create", "tex_free", "capture", "read_region", "depth",
-	"draw_tris", "emit_canvas", "mesh_build", "run_end", "layer_add", "flush",
+	"draw_tris", "emit_canvas", "mesh_build", "run_end", "layer_add", "flush", "fog_get", "fog_capture",
 };
 const char *const counter_names[C_COUNT] = {
 	"frame_begin", "frame_accepted", "draw_calls", "verts", "indices", "set_clip", "clear", "tex_create", "tex_bytes", "tex_free",
 	"capture", "read_region", "read_bytes", "batches", "batch_verts", "canvas_items", "meshes", "layers", "layer_batches",
+	"fog_same", "fog_lag", "fog_wait",
 };
 
 bool g_on = false;

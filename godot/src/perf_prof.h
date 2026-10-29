@@ -40,6 +40,8 @@ enum ZoneId {
 	Z_RUN_END,
 	Z_LAYER_ADD,
 	Z_FLUSH,
+	Z_FOG_GET,	// fog lag: the readback of the older probe
+	Z_FOG_CAPTURE,	// fog lag: moving this frame's pre-render into a slot
 	Z_COUNT
 };
 extern const char *const zone_names[Z_COUNT];
@@ -64,6 +66,9 @@ enum CounterId {
 	C_MESHES,
 	C_LAYERS,
 	C_LAYER_BATCHES,
+	C_FOG_SAME,	// fog reads answered by a same-frame probe
+	C_FOG_LAG,	// fog reads answered from the probe of an earlier drawn frame
+	C_FOG_WAIT,	// lag reads whose probe had not been rendered yet (rendered first, counted)
 	C_COUNT
 };
 extern const char *const counter_names[C_COUNT];

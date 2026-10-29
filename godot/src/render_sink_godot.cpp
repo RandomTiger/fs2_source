@@ -3,6 +3,7 @@
 
 #include <cstring>
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -67,6 +68,12 @@ void GodotSink::shutdown()
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if (rs != nullptr) {
 		prewarm_release();
+		for (FogSlot &fs : fog_slots) {
+			fog_release_slot(fs);
+			if (fs.vp.is_valid()) { rs->free_rid(fs.vp); }
+			if (fs.canvas.is_valid()) { rs->free_rid(fs.canvas); }
+			fs = FogSlot();
+		}
 		release_layers(pending_layers);
 		release_layers(shown_layers);
 		for (Layer &l : spare_layers) {
@@ -86,6 +93,9 @@ void GodotSink::shutdown()
 		}
 		if (white_tex.is_valid()) {
 			rs->free_rid(white_tex);
+		}
+		if (probe_vp.is_valid()) {
+			rs->free_rid(probe_vp);
 		}
 		release_items(pending_items, pending_root);
 		release_items(shown_items, shown_root);
@@ -128,6 +138,8 @@ void GodotSink::shutdown()
 	composite_material = RID();
 	composite_shader = RID();
 	white_tex = RID();
+	probe_vp = RID();
+	probe_w = probe_h = 0;
 	run_batches.clear();
 	in_run = false;
 	spare_items.clear();
@@ -636,6 +648,169 @@ int GodotSink::s_capture(void *u, int32_t id)
 	return 1;
 }
 
+// The w x h top left corner of a probe image as RGBA8 (missing pixels black)
+static void copy_probe_pixels(Ref<Image> img, int w, int h, uint8_t *out)
+{
+	img->convert(Image::FORMAT_RGBA8);
+	const int iw = img->get_width(), ih = img->get_height();
+	const PackedByteArray data = img->get_data();
+	const uint8_t *src = data.ptr();
+	for (int row = 0; row < h; row++) {
+		for (int col = 0; col < w; col++) {
+			uint8_t *d = out + ((size_t)row * (size_t)w + (size_t)col) * 4;
+			if (col >= iw || row >= ih) {
+				d[0] = d[1] = d[2] = 0; d[3] = 255;
+			} else {
+				memcpy(d, src + ((size_t)row * (size_t)iw + (size_t)col) * 4, 4);
+			}
+		}
+	}
+}
+
+// The fog read (R2): render what the frame has drawn so far into a w x h viewport and read it. The frame is under pending_root
+// (hidden until frame_end) and its layers; the probe viewport shows the same canvas, so pending_root is made visible for one
+// force_draw with the shown frame hidden and the game viewport switched off (it would draw the old frame for nothing). The layers of
+// the frame take the probe as their parent for that draw, so Godot renders them before it. Same-frame, exact; costs one
+// force_draw of the layers plus a w x h readback (kNebFog, perf_profile).
+int GodotSink::probe_read(int w, int h, uint8_t *out)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (vp == nullptr || !pending_root.is_valid() || out == nullptr) {
+		return 0;
+	}
+	if (!probe_vp.is_valid()) {
+		probe_vp = rs->viewport_create();
+		rs->viewport_attach_canvas(probe_vp, canvas);
+		rs->viewport_set_transparent_background(probe_vp, false);
+		rs->viewport_set_active(probe_vp, true);
+		rs->viewport_set_update_mode(probe_vp, RenderingServer::VIEWPORT_UPDATE_DISABLED);
+	}
+	if (probe_w != w || probe_h != h) {
+		probe_w = w;
+		probe_h = h;
+		rs->viewport_set_size(probe_vp, w, h);
+	}
+	const RID game = vp->get_viewport_rid();
+	rs->viewport_set_active(game, false);
+	if (shown_root.is_valid()) { rs->canvas_item_set_visible(shown_root, false); }
+	rs->canvas_item_set_visible(pending_root, true);
+	for (Layer &l : shown_layers) { rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED); }
+	for (Layer &l : pending_layers) { rs->viewport_set_parent_viewport(l.viewport, probe_vp); }
+	rs->viewport_set_update_mode(probe_vp, RenderingServer::VIEWPORT_UPDATE_ONCE);
+	rs->force_draw(false);
+	Ref<Image> img = rs->texture_2d_get(rs->viewport_get_texture(probe_vp));
+	for (Layer &l : pending_layers) { rs->viewport_set_parent_viewport(l.viewport, game); }
+	for (Layer &l : shown_layers) { rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_ALWAYS); }
+	rs->canvas_item_set_visible(pending_root, false);
+	if (shown_root.is_valid()) { rs->canvas_item_set_visible(shown_root, true); }
+	rs->viewport_set_active(game, true);
+	if (img.is_null() || img->is_empty()) {
+		return 0;
+	}
+	copy_probe_pixels(img, w, h, out);
+	return 1;
+}
+
+void GodotSink::fog_release_slot(FogSlot &sl)
+{
+	if (!sl.live) {
+		return;
+	}
+	release_layers(sl.layers);
+	release_meshes(sl.meshes);
+	release_items(sl.items, sl.root);
+	sl.live = false;
+}
+
+// Lag mode, step 1: the frame built so far (the pre-render; the draws that follow are covered by the clear after the read) leaves the
+// frame for a slot of the ring. Its viewport is rendered once by the next Godot draw, the layers before it (their parent).
+void GodotSink::fog_capture(int w, int h)
+{
+	fs2perf::Zone _cz(fs2perf::Z_FOG_CAPTURE);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (in_run) {
+		end_run();
+	}
+	batcher.flush();
+	FogSlot &sl = fog_slots[committed % (kNebFogLagFrames + 1)];
+	fog_release_slot(sl); // the slot of drawn frame k - L - 1: read already
+	if (!sl.vp.is_valid()) {
+		sl.canvas = rs->canvas_create();
+		sl.vp = rs->viewport_create();
+		rs->viewport_attach_canvas(sl.vp, sl.canvas);
+		rs->viewport_set_transparent_background(sl.vp, false);
+		rs->viewport_set_active(sl.vp, true);
+		rs->viewport_set_update_mode(sl.vp, RenderingServer::VIEWPORT_UPDATE_DISABLED);
+	}
+	if (sl.w != w || sl.h != h) {
+		sl.w = w;
+		sl.h = h;
+		rs->viewport_set_size(sl.vp, w, h);
+	}
+	rs->canvas_item_set_parent(pending_root, sl.canvas);
+	rs->canvas_item_set_visible(pending_root, true);
+	sl.root = pending_root;
+	sl.items.swap(pending_items);
+	sl.meshes.swap(pending_meshes);
+	sl.layers.swap(pending_layers);
+	for (Layer &l : sl.layers) {
+		rs->viewport_set_parent_viewport(l.viewport, sl.vp);
+		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
+		l.probe_parent = true;
+	}
+	rs->viewport_set_update_mode(sl.vp, RenderingServer::VIEWPORT_UPDATE_ONCE);
+	sl.stamp = committed;
+	sl.drawn = Engine::get_singleton()->get_frames_drawn();
+	sl.live = true;
+	// the rest of the frame goes on in a fresh root
+	pending_root = rs->canvas_item_create();
+	rs->canvas_item_set_parent(pending_root, canvas);
+	rs->canvas_item_set_visible(pending_root, false);
+	cur_item = RID();
+	parent = pending_root;
+	if (clipped) {
+		open_clip_item();
+	}
+}
+
+// Lag mode: the colour of drawn frame k is the pre-render of drawn frame k - L (fixed, counted in drawn frames: `committed` counts
+// frame_ends of frames the sink drew). Without that frame (first drawn frame of a mission, the frame after a size change, a
+// frame between that drew no fog read) the read is the same-frame probe. Either way this frame's pre-render is kept for later.
+int GodotSink::fog_read(int w, int h, uint8_t *out)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool twice = false;
+	FogSlot *src = nullptr;
+	for (FogSlot &sl : fog_slots) {
+		if (!sl.live) { continue; }
+		if (sl.stamp == committed) { twice = true; }
+		if (sl.stamp == committed - kNebFogLagFrames && sl.w == w && sl.h == h) { src = &sl; }
+	}
+	if (twice) {
+		fs2perf::count(fs2perf::C_FOG_SAME);
+		return probe_read(w, h, out); // a second read in one drawn frame: nothing left to move
+	}
+	int ok = 0;
+	if (src == nullptr) {
+		fs2perf::count(fs2perf::C_FOG_SAME);
+		ok = probe_read(w, h, out);
+	} else {
+		fs2perf::count(fs2perf::C_FOG_LAG);
+		if (Engine::get_singleton()->get_frames_drawn() <= src->drawn) {
+			fs2perf::count(fs2perf::C_FOG_WAIT); // Godot has not drawn since: draw now, so the colour never depends on pacing
+			rs->force_draw(false);
+		}
+		fs2perf::Zone _gz(fs2perf::Z_FOG_GET);
+		Ref<Image> img = rs->texture_2d_get(rs->viewport_get_texture(src->vp));
+		if (img.is_valid() && !img->is_empty()) {
+			copy_probe_pixels(img, w, h, out);
+			ok = 1;
+		}
+	}
+	fog_capture(w, h);
+	return ok;
+}
+
 int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
@@ -643,8 +818,24 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 	fs2perf::count(fs2perf::C_READ_REGION);
 	fs2perf::count(fs2perf::C_READ_BYTES, (uint64_t)(w > 0 ? w : 0) * (uint64_t)(h > 0 ? h : 0) * 4);
 	s->batcher.flush();
-	if (kSkipNebFogRead && x == 0 && y == 0 && w > 0 && h > 0 && (long long)w * h <= kNebFogReadMaxPixels) {
-		return 0; // the neb2 fog-colour read: see kSkipNebFogRead
+	if (x == 0 && y == 0 && w > 0 && h > 0 && (long long)w * h <= kNebFogReadMaxPixels) {
+		// the neb2 fog-colour read: see kNebFog
+		if constexpr (kNebFog == kNebFogOff) {
+			return 0;
+		} else {
+			if (!s->in_frame) {
+				return 0;
+			}
+			if (s->in_run) {
+				s->end_run();
+			}
+			if constexpr (kNebFog == kNebFogSame) {
+				fs2perf::count(fs2perf::C_FOG_SAME);
+				return s->probe_read(w, h, out);
+			} else {
+				return s->fog_read(w, h, out);
+			}
+		}
 	}
 	// the last frame the viewport has rendered (D3D reads the back buffer, which at the start of a frame still holds the last frame)
 	if (s->vp == nullptr || out == nullptr || w <= 0 || h <= 0) {
@@ -728,7 +919,7 @@ static Batch canvas_form(const Batch &b)
 {
 	Batch c = b;
 	c.key.depth = 0; c.key.zmode = 0; c.key.epoch = 0; c.key.zbias = 0; c.key.perspective = 1;
-	c.z.clear();
+	c.z.clear(); c.fogv.clear(); c.key.fog = 0;
 	return c;
 }
 
@@ -790,6 +981,10 @@ GodotSink::Layer GodotSink::acquire_layer()
 	if (!spare_layers.empty()) {
 		l = spare_layers.back();
 		spare_layers.pop_back();
+		if (l.probe_parent && vp != nullptr) {
+			rs->viewport_set_parent_viewport(l.viewport, vp->get_viewport_rid());
+			l.probe_parent = false;
+		}
 	} else {
 		l.scenario = rs->scenario_create();
 		l.viewport = rs->viewport_create();
@@ -866,17 +1061,17 @@ void GodotSink::drop_materials_of(const RID &tex)
 // One spatial shader per (blend, depth mode, A8, filter, repeat); one material per shader and texture. Unshaded; the
 // texture and vertex colour are the game's sRGB values, kept as they are: the layer is HDR 2D, so blending happens on
 // those values, as in D3D (R1-9).
-RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const RID &tex)
+RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const RID &tex, bool fog)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const bool lin = (texflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (texflags & FS2_SINK_TEXF_REPEAT) != 0;
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
 	const std::pair<uint32_t, int64_t> mkey(skey, (int64_t)tex.get_id());
 	auto mit = spatial_materials.find(mkey);
 	if (mit != spatial_materials.end()) {
 		return mit->second;
 	}
-	RID sh = spatial_shader(blend, zmode, a8, lin, rpt);
+	RID sh = spatial_shader(blend, zmode, a8, lin, rpt, fog);
 	RID m = rs->material_create();
 	rs->material_set_shader(m, sh);
 	rs->material_set_param(m, "tex", tex);
@@ -896,10 +1091,10 @@ RID GodotSink::white_texture()
 	return white_tex;
 }
 
-RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
+RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool fog)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
 	RID sh;
 	auto sit = spatial_shaders.find(skey);
 	if (sit != spatial_shaders.end()) {
@@ -915,7 +1110,11 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
 		code += lin ? "filter_linear, " : "filter_nearest, ";
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
-		code += "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\nvoid fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+		if (fog) {
+			code += "varying vec4 fg;\n";	// fog r g b and the factor (1 = unfogged), per vertex: CUSTOM1
+		}
+		code += fog ? "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; fg = CUSTOM1; }\n" : "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\n";
+		code += "void fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 		if (a8) {
 			code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n";
 		}
@@ -924,6 +1123,9 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
 			code += "\tc.a = 1.0;\n";
 		} else if (blend == FS2_SINK_BLEND_ADD) {
 			code += "\tc.a = 0.0;\n";
+		}
+		if (fog) {
+			code += "\tc.rgb = mix(fg.rgb, c.rgb, fg.a);\n";	// D3D: f * colour + (1 - f) * fog colour, rgb only
 		}
 		code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 		sh = rs->shader_create();
@@ -1025,14 +1227,21 @@ void GodotSink::prewarm()
 	sarrays[RenderingServer::ARRAY_INDEX] = indices;
 	// the shader keys the 1999 campaign missions use (md-01, sm2-07, sm3-06 logged): skey = blend | zmode << 2 | A8 16 | linear 32 | repeat 64.
 	// Warming all 96 costs 0.5 s at load for seven that matter; any other combination just builds on first use as before.
-	static const int kWarmKeys[] = { 0, 1, 9, 17, 38, 41, 105 };
+	// plus 128 = the fog variant (R2), warmed for the ones nebula missions draw
+	static const int kWarmKeys[] = { 0, 1, 9, 17, 38, 41, 105, 128 | 1, 128 | 9, 128 | 41, 128 | 105 };
 	for (int skey : kWarmKeys) {
 		const int blend = skey & 3, zmode = (skey >> 2) & 3;
-		const bool a8 = (skey & 16) != 0, lin = (skey & 32) != 0, rpt = (skey & 64) != 0;
+		const bool a8 = (skey & 16) != 0, lin = (skey & 32) != 0, rpt = (skey & 64) != 0, wfog = (skey & 128) != 0;
 		RID mesh = rs->mesh_create();
-		rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, sarrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)((int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT));
+		Array warr = sarrays;
+		int64_t wfmt = (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT;
+		if (wfog) {
+			warr[RenderingServer::ARRAY_CUSTOM1] = custom;
+			wfmt |= (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM1_SHIFT;
+		}
+		rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, warr, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)wfmt);
 		RID mat = rs->material_create();
-		rs->material_set_shader(mat, spatial_shader(blend, zmode, a8, lin, rpt));
+		rs->material_set_shader(mat, spatial_shader(blend, zmode, a8, lin, rpt, wfog));
 		rs->material_set_param(mat, "tex", tex);
 		rs->mesh_surface_set_material(mesh, 0, mat);
 		RID inst = rs->instance_create2(mesh, scen);
@@ -1087,6 +1296,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	if (nv <= 0 || ni < 3 || (int)b.z.size() != nv || (int)b.custom.size() != nv * 4) {
 		return;
 	}
+	const bool fogged = b.key.fog != 0 && (int)b.fogv.size() == nv * 4;
 	const int epoch = b.key.epoch < MAX_EPOCH ? b.key.epoch : MAX_EPOCH;
 	const float origin = 29000.0f - 0.25f * (float)order;
 	PackedVector3Array pos;
@@ -1123,9 +1333,16 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	} else {
 		mesh = rs->mesh_create();
 	}
-	const int64_t fmt = (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT;
+	int64_t fmt = (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT;
+	if (fogged) {
+		PackedFloat32Array fg;
+		fg.resize((int64_t)nv * 4);
+		std::memcpy(fg.ptrw(), b.fogv.data(), sizeof(float) * 4 * (size_t)nv);
+		arrays[RenderingServer::ARRAY_CUSTOM1] = fg;
+		fmt |= (int64_t)RenderingServer::ARRAY_CUSTOM_RGBA_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM1_SHIFT;
+	}
 	rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)fmt);
-	rs->mesh_surface_set_material(mesh, 0, spatial_material(b.key.blend, b.key.zmode, a8, tflags, tex));
+	rs->mesh_surface_set_material(mesh, 0, spatial_material(b.key.blend, b.key.zmode, a8, tflags, tex, fogged));
 	pending_meshes.push_back(mesh);
 	RID inst;
 	if (kInstancePool && !spare_instances.empty()) {
