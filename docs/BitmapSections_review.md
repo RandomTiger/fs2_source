@@ -147,3 +147,80 @@ Not a section user: `gr_aabitmap`, `gr_aabitmap_ex` (function-pointer macros, no
 ## Backends not compiled in the reference build
 
 Glide, OpenGL and DirectDraw backends are already removed from the source (their cases in `gr_bitmap` and `gr_bitmap_ex` are comments). Compiled: GrD3D (the real one), GrDummy (headless), GrSoft (only sets `current_bitmap_sx/sy`; no section loop, so it is not a section path). Sections are live only with `Gr_bitmap_poly`, set from `D3D_32bit` at GrD3D.cpp:2717; `-force_16bit` is the other state.
+
+## Stage 1 review (fresh reviewer, original code at ee9830c, read-only)
+
+Reviewer did not write the logger, the mission or the stage-0 evidence. No code/ file changed. Scope: D-20261029-075125, criteria D-20261029-075126 as amended by D-20261029-094806.
+
+### Verdict
+
+Removing the section loop from the GR layer is safe and can be pixel-identical on D3D, but only if the whole-bitmap draw keeps the section path's texture handling (full-resolution upload, exact texel copy, no filtering, half-texel UV offset). The existing non-section texture path does not do that and must not be used for these bitmaps. Today's sections produce no visible seam and no tile-separate movement; nothing visible is lost by drawing whole.
+
+### What sections do today (D3D 32-bit, the only live path)
+
+- Live only when `Gr_bitmap_poly` (GrD3D.cpp:2717, = `D3D_32bit`); the D3D texture cache is built with sections at GrD3D.cpp:2716 (`d3d_tcache_init(D3D_32bit)`). A 16-bit screen takes `gr_d3d_bitmap` (LFB copy) and never touches sections; GrSoft and GrDummy only store `sx, sy`.
+- `gr_bitmap` (2d.cpp:1014-1042): one (x, y) from the caller (already jittered, if at all); 256x256 tiles (last row/column smaller) drawn at `x + x_line, y + y_line`, where `x_line, y_line` are running sums of `bm_get_section_size`. The tiles always exactly cover `[x, x+w) x [y, y+h)` with no gap or overlap, and they cannot move apart: no tile offset depends on anything but the bitmap size. This is the analytic half of D2 (tile union == whole rect, same origin, by construction).
+- Per tile, D3D (GrD3DRender.cpp:806-824, 937-943): cache type `TCACHE_TYPE_BITMAP_SECTION`, `TEXTURE_SOURCE_NO_FILTERING` (point sampling), UV `(u + 0.5/sw) * u_scale` with `D3d_rendition_uvs` = 1 (default through `D3DTextureOrigin`, GrD3D.cpp:2835). The upload (GrD3DTexture.cpp:665-683) is a straight row copy of the tile at full resolution into a texture padded to the adjusted size; `u_scale = src_w / tex_w`. Each screen pixel samples exactly one source texel. No filtering means no bleed across a tile edge, so there is no seam today.
+- `Barracks.cpp:1296-1301` (pilot pic rows, a Claude addition): tile 0,0 with `TMAP_FLAG_BITMAP_SECTION`, used to get the same unfiltered, full-res, half-texel path for a small bitmap (pilot/squad pics are one tile). `gr_filter_set` is a no-op on D3D (GrD3D.cpp:2378), so the flag is what makes the row unfiltered.
+- `g3_draw_2d_poly_bitmap` (3ddraw.cpp:1760): reads `bm_get_section_size` into `bw, bh`, which only the commented-out block below uses. Dead read.
+- `bm_get_info(..., &sections)` callers: 2d.cpp:1021, GrD3DTexture.cpp:394, BmpMan.cpp:2631 only. `bm_calc_sections` is called at BmpMan.cpp:852, 1022, 1210. `MAX_BMAP_SECTIONS_X/Y` = 4x3 caps a sectioned bitmap at 1024x768; nothing checks this on load (a wider bitmap would write past `sections.sx[4]`), a latent fault the removal also clears.
+- Not section users: `gr_aabitmap`, `gr_aabitmap_ex`, `gr_bitmap_ex`, `gr_d3d_bitmap` (LFB), all 3D texture maps; `b_info.sections` in Weapons.cpp/Beam.cpp is beam sections, unrelated; Network/multi_pinfo.cpp:574,621 are commented-out calls.
+
+### EMP and lightning jitter
+
+- Both sources take one path: nebula bolts call `emp_apply` (NebLightning.cpp:715) exactly as EMP weapons do, so lightning jitter is `emp_hud_jitter` / `emp_should_blit_gauge` at a different intensity. All random draws happen in the caller before the gr call (Emp.cpp:504, 664-665); the section loop draws none. Drawing whole cannot change the cosmetic_rand count or order.
+- The jittered HUD is almost all `gr_aabitmap` / `gr_aabitmap_ex` (stage 0: 259112 of 259148 B lines), which never used sections. `gr_bitmap` is 36 lines in the whole mission log; whether any falls in a J frame should be read off the local log. If none does, sections cannot affect HUD jitter in this mission at all, and the jitter criterion reduces to "the aabitmap path is untouched".
+- No tile-separate movement exists today (above), so "jitter looks the same" is expected by construction, not hoped for.
+
+### What would change if each bitmap were drawn whole
+
+- Through the existing normal texture path (`d3d_create_texture`, GrD3DTexture.cpp:600-650, default upload 685-716): visibly wrong. That path (1) divides the size by `D3D_texture_divider` and by `16 >> Detail.hardware_textures`, (2) clamps to `D3D_max_texture_width/height`, which is 256 unless the registry value `D3DUseLargeTextures` is set (GrD3DTexture.cpp:1240-1246), and is also capped to the screen width when the driver lacks wide surfaces (1217-1233), and (3) resamples with `du = (bmap_w-1)/tex_w`, which drops or repeats columns even at equal size. A 1024x768 background would become 256x192 nearest-resampled. It also uses `TEXTURE_SOURCE_DECAL` (filtered) and the `flCAP` UV clamp instead of the half-texel offset.
+- Through one full-size texture with the section path's upload and UVs: pixel-identical to today, if the device accepts a texture of the padded size (1024x768 needs 1024x1024 with pow2) and the 256 clamp is not applied to it.
+- Hence the decision's "D3D may tile internally": with the default 256 clamp, tiling inside GrD3D is still required for every bitmap over 256, i.e. all 13 large sizes in the stage-0 list.
+
+### Risks
+
+1. Max texture dimension (main risk): the 256 default clamp and the wide-surface cap mean a whole-bitmap texture is not available by default. Tiling must stay, inside GrD3D, with the same grid (256, origin 0,0) to stay pixel-identical. Another tile size would probably also be exact under point sampling, but keeping 256 removes the question.
+2. Filtering at tile edges: none today (point sampling). If the new path used `TEXTURE_SOURCE_DECAL`, edges and the whole image would blur; keep `NO_FILTERING` and the `0.5/sw` UV offset (sw = tile width, not bitmap width).
+3. Texture cache: the tile key is (bitmap, type, sx, sy) via `D3D_last_section_x/y` and `t->data_sections[][]`; children are marked used together (GrD3DTexture.cpp:1012-1024). Keep that mechanism inside GrD3D so eviction order and VRAM use stay the same.
+4. RNG draw counts: none in the loop; the logger only counts (below). Trace: the loop is draw-only, no gameplay state, so TraceDiff 0 is expected on all 48; a move is a fault.
+5. Build breaks: `bitmap::sections` is in `PsTypes.h` (`struct bitmap`), so every includer recompiles; no `sizeof(bitmap)` use found. `gr_set_bitmap`'s `sx, sy` feed `gf_set_bitmap` in GrD3D, GrSoft and GrDummy; only 2d.cpp:1028 and Barracks.cpp:1296 pass them.
+6. Handles: removing sections changes no bitmap loading, so `h=` within a build should not move; if it does, that is itself a finding.
+
+### Logger inertness (D-20261029-094806 item 3)
+
+Read code/Replay/BitmapLog.cpp/.h and the diff e790469..ee9830c. The logger calls only `fprintf`, `bm_get_info` (read), `gr_get_region` (back-buffer read for shots) and file I/O; it makes no `rand` / `frand` / `cosmetic_rand` draw. The only RNG-adjacent edits are (a) a counter increment in `cosmetic_rand` (SystemVars.cpp:288), which runs with logging on or off and does not touch the seeds, and (b) Emp.cpp:504-506 and 663-666, which keep the original single `cosmetic_frand_range` call per site and only log its result. Confirmed inert.
+
+### Criteria checks requested by D-20261029-094806
+
+1. Unstable tour screens (7 per build, 9 names over both builds, excluded from hashing):
+
+| Screen | Unstable in | Cause | Former section user only here? | Substitute coverage |
+|---|---|---|---|---|
+| briefing/ship_select, _help | Debug | rotating ship model, timed by frame time | background stable only in Release, so none within Debug | Debug: eye check by a non-author |
+| briefing/weapon_loadout, _help | Release | weapon animation, timed by frame time | background stable only in Debug, so none within Release | Release: eye check by a non-author |
+| campaign_techroom/credits | both | scrolling text, timed artwork change | yes: credits background and artwork at (233,5) (Credits.cpp:663, 720) | eye check by a non-author |
+| campaign_techroom/techroom_ships, _help | both | rotating 3D ship | no: same background `TechShipData` as techroom_species / techroom_weapons (stable) | covered by those |
+| mission/hud_in_flight | both | live 3D scene | no: HUD draws covered by the 18 mission frames | mission frames |
+| mission/pause | both | saved live frame under the overlay | yes: `PleaseWait` overlay (MissionPause.cpp:173) | eye check by a non-author |
+
+   Whether each listed bitmap is over 256 (a true multi-tile user) should be read from the tour `-bmlog` before stage 2; a one-tile bitmap still goes through the changed path, so it still needs the check.
+2. Lightning frames: the 18 frames are classified only as "non-zero J"; the log cannot tell lightning from EMP-missile jitter, since both reach `emp_hud_jitter` the same way. By the mission timeline, EMP waves fire in about 25-50 s and 55-85 s, and 85-120 s is storm only, so the late J frames (2804, 2937, 2998) are probably lightning, but that is not shown. Before stage 2: map each J frame to mission time (from `mf` and the replay frame times) or to its `emp_apply` source; if none of the 12 is in the storm-only window, add frames from it to the capture list and take their baselines on ee9830c.
+3. Logger: confirmed inert (above).
+4. Handles: within-build before/after comparisons keep `h=`; drop it only for Release vs Debug. If handles differ within a build after the change, compare by bitmap filename and say so in this doc.
+
+### Implementation plan (smallest edit, stage 2)
+
+Principle: the GR layer and bmpman stop knowing about sections; the same 256 tile loop moves into GrD3D as a private detail, so D3D draws the same polygons with the same textures and pixels match by construction.
+
+1. GrD3DInternal.h: add D3D-private `D3D_TILE_SIZE 256`, `D3D_MAX_TILES_X 4`, `D3D_MAX_TILES_Y 3`, helpers `d3d_tile_grid(w, h, &nx, &ny)` and `d3d_tile_size(w, h, tx, ty, &tw, &th)` (the `bm_get_section_size` formula), and `void gr_d3d_bitmap_poly(int x, int y)`.
+2. GrD3DRender.cpp: implement `gr_d3d_bitmap_poly` with the loop now at 2d.cpp:1016-1041, setting a D3D-private current tile (`D3D_tile_x/y`, replacing `gr_screen.current_bitmap_sx/sy`) and calling `g3_draw_2d_poly_bitmap(..., flag)` as now (3d.h is already included). In the tmapper (806-824, 937-943) use the private tile and `d3d_tile_size` instead of `bm_get_section_size`.
+3. 2d.cpp `gr_bitmap`: replace the poly branch body with `gr_d3d_bitmap_poly(x, y); return;` and drop the unused locals. One call per bitmap at the same (x, y) the logger already records.
+4. GrD3DTexture.cpp: `bm_get_section_size` (394-411, 958) -> `d3d_tile_size`; `bmp->sections.sx[sx] / sy[sy]` (977) -> `sx * D3D_TILE_SIZE`; `bmp->sections.num_x/num_y` (1046-1047) and `s->num_x/num_y` -> `d3d_tile_grid`; `MAX_BMAP_SECTIONS_X/Y` -> the D3D constants. Keep `TCACHE_TYPE_BITMAP_SECTION` (move it to GrD3DInternal.h) and the `data_sections` cache unchanged. Add an Assert that the grid fits 4x3 (today's silent overflow).
+5. `TMAP_FLAG_BITMAP_SECTION`: it means "2D bitmap tile: unfiltered, full-res, half-texel". Smallest: keep the bit, rename it `TMAP_FLAG_BITMAP_2D` in TMAPPER.H; Barracks.cpp:1301 passes it, and its `gr_set_bitmap(..., 0, 0)` drops the last two arguments (tile 0,0 is the default inside D3D; Assert the pic is one tile).
+6. Render/3ddraw.cpp:1752,1760: delete `bw, bh` and the `bm_get_section_size` call (used only by commented code).
+7. bmpman: delete `bm_calc_sections` and its 3 calls, `bm_get_section_size` (BmpMan.cpp/.h), the `sections` parameter of `bm_get_info` (BmpMan.h:221, BmpMan.cpp:1223,1263), and `bitmap_section_info`, `bitmap::sections`, `MAX_BMAP_SECTION*` from PsTypes.h.
+8. `gr_set_bitmap` sx/sy: remove from the inline in 2d.h:675, `gf_set_bitmap`, `gr_d3d_set_bitmap`, GrSoft.cpp:1212-1213, GrDummy.cpp:30, and `current_bitmap_sx/sy` from 2d.h:388-389. (Smaller alternative: keep the parameters and ignore them; stated so the choice is explicit.)
+9. Leave the logger as is (the B line at `gr_bitmap` entry is unchanged). Run A-E as amended: within-build frame hashes, D1/D2 logs with `h=` kept, lightning frames added if item 2 finds none.
+
+Rejected: drawing whole through `TCACHE_TYPE_NORMAL` / `XPARENT` (downsampling, resampling and filtering, above); raising the texture clamp to fit whole bitmaps (changes 3D texture sizes everywhere and depends on the driver).
