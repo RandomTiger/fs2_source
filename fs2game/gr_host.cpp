@@ -705,7 +705,7 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
 		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
-		if (zbuffering || (flags & TMAP_FLAG_NEBULA)) {
+		if (zbuffering || (flags & TMAP_FLAG_NEBULA) || H.fog_mode != GR_FOGMODE_NONE) {
 			out[i].z = va->z / 30000.0f;		// D3D: z_mult
 			if (out[i].z > 0.98f) { out[i].z = 0.98f; }
 		}
@@ -868,6 +868,7 @@ void h_get_region(int, int w, int h, ubyte *data)
 	if (!drawing() || data == nullptr || w <= 0 || h <= 0) { return; }
 	const int bytes = gr_screen.bytes_per_pixel;
 	if (bytes != 2 && bytes != 4) { return; }
+	depth_run_end();	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
 	if (!H.sink->read_region(H.sink->user, 0, 0, w, h, px.data())) { return; }
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
