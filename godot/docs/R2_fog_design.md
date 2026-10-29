@@ -60,3 +60,13 @@ Because item 1 touches gr_host, I stop here as ordered and implement nothing unt
 - Perf, sm2-07 with `perf_profile.ps1`: baseline after the perf fixes (read_region 5 us, drawn-frame total) against R2. Budget: R2 adds at most 0.5 ms per drawn frame (probe viewport, layer attribute, shader) and the per-frame stall of 6.5-7.4 ms does not return; the three nebula missions are already over budget at 120 Hz for other reasons (texture churn, group 2 fix 2), so R2 is judged on its delta, not the absolute figure.
 - Switches: `kNebFog` (false = pre-R2), kept for A/B in the gate C hashes.
 - Risks: (a) async readback latency/availability (fallback above); (b) probe reparenting touches the clip-item order in `s_clear`/`open_clip_item`, which the Autotest screenshot path also uses; (c) fog on ADD-blend polys follows D3D and may look hotter than expected, check against the glow draws in sm2-07; (d) FS1 data: `Nebula_fs1_ramp` only affects the NEBULA-flag colour ramp, the fog path is shared, to be confirmed in gate C.
+
+## 6. Steward rulings and the background buffer (added at implementation)
+
+Rulings D-20261029-010643/-010644/-010645: gr_host fix allowed (Q1), `render_sink.h` comment-only needs a commit line (Q2), `kNebFog` off/same/lag with a 0.5 ms bar for the same-frame read (Q3).
+
+**Who reads the background buffer.** Searched over `code/` (`neb2_get_pixel`, `tpixels`):
+- `code/Graphics/GrD3DRender.cpp` ~969, `gr_d3d_tmapper_internal`, PIXEL_FOG block: the only caller of `neb2_get_pixel`. Result goes only to `gr_fog_set` (renderer state).
+- `code/Nebula/Neb.cpp`: `tpixels` is written by `neb2_pre_render` (~1190, `gr_get_region`) and read only by `neb2_get_pixel` (~1272) and the `NEB2_THUMBNAIL` debug bitmap (not defined). No game logic, AI, HUD or trace field reads it.
+- `Freespace2/Freespace.cpp` ~3463: comment only.
+So the buffer feeds the renderer only. With the dummy `gr_get_region` leaves `tpixels` zero; gr_host now fills it with real pixels through `h_get_region` (once the sink returns them; with `kNebFog` off the sink still returns 0 and the buffer stays zero as with the dummy). Nothing game-visible changes; TraceDiff stays the check.
