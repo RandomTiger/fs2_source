@@ -70,3 +70,26 @@ Rulings D-20261029-010643/-010644/-010645: gr_host fix allowed (Q1), `render_sin
 - `code/Nebula/Neb.cpp`: `tpixels` is written by `neb2_pre_render` (~1190, `gr_get_region`) and read only by `neb2_get_pixel` (~1272) and the `NEB2_THUMBNAIL` debug bitmap (not defined). No game logic, AI, HUD or trace field reads it.
 - `Freespace2/Freespace.cpp` ~3463: comment only.
 So the buffer feeds the renderer only. With the dummy `gr_get_region` leaves `tpixels` zero; gr_host now fills it with real pixels through `h_get_region` (once the sink returns them; with `kNebFog` off the sink still returns 0 and the buffer stays zero as with the dummy). Nothing game-visible changes; TraceDiff stays the check.
+
+## 7. Interim state and measurements (D-20261029-052041)
+
+**State.** `kNebFog` is `kNebFogOff` by default: nebula missions draw as before R2 (no fog), and are reported "fog-missing, kNebFog off (D-20261029-052041)". `kNebFogSame` and `kNebFogLag` stay as switch states for measurement and are never a default without a ruling. Base: GodotR2 = Godot 5fe0769 + the gr_host commits (b0329a8, afad074) + the wrapper fog commit. R2 is not claimed done. Every trace-compared and gate run uses off.
+
+**Measurements, sm2-07** (autotest recording replayed 30 s of wall time in a shown window at 120 Hz game pace, `perf_profile.ps1`, post-perf baseline of 5fe0769):
+
+| state | read_region / fog read per drawn frame | note |
+|---|---|---|
+| baseline (off, 5fe0769) | ~5 us | the read is skipped |
+| same (same-frame probe) | ~4.3-4.5 ms | over the +0.5 ms bar of D-20261029-010645 |
+| lag L=1 | ~3.5 ms | over the bar; cost is the synchronous `texture_2d_get` stall, capture 68 us, no waits (fog_wait 0) |
+| async readback | result arrives ~3 frames late | over the L <= 2 limit |
+
+Same and lag miss the +0.5 ms bar; async misses the lag limit; so none ships (D-20261029-010645 e).
+
+**Open, pending Tom (escalated, no work before his ruling):** 2. a host-side CPU rasteriser for the 32x32 buffer; 3. relax the bar (fog on at ~3.5-4.5 ms on nebula missions); 4. allow lag up to 3 frames with async readback. GodotR2 is parked after the merge into Godot and is reopened only by Tom's ruling.
+
+**Call-site analysis (D-20261029-010643 b).** Searched over `code/` for `neb2_get_pixel` and `tpixels`:
+- `neb2_get_pixel` has one caller, the PIXEL_FOG block of `gr_d3d_tmapper_internal` (`GrD3DRender.cpp` ~969), whose result goes only to `gr_fog_set` (renderer state). In the host, the same call is made only from `tmapper_internal` in `gr_host.cpp` (draw path).
+- The 32x32 buffer `tpixels` is written by `neb2_pre_render` (`Neb.cpp` ~1190, via `gr_get_region`) and read only by `neb2_get_pixel` (~1272) and the undefined `NEB2_THUMBNAIL` debug bitmap. No game logic, AI, HUD or trace field reads it.
+- Does `gr_host` fill the buffer where dummy left it? Yes in principle: `h_get_region` writes the sink's pixels into it where dummy writes nothing. With `kNebFog` off the sink answers the 32x32 read with "no data" (returns 0), so the buffer stays zero exactly as with dummy. With same or lag it holds the real pre-render; the only reader is `neb2_get_pixel`, i.e. the renderer, and TraceDiff 0 on nebula recordings in host mode is the proof that nothing else reads it.
+- gr_host does not read clock, os_poll, host_hooks, rand or cosmetic_rand for fog; `neb2_get_pixel` is called only from the draw path; no `gf_*` return and no `gr_screen.fog_*` changes.
