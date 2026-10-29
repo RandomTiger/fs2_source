@@ -1319,7 +1319,8 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	const float hw = 0.5f * (float)width, hh = 0.5f * (float)height;
 	Vector3 *pp = pos.ptrw();
 	for (int i = 0; i < nv; i++) {
-		const float d = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f + b.z[i] * 1000.0f - (float)b.key.zbias * 2.0f;
+		/* zbias: retail D3D adds ~1 depth-buffer step per unit (decals, subobjects over the hull); 2.0 here was ~60 game m per unit and pulled insignias and turrets through the hull */
+		const float d = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f + b.z[i] * 1000.0f - (float)b.key.zbias * 0.05f;
 		pp[i] = Vector3(b.pos[i * 2] - hw, hh - b.pos[i * 2 + 1], origin - d);
 	}
 	std::memcpy(uvs.ptrw(), b.uv.data(), sizeof(float) * 2 * (size_t)nv);
