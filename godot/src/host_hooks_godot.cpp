@@ -144,6 +144,8 @@ void reset()
 	Foreground = true;
 	if (!is_headless_display()) {
 		Foreground = DisplayServer::get_singleton()->window_is_focused(0);
+		// retail hides the OS cursor (ShowCursor(0)); the game draws its own at the flip (gr_host h_flip)
+		Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_HIDDEN);
 	}
 }
 
