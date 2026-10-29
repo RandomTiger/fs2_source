@@ -105,6 +105,9 @@ void GodotSink::shutdown()
 		for (Pooled &p : tex_pool) {
 			rs->free_rid(p.rid);
 		}
+		for (RID &r : spare_instances) {
+			rs->free_rid(r);
+		}
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
@@ -133,6 +136,7 @@ void GodotSink::shutdown()
 	textures.clear();
 	dying.clear();
 	tex_pool.clear();
+	spare_instances.clear();
 	vp = nullptr;
 	in_frame = false;
 }
@@ -808,7 +812,12 @@ void GodotSink::release_layers(std::vector<Layer> &layers)
 	RenderingServer *rs = RenderingServer::get_singleton();
 	for (Layer &l : layers) {
 		for (RID &i : l.instances) {
-			rs->free_rid(i);
+			if (kInstancePool) {
+				rs->instance_set_scenario(i, RID());
+				spare_instances.push_back(i);
+			} else {
+				rs->free_rid(i);
+			}
 		}
 		l.instances.clear();
 		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
@@ -966,10 +975,19 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	rs->mesh_add_surface_from_arrays(mesh, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<RenderingServer::ArrayFormat>)fmt);
 	rs->mesh_surface_set_material(mesh, 0, spatial_material(b.key.blend, b.key.zmode, a8, tflags, tex));
 	pending_meshes.push_back(mesh);
-	RID inst = rs->instance_create2(mesh, l.scenario);
-	rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
-	rs->instance_set_pivot_data(inst, 0.0f, false);
-	rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+	RID inst;
+	if (kInstancePool && !spare_instances.empty()) {
+		inst = spare_instances.back();
+		spare_instances.pop_back();
+		rs->instance_set_base(inst, mesh);
+		rs->instance_set_scenario(inst, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+	} else {
+		inst = rs->instance_create2(mesh, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		rs->instance_set_pivot_data(inst, 0.0f, false);
+		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+	}
 	l.instances.push_back(inst);
 }
 

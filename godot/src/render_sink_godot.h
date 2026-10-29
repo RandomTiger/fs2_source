@@ -28,6 +28,8 @@ namespace fs2sink {
 // Texture pool on/off (perf group 2 fix 2); false is the old create/free-every-time behaviour.
 constexpr bool kTexturePool = true;
 constexpr size_t kTexPoolMax = 256;
+// Instance pool on/off (perf group 2 fix 3); false frees and creates the mesh instances every frame as before.
+constexpr bool kInstancePool = true;
 
 // Switch point for the nebula fog-colour read (perf pass group 2, D-20261028-233135). neb2_pre_render reads a 32x32 corner of the
 // screen (Neb.cpp ESIZE) every frame; the host does not use it (fog is not drawn until R2; neb2_get_pixel is called only by the
@@ -114,6 +116,7 @@ private:
 		std::vector<godot::RID> instances;
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
+	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
 	bool in_run = false;
 	int run_epoch = 0;
 	std::vector<Batch> run_batches;
