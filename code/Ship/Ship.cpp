@@ -6982,6 +6982,13 @@ void ship_close()
 	// free memory alloced for subsystem storage
 	for ( i = 0; i < Num_ship_types; i++ ) {
 		if ( Ship_info[i].subsystems != NULL ) {
+			// Claude: free the stepped rotation blocks ModelRead.cpp allocated with new; this list owns them
+			for ( int j = 0; j < Ship_info[i].n_subsystems; j++ ) {
+				if ( Ship_info[i].subsystems[j].stepped_rotation != NULL ) {
+					delete Ship_info[i].subsystems[j].stepped_rotation;
+					Ship_info[i].subsystems[j].stepped_rotation = NULL;
+				}
+			}
 			free(Ship_info[i].subsystems);
 		}
 	}
@@ -8751,6 +8758,9 @@ int get_max_ammo_count_for_bank(int ship_class, int bank, int ammo_type)
 {
 	float capacity, size;
 
+	if ( ammo_type < 0 ) {	// Claude: an empty bank (weapon -1) read Weapon_info[-1]; its max ammo is 0 (#92, D-20261022-214722)
+		return 0;
+	}	// Claude
 	capacity = (float) Ship_info[ship_class].secondary_bank_ammo_capacity[bank];
 	size = (float) Weapon_info[ammo_type].cargo_size;
 	return (int) (capacity / size);
