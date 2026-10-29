@@ -1,6 +1,7 @@
 param([string]$Label = 'gate', [switch]$Full, [string]$Repo = '')
 . "$PSScriptRoot\common.ps1"
-Require-Env PATH_FS2, FS2DEMO_TEST	# FS2_PROCDUMP (optional) = procdump.exe, for crash dumps (#74)
+Require-Env PATH_FS2
+Initialize-Fs2DemoScratch	# FS2_PROCDUMP (optional) = procdump.exe, for crash dumps (#74)
 if (-not $Repo) { $Repo = $RepoRoot }
 "warning_check: " + (& powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\warning_check.ps1" -RepoDir $Repo | Select-Object -Last 1)
 $sp=$PSScriptRoot

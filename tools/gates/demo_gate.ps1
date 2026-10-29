@@ -3,7 +3,8 @@
 param([string]$Repo = '', [string]$Label = 'demo_gate', [switch]$Warn)
 $sp = $PSScriptRoot
 . "$PSScriptRoot\common.ps1"
-Require-Env PATH_FS2, FS2DEMO_TEST	# FS2_PROCDUMP (optional) = procdump.exe, for crash dumps
+Require-Env PATH_FS2
+Initialize-Fs2DemoScratch	# FS2_PROCDUMP (optional) = procdump.exe, for crash dumps
 if (-not $Repo) { $Repo = $RepoRoot }
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $bad = @()

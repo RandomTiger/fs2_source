@@ -2,7 +2,8 @@
 # PATH_FS2), exes copied into the FS1 demo folder, the four demo missions r/d (fs1demo_run.ps1), then the menu tour on
 # the FS1 demo set r/d (menu_tour_all.ps1 -Sets fs1demo -NoBuild). Last line PASS or FAIL.
 . "$PSScriptRoot\common.ps1"
-Require-Env PATH_FS2, PATH_FS1, FS1DEMO_PATH	# FS1DEMO_PATH = the scratch copy of the FS1 demo, never the install
+Require-Env PATH_FS2, PATH_FS1
+Initialize-Fs1DemoScratch	# FS1DEMO_PATH = the scratch copy of the FS1 demo, never the install
 $Repo = $RepoRoot; $dd = $env:FS1DEMO_PATH; $fs2 = $env:PATH_FS2
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $out = Join-Path $env:TEMP 'fd_gate'; New-Item -ItemType Directory -Force $out | Out-Null
