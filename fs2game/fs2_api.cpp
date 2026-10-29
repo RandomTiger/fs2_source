@@ -21,6 +21,9 @@
 #include "2d.h"
 #include "fs2_api.h"
 #include "InputTest.h"
+#include "OsApi.h"
+#include "Sound.h"
+#include "ds.h"
 
 extern int gr_host_attach_sink(const fs2_render_sink *sink);	// gr_host.cpp
 
@@ -43,6 +46,28 @@ static int Api_fatal_armed = 0;
 static int Api_fatal_hit = 0;	// an Error() was handed back: the game may be mid-mission
 static jmp_buf Api_fatal_jmp;
 static char Api_error_text[1024] = "";
+
+// v7: the host's sound window (fs2_set_window_handle); 0 = none, the game's own window stays in use
+static unsigned long long Api_sound_window = 0;
+static int Api_sound_logged = 0;
+
+static uintptr_t api_sound_window(void)
+{
+	return (uintptr_t)Api_sound_window;
+}
+
+// the "sound starts" line for a run that was given a sound window: once, as soon as game init has returned
+static void api_log_sound_start(void)
+{
+	if ( !Api_sound_window || Api_sound_logged ) {
+		return;
+	}
+	Api_sound_logged = 1;
+	fprintf(stderr, "fs2api: sound: window 0x%llx (IsWindow %d) used by DirectSound 0x%llx, snd_is_inited %d, ds_initialized %d, DirectSound %s, primary buffer %s, DirectSound3D %d, channels playing %d\n",
+		Api_sound_window, IsWindow((HWND)(uintptr_t)Api_sound_window) ? 1 : 0, (unsigned long long)os_get_sound_window(), snd_is_inited(), ds_initialized,
+		pDirectSound ? "created" : "none", pPrimaryBuffer ? "created" : "none", ds_using_ds3d(), ds_get_number_channels());
+	fflush(stderr);
+}
 
 // G3: the game as a coroutine (GameCtx, P6). Init, the frame loop and the shutdown run on the fiber.
 static int Api_fiber_mode = 0;		// fs2_set_fiber: 0 off, 1 on, 2 stress
@@ -156,6 +181,8 @@ int fs2_init(const char *cmdline, const char *root_dir)
 	} else {
 		host_hooks_set(api_cmdline_has(cmd, "-headless") ? &host_hooks_headless : &host_hooks_windows);
 	}
+	Host_hooks.sound_window = Api_sound_window ? api_sound_window : NULL;	// v7: after the table copy, so it holds for any table
+	Api_sound_logged = 0;
 
 	replay_wait_for_restart();
 
@@ -208,6 +235,7 @@ int fs2_init(const char *cmdline, const char *root_dir)
 		Api_running = 0;
 		return 0;
 	}
+	api_log_sound_start();
 	return 1;
 }
 
@@ -225,6 +253,9 @@ int fs2_frame(void)
 		}
 		if ( Api_fatal_hit ) {
 			return -1;
+		}
+		if ( Api_fiber_init_ok ) {
+			api_log_sound_start();
 		}
 		if ( !alive && !Api_fiber_init_ok ) {
 			strcpy(Api_error_text, "game_host_init failed");
@@ -271,6 +302,11 @@ void fs2_screen_size(int *w, int *h)
 {
 	*w = gr_screen.max_w;
 	*h = gr_screen.max_h;
+}
+
+void fs2_set_window_handle(unsigned long long handle)
+{
+	Api_sound_window = handle;
 }
 
 void fs2_set_fiber(int mode)

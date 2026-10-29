@@ -21,6 +21,7 @@ struct Fs2Api {
 	void	(*set_fatal_return)(int);
 	void	(*set_fiber)(int);
 	void	(*set_host_pacing)(int);	// optional
+	void	(*set_window_handle)(unsigned long long);	// v7, optional
 	const char *(*last_error)(void);
 	void	(*input_key)(unsigned int, int, unsigned int);
 	void	(*input_mouse_button)(unsigned int, int);
@@ -28,7 +29,7 @@ struct Fs2Api {
 	void	(*input_close)(void);
 	void	(*screen_size)(int *, int *);
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), set_window_handle(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -47,6 +48,7 @@ struct Fs2Api {
 		set_fatal_return = (void (*)(int))GetProcAddress(module, "fs2_set_fatal_return");
 		set_fiber = (void (*)(int))GetProcAddress(module, "fs2_set_fiber");
 		set_host_pacing = (void (*)(int))GetProcAddress(module, "fs2_set_host_pacing");
+		set_window_handle = (void (*)(unsigned long long))GetProcAddress(module, "fs2_set_window_handle");
 		last_error = (const char *(*)(void))GetProcAddress(module, "fs2_last_error");
 		input_key = (void (*)(unsigned int, int, unsigned int))GetProcAddress(module, "fs2_input_key");
 		input_mouse_button = (void (*)(unsigned int, int))GetProcAddress(module, "fs2_input_mouse_button");
