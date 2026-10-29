@@ -115,7 +115,8 @@ foreach ($m in $Missions) {
 		# PrePort32 only, named waiver (D-20261029-180121, Tom 2026-10-29): AutotestSquadMenu in -nodraw/-headless
 		# first diverges at its first squad-menu key frame, because the menu logic runs in the HUD draw here (D-049 (e)).
 		# It must still match the drawn recording up to that frame, with no Assert or Int3. Dropped at PrePort64.
-		$waived = ($m -eq 'AutotestSquadMenu') -and ($mode -ne 'draw') -and ($diff -match '^DIVERGED at frame 407 ') -and ($code -eq 3) -and ($res -match '^DESYNC') -and (-not $counts -or ($counts.Matches[0].Value -match 'Asserts 0, Int3 0'))		if ($waived) { $diff += ' [WAIVED D-20261029-180121]' }
+		$waived = ($m -eq 'AutotestSquadMenu') -and ($mode -ne 'draw') -and ($diff -match '^DIVERGED at frame 407 ') -and ($code -eq 3) -and ($res -match '^DESYNC') -and (-not $counts -or ($counts.Matches[0].Value -match 'Asserts 0, Int3 0'))
+		if ($waived) { $diff += ' [WAIVED D-20261029-180121]' }
 		elseif (($res -notmatch '^REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $mode exit=$code $res / $diff"
 		# an autotest run exits 0 only with no Assert, Int3 or Warning (D-029, D-077)
