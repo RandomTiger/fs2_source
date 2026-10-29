@@ -20,6 +20,11 @@
  * Fog (R2): a depth draw with fog_mode LINEAR gets key.fog = 1 and fogv = (fog r g b, factor) per vertex, the factor from the
  * vertex z (z * 30000 = the game depth) and the planes of the draw, as D3D vertex fog; the sink mixes it in the shader.
  *
+ * Fog gpu (R2 option 5, kNebFog gpu): set_fog_gpu(true, w, h) makes a fogged depth draw key.fog = 2 and fogv = (table offset, nv, factor, 0)
+ * per vertex. The table (fog_table(), cleared by the sink per frame) holds, for each vertex of the draw, the 32x32 lookup cell that
+ * neb2_get_pixel(int(x), int(y)) starts from (scale, the ys-- quirk and the clamp done here); the sink's shader does the 3x3 average and
+ * the per polygon average on the GPU from the pre-render texture.
+ *
  * Plain C++17 over render_sink.h: no Godot type, tested against a software reference (sink_check) and timed there.
  */
 #ifndef FS2_BATCHER_H
@@ -41,7 +46,7 @@ struct BatchKey {
 	int32_t zmode = 0;		// 0 no test, 1 test, 2 test and write, 3 write only
 	int32_t epoch = 0;		// depth clears seen in the run before this batch
 	int32_t zbias = 0;
-	int32_t fog = 0;		// 1: a depth batch drawn with fog (R2): fogv is filled
+	int32_t fog = 0;		// 1: a depth batch drawn with fog (R2): fogv is filled; 2: the same with the colour looked up on the GPU (fog gpu)
 	bool operator==(const BatchKey &o) const
 	{
 		return texture == o.texture && blend == o.blend && perspective == o.perspective && depth == o.depth && zmode == o.zmode
@@ -95,6 +100,16 @@ public:
 		clip_x0 = (float)cx; clip_y0 = (float)cy; clip_x1 = (float)(cx + cw); clip_y1 = (float)(cy + ch);
 	}
 	bool in_depth_run() const { return run; }
+
+	// Fog gpu (see the header): sw/sh = the game screen size (gr_screen.max_w/max_h), ex_scale = 32 / sw as Neb.cpp computes it
+	void set_fog_gpu(bool on, int sw, int sh)
+	{
+		fog_gpu = on;
+		fog_ex = 32.0f / (float)(sw > 0 ? sw : 1);
+		fog_ey = 32.0f / (float)(sh > 0 ? sh : 1);
+	}
+	const std::vector<uint8_t> &fog_table() const { return ftab; }	// x y per entry, cell coordinates 0..31
+	void fog_table_clear() { ftab.clear(); }
 
 	// tex_w/tex_h: size of the draw's texture in texels (0 = untextured); only the subdivision tolerance uses them.
 	void add(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni, int tex_w, int tex_h)
@@ -151,6 +166,9 @@ private:
 	PerspectiveMode mode = PERSPECTIVE_SHADER;
 	Batch cur;
 	BatcherStats st;
+	bool fog_gpu = false;
+	float fog_ex = 0.0f, fog_ey = 0.0f;
+	std::vector<uint8_t> ftab;
 	bool run = false;
 	int run_epoch = 0;
 	float clip_x0 = 0, clip_y0 = 0, clip_x1 = 0, clip_y1 = 0;
@@ -190,7 +208,21 @@ private:
 		key.zbias = key.zmode != 0 ? d.zbias : 0;
 		// fog (R2): linear in the eye depth, per vertex, as D3D vertex fog (gr_d3d_stuff_fog_value); the depth is z * z_mult (30000)
 		const bool fogged = d.fog_mode == FS2_SINK_FOG_LINEAR && d.fog_far > d.fog_near;
-		key.fog = fogged ? 1 : 0;
+		key.fog = fogged ? (fog_gpu ? 2 : 1) : 0;
+		float tab_off = 0.0f;
+		if (fogged && fog_gpu) {
+			// the start cell of neb2_get_pixel for each vertex of the poly (the host's tmapper_internal passes (int)x, (int)y), Neb.cpp 1252-1273
+			tab_off = (float)(ftab.size() / 2);
+			for (int i = 0; i < nv; i++) {
+				const float fx = v[i].x, fy = v[i].y;
+				const int ix = (fx > -1e9f && fx < 1e9f) ? (int)fx : 0, iy = (fy > -1e9f && fy < 1e9f) ? (int)fy : 0;
+				int xs = (int)(fog_ex * (float)ix), ys = (int)(fog_ey * (float)iy);
+				if (ys >= 31) { ys--; }
+				xs = xs < 0 ? 0 : (xs > 31 ? 31 : xs);
+				ys = ys < 0 ? 0 : (ys > 31 ? 31 : ys);
+				ftab.push_back((uint8_t)xs); ftab.push_back((uint8_t)ys);
+			}
+		}
 		const float fog_scale = fogged ? 1.0f / (d.fog_far - d.fog_near) : 0.0f;
 		const bool persp = (d.flags & FS2_SINK_DRAWF_PERSPECTIVE) != 0;
 		const float tr = d.tint[0] / 255.0f, tg = d.tint[1] / 255.0f, tb = d.tint[2] / 255.0f, ta = d.tint[3] / 255.0f;
@@ -229,7 +261,9 @@ private:
 				cur.uv.push_back(q.us / q.sw); cur.uv.push_back(q.vs / q.sw);
 				cur.col.push_back(q.r); cur.col.push_back(q.g); cur.col.push_back(q.b); cur.col.push_back(q.a);
 				cur.custom.push_back(q.us); cur.custom.push_back(q.vs); cur.custom.push_back(q.sw); cur.custom.push_back(0.0f);
-				if (fogged) {
+				if (fogged && fog_gpu) {
+					cur.fogv.push_back(tab_off); cur.fogv.push_back((float)nv); cur.fogv.push_back(q.f); cur.fogv.push_back(0.0f);
+				} else if (fogged) {
 					cur.fogv.push_back(d.fog_rgb[0] / 255.0f); cur.fogv.push_back(d.fog_rgb[1] / 255.0f); cur.fogv.push_back(d.fog_rgb[2] / 255.0f);
 					cur.fogv.push_back(q.f);
 				}

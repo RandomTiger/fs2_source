@@ -5,6 +5,7 @@
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
@@ -81,6 +82,10 @@ void GodotSink::shutdown()
 		}
 		for (auto &m : spatial_materials) {
 			rs->free_rid(m.second);
+		}
+		for (RID &r : gpu_tab) {
+			if (r.is_valid()) { rs->free_rid(r); }
+			r = RID();
 		}
 		for (auto &sh : spatial_shaders) {
 			rs->free_rid(sh.second);
@@ -183,6 +188,7 @@ void GodotSink::release_items(std::vector<RID> &items, RID &root)
 		rs->canvas_item_set_custom_rect(r, false);
 		rs->canvas_item_set_material(r, RID());
 		rs->canvas_item_set_parent(r, RID());
+		if constexpr (kNebFog == kNebFogGpu) { rs->canvas_item_set_visibility_layer(r, 1); }
 		spare_items.push_back(r);
 	}
 	items.clear();
@@ -270,6 +276,10 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 		s->height = h;
 		s->vp->set_size(Vector2i(w, h));
 	}
+	if constexpr (kNebFog == kNebFogGpu) {
+		s->batcher.set_fog_gpu(true, w, h);
+		s->batcher.fog_table_clear();
+	}
 	// a frame that was started and never ended is dropped
 	s->next_index = 0;
 	s->batcher.discard();
@@ -304,6 +314,9 @@ void GodotSink::s_frame_end(void *u)
 		s->end_run();
 	}
 	s->batcher.flush();
+	if constexpr (kNebFog == kNebFogGpu) {
+		s->gpu_frame_end();
+	}
 	RenderingServer *rs = RenderingServer::get_singleton();
 	rs->canvas_item_set_visible(s->pending_root, true);
 	s->release_layers(s->shown_layers);
@@ -616,6 +629,12 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 		tw = it->second.w;
 		th = it->second.h;
 	}
+	if constexpr (kNebFog != kNebFogOff) {
+		// the fog read ends the sink's run (s_read_region) but the host believes it is still open and never begins another: a depth draw outside a run opens one
+		if (!s->in_run && (d->flags & (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE)) != 0) {
+			s_depth_begin(s);
+		}
+	}
 	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
 	if constexpr (kNebFog == kNebFogOff) {
 		// kNebFog off: the draw is what it was before R2, fog fields ignored (the host still sets them for fogged polys)
@@ -729,6 +748,26 @@ void GodotSink::fog_release_slot(FogSlot &sl)
 	sl.live = false;
 }
 
+void GodotSink::fog_slot_init(FogSlot &sl)
+{
+	if (sl.vp.is_valid()) {
+		return;
+	}
+	RenderingServer *rs = RenderingServer::get_singleton();
+	sl.vp = rs->viewport_create();
+	if constexpr (kNebFog == kNebFogGpu) {
+		// the slot renders the frame's own canvas, only the items with visibility bit 2 (the pre-render, marked by fog_capture_gpu)
+		rs->viewport_attach_canvas(sl.vp, canvas);
+		rs->viewport_set_canvas_cull_mask(sl.vp, 2);
+	} else {
+		sl.canvas = rs->canvas_create();
+		rs->viewport_attach_canvas(sl.vp, sl.canvas);
+	}
+	rs->viewport_set_transparent_background(sl.vp, false);
+	rs->viewport_set_active(sl.vp, true);
+	rs->viewport_set_update_mode(sl.vp, RenderingServer::VIEWPORT_UPDATE_DISABLED);
+}
+
 // Lag mode, step 1: the frame built so far (the pre-render; the draws that follow are covered by the clear after the read) leaves the
 // frame for a slot of the ring. Its viewport is rendered once by the next Godot draw, the layers before it (their parent).
 void GodotSink::fog_capture(int w, int h)
@@ -741,14 +780,7 @@ void GodotSink::fog_capture(int w, int h)
 	batcher.flush();
 	FogSlot &sl = fog_slots[committed % (kNebFogLagFrames + 1)];
 	fog_release_slot(sl); // the slot of drawn frame k - L - 1: read already
-	if (!sl.vp.is_valid()) {
-		sl.canvas = rs->canvas_create();
-		sl.vp = rs->viewport_create();
-		rs->viewport_attach_canvas(sl.vp, sl.canvas);
-		rs->viewport_set_transparent_background(sl.vp, false);
-		rs->viewport_set_active(sl.vp, true);
-		rs->viewport_set_update_mode(sl.vp, RenderingServer::VIEWPORT_UPDATE_DISABLED);
-	}
+	fog_slot_init(sl);
 	if (sl.w != w || sl.h != h) {
 		sl.w = w;
 		sl.h = h;
@@ -774,6 +806,41 @@ void GodotSink::fog_capture(int w, int h)
 	rs->canvas_item_set_parent(pending_root, canvas);
 	rs->canvas_item_set_visible(pending_root, false);
 	cur_item = RID();
+	parent = pending_root;
+	if (clipped) {
+		open_clip_item();
+	}
+}
+
+// kNebFogGpu: the pre-render is not moved: what the frame has drawn so far is marked (visibility bits 1|2) and the slot viewport, which
+// renders the same canvas with cull mask 2, draws just those; the frame itself keeps them, as with the same-frame probe, so what it shows
+// is what it showed before (the frame start clear is under them). Items made after this have bit 1 only (and hide from the slot even
+// when their parent is marked).
+void GodotSink::fog_capture_gpu(int w, int h)
+{
+	fs2perf::Zone _cz(fs2perf::Z_FOG_CAPTURE);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (in_run) {
+		end_run();
+	}
+	batcher.flush();
+	FogSlot &sl = fog_slots[committed & 1];
+	fog_slot_init(sl);
+	if (sl.w != w || sl.h != h) {
+		sl.w = w;
+		sl.h = h;
+		rs->viewport_set_size(sl.vp, w, h);
+	}
+	rs->canvas_item_set_visibility_layer(pending_root, 3);
+	for (const RID &r : pending_items) {
+		rs->canvas_item_set_visibility_layer(r, 3);
+	}
+	gpu_pre_layers = (int)pending_layers.size();
+	rs->viewport_set_update_mode(sl.vp, RenderingServer::VIEWPORT_UPDATE_ONCE);
+	sl.stamp = committed;
+	sl.drawn = Engine::get_singleton()->get_frames_drawn();
+	sl.live = true;
+	cur_item = RID();	// later batches must not join a marked item
 	parent = pending_root;
 	if (clipped) {
 		open_clip_item();
@@ -839,8 +906,14 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 			if constexpr (kNebFog == kNebFogSame) {
 				fs2perf::count(fs2perf::C_FOG_SAME);
 				return s->probe_read(w, h, out);
-			} else {
+			} else if constexpr (kNebFog == kNebFogLag) {
 				return s->fog_read(w, h, out);
+			} else {
+				// kNebFogGpu: the pre-render stays on the GPU; the host gets "no data" and its buffer stays as the dummy leaves it
+				FogSlot &sl = s->fog_slots[s->committed & 1];
+				fs2perf::count(sl.live && sl.stamp == s->committed ? fs2perf::C_FOG_WAIT : fs2perf::C_FOG_LAG);
+				s->fog_capture_gpu(w, h);
+				return 0;
 			}
 		}
 	}
@@ -1072,7 +1145,9 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const bool lin = (texflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (texflags & FS2_SINK_TEXF_REPEAT) != 0;
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
+	uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
+	const int parity = (kNebFog == kNebFogGpu && fog) ? (committed & 1) : 0;	// fog gpu: the material reads the fog slot and table of its frame parity
+	skey |= parity ? 256u : 0u;
 	const std::pair<uint32_t, int64_t> mkey(skey, (int64_t)tex.get_id());
 	auto mit = spatial_materials.find(mkey);
 	if (mit != spatial_materials.end()) {
@@ -1082,6 +1157,12 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 	RID m = rs->material_create();
 	rs->material_set_shader(m, sh);
 	rs->material_set_param(m, "tex", tex);
+	if constexpr (kNebFog == kNebFogGpu) {
+		if (fog) {
+			rs->material_set_param(m, "bg", gpu_bg_texture(parity));
+			rs->material_set_param(m, "ptab", gpu_tab_texture(parity));
+		}
+	}
 	spatial_materials[mkey] = m;
 	return m;
 }
@@ -1117,10 +1198,34 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 		code += lin ? "filter_linear, " : "filter_nearest, ";
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
-		if (fog) {
-			code += "varying vec4 fg;\n";	// fog r g b and the factor (1 = unfogged), per vertex: CUSTOM1
+		if (fog && kNebFog == kNebFogGpu) {
+			// fog gpu: CUSTOM1 = (table offset, nv, factor). The vertex shader does neb2_get_pixel (Neb.cpp 1229-1343) for each vertex of the
+			// poly on the 32x32 pre-render `bg` (the start cells come from `ptab`) and the integer average over the poly (GrD3DRender.cpp 962-980)
+			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\nuniform sampler2D ptab : filter_nearest, repeat_disable;\n";
+			code += "varying flat vec3 fgc;\nvarying float fgf;\n";
+			code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
+			code += "ivec3 nbget(int xs, int ys) {\n\tivec3 s = nbpx(xs, ys);\n\tint n = 1;\n";
+			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys); n++; }\n";
+			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys); n++; }\n";
+			code += "\tif (ys > 0) { s += nbpx(xs, ys - 1); n++; }\n";
+			code += "\tif (ys < 30) { s += nbpx(xs, ys + 1); n++; }\n";
+			code += "\tif (xs > 0 && ys > 0) { s += nbpx(xs - 1, ys - 1); n++; }\n";
+			code += "\tif (xs < 31 && ys < 31) { s += nbpx(xs + 1, ys + 1); n++; }\n";
+			code += "\tif (ys > 0 && xs < 31) { s += nbpx(xs + 1, ys - 1); n++; }\n";
+			code += "\tif (ys < 31 && xs > 0) { s += nbpx(xs - 1, ys + 1); n++; }\n";
+			code += "\treturn ivec3(s.x / n, s.y / n, s.z / n);\n}\n";
+			code += "void vertex() {\n\tvcol = COLOR; pc = CUSTOM0.xyz;\n";
+			code += "\tint off = int(CUSTOM1.x + 0.5);\n\tint nv = int(CUSTOM1.y + 0.5);\n\tivec3 tot = ivec3(0);\n";
+			code += "\tfor (int i = 0; i < nv; i++) {\n\t\tint k = off + i;\n";
+			code += "\t\tivec2 c = ivec2(round(texelFetch(ptab, ivec2(k & 127, k >> 7), 0).rg * 255.0));\n";
+			code += "\t\ttot += nbget(c.x, c.y);\n\t}\n";
+			code += "\tint d = max(nv, 1);\n\tfgc = vec3(float(tot.x / d), float(tot.y / d), float(tot.z / d)) / 255.0;\n\tfgf = CUSTOM1.z;\n}\n";
+		} else {
+			if (fog) {
+				code += "varying vec4 fg;\n";	// fog r g b and the factor (1 = unfogged), per vertex: CUSTOM1
+			}
+			code += fog ? "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; fg = CUSTOM1; }\n" : "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\n";
 		}
-		code += fog ? "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; fg = CUSTOM1; }\n" : "void vertex() { vcol = COLOR; pc = CUSTOM0.xyz; }\n";
 		code += "void fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 		if (a8) {
 			code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n";
@@ -1132,7 +1237,11 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 			code += "\tc.a = 0.0;\n";
 		}
 		if (fog) {
-			code += "\tc.rgb = mix(fg.rgb, c.rgb, fg.a);\n";	// D3D: f * colour + (1 - f) * fog colour, rgb only
+			if constexpr (kNebFog == kNebFogGpu) {
+				code += "\tc.rgb = mix(fgc, c.rgb, fgf);\n";
+			} else {
+				code += "\tc.rgb = mix(fg.rgb, c.rgb, fg.a);\n";	// D3D: f * colour + (1 - f) * fog colour, rgb only
+			}
 		}
 		code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 		sh = rs->shader_create();
@@ -1273,6 +1382,86 @@ void GodotSink::prewarm_release()
 	warm_instances.clear();
 	warm_items.clear();
 	warm_misc.clear();
+}
+
+// kNebFogGpu: the viewport texture of the fog slot of a frame parity (the slot exists from here on), and the table texture
+RID GodotSink::gpu_bg_texture(int parity)
+{
+	FogSlot &sl = fog_slots[parity & 1];
+	fog_slot_init(sl);
+	return RenderingServer::get_singleton()->viewport_get_texture(sl.vp);
+}
+
+static PackedByteArray ptab_pixels(int rows, const uint8_t *cells, size_t entries)
+{
+	PackedByteArray px;
+	px.resize((int64_t)rows * 128 * 4);
+	px.fill(0);
+	uint8_t *d = px.ptrw();
+	for (size_t k = 0; k < entries; k++) {
+		d[k * 4 + 0] = cells[k * 2]; d[k * 4 + 1] = cells[k * 2 + 1]; d[k * 4 + 3] = 255;
+	}
+	return px;
+}
+
+RID GodotSink::gpu_tab_texture(int parity)
+{
+	const int p = parity & 1;
+	if (!gpu_tab[p].is_valid()) {
+		gpu_tab_rows[p] = 64;
+		gpu_tab[p] = RenderingServer::get_singleton()->texture_2d_create(Image::create_from_data(128, 64, false, Image::FORMAT_RGBA8, ptab_pixels(64, nullptr, 0)));
+	}
+	return gpu_tab[p];
+}
+
+// kNebFogGpu, end of the frame: the table of the frame's fogged polys goes to the texture of its parity, and the fog slot is put in
+// the render order before the frame's layers (slot -> first layer -> ... -> last layer -> game viewport), so the layers read this
+// frame's pre-render, not the one of the frame before.
+void GodotSink::gpu_frame_end()
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const int par = committed & 1;
+	const std::vector<uint8_t> &tab = batcher.fog_table();
+	const size_t entries = tab.size() / 2;
+	if (entries > 0) {
+		const int rows = (int)((entries + 127) / 128);
+		const RID cur = gpu_tab_texture(par);
+		if (rows > gpu_tab_rows[par]) {
+			int cap = gpu_tab_rows[par];
+			while (cap < rows) { cap *= 2; }
+			const RID nt = rs->texture_2d_create(Image::create_from_data(128, cap, false, Image::FORMAT_RGBA8, ptab_pixels(cap, tab.data(), entries)));
+			for (auto &m : spatial_materials) {
+				if ((m.first.first & 128u) && (((m.first.first >> 8) & 1u) == (uint32_t)par)) {
+					rs->material_set_param(m.second, "ptab", nt);
+				}
+			}
+			rs->free_rid(cur);
+			gpu_tab[par] = nt;
+			gpu_tab_rows[par] = cap;
+		} else {
+			rs->texture_2d_update(cur, Image::create_from_data(128, gpu_tab_rows[par], false, Image::FORMAT_RGBA8, ptab_pixels(gpu_tab_rows[par], tab.data(), entries)), 0);
+		}
+	}
+	FogSlot &sl = fog_slots[par];
+	if (sl.live && sl.stamp == committed && vp != nullptr) {
+		const RID game = vp->get_viewport_rid();
+		const size_t n = pending_layers.size();
+		const size_t k = (size_t)gpu_pre_layers < n ? (size_t)gpu_pre_layers : n;	// layers of the pre-render: they come before the slot
+		for (size_t i = 0; i < n; i++) {
+			RID lpar = i + 1 == n ? game : pending_layers[i + 1].viewport;
+			if (i + 1 == k) { lpar = sl.vp; }
+			rs->viewport_set_parent_viewport(pending_layers[i].viewport, lpar);
+			pending_layers[i].probe_parent = lpar != game;
+		}
+		rs->viewport_set_parent_viewport(sl.vp, k < n ? pending_layers[k].viewport : game);
+		// Godot orders the active viewports with a comparator that only knows a viewport before its direct parent; two viewports that are
+		// not parent and child compare equal and keep the order they were activated in. The chain slot -> layers -> game has such pairs, so
+		// it is activated again in the order it must render in (pre layers, slot, the other layers, game)
+		for (size_t i = 0; i < k; i++) { rs->viewport_set_active(pending_layers[i].viewport, false); rs->viewport_set_active(pending_layers[i].viewport, true); }
+		rs->viewport_set_active(sl.vp, false); rs->viewport_set_active(sl.vp, true);
+		for (size_t i = k; i < n; i++) { rs->viewport_set_active(pending_layers[i].viewport, false); rs->viewport_set_active(pending_layers[i].viewport, true); }
+		rs->viewport_set_active(game, false); rs->viewport_set_active(game, true);
+	}
 }
 
 // One mesh instance per batch. The camera looks down -z from the origin; a vertex at screen (x, y) is at

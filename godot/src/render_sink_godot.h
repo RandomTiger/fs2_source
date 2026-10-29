@@ -43,7 +43,10 @@ constexpr bool kInstancePool = true;
 //   kNebFogSame: the probe is rendered and read in the same frame (exact; costs a render + a small readback)
 //   kNebFogLag:  the colour comes from the pre-render of drawn frame k - kNebFogLagFrames (fixed, counted in drawn frames, never
 //                depending on GPU timing; the first drawn frame and the one after a size change use the same-frame probe)
-constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2;
+//   kNebFogGpu:  (option 5, prototype) the pre-render is moved into a 32x32 slot viewport that Godot renders before the layers of the same
+//                frame, and the fog shader looks the colour up in that texture: neb2_get_pixel's 3x3 average and the per polygon average
+//                are done in the vertex shader from a per frame table of the polys' cells. No readback; read_region answers "no data".
+constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2, kNebFogGpu = 3;
 constexpr int kNebFog = kNebFogOff;	// default off (D-20261029-052041); same and lag are switch states for measurement, never a default without Tom's ruling
 constexpr int kNebFogLagFrames = 1;
 constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
@@ -145,6 +148,14 @@ private:
 	void end_run();
 	void sync_batcher_clip();
 	godot::RID spatial_material(int blend, int zmode, bool a8, uint32_t texflags, const godot::RID &tex, bool fog);
+
+	// kNebFogGpu: per frame table of the fogged polys' lookup cells (RGBA8 texels, 128 wide, one table and one fog slot per frame parity,
+	// because the frame on show still reads its own while the next one is built), and the render order of the slot before the layers
+	godot::RID gpu_tab[2];
+	int gpu_tab_rows[2] = { 0, 0 };
+	godot::RID gpu_bg_texture(int parity);
+	godot::RID gpu_tab_texture(int parity);
+	void gpu_frame_end();
 	void add_to_layer(Layer &l, const Batch &b, int order);
 	void drop_materials_of(const godot::RID &tex);
 	godot::RID mesh_for_batch(const Batch &b);
@@ -194,7 +205,10 @@ private:
 	FogSlot fog_slots[kNebFogLagFrames + 1];
 	int fog_read(int w, int h, uint8_t *out);
 	void fog_capture(int w, int h);
+	void fog_capture_gpu(int w, int h);
+	int gpu_pre_layers = 0;
 	void fog_release_slot(FogSlot &s);
+	void fog_slot_init(FogSlot &sl);
 	int fog_slot_pixels(FogSlot &s, int w, int h, uint8_t *out);
 	static void s_set_gamma(void *u, float g);
 	static void s_depth_begin(void *u);
