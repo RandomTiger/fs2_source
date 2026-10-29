@@ -422,6 +422,7 @@
  * $NoKeywords: $
  */
 
+#include "BitmapLog.h"	// Claude
 #include "GrDummy.h"	// Claude: null renderer
 #include <windows.h>
 #include <windowsx.h>
@@ -999,6 +1000,7 @@ DCF(bmap, "")
 // new bitmap functions
 void gr_bitmap(int x, int y)
 {
+	bmlog_bitmap("gr_bitmap", x, y, 0, 0, 0, 0);	// Claude: BitmapLog.h
 	int section_x, section_y;	
 	int x_line, y_line;
 	int w, h;
@@ -1055,6 +1057,7 @@ void gr_bitmap(int x, int y)
 
 void gr_bitmap_ex(int x, int y, int w, int h, int sx, int sy)
 {
+	bmlog_bitmap("gr_bitmap_ex", x, y, w, h, sx, sy);	// Claude: BitmapLog.h
 	switch(gr_screen.mode){
 	case GR_SOFTWARE:
 	case GR_DIRECTDRAW:
@@ -1254,4 +1257,5 @@ void gr_flip_frame()
 		}
 	}
 	(*gr_screen.gf_flip)();
+	bmlog_frame_end();	// Claude: BitmapLog.h
 }

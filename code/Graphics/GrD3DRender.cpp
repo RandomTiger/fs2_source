@@ -308,6 +308,7 @@
  * $NoKeywords: $
  */
 
+#include "BitmapLog.h"	// Claude
 #include "GrD3DInternal.h"
 #include "2d.H"
 #include "PsTypes.h"
@@ -1598,6 +1599,7 @@ void gr_d3d_aabitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 
 void gr_d3d_aabitmap_ex(int x,int y,int w,int h,int sx,int sy)
 {
+	bmlog_bitmap("gr_aabitmap_ex", x, y, w, h, sx, sy);	// Claude: BitmapLog.h
 	int reclip;
 	#ifndef NDEBUG
 	int count = 0;
@@ -1677,6 +1679,7 @@ void gr_d3d_aabitmap_ex(int x,int y,int w,int h,int sx,int sy)
 
 void gr_d3d_aabitmap(int x, int y)
 {
+	bmlog_bitmap("gr_aabitmap", x, y, 0, 0, 0, 0);	// Claude: BitmapLog.h
 	int w, h;
 
 	bm_get_info( gr_screen.current_bitmap, &w, &h, NULL );

@@ -257,6 +257,7 @@
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Replay\Autotest.cpp" />
+    <ClCompile Include="Replay\BitmapLog.cpp" />
     <ClCompile Include="Replay\InputTest.cpp" />
     <ClCompile Include="Replay\LoadTimes.cpp" />
     <ClCompile Include="Replay\Replay.cpp" />
@@ -509,6 +510,7 @@
     <ClInclude Include="Movie\Movie.h" />
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Replay\Autotest.h" />
+    <ClInclude Include="Replay\BitmapLog.h" />
     <ClInclude Include="Replay\InputTest.h" />
     <ClInclude Include="Replay\InputTestJoy.h" />
     <ClInclude Include="Replay\InputTestPad.h" />

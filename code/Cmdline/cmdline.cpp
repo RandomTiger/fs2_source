@@ -194,6 +194,7 @@
 #include "cfile.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "BitmapLog.h"	// Claude
 #include "InputTest.h"	// Claude
 #include "OsRegistry.h"	// Claude
 
@@ -261,6 +262,9 @@ cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.i
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
+cmdline_parm bmlog_arg("-bmlog", NULL);			// Claude: bitmap section evidence log, see BitmapLog.h
+cmdline_parm bmshots_arg("-bmshots", NULL);		// Claude
+cmdline_parm bmframes_arg("-bmframes", NULL);		// Claude
 cmdline_parm loadtimes_arg("-loadtimes", NULL);	// Claude: mission load times log, see LoadTimes.h
 int Cmdline_loadtimes = 0;						// Claude: -loadtimes
 
@@ -702,6 +706,11 @@ int parse_cmdline(char *cmdline)
 	if(dataset_arg.found()){	// Claude
 		Cmdline_dataset = dataset_arg.str();	// Claude
 	}	// Claude
+
+	// Claude: -bmlog, -bmshots, -bmframes
+	if(bmlog_arg.found() || bmshots_arg.found()){
+		bmlog_set_cmdline(bmlog_arg.found() ? bmlog_arg.str() : NULL, bmshots_arg.found() ? bmshots_arg.str() : NULL, bmframes_arg.found() ? bmframes_arg.str() : NULL);
+	}
 
 	// Claude: -loadtimes
 	if(loadtimes_arg.found()){
