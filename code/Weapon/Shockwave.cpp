@@ -497,7 +497,7 @@ void shockwave_move(object *shockwave_objp, float frametime)
 			// the volume was infinite and snd_play clamped it to full whatever the sound settings. That is kept, without
 			// the read: a scale large enough to clamp to full (#17, D-20261018-043124).
 			if ( sw->weapon_info_index < 0 )
-				snd_play( &Snds[SND_SHOCKWAVE_IMPACT], 0.0f, (Snds[SND_SHOCKWAVE_IMPACT].default_volume > 0.0f) ? 1.0f / Snds[SND_SHOCKWAVE_IMPACT].default_volume : 1.0f ); // Claude: Enhanced follows the sound setting: volume = Master_sound_volume, full at 1.0 (#103, D-20261027-051144)
+				snd_play( &Snds[SND_SHOCKWAVE_IMPACT], 0.0f, 1.0f ); // Claude: Enhanced follows the sound setting: table volume x slider, like other sounds (#103, D-20261027-051144 as amended by Tom 2026-10-28)
 			else
 			snd_play( &Snds[SND_SHOCKWAVE_IMPACT], 0.0f, max(0.4f, damage/Weapon_info[sw->weapon_info_index].damage) );
 		}
