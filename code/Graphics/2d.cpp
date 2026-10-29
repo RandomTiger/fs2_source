@@ -1001,9 +1001,7 @@ DCF(bmap, "")
 void gr_bitmap(int x, int y)
 {
 	bmlog_bitmap("gr_bitmap", x, y, 0, 0, 0, 0);	// Claude: BitmapLog.h
-	int section_x, section_y;	
-	int x_line, y_line;
-	int w, h;
+	// Claude: the tile loop's locals went with it to gr_d3d_bitmap_poly
 
 	// Claude: FS1 data lacks some of FS2's interface overlays (Briefwin, InfoBox...); FS1's screen
 	// backgrounds already hold those frames, so a draw of one that did not load is skipped (docs/FS1_COMPAT.md)
@@ -1013,29 +1011,7 @@ void gr_bitmap(int x, int y)
 
 	// d3d and glide support texture poly shiz
 	if((gr_screen.mode == GR_DIRECT3D) && Gr_bitmap_poly){	// Claude: Glide test removed; that renderer is gone (D-070)
-		int idx, s_idx;
-		// float u_scale, v_scale;
-		bitmap_section_info *sections;			
-
-		// render all sections
-		bm_get_info(gr_screen.current_bitmap, &w, &h, NULL, NULL, NULL, &sections);
-		y_line = 0;
-		section_y = 0;
-		for(idx=0; idx<sections->num_y; idx++){
-			x_line = 0;
-			for(s_idx=0; s_idx<sections->num_x; s_idx++){
-				// get the section as a texture in vram					
-				gr_set_bitmap(gr_screen.current_bitmap, gr_screen.current_alphablend_mode, gr_screen.current_bitblt_mode, gr_screen.current_alpha, s_idx, idx);
-
-				// determine the width and height of this section
-				bm_get_section_size(gr_screen.current_bitmap, s_idx, idx, &section_x, &section_y);
-
-				// draw as a poly
-				g3_draw_2d_poly_bitmap(x + x_line, y + y_line, section_x, section_y, TMAP_FLAG_BITMAP_SECTION);
-				x_line += section_x;
-			}
-			y_line += section_y;
-		}
+		gr_d3d_bitmap_poly(x, y);	// Claude: the 256 pixel tile loop is D3D's own now (GrD3DRender.cpp); it was here, on bmpman's sections
 
 		// done. whee!
 		return;
