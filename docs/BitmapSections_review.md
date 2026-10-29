@@ -53,6 +53,14 @@ Each hash was taken twice per config (R, R2; D, D2) and equal, so all 18 are exa
 | 2804 | yes | 7BA227D67B5DD8503AEDDA2107D542E81E6356A9C32D770764DF75BAD8720C0E | B2BD93D6373472D2128CE6509537E93DEFFE9C38D138C30B999BEA684CF8393F |
 | 2937 | yes | C3D1E36B89536252ABA800C9ED36E2E1D2C3E2515446F40A9C8E3CAAF084C8CB | 7585BA859C4816305F71DE22A87F74E0AA4AD4D0F7055DF1C219BFB59FB67D51 |
 | 2998 | yes | 750A2CC5FD3AA5C48CEEC3326F6D4DED44F8DE3F8C25B6582E5065950AE7261D | A8D11D6B18C75812933C6C062E06F811F4C9A70283C18F1A4B2E94EEBBEFE75D |
+| 2750 | lightning (storm only) | 103494E3973BB9D99568165F49C59C4BCD494012D07D23F30FCB4EE79E4555E6 | 189F82D37B6588A820C55C9CE6142E35C8FFB585220D5F51212C5977A3995E88 |
+| 2775 | lightning (storm only) | 272EF1D8053FD2B40A5F311CA56FDEDF7B170F5CE1738CEAF89F4D1CDD7436D9 | 0811B45497D92CC5F0C580F3B7659CA5284090ABD0DF1C62BBC5E6431BCFB718 |
+| 2820 | lightning (storm only) | 62C90E39ED885FE0E5772CB4C0CE170448DCB961CADAFB80A802204B8D275455 | 7542902C8A4C988938A801AD851EFB65BEE357BC0B20D28AA1D889436CEB6150 |
+| 2920 | lightning (storm only) | 286A9AFC6123E274CF3C8041E7399001615150584BEC72007A757353106D9FD7 | DABF6826A780CEFAA7420C25869C811FC1B98EACE5E478710D2F2921E22E2FDA |
+| 2950 | lightning (storm only) | 4A7BEA690D2521C64D9F1436922F20A1BD5A1254A8135D5A72618CF23B23A5DA | 571E9FCAE8E72208BABB8CBCE019863AB1769E98108C3115A8B2A5D06D396285 |
+| 2988 | lightning (storm only) | 7C89E31ABEA6516AC2C6EA40765DB3D8DD93CE7514DA2EE3AFC7EF0F54B2B293 | 8323A7BDF9F0627BAFD2F5CFA1C12441BEF3EC7E24AF73AD44C379D948BFE37C |
+
+The last 6 rows were added before stage 2 and taken on the pre-change build (d1c7fbb, code as ee9830c), twice per config, equal (pre_r1/pre_r2, pre_d1/pre_d2).
 
 ### Menu tour (`-at_menus -at_shots DIR`, live, 59 screens)
 
@@ -224,3 +232,40 @@ Principle: the GR layer and bmpman stop knowing about sections; the same 256 til
 9. Leave the logger as is (the B line at `gr_bitmap` entry is unchanged). Run A-E as amended: within-build frame hashes, D1/D2 logs with `h=` kept, lightning frames added if item 2 finds none.
 
 Rejected: drawing whole through `TCACHE_TYPE_NORMAL` / `XPARENT` (downsampling, resampling and filtering, above); raising the texture clamp to fit whole bitmaps (changes 3D texture sizes everywhere and depends on the driver).
+
+## Stage 2 (implementation, bbf9aed)
+
+### Before the change (pre-change build d1c7fbb, code as ee9830c)
+
+- Lightning vs EMP, from a local diagnostic run (bolt starts and `emp_apply` sources logged, not committed): the only weapon EMP hit is at mf 1149 (40.6 s). Of the 12 jitter frames, 1162 is weapon EMP, 1223 is mixed (EMP decaying, bolt at mf 1156), the other 10 are lightning. 2804, 2937, 2998 are storm-only (after Theta leaves at 86 s); 2998 has J/G lines but zero net offset. Bolt starts at mf 554, 564, 687, 1156, 1287, 1534, 1554, 1757, 1944, 2280, 2736, 2905, 2974.
+- Six storm-only lightning frames added to the frame table (2750, 2775, 2820, 2920, 2950, 2988), taken twice per config on the pre-change build, equal.
+- Release load-screen noise: the loading-bar bitmap (824x43) gets a different `h=` run to run on the load screen (3 lines, before mission frame 1); everything from mission frame 1 on is byte-identical run to run. Debug logs are byte-identical run to run.
+- Tour stability: the extra "unstable" screens seen while preparing stage 2 come from machine load (other workers' FS2 and Godot processes running at the same time), not from the code or pilot state. Timed screens (ship_select, weapon_loadout, command_briefing, techroom_weapons and their _help, mission_log_*, debrief_stats) change under load; e.g. mission_log_events differs in 102 px at (99,586), debrief_stats in 104 px. Pre-change tours with little load reproduced the stage-0 hashes: Debug 52 of 52, Release 50 of 52 (ship_select and _help differ). The capture scripts now wait for other game processes and mark a run CONTENDED if one appears; contended runs are not counted.
+
+### Change
+
+As the stage-1 plan, smallest form: `gr_bitmap` calls `gr_d3d_bitmap_poly(x, y)` (GrD3D.h, GrD3DRender.cpp), which holds the same 256 tile loop; `d3d_tile_grid` / `d3d_tile_size` (GrD3DTexture.cpp, GrD3DInternal.h) replace `bm_get_section_size` and `bitmap::sections`; `TMAP_FLAG_BITMAP_SECTION` is renamed `TMAP_FLAG_BITMAP_2D`; `bitmap_section_info`, `bitmap::sections`, `bm_calc_sections`, `bm_get_section_size` and the `sections` parameter of `bm_get_info` are removed; `d3d_tcache_set` Asserts the tile grid fits 4x3. Deviations from the plan, all to keep the edit smaller: the grid limits keep the names `MAX_BMAP_SECTIONS_X/Y` (moved from PsTypes.h to GrD3DInternal.h, not renamed `D3D_MAX_TILES_*`); the current tile stays in `gr_screen.current_bitmap_sx/sy` and `gr_set_bitmap` keeps `sx, sy` (item 2's private tile and item 8 not done); Barracks.cpp only gets the flag rename (no argument drop, no Assert); `TCACHE_TYPE_BITMAP_SECTION` stays in GrInternal.h.
+
+### Results (A-E as amended by D-20261029-094806, within build)
+
+- Builds: Release and Debug 0 warnings (L1 build step).
+- Mission frames (24 = 18 + 6 lightning), after vs before, uncontended runs: Release 24/24 equal, Debug 24/24 equal (two Debug runs). One contended Release run drew 3 extra load-screen GR frames (mission frame 1 at F 15, not F 12), so its numbered shots are 3 frames late and 23 differ; it is not counted.
+- Logs: Debug before == after byte-identical (364398 lines, `h=` kept). Release before vs after (uncontended) differ only in the 3 load-screen loading-bar `h=` lines, the same as pre-change run to run.
+- cosmetic_rand: cr=60532 crd=198763 at the end of every run, before and after, both builds.
+- Logging on vs off: traces equal (one SHA-256 per config over two logged runs and one unlogged run), TraceDiff 0, REPLAY OK.
+- Replay: tools\replay_check.ps1 -Configs r,d: DONE pass=96 fail=0 (all FS2, FS1 and demo recordings, Release and Debug traces identical).
+- L1 (l1_gate.ps1 at bbf9aed, seed 1884623904): L1 green (menu tours FS2+FS1 4 of 4, feature autotests and mission set fs2 23/23, fs1 6/6, fs1demo PASS).
+- Menu tour, stable screens vs the stage-0 table: first uncontended run per config after the change: Release (tour_post_r_a5) 52 of 52 equal; Debug (tour_post_d_a4) 49 of 52 equal, and the other 3 (command_briefing_help, techroom_weapons, techroom_weapons_help: animated areas, 9662-34968 px) are byte-identical to images the pre-change Debug build produced (tour_pre_d3), so 52 of 52 are pre-change images. Contended runs are not counted (13 of them, 7 Release and 6 Debug, from 41 to 52 equal, all differences on the timed screens listed above).
+
+### Eye check (non-author worker, not done by the author)
+
+The screens no hash can cover, before and after, same config. Images are local only (never committed):
+
+| Screen (file in `shots\`) | Config | Before | After |
+|---|---|---|---|
+| campaign_techroom/credits.bmp | Release, Debug | `C:\Games\FS2BS_out\tour_pre_r3`, `tour_pre_d4` | `C:\Games\FS2BS_out\tour_post_r_a5`, `tour_post_d_a4` |
+| mission/pause.bmp | Release, Debug | same | same |
+| briefing/weapon_loadout.bmp, weapon_loadout_help.bmp | Release | `tour_pre_r3` | `tour_post_r_a5` |
+| briefing/ship_select.bmp, ship_select_help.bmp | Debug | `tour_pre_d4` | `tour_post_d_a4` |
+
+Each folder is `<folder>\shots\<screen>`. Look for: same layout, no seam or shift at x or y multiples of 256, no blur, same colours; animation phase may differ.
