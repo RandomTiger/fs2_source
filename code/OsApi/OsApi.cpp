@@ -221,6 +221,19 @@ uintptr_t os_get_window()
 	return (uintptr_t)hwndApp;
 }
 
+// Claude: the window handle DirectSound uses (SetCooperativeLevel): the host's own when it supplies one, else the game's window.
+// Unset (the default) is os_get_window(), unchanged.
+uintptr_t os_get_sound_window()
+{
+	if ( Host_hooks.sound_window ) {
+		uintptr_t h = Host_hooks.sound_window();
+		if ( h ) {
+			return h;
+		}
+	}
+	return os_get_window();
+}
+
 
 // process management -----------------------------------------------------------------
 
