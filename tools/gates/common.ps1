@@ -25,5 +25,5 @@ function Initialize-Fs2DemoScratch {
 # start, and a pilot is made by hand (tools\fs1demo_run.ps1). A missing folder is a stated FAIL.
 function Initialize-Fs1DemoScratch {
 	if (-not $env:FS1DEMO_PATH) { Require-Env PATH_FS1DEMO; $env:FS1DEMO_PATH = $env:PATH_FS1DEMO.TrimEnd('\') + '_scratch' }
-	if (-not (Test-Path $env:FS1DEMO_PATH)) { "FAIL no FS1 demo scratch folder $env:FS1DEMO_PATH (set FS1DEMO_PATH, or see the header of toolss1demo_run.ps1)"; exit 1 }
+	if (-not (Test-Path $env:FS1DEMO_PATH)) { "FAIL no FS1 demo scratch folder $env:FS1DEMO_PATH (set FS1DEMO_PATH, or see the header of tools\fs1demo_run.ps1)"; exit 1 }
 }
