@@ -1,0 +1,56 @@
+Tom's Steam check (SteamIntegration, D-20261029-091007 d, D-20261029-091008)
+=============================================================================
+
+A manual check, done by Tom with a Steam client. It is not gated proof: write the results down as "Tom's Steam check",
+never as an L1/L2, gate C or packaged-gate result. The scripted part (typed text reaching the pilot box, no Steam
+needed) is tools\godot_text_check.ps1.
+
+The game: the packaged build (build\pkg\FS2Godot.exe + FS2Godot.pck + fs2godot_rel.dll + FS2game64r.dll in the game's
+data folder, godot\README.md "Package").
+
+Renderer: chosen per run with Godot's own command-line option, never a project setting:
+    FS2Godot.exe --rendering-driver vulkan
+    FS2Godot.exe --rendering-driver d3d12
+Windowed or fullscreen: Godot's own --windowed / --fullscreen (or Alt+Enter where the OS gives it). In Steam these go
+in the game's Properties > Launch Options; for a non-Steam shortcut, in the shortcut's launch options.
+
+Machines and launch routes
+--------------------------
+  M1  PC (Windows), added to Steam as a non-Steam shortcut
+  M2  PC (Windows), launched from Steam as a Steam game, if that route exists on the machine and differs from M1
+  M3  Steam Deck, non-Steam shortcut (Proton), Game Mode
+  M4  Steam Deck, launched from Steam, if that route exists and differs from M3
+
+For each route, run all of A and B below under BOTH renderers (vulkan, d3d12), windowed and fullscreen:
+8 cases per route (A, B x vulkan, d3d12 x windowed, fullscreen).
+
+A  Typing a pilot name with Steam's keyboard
+--------------------------------------------
+Start with no pilots (move data\players aside first, put it back after), so the game opens on the callsign box.
+Open Steam's keyboard (PC: Steam+X with a pad, or the Big Picture keyboard; Deck: Steam+X).
+  A1  Type a name with a space and capitals, e.g. "Steam Pilot". It appears as typed, each character once.
+  A2  Backspace on Steam's keyboard removes one character.
+  A3  Enter on Steam's keyboard creates the pilot (data\players\single\<name>.plr exists; the game takes a very first pilot
+      straight on to the main hall, as it does from the PC keyboard).
+  A4  Press C (create), type more than 27 characters: the box stops at 27 (the game's limit).
+  A5  Escape (Steam's keyboard, if it has one, else the real key) while typing cancels the new pilot; Escape again on the
+      pilot screen quits the game, as on the PC keyboard.
+  A6  The PC keyboard (PC routes) still types names with nothing doubled or lost.
+
+B  The Shift+Tab overlay (Deck: the Steam button menu / Steam+X overlay)
+------------------------------------------------------------------------
+Open and close the overlay on each of:
+  B1  the pilot screen
+  B2  the main hall
+  B3  a running mission (in flight)
+For each one:
+  - the overlay opens, and it closes again
+  - no freeze, no black window, no corrupted picture, before, during or after
+  - frame pacing recovers after it closes (no lasting stutter; the mission clock carries on normally)
+  - keyboard, mouse and pad all work again in the game after it closes (focus comes back)
+
+Recording the results
+---------------------
+One line per case: date, route (M1-M4), renderer, windowed/fullscreen, A or B item, pass/fail, and a note for any fault.
+Head the record "Tom's Steam check". A fault on one renderer only goes back as a brief to the steward (D-20261029-091008);
+it is not fixed by pinning the renderer in the project.

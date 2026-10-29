@@ -25,9 +25,16 @@ void reset();
 
 // Queue one of Godot's input events (keys and mouse buttons and motion are used; the rest is ignored). The viewport size is
 // the size the event's position is relative to.
+// A key event with a physical key, or a keycode alone, goes as that key. A text event (a character and no physical key: Steam's
+// keyboard, an IME) goes as the game key that types the character on the game's US table, with shift as the character needs,
+// one character per game frame so the game's key buffer cannot overflow; a character no game key types is dropped.
 void push_input(const godot::Ref<godot::InputEvent> &event, float viewport_w, float viewport_h);
 void push_focus(bool got);
 void push_close();
+// Call once before each game frame: paces typed text.
+void frame_tick();
+// The game key that types character c on the game's US table, and whether it needs shift; 0 for none.
+unsigned int text_key(unsigned int c, bool *shift);
 
 // Measurement only (R1-feel): how many events the game has taken from the queue, and when it took the last (ticks_usec).
 unsigned long long consumed_count(void);

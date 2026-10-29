@@ -122,6 +122,7 @@ bool Fs2Game::step()
 			static_cast<Fs2Screen *>(screen)->set_frames_left(n - i);
 		}
 		int r;
+		fs2host::frame_tick();
 		if (fs2perf::g_on) {
 			fs2perf::g_game_frame.store((uint32_t)frame_count, std::memory_order_relaxed);
 			const fs2perf::Totals before = fs2perf::g_tot;

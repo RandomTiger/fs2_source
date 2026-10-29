@@ -105,13 +105,77 @@ unsigned int key_code(int k, int location)
 	return 0;
 }
 
+// Typed text (a character with no key of its own: Steam's keyboard, an IME, a pasted string) to the game key that types it on
+// the game's US table (Key.cpp ascii_table / shifted_ascii_table), and whether shift is needed. 0 for a character the game's
+// keys cannot type; it is dropped.
+static const char Shift_digit_chars[] = ")!@#$%^&*(";	// shifted 0..9
+struct CharKey { char c; unsigned char code; bool shift; };
+static const CharKey Symbol_keys[] = {
+	{ ' ', K_SPACE, false }, { '-', K_MINUS, false }, { '=', K_EQUAL, false }, { '[', K_LBRACKET, false }, { ']', K_RBRACKET, false },
+	{ '\\', K_BACKSLASH, false }, { ';', K_SEMICOL, false }, { '\'', K_APOSTROPHE, false }, { '`', K_GRAVE, false },
+	{ ',', K_COMMA, false }, { '.', K_PERIOD, false }, { '/', K_SLASH, false },
+	{ '_', K_MINUS, true }, { '+', K_EQUAL, true }, { '{', K_LBRACKET, true }, { '}', K_RBRACKET, true }, { '|', K_BACKSLASH, true },
+	{ ':', K_SEMICOL, true }, { '"', K_APOSTROPHE, true }, { '~', K_GRAVE, true }, { '<', K_COMMA, true }, { '>', K_PERIOD, true },
+	{ '?', K_SLASH, true },
+};
+
+unsigned int text_key(unsigned int c, bool *shift)
+{
+	*shift = false;
+	if (c >= 'a' && c <= 'z') {
+		return Letter_codes[c - 'a'];
+	}
+	if (c >= 'A' && c <= 'Z') {
+		*shift = true;
+		return Letter_codes[c - 'A'];
+	}
+	if (c >= '0' && c <= '9') {
+		return Digit_codes[c - '0'];
+	}
+	for (int i = 0; i < 10; i++) {
+		if (c == (unsigned char)Shift_digit_chars[i]) {
+			*shift = true;
+			return Digit_codes[i];
+		}
+	}
+	for (size_t i = 0; i < sizeof(Symbol_keys) / sizeof(Symbol_keys[0]); i++) {
+		if (c == (unsigned char)Symbol_keys[i].c) {
+			*shift = Symbol_keys[i].shift;
+			return Symbol_keys[i].code;
+		}
+	}
+	switch (c) {
+	case 8:		return K_BACKSP;
+	case 9:		return K_TAB;
+	case 10:
+	case 13:	return K_ENTER;
+	case 27:	return K_ESC;
+	}
+	return 0;
+}
+
+// a key that types a character, whose press may come as a key event and a separate text event
+static bool types_text(unsigned int code)
+{
+	if (code == K_ESC || code == K_BACKSP || code == K_TAB || code == K_ENTER) {
+		return true;
+	}
+	bool shift;
+	for (unsigned int c = 32; c < 127; c++) {
+		if (text_key(c, &shift) == code) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // ---- the queue ----
-enum EventType { EV_KEY, EV_MOUSE_BUTTON, EV_MOUSE_MOVE, EV_FOCUS, EV_CLOSE };
+enum EventType { EV_KEY, EV_MOUSE_BUTTON, EV_MOUSE_MOVE, EV_FOCUS, EV_CLOSE, EV_TEXT };
 
 struct Event {
 	EventType	type;
 	unsigned int	a;		// key code | FS2_MOUSE_* bit
-	int		b;		// state | set | got
+	int		b;		// state | set | got | EV_TEXT: shift needed
 	float		nx, ny;		// EV_MOUSE_MOVE: the position as a fraction of the window
 	uint64_t	at_ms;		// when it was queued, for the key latency
 };
@@ -123,6 +187,16 @@ static std::deque<Event> Queue;
 static bool Foreground = true;
 static int Mouse_x = 0, Mouse_y = 0;	// the cursor in the game's screen, as of the events the game has taken
 static float View_w = 1.0f, View_h = 1.0f;	// the Godot viewport the last mouse event was relative to
+
+// Typed text. The game buffers 16 key presses and a text screen takes one a frame, so a burst of text (a whole name from
+// Steam's keyboard in one Godot frame) would overflow it: the host hands the game one character per press it buffers, then
+// waits that many game frames (or, if the game is not stepping frames, 40 ms each) before the next.
+static unsigned int Companion_key = 0;	// a character key went down with no text: drop the one text event that follows it
+static bool Game_shift = false;		// shift as the game was last told
+static uint64_t Text_frames = 0;	// game frames since the last character
+static uint64_t Text_at_ms = 0;		// when the last character went
+static int Text_cost = 0;		// presses the last character put in the game's buffer
+static bool Text_down[256];		// keys a text event's keycode alone pressed, so only their releases go
 
 static bool is_headless_display()
 {
@@ -140,6 +214,12 @@ void reset()
 {
 	Queue.clear();
 	Mouse_x = Mouse_y = 0;
+	Companion_key = 0;
+	Game_shift = false;
+	Text_frames = 0;
+	Text_at_ms = 0;
+	Text_cost = 0;
+	memset(Text_down, 0, sizeof(Text_down));
 	// a headless Godot has no window to be in front, and the game must see itself in front as it did with the headless hooks
 	Foreground = true;
 	if (!is_headless_display()) {
@@ -167,17 +247,53 @@ void push_input(const Ref<InputEvent> &ev, float vw, float vh)
 
 	InputEventKey *key = Object::cast_to<InputEventKey>(ev.ptr());
 	if (key != NULL) {
-		int k = (int)key->get_physical_keycode();
-		if (k == 0) {
-			k = (int)key->get_keycode();
+		const int phys = (int)key->get_physical_keycode();
+		const unsigned int uc = (unsigned int)key->get_unicode();
+		const bool pressed = key->is_pressed();
+		if (phys == 0 && uc != 0) {
+			// text with no key of its own (Steam's keyboard, an IME): the game key that types it, as one press
+			if (!pressed) {
+				return;
+			}
+			if (Companion_key != 0) {	// the text half of a key press already sent as a key
+				Companion_key = 0;
+				return;
+			}
+			bool shift;
+			unsigned int tc = text_key(uc, &shift);
+			if (tc == 0) {
+				return;
+			}
+			e.type = EV_TEXT;
+			e.a = tc;
+			e.b = shift ? 1 : 0;
+			queue(e);
+			return;
 		}
+		const int k = (phys != 0) ? phys : (int)key->get_keycode();
 		unsigned int code = key_code(k, (int)key->get_location());
 		if (code == 0) {
 			return;
 		}
+		if (phys == 0) {	// a keycode alone: its release goes only if its press did
+			if (pressed) {
+				Text_down[code & 0xFF] = true;
+			} else if (!Text_down[code & 0xFF]) {
+				return;
+			} else {
+				Text_down[code & 0xFF] = false;
+			}
+		}
+		// Godot sends a key and its character as one event; if the key comes without its character, the character may follow
+		// as a text event of its own, which must not type it again
+		if (pressed && uc == 0 && types_text(code)) {
+			Companion_key = code;
+		} else if (!pressed && code == Companion_key) {
+			Companion_key = 0;
+		}
 		e.type = EV_KEY;
 		e.a = code;
-		e.b = key->is_pressed() ? 1 : 0;	// an auto-repeat is a key down again, as Windows sends it
+		e.b = pressed ? 1 : 0;	// an auto-repeat is a key down again, as Windows sends it
 		queue(e);
 		return;
 	}
@@ -207,6 +323,13 @@ void push_input(const Ref<InputEvent> &ev, float vw, float vh)
 		e.nx = mm->get_position().x / View_w;
 		e.ny = mm->get_position().y / View_h;
 		queue(e);
+	}
+}
+
+void frame_tick()
+{
+	if (Text_frames < 1000000) {
+		Text_frames++;
 	}
 }
 
@@ -263,13 +386,36 @@ static void h_poll_events(void)
 	game_screen(&gw, &gh);
 	while (!Queue.empty()) {
 		Event e = Queue.front();
+		if (e.type == EV_TEXT && Text_cost > 0 && Text_frames < (uint64_t)Text_cost && now < Text_at_ms + 40u * (uint64_t)Text_cost) {
+			break;	// the game has not yet taken the last character; the rest waits behind it, in order
+		}
 		Queue.pop_front();
 		Consumed_count++;
 		Consumed_usec = (long long)Time::get_singleton()->get_ticks_usec();
+		unsigned int latency = (now > e.at_ms) ? (unsigned int)(now - e.at_ms) : 0;
 		switch (e.type) {
-		case EV_KEY: {
-			unsigned int latency = (now > e.at_ms) ? (unsigned int)(now - e.at_ms) : 0;
+		case EV_KEY:
+			if (e.a == K_LSHIFT) {
+				Game_shift = (e.b != 0);
+			}
 			Api->input_key(e.a, e.b, latency);
+			break;
+		case EV_TEXT: {
+			// shift as the character needs it for its one press, then back as it was (a held shift key stays held)
+			const bool want = (e.b != 0);
+			const bool flip = (want != Game_shift);
+			if (flip) {
+				Api->input_key(K_LSHIFT, want ? 1 : 0, latency);
+			}
+			Api->input_key(e.a, 1, latency);
+			Api->input_key(e.a, 0, latency);
+			if (flip) {
+				Api->input_key(K_LSHIFT, Game_shift ? 1 : 0, latency);
+			}
+			// the presses the game buffered: the key, and a shift going down (before it, or after it when a held shift is restored)
+			Text_cost = flip ? 2 : 1;
+			Text_frames = 0;
+			Text_at_ms = now;
 			break;
 		}
 		case EV_MOUSE_BUTTON:
