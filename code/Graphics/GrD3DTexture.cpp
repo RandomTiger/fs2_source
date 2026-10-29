@@ -1121,7 +1121,7 @@ void d3d_tcache_init(int use_sections)
 //			goto D3DError;
 		}
 
-		D3D_texture_ram = dwFree;
+		D3D_texture_ram = (dwFree > 0x20000000) ? 0x20000000 : (int)dwFree;	// Claude: was = dwFree; 2 GB or more free wrapped negative and turned preloading off. Capped at 512 MB so D3D_texture_ram*3/4 cannot overflow (review 63)
 
 		uint tmp_pl = os_config_read_uint( NULL, NOX("D3DPreloadTextures"), 255 );
 
