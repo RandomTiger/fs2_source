@@ -341,41 +341,7 @@ int d3d_older_test(tcache_slot_d3d *new_slot, tcache_slot_d3d *test, tcache_slot
 	return 0;
 }
 
-int d3d_free_some_texture_ram(tcache_slot_d3d *t, int size)
-{	
-	tcache_slot_d3d *oldest = NULL;
-	
-	// Go through all the textures... find the oldest one 
-	// that was not used this frame yet.
-	int i;
-
-	int goal_size = D3D_textures_in - size*2;
-	if ( goal_size < 0 )	{
-		goal_size = 0;
-	} else if ( goal_size > D3D_texture_ram*3/4 )	{
-		goal_size = D3D_texture_ram*3/4;
-	}
-
-	while( D3D_textures_in > goal_size )	{
-		oldest = NULL;
-		for( i=0; i<MAX_BITMAPS; i++ )	{			
-			// maybe pick this one
-			if(d3d_older_test(t, &Textures[i], oldest)){
-				oldest = &Textures[i];
-			}							
-		}
-
-		if ( oldest == NULL )	{
-			mprintf(( "Couldn't free enough VRAM this frame... you might see some ugliness!\n" ));
-			return 0;
-		}
-
-		d3d_free_texture(oldest);
-	}
-
-	mprintf(( "Freed 1/4 of the VRAM\n" ));
-	return 1;
-}
+// Claude: d3d_free_some_texture_ram (evict the oldest textures on out-of-VRAM) removed
 
 #ifndef NDEBUG
 int Show_uploads = 0;
@@ -736,8 +702,6 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 		goto FreeSurfacesAndExit;
 	}
 
-RetryLoad:
-
 	if ( !reload )	{	
 		// Create a surface of the given format using the dimensions of the bitmap
 		memset(&ddsd, 0, sizeof(DDSURFACEDESC));
@@ -765,9 +729,7 @@ RetryLoad:
 
 					goto FreeSurfacesAndExit;
 				}
-				if ( d3d_free_some_texture_ram(t,dwHeight*dwWidth*((bpp == 32) ? 4 : 2)))	{	// Claude: 32 bit textures
-					goto RetryLoad;
-				}
+				// Claude: no eviction; d3d_free_some_texture_ram removed, the VRAM budget means nothing on modern cards
 			} else {
 				mprintf(("CreateSurface for VRAM texture failed, w=%d, h=%d\n%s\n", tex_w, tex_h, d3d_error_string(ddrval) ));
 				mprintf(( "Texture RAM = %d KB\n", D3D_textures_in / 1024 ));
