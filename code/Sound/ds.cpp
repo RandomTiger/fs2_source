@@ -1047,7 +1047,7 @@ int ds_init(int use_eax)
 
 	nprintf(( "Sound", "SOUND ==> Initializing DirectSound...\n" ));
 
-	hwnd = (HWND)os_get_window();
+	hwnd = (HWND)os_get_sound_window();	// Claude: the host's window when it supplies one (HostHooks.h sound_window)
 	if ( hwnd == NULL )	{
 		nprintf(( "Sound", "SOUND ==> No window handle, so no sound...\n" ));
 		return -1;
