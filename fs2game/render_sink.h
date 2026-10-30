@@ -70,7 +70,9 @@ typedef struct fs2_sink_draw {
 	/* v2 */
 	int32_t zbias;		/* gr_zbias of the call: larger is drawn nearer at equal z (decals) */
 	int32_t fog_mode;	/* FS2_SINK_FOG_*, set by the host; a sink that does not implement fog ignores it */
-	uint8_t fog_rgb[4];	/* fog colour r g b, [3] unused */
+	uint8_t fog_rgb[4];	/* fog colour r g b; [3] (D-20261030-052453): 1 = a tmapper poly that set this colour itself from the pixels behind
+				   its vertices (TMAP_FLAG_PIXEL_FOG), 0 = a tmapper poly that did not (a fog-on poly keeps the last set colour, as D3D),
+				   255 = any other draw call; a sink that does not implement fog ignores it */
 	float fog_near, fog_far;	/* fog distances in world units; vertex z is depth / 30000 (capped 0.98), so depth = z * 30000 */
 } fs2_sink_draw;
 
