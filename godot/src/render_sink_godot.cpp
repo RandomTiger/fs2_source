@@ -188,7 +188,7 @@ void GodotSink::release_items(std::vector<RID> &items, RID &root)
 		rs->canvas_item_set_custom_rect(r, false);
 		rs->canvas_item_set_material(r, RID());
 		rs->canvas_item_set_parent(r, RID());
-		if constexpr (kNebFog == kNebFogGpu) { rs->canvas_item_set_visibility_layer(r, 1); }
+		if (g_nebfog == kNebFogGpu) { rs->canvas_item_set_visibility_layer(r, 1); }
 		spare_items.push_back(r);
 	}
 	items.clear();
@@ -276,7 +276,7 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 		s->height = h;
 		s->vp->set_size(Vector2i(w, h));
 	}
-	if constexpr (kNebFog == kNebFogGpu) {
+	if (g_nebfog == kNebFogGpu) {
 		s->batcher.set_fog_gpu(true, w, h);
 		s->batcher.fog_table_clear(s->committed);
 	}
@@ -314,7 +314,7 @@ void GodotSink::s_frame_end(void *u)
 		s->end_run();
 	}
 	s->batcher.flush();
-	if constexpr (kNebFog == kNebFogGpu) {
+	if (g_nebfog == kNebFogGpu) {
 		s->gpu_frame_end();
 	}
 	RenderingServer *rs = RenderingServer::get_singleton();
@@ -629,14 +629,14 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 		tw = it->second.w;
 		th = it->second.h;
 	}
-	if constexpr (kNebFog != kNebFogOff) {
+	if (g_nebfog != kNebFogOff) {
 		// the fog read ends the sink's run (s_read_region) but the host believes it is still open and never begins another: a depth draw outside a run opens one
 		if (!s->in_run && (d->flags & (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE)) != 0) {
 			s_depth_begin(s);
 		}
 	}
 	const uint64_t t0 = godot::Time::get_singleton()->get_ticks_usec();
-	if constexpr (kNebFog == kNebFogOff) {
+	if (g_nebfog == kNebFogOff) {
 		// kNebFog off: the draw is what it was before R2, fog fields ignored (the host still sets them for fogged polys)
 		fs2_sink_draw nofog = *d;
 		nofog.fog_mode = FS2_SINK_FOG_NONE;
@@ -755,7 +755,7 @@ void GodotSink::fog_slot_init(FogSlot &sl)
 	}
 	RenderingServer *rs = RenderingServer::get_singleton();
 	sl.vp = rs->viewport_create();
-	if constexpr (kNebFog == kNebFogGpu) {
+	if (g_nebfog == kNebFogGpu) {
 		// the slot renders the frame's own canvas, only the items with visibility bit 2 (the pre-render, marked by fog_capture_gpu)
 		rs->viewport_attach_canvas(sl.vp, canvas);
 		rs->viewport_set_canvas_cull_mask(sl.vp, 2);
@@ -894,7 +894,7 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 	s->batcher.flush();
 	if (x == 0 && y == 0 && w > 0 && h > 0 && (long long)w * h <= kNebFogReadMaxPixels) {
 		// the neb2 fog-colour read: see kNebFog
-		if constexpr (kNebFog == kNebFogOff) {
+		if (g_nebfog == kNebFogOff) {
 			return 0;
 		} else {
 			if (!s->in_frame) {
@@ -903,10 +903,10 @@ int GodotSink::s_read_region(void *u, int x, int y, int w, int h, uint8_t *out)
 			if (s->in_run) {
 				s->end_run();
 			}
-			if constexpr (kNebFog == kNebFogSame) {
+			if (g_nebfog == kNebFogSame) {
 				fs2perf::count(fs2perf::C_FOG_SAME);
 				return s->probe_read(w, h, out);
-			} else if constexpr (kNebFog == kNebFogLag) {
+			} else if (g_nebfog == kNebFogLag) {
 				return s->fog_read(w, h, out);
 			} else {
 				// kNebFogGpu: the pre-render stays on the GPU; the host gets "no data" and its buffer stays as the dummy leaves it
@@ -1146,7 +1146,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const bool lin = (texflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (texflags & FS2_SINK_TEXF_REPEAT) != 0;
 	uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
-	const int parity = (kNebFog == kNebFogGpu && fog) ? (committed & 1) : 0;	// fog gpu: the material reads the fog slot and table of its frame parity
+	const int parity = (g_nebfog == kNebFogGpu && fog) ? (committed & 1) : 0;	// fog gpu: the material reads the fog slot and table of its frame parity
 	skey |= parity ? 256u : 0u;
 	const std::pair<uint32_t, int64_t> mkey(skey, (int64_t)tex.get_id());
 	auto mit = spatial_materials.find(mkey);
@@ -1157,7 +1157,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 	RID m = rs->material_create();
 	rs->material_set_shader(m, sh);
 	rs->material_set_param(m, "tex", tex);
-	if constexpr (kNebFog == kNebFogGpu) {
+	if (g_nebfog == kNebFogGpu) {
 		if (fog) {
 			rs->material_set_param(m, "bg", gpu_bg_texture(parity));
 			rs->material_set_param(m, "bgp", gpu_bg_texture(parity ^ 1));	// the frame before's pre-render (CUSTOM1.w = 1)
@@ -1199,7 +1199,7 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 		code += lin ? "filter_linear, " : "filter_nearest, ";
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
-		if (fog && kNebFog == kNebFogGpu) {
+		if (fog && g_nebfog == kNebFogGpu) {
 			// fog gpu: CUSTOM1 = (table offset, nv, factor, 1 = cells of a poly of the frame before: look up on `bgp`, D-20261030-052453).
 			// The vertex shader does neb2_get_pixel (Neb.cpp 1229-1343) for each vertex of the
 			// poly on the 32x32 pre-render `bg` (the start cells come from `ptab`) and the integer average over the poly (GrD3DRender.cpp 962-980)
@@ -1239,7 +1239,7 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 			code += "\tc.a = 0.0;\n";
 		}
 		if (fog) {
-			if constexpr (kNebFog == kNebFogGpu) {
+			if (g_nebfog == kNebFogGpu) {
 				code += "\tc.rgb = mix(fgc, c.rgb, fgf);\n";
 			} else {
 				code += "\tc.rgb = mix(fg.rgb, c.rgb, fg.a);\n";	// D3D: f * colour + (1 - f) * fog colour, rgb only

@@ -1,9 +1,11 @@
 #include "fs2_node.h"
 #include "fs2_screen.h"
+#include "render_sink_godot.h"
 
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -99,6 +101,19 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		} else {
 			api.set_window_handle(0);
 		}
+	}
+	// D-20261030-063743: nebula fog state. gpu for live shown play only; every scripted, trace-compared or gate run (-replay, -autotest, -record,
+	// -at_*) and every headless run keeps off, so no baseline moves. FS2_NEBFOG=off|same|lag|gpu overrides (gate C gpu runs, measurements).
+	{
+		const String cmd_padded = String(" ") + cmdline + " ";
+		const bool scripted = cmd_padded.contains(" -replay ") || cmd_padded.contains(" -autotest ") || cmd_padded.contains(" -record ") ||
+			cmd_padded.contains(" -at_") || cmd_padded.contains(" -headless ");
+		DisplayServer *nds = DisplayServer::get_singleton();
+		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
+		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
+		const String ov = OS::get_singleton()->get_environment("FS2_NEBFOG");
+		if (ov == "off") { fs2sink::g_nebfog = fs2sink::kNebFogOff; } else if (ov == "same") { fs2sink::g_nebfog = fs2sink::kNebFogSame; } else if (ov == "lag") { fs2sink::g_nebfog = fs2sink::kNebFogLag; } else if (ov == "gpu") { fs2sink::g_nebfog = fs2sink::kNebFogGpu; }
+		UtilityFunctions::print("Fs2Game: kNebFog ", fs2sink::g_nebfog == fs2sink::kNebFogGpu ? "gpu" : fs2sink::g_nebfog == fs2sink::kNebFogSame ? "same" : fs2sink::g_nebfog == fs2sink::kNebFogLag ? "lag" : "off");
 	}
 	pace_acc_usec = 0;
 	pace_last_usec = Time::get_singleton()->get_ticks_usec();

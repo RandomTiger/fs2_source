@@ -47,7 +47,9 @@ constexpr bool kInstancePool = true;
 //                frame, and the fog shader looks the colour up in that texture: neb2_get_pixel's 3x3 average and the per polygon average
 //                are done in the vertex shader from a per frame table of the polys' cells. No readback; read_region answers "no data".
 constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2, kNebFogGpu = 3;
-constexpr int kNebFog = kNebFogOff;	// default off (D-20261029-052041); same and lag are switch states for measurement, never a default without Tom's ruling
+// D-20261030-063743: the state is chosen at run time, Godot-side (Fs2Game::start, fs2_node.cpp): kNebFogGpu for live shown play (a window, no
+// -replay/-autotest/-record/-at_ run), kNebFogOff for every scripted, trace-compared or gate run. FS2_NEBFOG=off|same|lag|gpu overrides it.
+inline int g_nebfog = kNebFogOff;
 constexpr int kNebFogLagFrames = 1;
 constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
 
