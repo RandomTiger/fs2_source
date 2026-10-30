@@ -94,6 +94,7 @@ struct Host {
 	int next_capture_id = 1;
 	std::unordered_map<TexKey, HostTex, TexKeyHash> tex;	// see TexKey
 	std::vector<int> release_pending;	// sink textures of released bitmaps, freed at the start of the next accepted frame (bm_release hook)
+	std::vector<int> capture_pending;	// save_screen ids asked for in a skipped frame: captured at the start of the next accepted frame
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
@@ -136,6 +137,10 @@ void ensure_frame()
 		}
 		for (int id : H.release_pending) { H.sink->texture_free(H.sink->user, id); }
 		H.release_pending.clear();
+		// A screen saved in a skipped frame is captured now. The frames between drew nothing, so the frame on show is the one
+		// it was when the game asked. A failed capture leaves no texture; the id then restores nothing, as one that failed at once.
+		for (int id : H.capture_pending) { H.sink->capture_to_texture(H.sink->user, id); }
+		H.capture_pending.clear();
 		send_clip();
 	}
 }
@@ -831,8 +836,15 @@ void h_zbuffer_clear(int mode)
 int h_save_screen()
 {
 	ensure_frame();
-	if (!drawing()) { return 0; }
+	if (H.sink == nullptr) { return 0; }
 	const int id = 1000000 + H.next_capture_id++;
+	if (!drawing()) {
+		// A skipped frame (several game frames per Godot frame, only the last drawn) still saves the screen: a popup opened in
+		// one would otherwise restore nothing, and show the window's clear colour behind it. The sink takes calls in accepted
+		// frames only, so the capture waits for the next one (ensure_frame).
+		H.capture_pending.push_back(id);
+		return id;
+	}
 	return H.sink->capture_to_texture(H.sink->user, id) ? id : 0;
 }
 void h_restore_screen(int id)
@@ -842,7 +854,15 @@ void h_restore_screen(int id)
 	const int c[4] = { 255, 255, 255, 255 };
 	quad(0, 0, (float)gr_screen.max_w, (float)gr_screen.max_h, 0, 0, 1, 1, id, FS2_SINK_BLEND_OPAQUE, c, c, c, c);
 }
-void h_free_screen(int id) { if (drawing() && id > 0) { H.sink->texture_free(H.sink->user, id); } }
+void h_free_screen(int id)
+{
+	if (id <= 0) { return; }
+	for (size_t i = 0; i < H.capture_pending.size(); i++) {
+		if (H.capture_pending[i] == id) { H.capture_pending.erase(H.capture_pending.begin() + (long)i); return; }
+	}
+	if (drawing()) { H.sink->texture_free(H.sink->user, id); }
+	else if (H.sink != nullptr) { H.release_pending.push_back(id); }	// freed at the start of the next accepted frame
+}
 
 void h_dump_frame_start(int, int) { }
 void h_dump_frame() { }
@@ -1043,6 +1063,7 @@ void host_cleanup()
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
 	H.release_pending.clear();
+	H.capture_pending.clear();
 	Bm_release_hook = nullptr;
 	H.frame = FRAME_NONE;
 	Gr_bitmap_poly = Saved_bitmap_poly;
