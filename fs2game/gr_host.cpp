@@ -11,7 +11,7 @@
 //  - texture_bpp defaults to 32 (ARGB8888); 16 stays selectable through gr_host_set_texture_bpp()
 //
 // Draft scope: state, clip, colour, rect/shade/line/pixel/gradient/circle, tmapper, bitmap/aabitmap, string, frame
-// calls, texture cache. Not yet: fog, shaders on 3D polys, cross_fade, glow redraw pass of tmapper, pixel fog.
+// calls, texture cache. Not yet: shaders on 3D polys, cross_fade. Ship glow (the D3D glow redraw pass): see "ship glow" below.
 // Compile check: see README, "R1-4 draft". 2D bitmaps are never split into sections here: gr_bitmap is one whole quad
 // (h_bitmap), and a TMAP_FLAG_BITMAP_2D poly samples the whole bitmap, unfiltered (D-20261029-222605).
 //
@@ -45,18 +45,26 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include "Nebula.h"
 #include "PalMan.h"
 #include "Neb.h"
+#include "pcxutils.h"
+#include "Model.h"
+#include "Ship.h"
+#include "MissionParse.h"
 #include <cstring>
 
 #include "render_sink.h"
 #include "tex_convert.h"
 
 #include <vector>
+#include <algorithm>
 #include <unordered_map>
 #include <cmath>
 
 // GrD3D.cpp's screen-depth flag: 1 = the screen is 32 bit. Only D3D init sets it; bm_get_components reads it to pick the
 // 32 bit read of screen-format pixels (D-20261029-095513). host_init sets it for the host's 32 bit screen.
 extern int D3D_32bit;
+
+// ModelRead.cpp: the loaded models, for the ship glow's Shivan test (declared there, not in a header; D3D's GrD3DGlow.cpp does the same)
+extern polymodel *Polygon_models[MAX_POLYGON_MODELS];
 
 namespace {
 
@@ -65,9 +73,15 @@ namespace {
 enum FrameState { FRAME_NONE = 0, FRAME_OPEN = 1, FRAME_SKIPPED = 2 };
 
 struct HostTex {
-	int sink_id;		// 0 = not uploaded
+	int sink_id;		// 0 = not uploaded (a TK_GLOW entry: no glow for this bitmap)
 	int type;			// TCACHE_TYPE_* it was uploaded as
 	int w, h;
+};
+
+// one queued ship glow poly (see "ship glow")
+struct GlowPoly {
+	fs2_sink_draw d;
+	int first, nv;		// into Host::glow_v
 };
 
 // texture cache key: (bitmap handle, bmpman signature, kind), see tex_get()
@@ -110,14 +124,67 @@ struct Host {
 	bool run_open = false;			// a sink depth run is open (drawn frames only)
 	int zbias = 0;
 	int cull = 0;
+	// ship glow queue (see "ship glow"): host only
+	std::vector<GlowPoly> glow_q;
+	std::vector<fs2_sink_vertex> glow_v;
+	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
+
+// ---- ship glow: the queue ---------------------------------------------------------------------------------------
+// Glide lit chosen texture colours on ship hulls at full brightness whatever the lighting; Enhanced D3D redraws each such poly
+// unlit with a glow texture (the texture's colours, alpha only on the glowing texels), alpha blended over the lit draw, z read only
+// (GrD3DGlow.cpp, docs/SHIVAN_GLOW.md). The host does the same: tmapper_internal queues the second draw here, and the queue is
+// drawn, in batches of one texture, before anything that is not a ship poly reaches the sink (every flush point below), as D3D's
+// d3d_glow_draw_queued. The sink gets them as FS2_SINK_DRAWF_OVERLAY draws.
+void glow_flush()
+{
+	if (H.glow_q.empty()) { return; }
+	std::vector<GlowPoly> q;
+	std::vector<fs2_sink_vertex> verts;
+	q.swap(H.glow_q);
+	verts.swap(H.glow_v);
+	if (!drawing()) { return; }
+
+	// one texture after another, so a model's polys join into long runs; the glow pass only reads depth, so their order does not
+	// change the picture (stable sort: same texture keeps call order)
+	std::vector<int> order(q.size());
+	for (size_t i = 0; i < q.size(); i++) { order[i] = (int)i; }
+	std::stable_sort(order.begin(), order.end(), [&q](int a, int b) {
+		if (q[(size_t)a].d.texture != q[(size_t)b].d.texture) { return q[(size_t)a].d.texture < q[(size_t)b].d.texture; }
+		return q[(size_t)a].d.zbias < q[(size_t)b].d.zbias;
+	});
+
+	std::vector<fs2_sink_vertex> bv;
+	std::vector<uint16_t> bi;
+	const GlowPoly *head = nullptr;
+	auto same = [](const fs2_sink_draw &a, const fs2_sink_draw &b) {
+		return a.texture == b.texture && a.blend == b.blend && a.flags == b.flags && a.zbias == b.zbias && a.fog_mode == b.fog_mode
+			&& std::memcmp(a.fog_rgb, b.fog_rgb, 4) == 0 && a.fog_near == b.fog_near && a.fog_far == b.fog_far;
+	};
+	auto emit = [&]() {
+		if (head != nullptr && !bi.empty()) { H.sink->draw_tris(H.sink->user, &head->d, bv.data(), (int)bv.size(), bi.data(), (int)bi.size()); }
+		bv.clear(); bi.clear(); head = nullptr;
+	};
+	for (int oi : order) {
+		const GlowPoly &p = q[(size_t)oi];
+		if (head != nullptr && (!same(head->d, p.d) || bv.size() + (size_t)p.nv > 3000u)) { emit(); }
+		if (head == nullptr) { head = &p; }
+		const uint16_t base = (uint16_t)bv.size();
+		for (int k = 0; k < p.nv; k++) { bv.push_back(verts[(size_t)(p.first + k)]); }
+		for (int k = 0; k < p.nv - 2; k++) {
+			bi.push_back(base); bi.push_back((uint16_t)(base + k + 1)); bi.push_back((uint16_t)(base + k + 2));
+		}
+	}
+	emit();
+}
 
 // ---- frame ----------------------------------------------------------------------------------------------------
 
 void send_clip()
 {
+	glow_flush();		// queued glow polys belong to the clip they were drawn under
 	H.sink->set_clip(H.sink->user, gr_screen.offset_x + gr_screen.clip_left, gr_screen.offset_y + gr_screen.clip_top,
 		gr_screen.clip_width, gr_screen.clip_height);
 }
@@ -151,6 +218,7 @@ inline uint8_t clamp8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v))
 
 void draw(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
 {
+	if (!H.glow_hold) { glow_flush(); }		// anything but a ship poly's lit draw: the queued glow lands first
 	H.sink->draw_tris(H.sink->user, &d, v, nv, idx, ni);
 }
 
@@ -196,7 +264,8 @@ void solid_rect(float x0, float y0, float x1, float y1, int r, int g, int b, int
 // ---- texture cache --------------------------------------------------------------------------------------------
 
 // TK_2D: a TMAP_FLAG_BITMAP_2D poly's texture, the whole bitmap unfiltered
-enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_2D = 4 };
+// TK_GLOW: a ship texture's glow texture (glow_tex_get); sink_id 0 = decided, this texture does not glow
+enum TexKind { TK_NORMAL = 0, TK_AA = 1, TK_XPARENT = 2, TK_REPEAT = 3, TK_2D = 4, TK_GLOW = 5 };
 
 // BmpMan is freeing a user bitmap (Bm_release_hook): drop every texture cached for the handle, so the cache does not grow and a
 // reused handle never shows the old picture. Host side only; the sink frees at the next accepted frame.
@@ -277,10 +346,108 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	return t.sink_id;
 }
 
+// ---- ship glow: the glow texture ------------------------------------------------------------------------------
+// The same rules as GrD3DGlow.cpp (docs/SHIVAN_GLOW.md), minus the D3D texture plumbing:
+//  - only textures used by a Shivan ship class glow (GLOW_SHIVAN_ONLY there), matched by POF file name;
+//  - the colour list is that class's $ND: list, else the pixels.tbl +ND default;
+//  - a palette entry glows on an exact RGB match, or (forced red, -noforceglow turns it off) red >= 170 with green and blue <= 10;
+//  - the transparent colour (0 255 0) never glows and stays see-through (rgba 0);
+//  - every other texel keeps its real colour, alpha 255 where it glows and 0 where it does not (bilinear filtering then mixes
+//    colour and mask as Glide's masked texture did);
+//  - read straight from the 8 bit PCX, which must be the bitmap's size (this skips ANI frames).
+// The texture is the bitmap's full size (the host's lit texture is too; D3D's were shrunk with the texture detail setting).
+// Built on first use in an accepted frame, kept in H.tex like any texture, so it is freed with the bitmap (on_bm_release) and
+// on a flush. Unlike D3D this can build mid mission (the host's textures upload on first use too), only inside an accepted frame.
+// Reads only tables, the PCX file and the loaded models: no game state, rand or clock.
+
+#define GLOW_FORCE_MIN_RED	170
+#define GLOW_FORCE_MAX_GB	10
+
+// the Shivan ship class whose model uses this texture, or -1 (GrD3DGlow.cpp d3d_glow_get_shivan_class)
+int glow_shivan_class(int bitmap_handle)
+{
+	for (int i = 0; i < MAX_POLYGON_MODELS; i++) {
+		polymodel *pm = Polygon_models[i];
+		if (pm == nullptr) { continue; }
+		int j;
+		for (j = 0; j < pm->n_textures; j++) {
+			if (pm->original_textures[j] == bitmap_handle || pm->textures[j] == bitmap_handle) { break; }
+		}
+		if (j == pm->n_textures) { continue; }
+		for (int si = 0; si < Num_ship_types; si++) {
+			if (Ship_info[si].species == SPECIES_SHIVAN && !stricmp(Ship_info[si].pof_file, pm->filename)) { return si; }
+		}
+	}
+	return -1;
+}
+
+// Returns the sink id of the glow texture for a bitmap, or 0: no glow for it (not a Shivan texture, no glowing texel, not a PCX
+// of the bitmap's size, glow off). The answer is cached either way.
+int glow_tex_get(int bitmap_id)
+{
+	if (!drawing() || bitmap_id < 0 || Cmdline_no_ship_glow) { return 0; }
+	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), TK_GLOW };
+	auto found = H.tex.find(key);
+	if (found != H.tex.end()) { return found->second.sink_id; }
+	{
+		HostTex &none = H.tex[key];		// 0 = decided: no glow; replaced below when one is built
+		none.sink_id = 0; none.type = TCACHE_TYPE_NORMAL; none.w = 0; none.h = 0;
+	}
+
+	const int si = glow_shivan_class(bitmap_id);
+	if (si < 0) { return 0; }
+	ubyte (*colors)[3] = Palman_non_darkening_default;
+	int ncolors = Palman_num_nondarkening_default;
+	if (Ship_info[si].num_nondark_colors > 0) {
+		colors = Ship_info[si].nondark_colors;
+		ncolors = Ship_info[si].num_nondark_colors;
+	}
+	if (ncolors < 1 && Cmdline_no_force_glow) { return 0; }
+
+	char *filename = bm_get_filename(bitmap_id);
+	if (filename == nullptr || filename[0] == 0) { return 0; }
+	int pw = 0, ph = 0, bw = 0, bh = 0;
+	if (pcx_read_header(filename, &pw, &ph, nullptr) != PCX_ERROR_NONE) { return 0; }
+	bm_get_info(bitmap_id, &bw, &bh);
+	if (pw < 1 || ph < 1 || pw != bw || ph != bh) { return 0; }
+	std::vector<ubyte> idx((size_t)pw * (size_t)ph);
+	ubyte palette[768];
+	if (pcx_read_bitmap_8bpp(filename, idx.data(), palette) != PCX_ERROR_NONE) { return 0; }
+
+	bool glows[256];
+	for (int i = 0; i < 256; i++) {
+		const ubyte *c = &palette[i * 3];
+		glows[i] = false;
+		if (c[0] == 0 && c[1] == 255 && c[2] == 0) { continue; }		// the transparent colour of pcx_read_bitmap_16bpp
+		for (int k = 0; k < ncolors; k++) {
+			if (c[0] == colors[k][0] && c[1] == colors[k][1] && c[2] == colors[k][2]) { glows[i] = true; break; }
+		}
+		if (!glows[i] && !Cmdline_no_force_glow && c[0] >= GLOW_FORCE_MIN_RED && c[1] <= GLOW_FORCE_MAX_GB && c[2] <= GLOW_FORCE_MAX_GB) { glows[i] = true; }
+	}
+	size_t nglow = 0;
+	for (size_t i = 0; i < idx.size(); i++) { if (glows[idx[i]]) { nglow++; } }
+	if (nglow == 0) { return 0; }
+
+	std::vector<uint8_t> px(fs2host::rgba8_bytes(pw, ph));
+	for (size_t i = 0; i < idx.size(); i++) {
+		const ubyte *c = &palette[idx[i] * 3];
+		uint8_t *o = &px[i * 4];
+		if (c[0] == 0 && c[1] == 255 && c[2] == 0) { o[0] = o[1] = o[2] = o[3] = 0; continue; }
+		o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
+		o[3] = glows[idx[i]] ? 255 : 0;
+	}
+	HostTex &t = H.tex[key];
+	t.sink_id = H.next_sink_id++;
+	t.type = TCACHE_TYPE_NORMAL; t.w = pw; t.h = ph;
+	H.sink->texture_create(H.sink->user, t.sink_id, pw, ph, FS2_SINK_TEX_RGBA8, FS2_SINK_TEXF_LINEAR, px.data());
+	return t.sink_id;
+}
+
 // ---- gf_ table: state (identical effects to the dummy / D3D bookkeeping) ----------------------------------------
 
 void depth_run_end()
 {
+	glow_flush();
 	if (H.run_open && drawing()) { H.sink->depth_end(H.sink->user); }
 	H.run_open = false;
 }
@@ -651,8 +818,8 @@ void h_string(int sx, int sy, char *s)
 }
 
 // 3D polys: a fan of nv vertices, drawn as gr_d3d_tmapper_internal draws them (colour rules, alpha, tiled uvs).
-// Not done here: the ship glow pass (TMAP_FLAG_NONDARKENING). Pixel fog (TMAP_FLAG_PIXEL_FOG) only sets the fog colour (see
-// the PIXEL_FOG block below); the fog itself is the sink's (R2).
+// The ship glow pass (TMAP_FLAG_NONDARKENING) is queued after the lit draw (see "ship glow"). Pixel fog (TMAP_FLAG_PIXEL_FOG) only
+// sets the fog colour (see the PIXEL_FOG block below); the fog itself is the sink's (R2).
 void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = false)
 {
 	if (nv < 3 || nv > 32) { return; }
@@ -741,7 +908,34 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 	d.zbias = H.zbias;
 	// D-20261030-052453: fog_rgb[3] marks a poly that set its own fog colour above (render_sink.h); the colour itself is unchanged
 	d.fog_rgb[3] = (flags & TMAP_FLAG_PIXEL_FOG) ? 1 : 0;
+	// a ship poly's lit draw does not flush the glow queue (D3D_glow_hold)
+	H.glow_hold = (flags & TMAP_FLAG_NONDARKENING) != 0;
 	draw(d, out, nv, idx, (nv - 2) * 3);
+	H.glow_hold = false;
+
+	// ship glow, gr_d3d_tmapper_internal's second pass: the same polygon unlit (vertex colour white, alpha kept) with the glow
+	// texture, alpha blended over the lit draw, depth read only. Fog fields as the lit draw, including its colour mark (a polygon
+	// with its own pixel fog colour keeps it in the queue, whatever is drawn before the flush).
+	if ((flags & TMAP_FLAG_NONDARKENING) && (flags & TMAP_FLAG_TEXTURED) && !(flags & (TMAP_FLAG_BITMAP_2D | TMAP_FLAG_TILED))
+		&& blend != FS2_SINK_BLEND_ADD && (zflags & FS2_SINK_DRAWF_ZREAD)) {
+		const int gtex = glow_tex_get(gr_screen.current_bitmap);
+		if (gtex != 0) {
+			if (H.glow_q.size() >= 2048 || H.glow_v.size() + (size_t)nv > 16384) { glow_flush(); }
+			GlowPoly gp;
+			gp.d = d;
+			gp.d.texture = gtex;
+			gp.d.blend = FS2_SINK_BLEND_ALPHA;
+			gp.d.flags = (dflags & ~(unsigned)FS2_SINK_DRAWF_ZWRITE) | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_OVERLAY;
+			gp.first = (int)H.glow_v.size();
+			gp.nv = nv;
+			for (int i = 0; i < nv; i++) {
+				fs2_sink_vertex gv = out[i];
+				gv.r = gv.g = gv.b = 255;
+				H.glow_v.push_back(gv);
+			}
+			H.glow_q.push_back(gp);
+		}
+	}
 }
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
@@ -819,6 +1013,7 @@ void h_zbuffer_clear(int mode)
 		H.zglobal = true;
 		H.zmode = GR_ZBUFF_FULL;
 		if (drawing()) {
+			glow_flush();
 			if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
 			H.sink->depth_clear(H.sink->user, gr_screen.clip_left + gr_screen.offset_x, gr_screen.clip_top + gr_screen.offset_y,
 				gr_screen.clip_width, gr_screen.clip_height);
@@ -836,6 +1031,7 @@ void h_zbuffer_clear(int mode)
 int h_save_screen()
 {
 	ensure_frame();
+	glow_flush();
 	if (H.sink == nullptr) { return 0; }
 	const int id = 1000000 + H.next_capture_id++;
 	if (!drawing()) {
@@ -860,7 +1056,7 @@ void h_free_screen(int id)
 	for (size_t i = 0; i < H.capture_pending.size(); i++) {
 		if (H.capture_pending[i] == id) { H.capture_pending.erase(H.capture_pending.begin() + (long)i); return; }
 	}
-	if (drawing()) { H.sink->texture_free(H.sink->user, id); }
+	if (drawing()) { glow_flush(); H.sink->texture_free(H.sink->user, id); }
 	else if (H.sink != nullptr) { H.release_pending.push_back(id); }	// freed at the start of the next accepted frame
 }
 

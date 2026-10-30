@@ -210,6 +210,10 @@ private:
 		st.draws++;
 		st.triangles_in += ni / 3;
 		const bool zr = (d.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (d.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+		// ship glow pass (FS2_SINK_DRAWF_OVERLAY): vertex z nearer by 0.05 depth units (z * 1000, about 1.5 game m) so the glow draw passes the
+		// depth test against the lit draw of the same polygon whatever batch it is in; the fog factor below still uses the real z
+		const bool overlay = (d.flags & FS2_SINK_DRAWF_OVERLAY) != 0;
+		const float zshift = overlay ? 0.00005f : 0.0f;
 		BatchKey key;
 		key.texture = d.texture; key.blend = d.blend; key.perspective = 1; key.depth = 1;
 		key.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
@@ -225,7 +229,7 @@ private:
 				// passes (int)x, (int)y), Neb.cpp 1252-1273
 				tab_off = (float)(ftab.size() / 2);
 				tab_nv = (float)nv;
-				fog_last.clear();
+				if (!overlay) { fog_last.clear(); }
 				for (int i = 0; i < nv; i++) {
 					const float fx = v[i].x, fy = v[i].y;
 					const int ix = (fx > -1e9f && fx < 1e9f) ? (int)fx : 0, iy = (fy > -1e9f && fy < 1e9f) ? (int)fy : 0;
@@ -234,10 +238,13 @@ private:
 					xs = xs < 0 ? 0 : (xs > 31 ? 31 : xs);
 					ys = ys < 0 ? 0 : (ys > 31 ? 31 : ys);
 					ftab.push_back((uint8_t)xs); ftab.push_back((uint8_t)ys);
-					fog_last.push_back((uint8_t)xs); fog_last.push_back((uint8_t)ys);
+					if (!overlay) { fog_last.push_back((uint8_t)xs); fog_last.push_back((uint8_t)ys); }
 				}
-				fog_last_frame = fog_frame;
-				fog_last_off = tab_off;
+				// an overlay (glow) draw has its own cells but is not "the last marked poly": the unmarked draws after it keep the lit polys' colour
+				if (!overlay) {
+					fog_last_frame = fog_frame;
+					fog_last_off = tab_off;
+				}
 			} else if (!fog_last.empty()) {
 				// fog on, no colour set: the colour of the last marked poly, as D3D and the host keep it
 				tab_nv = (float)(fog_last.size() / 2);
@@ -266,7 +273,7 @@ private:
 			for (int k = 0; k < 3; k++) {
 				const fs2_sink_vertex &s = v[idx[t + k]];
 				DV q;
-				q.x = s.x; q.y = s.y; q.z = s.z;
+				q.x = s.x; q.y = s.y; q.z = s.z - zshift;
 				q.sw = (persp && s.sw > 0.0f) ? s.sw : 1.0f;
 				q.us = s.u * q.sw; q.vs = s.v * q.sw;
 				q.r = s.r / 255.0f * tr; q.g = s.g / 255.0f * tg; q.b = s.b / 255.0f * tb; q.a = s.a / 255.0f * ta;

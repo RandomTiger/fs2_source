@@ -48,6 +48,10 @@ extern "C" {
 #define FS2_SINK_DRAWF_ZREAD		2	/* depth test against the run (inside a depth run only) */
 #define FS2_SINK_DRAWF_ZWRITE		4	/* write depth (inside a depth run only) */
 #define FS2_SINK_DRAWF_CULL		8	/* the game had back-face culling on; informational, the sink may ignore it */
+#define FS2_SINK_DRAWF_OVERLAY	16	/* ship glow pass: the same vertices as a draw just made (or about to be drawn later in the run), z read only. A sink that
+					   depth tests per batch moves the draw nearer by a hair, so the equal depth passes whatever the batch order; with fog colour looked
+					   up from marked polys (fog_rgb[3] == 1) it must not make this draw the poly later unmarked draws take their colour from.
+					   New bit: no other bit moved. Only gr_host (Shivan ship glow) sets it; a sink, the dummy and the headless sink may ignore it */
 
 /* fog modes (R2) */
 #define FS2_SINK_FOG_NONE	0
