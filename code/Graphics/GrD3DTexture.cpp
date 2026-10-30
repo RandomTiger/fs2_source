@@ -341,46 +341,34 @@ int d3d_older_test(tcache_slot_d3d *new_slot, tcache_slot_d3d *test, tcache_slot
 	return 0;
 }
 
-int d3d_free_some_texture_ram(tcache_slot_d3d *t, int size)
-{	
-	tcache_slot_d3d *oldest = NULL;
-	
-	// Go through all the textures... find the oldest one 
-	// that was not used this frame yet.
-	int i;
-
-	int goal_size = D3D_textures_in - size*2;
-	if ( goal_size < 0 )	{
-		goal_size = 0;
-	} else if ( goal_size > D3D_texture_ram*3/4 )	{
-		goal_size = D3D_texture_ram*3/4;
-	}
-
-	while( D3D_textures_in > goal_size )	{
-		oldest = NULL;
-		for( i=0; i<MAX_BITMAPS; i++ )	{			
-			// maybe pick this one
-			if(d3d_older_test(t, &Textures[i], oldest)){
-				oldest = &Textures[i];
-			}							
-		}
-
-		if ( oldest == NULL )	{
-			mprintf(( "Couldn't free enough VRAM this frame... you might see some ugliness!\n" ));
-			return 0;
-		}
-
-		d3d_free_texture(oldest);
-	}
-
-	mprintf(( "Freed 1/4 of the VRAM\n" ));
-	return 1;
-}
+// Claude: d3d_free_some_texture_ram (evict the oldest textures on out-of-VRAM) removed
 
 #ifndef NDEBUG
 int Show_uploads = 0;
 DCF_BOOL( show_uploads, Show_uploads )
 #endif
+
+// Claude: the 256 pixel tile grid of a bw x bh bitmap, as bmpman's bm_calc_sections and bm_get_section_size made it
+void d3d_tile_grid(int bw, int bh, int *nx, int *ny)
+{
+	*nx = bw / D3D_TILE_SIZE;
+	if((*nx * D3D_TILE_SIZE) < bw){
+		(*nx)++;
+	}
+	*ny = bh / D3D_TILE_SIZE;
+	if((*ny * D3D_TILE_SIZE) < bh){
+		(*ny)++;
+	}
+}
+
+// Claude: size of tile (tx, ty): 256, or what is left in the last column / row
+void d3d_tile_size(int bw, int bh, int tx, int ty, int *tw, int *th)
+{
+	int nx, ny;
+	d3d_tile_grid(bw, bh, &nx, &ny);
+	*tw = tx < (nx - 1) ? D3D_TILE_SIZE : bw - (tx * D3D_TILE_SIZE);
+	*th = ty < (ny - 1) ? D3D_TILE_SIZE : bh - (ty * D3D_TILE_SIZE);
+}
 
 // is the given existing texture handle the same dimensions as the passed in bitmap?
 int d3d_tcache_same_dimension(int bitmap_id, int bitmap_type, tcache_slot_d3d *t)
@@ -388,27 +376,29 @@ int d3d_tcache_same_dimension(int bitmap_id, int bitmap_type, tcache_slot_d3d *t
 	int idx, s_idx;
 	int w, h, nframes, fps;
 	ubyte flags;
-	bitmap_section_info *s = NULL;
 
 	// get bitmap info
-	bm_get_info(bitmap_id, &w, &h, &flags, &nframes, &fps, &s);
+	w = h = 0;	// Claude: stays 0x0 for a bad handle (was sections NULL)
+	bm_get_info(bitmap_id, &w, &h, &flags, &nframes, &fps);	// Claude: no sections
 
 	// bogus
-	if(s == NULL){
+	if((w <= 0) || (h <= 0)){	// Claude: was s == NULL
 		return 0;
 	}
 
 	// sectioned bitmap
 	if(bitmap_type == TCACHE_TYPE_BITMAP_SECTION){
-		for(idx=0; idx<s->num_x; idx++){
-			for(s_idx=0; s_idx<s->num_y; s_idx++){				
+		int bw = w, bh = h, nx, ny;	// Claude: tile grid from the bitmap size (was bitmap_section_info)
+		d3d_tile_grid(bw, bh, &nx, &ny);	// Claude
+		for(idx=0; idx<nx; idx++){	// Claude: nx
+			for(s_idx=0; s_idx<ny; s_idx++){	// Claude: ny
 				// bogus
 				if(t->data_sections[idx][s_idx] == NULL){
 					return 0;
 				}
 
 				// given a bitmap and a section, return the size (w, h)
-				bm_get_section_size(bitmap_id, idx, s_idx, &w, &h);
+				d3d_tile_size(bw, bh, idx, s_idx, &w, &h);	// Claude: was bm_get_section_size
 
 				// same ?
 				if((t->data_sections[idx][s_idx]->w != w) || (t->data_sections[idx][s_idx]->h != h)){
@@ -736,8 +726,6 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 		goto FreeSurfacesAndExit;
 	}
 
-RetryLoad:
-
 	if ( !reload )	{	
 		// Create a surface of the given format using the dimensions of the bitmap
 		memset(&ddsd, 0, sizeof(DDSURFACEDESC));
@@ -765,9 +753,7 @@ RetryLoad:
 
 					goto FreeSurfacesAndExit;
 				}
-				if ( d3d_free_some_texture_ram(t,dwHeight*dwWidth*((bpp == 32) ? 4 : 2)))	{	// Claude: 32 bit textures
-					goto RetryLoad;
-				}
+				// Claude: no eviction; d3d_free_some_texture_ram removed, the VRAM budget means nothing on modern cards
 			} else {
 				mprintf(("CreateSurface for VRAM texture failed, w=%d, h=%d\n%s\n", tex_w, tex_h, d3d_error_string(ddrval) ));
 				mprintf(( "Texture RAM = %d KB\n", D3D_textures_in / 1024 ));
@@ -955,7 +941,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 	}	
 
 	// determine the width and height of this section
-	bm_get_section_size(bitmap_handle, sx, sy, &section_x, &section_y);	
+	d3d_tile_size(bmp->w, bmp->h, sx, sy, &section_x, &section_y);	// Claude: was bm_get_section_size
 
 	// get final texture size as it will be allocated as a DD surface
 	d3d_tcache_get_adjusted_texture_size(section_x, section_y, &final_w, &final_h);
@@ -974,7 +960,7 @@ int d3d_create_texture_sectioned(int bitmap_handle, int bitmap_type, tcache_slot
 	}
 
 	// call the helper
-	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, bmp->sections.sx[sx], bmp->sections.sy[sy], section_x, section_y, bmp->w, bmp->h, section_x, section_y, tslot, reload, fail_on_full, bmp->bpp);	// Claude: bpp
+	int ret_val = d3d_create_texture_sub(bitmap_type, bitmap_handle, (ushort*)bmp->data, sx * D3D_TILE_SIZE, sy * D3D_TILE_SIZE, section_x, section_y, bmp->w, bmp->h, section_x, section_y, tslot, reload, fail_on_full, bmp->bpp);	// Claude: bpp; tile origin sx, sy * 256 (was bmp->sections)
 
 	// unlock the bitmap
 	bm_unlock(bitmap_handle);
@@ -1043,8 +1029,11 @@ int d3d_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scal
 			bm_unlock(bitmap_id);			
 			
 			// now lets do something for each texture			
-			for(idx=0; idx<bmp->sections.num_x; idx++){
-				for(s_idx=0; s_idx<bmp->sections.num_y; s_idx++){																				
+			int tiles_x, tiles_y;	// Claude: tile grid from the bitmap size (was bmp->sections)
+			d3d_tile_grid(bmp->w, bmp->h, &tiles_x, &tiles_y);	// Claude
+			Assert((tiles_x <= MAX_BMAP_SECTIONS_X) && (tiles_y <= MAX_BMAP_SECTIONS_Y));	// Claude: the cache holds 4x3 tiles (was a silent overflow)
+			for(idx=0; idx<tiles_x; idx++){	// Claude: tiles_x
+				for(s_idx=0; s_idx<tiles_y; s_idx++){	// Claude: tiles_y
 					// hmm. i'd rather we didn't have to do it this way...
 					if(!d3d_create_texture_sectioned(bitmap_id, bitmap_type, t->data_sections[idx][s_idx], idx, s_idx, fail_on_full)){
 						ret_val = 0;
@@ -1121,7 +1110,7 @@ void d3d_tcache_init(int use_sections)
 //			goto D3DError;
 		}
 
-		D3D_texture_ram = dwFree;
+		D3D_texture_ram = (dwFree > 0x20000000) ? 0x20000000 : (int)dwFree;	// Claude: was = dwFree; 2 GB or more free wrapped negative and turned preloading off. Capped at 512 MB so D3D_texture_ram*3/4 cannot overflow (review 63)
 
 		uint tmp_pl = os_config_read_uint( NULL, NOX("D3DPreloadTextures"), 255 );
 

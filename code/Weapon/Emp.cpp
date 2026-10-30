@@ -60,6 +60,7 @@
  */
 
 #include <stdarg.h>
+#include "BitmapLog.h"	// Claude
 #include "Emp.h"
 #include "timer.h"
 #include "multimsgs.h"
@@ -500,7 +501,9 @@ int emp_should_blit_gauge()
 	}
 
 	// otherwise, randomly say no
-	return cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity;
+	int bmlog_r = cosmetic_frand_range(0.0f, 1.0f) > Emp_intensity;	// Claude: BitmapLog.h
+	bmlog_gauge(bmlog_r);	// Claude: BitmapLog.h
+	return bmlog_r;	// Claude
 }
 
 // emp hud string
@@ -657,8 +660,10 @@ void emp_hud_jitter(int *x, int *y)
 	}
 
 	// some movement
+	int bmlog_xin = *x, bmlog_yin = *y;	// Claude: BitmapLog.h
 	*x += (int)cosmetic_frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
 	*y += (int)cosmetic_frand_range(-8.0f * Emp_intensity, 8.0f * Emp_intensity);
+	bmlog_jitter(bmlog_xin, bmlog_yin, *x, *y);	// Claude: BitmapLog.h
 }
 
 // current intensity of the EMP effect (0.0 - 1.0)

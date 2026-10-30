@@ -308,6 +308,7 @@
  * $NoKeywords: $
  */
 
+#include "BitmapLog.h"	// Claude
 #include "GrD3DInternal.h"
 #include "2d.H"
 #include "PsTypes.h"
@@ -802,7 +803,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 		alpha = 255;
 	}
 
-	if(flags & TMAP_FLAG_BITMAP_SECTION){
+	if(flags & TMAP_FLAG_BITMAP_2D){	// Claude: was TMAP_FLAG_BITMAP_SECTION
 		tmap_type = TCACHE_TYPE_BITMAP_SECTION;
 	}
 
@@ -815,7 +816,7 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 		}
 
 		// use nonfiltered textures for bitmap sections
-		if(flags & TMAP_FLAG_BITMAP_SECTION){
+		if(flags & TMAP_FLAG_BITMAP_2D){	// Claude: was TMAP_FLAG_BITMAP_SECTION
 			texture_source = TEXTURE_SOURCE_NO_FILTERING;
 		} else {
 			texture_source = TEXTURE_SOURCE_DECAL;
@@ -933,9 +934,10 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 					src_v->tv = va->v*v_scale;
 				}
 				// sectioned
-				else if(flags & TMAP_FLAG_BITMAP_SECTION){
-					int sw, sh;
-					bm_get_section_size(gr_screen.current_bitmap, gr_screen.current_bitmap_sx, gr_screen.current_bitmap_sy, &sw, &sh);
+				else if(flags & TMAP_FLAG_BITMAP_2D){	// Claude: was TMAP_FLAG_BITMAP_SECTION
+					int sw, sh, bmw, bmh;	// Claude: bmw, bmh
+					bm_get_info(gr_screen.current_bitmap, &bmw, &bmh);	// Claude: tile size from the bitmap size (was bm_get_section_size)
+					d3d_tile_size(bmw, bmh, gr_screen.current_bitmap_sx, gr_screen.current_bitmap_sy, &sw, &sh);	// Claude
 
 					src_v->tu = (va->u + (0.5f / i2fl(sw))) * u_scale;
 					src_v->tv = (va->v + (0.5f / i2fl(sh))) * v_scale;
@@ -1335,6 +1337,38 @@ void gr_d3d_set_bitmap( int bitmap_num, int alphablend_mode, int bitblt_mode, fl
 	gr_screen.current_bitmap_sy = sy;
 }
 
+// Claude: gr_bitmap's tile loop, moved from 2d.cpp: the bitmap is drawn as 256 pixel tiles, each its own
+// unfiltered texture (TMAP_FLAG_BITMAP_2D), on the grid bmpman's sections gave
+void gr_d3d_bitmap_poly(int x, int y)
+{
+	int section_x, section_y;
+	int x_line, y_line;
+	int w, h;
+	int idx, s_idx;
+	int num_x, num_y;
+
+	// render all sections
+	bm_get_info(gr_screen.current_bitmap, &w, &h);
+	d3d_tile_grid(w, h, &num_x, &num_y);
+	y_line = 0;
+	section_y = 0;
+	for(idx=0; idx<num_y; idx++){
+		x_line = 0;
+		for(s_idx=0; s_idx<num_x; s_idx++){
+			// get the section as a texture in vram
+			gr_set_bitmap(gr_screen.current_bitmap, gr_screen.current_alphablend_mode, gr_screen.current_bitblt_mode, gr_screen.current_alpha, s_idx, idx);
+
+			// determine the width and height of this section
+			d3d_tile_size(w, h, s_idx, idx, &section_x, &section_y);
+
+			// draw as a poly
+			g3_draw_2d_poly_bitmap(x + x_line, y + y_line, section_x, section_y, TMAP_FLAG_BITMAP_2D);
+			x_line += section_x;
+		}
+		y_line += section_y;
+	}
+}
+
 void gr_d3d_bitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 {
 	int i,j;
@@ -1600,6 +1634,7 @@ void gr_d3d_aabitmap_ex_internal(int x,int y,int w,int h,int sx,int sy)
 
 void gr_d3d_aabitmap_ex(int x,int y,int w,int h,int sx,int sy)
 {
+	bmlog_bitmap("gr_aabitmap_ex", x, y, w, h, sx, sy);	// Claude: BitmapLog.h
 	int reclip;
 	#ifndef NDEBUG
 	int count = 0;
@@ -1679,6 +1714,7 @@ void gr_d3d_aabitmap_ex(int x,int y,int w,int h,int sx,int sy)
 
 void gr_d3d_aabitmap(int x, int y)
 {
+	bmlog_bitmap("gr_aabitmap", x, y, 0, 0, 0, 0);	// Claude: BitmapLog.h
 	int w, h;
 
 	bm_get_info( gr_screen.current_bitmap, &w, &h, NULL );

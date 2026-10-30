@@ -54,6 +54,7 @@ void gr_d3d_get_tex_format(int alpha);
 // bitmap functions
 void gr_d3d_bitmap(int x, int y);
 void gr_d3d_bitmap_ex(int x, int y, int w, int h, int sx, int sy);
+void gr_d3d_bitmap_poly(int x, int y);	// Claude: gr_bitmap's 256 pixel tile loop (was in 2d.cpp)
 
 // create all rendering objects (surfaces, d3d device, viewport, etc)
 int gr_d3d_create_rendering_objects(int clear);

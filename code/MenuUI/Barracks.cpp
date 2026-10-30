@@ -1304,7 +1304,7 @@ barracks_row_as_poly:	// Claude: P7-4
 	saved_zbuffer_mode = gr_zbuffer_get();
 	gr_zbuffer_set(GR_ZBUFF_NONE);
 	gr_filter_set(scale != 1.0f);	// Claude: filtered only when scaled
-	g3_draw_poly_constant_sw(4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_BITMAP_SECTION, 0.1f);
+	g3_draw_poly_constant_sw(4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_BITMAP_2D, 0.1f);	// Claude: was TMAP_FLAG_BITMAP_SECTION
 	g3_end_frame();
 	gr_zbuffer_set(saved_zbuffer_mode);
 	gr_filter_set(1);

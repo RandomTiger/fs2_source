@@ -96,6 +96,7 @@ const host_hooks host_hooks_windows = {
 	host_win32_joy_caps,
 	host_win32_joy_read,
 	pad_xinput_poll,
+	NULL,	// Claude: sound_window, the game's own window
 };
 
 static void host_headless_poll_events()
@@ -151,4 +152,5 @@ const host_hooks host_hooks_headless = {
 	host_headless_joy_caps,
 	host_headless_joy_read,
 	host_headless_pad_poll,
+	NULL,	// Claude: sound_window, none
 };

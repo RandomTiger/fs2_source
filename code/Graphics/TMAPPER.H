@@ -122,6 +122,6 @@ extern void grx_tmapper( int nv, vertex * verts[], uint flags );
 #define TMAP_FLAG_PIXEL_FOG		(1<<10)	// fog the polygon based upon the average pixel colors of the backbuffer behind it
 
 // bitmap section
-#define TMAP_FLAG_BITMAP_SECTION	(1<<11)
+#define TMAP_FLAG_BITMAP_2D		(1<<11)	// Claude: was TMAP_FLAG_BITMAP_SECTION; a 2D bitmap tile: unfiltered, full res, half texel UVs (D3D)
 
 #endif

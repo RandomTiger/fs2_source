@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 6
+#define FS2_API_VERSION 7
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -111,6 +111,13 @@ FS2_API void fs2_set_fiber(int mode);
 // R1-feel: optional (the API version stays 5). With on = 1 the host paces the frames by the wall clock, so the game no longer sleeps to its
 // 120 fps cap; the cap still sets Frametime (1/120 s per frame), so game time and recorded behaviour are unchanged. Call before fs2_init.
 FS2_API void fs2_set_host_pacing(int on);
+
+// v7 (D-20261029-060953): the native window handle (an HWND, as an integer) that DirectSound takes its cooperative level on, in place of the
+// game's own window. Call before fs2_init; 0 clears it, and unset (the default) leaves the game's behaviour unchanged. The host owns the window:
+// the game only hands the value to DirectSound and never subclasses, pumps, resizes or destroys it, and fs2_shutdown closes the sound before
+// returning, so the host may release the window after it. For interactive shown play only: a run with -headless or -nosounddevice has no use for it.
+// When set, the game logs one "fs2api: sound" line to stderr once it is up, with the handle and what DirectSound made of it.
+FS2_API void fs2_set_window_handle(unsigned long long handle);
 
 // G4: the host's events go into the game through these sinks, the ones the Windows window procedure calls. Call them only from
 // inside the poll_events hook (that is where the game takes the host's events, and the recorder puts them at the same point). A

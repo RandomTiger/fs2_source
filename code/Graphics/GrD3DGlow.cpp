@@ -49,15 +49,10 @@ int D3D_ship_glow = 1;
 DCF_BOOL( ship_glow, D3D_ship_glow )
 
 extern int D3D_texture_divider;
-extern int D3D_texture_ram;
 extern int vram_full;
 extern polymodel *Polygon_models[MAX_POLYGON_MODELS];
 extern int bm_get_cache_slot( int bitmap_id, int separate_ani_frames );
 void d3d_tcache_get_adjusted_texture_size(int w_in, int h_in, int *w_out, int *h_out);
-
-// Glow textures may use at most this fraction of the texture VRAM the card
-// reported at startup, so the normal texture cache keeps the rest.
-#define GLOW_VRAM_DIVISOR	8
 
 // 1 = only textures used by Shivan ship classes glow. 0 = every model texture,
 // as under Glide (Terran and Vasudan hulls, weapon models, ...).
@@ -323,13 +318,7 @@ static void d3d_glow_build(int bitmap_handle, glow_slot *g)
 		return;
 	}
 
-	// stay inside the glow share of VRAM
 	size = tex_w * tex_h * 2;
-	if ( (D3D_texture_ram > 0) && (Glow_bytes + size > D3D_texture_ram / GLOW_VRAM_DIVISOR) )	{
-		mprintf(( "Ship glow: VRAM budget used up, no glow for '%s'\n", filename ));
-		free(pixels);
-		return;
-	}
 
 	// fill a system memory surface
 	memset(&ddsd, 0, sizeof(DDSURFACEDESC));
