@@ -181,5 +181,6 @@ extern int Cmdline_mouse_coords;
 extern int Cmdline_timeout;
 
 extern int Cmdline_window;
+extern char *Cmdline_mission;	// Claude: -mission, see MainHallMenu.cpp
 
 #endif
