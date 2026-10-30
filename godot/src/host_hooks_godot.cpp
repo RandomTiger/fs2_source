@@ -378,6 +378,26 @@ static void game_screen(int *w, int *h)
 	}
 }
 
+// The game's picture in the Godot viewport: the game's aspect, as large as fits, centred (Fs2Screen's KEEP_ASPECT_CENTERED), so
+// a position in any window size or shape (fullscreen 16:9, the Deck's 16:10) lands on the same spot of the game's screen.
+static void picture_rect(int gw, int gh, float *ox, float *oy, float *scale)
+{
+	*scale = (View_w / gw < View_h / gh) ? View_w / gw : View_h / gh;
+	*ox = (View_w - gw * *scale) * 0.5f;
+	*oy = (View_h - gh * *scale) * 0.5f;
+}
+
+// a position as a fraction of the viewport -> the game's screen; outside the picture (the bars) it is held at the picture's edge
+static void view_to_game(float nx, float ny, int gw, int gh, int *x, int *y)
+{
+	float ox, oy, scale;
+	picture_rect(gw, gh, &ox, &oy, &scale);
+	int gx = (int)((nx * View_w - ox) / scale);
+	int gy = (int)((ny * View_h - oy) / scale);
+	*x = (gx < 0) ? 0 : (gx >= gw) ? gw - 1 : gx;
+	*y = (gy < 0) ? 0 : (gy >= gh) ? gh - 1 : gy;
+}
+
 // the only place the game takes the host's events
 static void h_poll_events(void)
 {
@@ -422,8 +442,7 @@ static void h_poll_events(void)
 			Api->input_mouse_button(e.a, e.b);
 			break;
 		case EV_MOUSE_MOVE:
-			Mouse_x = (int)(e.nx * gw);
-			Mouse_y = (int)(e.ny * gh);
+			view_to_game(e.nx, e.ny, gw, gh, &Mouse_x, &Mouse_y);
 			break;
 		case EV_FOCUS:
 			Foreground = (e.b != 0);
@@ -459,7 +478,9 @@ static void h_mouse_set_pos(int x, int y)
 		it = (it->type == EV_MOUSE_MOVE) ? Queue.erase(it) : it + 1;
 	}
 	if (!is_headless_display()) {
-		Input::get_singleton()->warp_mouse(Vector2((float)x / gw * View_w, (float)y / gh * View_h));
+		float ox, oy, scale;
+		picture_rect(gw, gh, &ox, &oy, &scale);
+		Input::get_singleton()->warp_mouse(Vector2(ox + x * scale, oy + y * scale));
 	}
 }
 

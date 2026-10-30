@@ -21,6 +21,8 @@
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
 #   FS2_TEXT_INJECT  optional: 1 types pilot names on the pilot screen as Godot text events (a character and no physical key, as
 #               Steam's keyboard sends them) and as a physical keyboard, then quits with Escape (tools\godot_text_check.ps1 checks the pilots)
+#   FS2_TOUCH_INJECT  optional: 1 taps the pilot screen's Create button as a touchscreen does, at its place in the game's picture
+#               (letterboxed in a window of another shape), names the pilot and quits (tools\godot_touch_check.ps1 checks the pilot)
 extends Node
 
 var game
@@ -205,6 +207,15 @@ const TEXT_SCRIPT := [
 	[200, "key", KEY_C], [100, "keys", "Key Boardx"], [0, "key", KEY_BACKSPACE], [0, "key", KEY_ENTER],	# a physical keyboard
 	[200, "key", KEY_ESCAPE],	# Escape on the pilot screen: the game quits
 ]
+# FS2_TOUCH_INJECT=1: the same steps, plus tap: a finger down at [x, y] as a fraction of the game's 4:3 picture, up the next Godot frame
+var touch_inject := OS.get_environment("FS2_TOUCH_INJECT") == "1"
+const TOUCH_SCRIPT := [
+	[600, "text", "Gone"], [0, "ctl", 27],	# cancel the callsign box the game opens with, as TEXT_SCRIPT does
+	[200, "tap", Vector2(135.0 / 640.0, 222.0 / 480.0)],	# the Create button (CPB_00 at 114,205 in the 640x480 layout)
+	[100, "text", "Tapped"], [0, "keycode", KEY_ENTER],
+	[200, "key", KEY_ESCAPE],	# Escape on the pilot screen: the game quits
+]
+var text_script: Array = TOUCH_SCRIPT if touch_inject else TEXT_SCRIPT
 var text_i := 0
 var text_next := 600
 var text_pending: Array = []	# physical key groups still to send, one a Godot frame
@@ -223,8 +234,8 @@ func _text_tick() -> void:
 		for ev in text_pending.pop_front():
 			Input.parse_input_event(ev)
 		return
-	while text_i < TEXT_SCRIPT.size() and game.get_frame_count() >= text_next:
-		var s: Array = TEXT_SCRIPT[text_i]
+	while text_i < text_script.size() and game.get_frame_count() >= text_next:
+		var s: Array = text_script[text_i]
 		print("text: step ", text_i, " ", s[1], " ", s[2], " at game frame ", game.get_frame_count())
 		match s[1]:
 			"text":
@@ -240,6 +251,22 @@ func _text_tick() -> void:
 			"keycode":
 				Input.parse_input_event(_key_event(0, s[2], 0, true))
 				Input.parse_input_event(_key_event(0, s[2], 0, false))
+			"tap":
+				# a wide window (headless starts at 64x64), so the picture has bars at the sides and a tap mapped across the whole
+				# window instead of the picture would miss
+				get_window().size = Vector2i(1280, 480)
+				# where that point of the picture is in the window: the picture is 4:3, as large as fits, centred (Fs2Screen)
+				var vp := get_viewport().get_visible_rect().size
+				var sc: float = min(vp.x / 4.0, vp.y / 3.0)
+				var at: Vector2 = (vp - Vector2(4.0, 3.0) * sc) * 0.5 + Vector2(4.0, 3.0) * sc * s[2]
+				print("touch: viewport ", vp, " tap at ", at)
+				var t := InputEventScreenTouch.new()
+				t.position = at
+				t.pressed = true
+				Input.parse_input_event(t)
+				var tu := t.duplicate()
+				tu.pressed = false
+				text_pending.append([tu])
 			"key":
 				text_pending.append([_key_event(s[2], s[2], 0, true), _key_event(s[2], s[2], 0, false)])
 			"keys":
@@ -262,8 +289,8 @@ func _text_tick() -> void:
 						g.append(_key_event(KEY_SHIFT, KEY_SHIFT, 0, false))
 					text_pending.append(g)
 		text_i += 1
-		if text_i < TEXT_SCRIPT.size():
-			text_next = game.get_frame_count() + TEXT_SCRIPT[text_i][0]
+		if text_i < text_script.size():
+			text_next = game.get_frame_count() + text_script[text_i][0]
 		if text_pending.size() > 0:
 			return
 
@@ -282,7 +309,7 @@ func _process(_delta: float) -> void:
 		return
 	if inject:
 		_inject_tick()
-	if text_inject:
+	if text_inject or touch_inject:
 		_text_tick()
 	if not smoke:
 		return

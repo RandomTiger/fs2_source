@@ -21,7 +21,7 @@ Machines and launch routes
   M3  Steam Deck, non-Steam shortcut (Proton), Game Mode
   M4  Steam Deck, launched from Steam, if that route exists and differs from M3
 
-For each route, run all of A and B below under BOTH renderers (vulkan, d3d12), windowed and fullscreen:
+For each route, run all of A, B and C below under BOTH renderers (vulkan, d3d12), windowed and fullscreen:
 8 cases per route (A, B x vulkan, d3d12 x windowed, fullscreen).
 
 A  Typing a pilot name with Steam's keyboard
@@ -48,6 +48,17 @@ For each one:
   - no freeze, no black window, no corrupted picture, before, during or after
   - frame pacing recovers after it closes (no lasting stutter; the mission clock carries on normally)
   - keyboard, mouse and pad all work again in the game after it closes (focus comes back)
+
+C  Pointing: the Deck's right trackpad and the touchscreen
+--------------------------------------------------------
+The trackpad reaches the game only as Steam Input's mouse (Godot has no trackpad input): use the controller layout
+"Gamepad with Mouse Trackpad" (right trackpad = mouse, trackpad press = left click), and set it as the game's default
+Steam Input layout in Steamworks. The touchscreen arrives as Godot touch events, which Godot turns into left clicks.
+Both land on the game's picture as drawn (4:3, centred, bars at the sides), at any window size; the scripted part is
+tools\godot_touch_check.ps1.
+  C1  Right trackpad moves the cursor over the main hall; pressing it down opens the door under the cursor.
+  C2  A tap on the touchscreen opens the main hall door or presses the menu button tapped, windowed and fullscreen.
+  C3  A tap on a bar beside the picture does nothing worse than act at the picture's nearest edge.
 
 Recording the results
 ---------------------
