@@ -1,6 +1,7 @@
 #include "render_sink_godot.h"
 #include "perf_prof.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include <godot_cpp/classes/engine.hpp>
@@ -23,6 +24,7 @@
 #include <godot_cpp/variant/rect2.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
 
@@ -43,6 +45,8 @@ bool GodotSink::init(SubViewport *viewport)
 	}
 	vp = viewport;
 	canvas = world->get_canvas();
+	draw_stats = DrawStats();
+	draw_stats.on = OS::get_singleton()->get_environment("FS2_DRAWSTATS") == "1";
 	sink.size = sizeof(sink);
 	sink.version = FS2_RENDER_SINK_VERSION;
 	sink.user = this;
@@ -64,8 +68,31 @@ bool GodotSink::init(SubViewport *viewport)
 	return true;
 }
 
+void GodotSink::draw_stats_print()
+{
+	const DrawStats &d = draw_stats;
+	if (!d.on || d.frames == 0) {
+		return;
+	}
+	static const char *const names[FS2_SINK_PRIM_COUNT] = { "other", "fan", "strip", "list", "line", "point" };
+	uint64_t calls = 0, verts = 0;
+	for (int i = 0; i < FS2_SINK_PRIM_COUNT; i++) { calls += d.calls[i]; verts += d.verts[i]; }
+	const double f = (double)d.frames;
+	char buf[256];
+	snprintf(buf, sizeof(buf), "DRAWSTATS frames=%llu calls/frame=%.1f verts/call=%.2f tiny(<=4v)/frame=%.1f batches/frame=%.1f",
+		(unsigned long long)d.frames, calls / f, calls ? (double)verts / calls : 0.0, d.tiny / f, d.batches / f);
+	UtilityFunctions::print(buf);
+	for (int i = 0; i < FS2_SINK_PRIM_COUNT; i++) {
+		snprintf(buf, sizeof(buf), "DRAWSTATS %s calls/frame=%.1f verts/call=%.2f", names[i], d.calls[i] / f,
+			d.calls[i] ? (double)d.verts[i] / d.calls[i] : 0.0);
+		UtilityFunctions::print(buf);
+	}
+}
+
 void GodotSink::shutdown()
 {
+	draw_stats_print();
+	draw_stats.frames = 0;
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if (rs != nullptr) {
 		prewarm_release();
@@ -264,6 +291,9 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 	}
 	fs2perf::Zone _pz(fs2perf::Z_FRAME_BEGIN);
 	fs2perf::count(fs2perf::C_SINK_FRAME_ACCEPTED);
+	if (s->draw_stats.on) {
+		s->draw_stats.frames++;
+	}
 	RenderingServer *rs = RenderingServer::get_singleton();
 	if constexpr (kPrewarm) {
 		if (!s->warmed) {
@@ -526,6 +556,9 @@ void GodotSink::emit(const Batch &b)
 		return;
 	}
 	fs2perf::count(fs2perf::C_BATCHES);
+	if (draw_stats.on) {
+		draw_stats.batches++;
+	}
 	fs2perf::count(fs2perf::C_BATCH_VERTS, (uint64_t)b.nverts());
 	if (b.key.depth != 0) {
 		run_batches.push_back(b); // placed at depth_end
@@ -620,6 +653,14 @@ void GodotSink::s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vert
 	fs2perf::count(fs2perf::C_SINK_DRAW_CALLS);
 	fs2perf::count(fs2perf::C_SINK_VERTS, (uint64_t)nv);
 	fs2perf::count(fs2perf::C_SINK_INDICES, (uint64_t)ni);
+	if (s->draw_stats.on) {
+		const int p = (d->prim >= 0 && d->prim < FS2_SINK_PRIM_COUNT) ? d->prim : FS2_SINK_PRIM_OTHER;
+		s->draw_stats.calls[p]++;
+		s->draw_stats.verts[p] += (uint64_t)nv;
+		if (nv <= 4) {
+			s->draw_stats.tiny++;
+		}
+	}
 	int tw = 0, th = 0;
 	if (d->texture != 0) {
 		auto it = s->textures.find(d->texture);

@@ -109,6 +109,7 @@ struct Host {
 	bool run_open = false;			// a sink depth run is open (drawn frames only)
 	int zbias = 0;
 	int cull = 0;
+	int prim = FS2_SINK_PRIM_FAN;	// D3D primitive of the calls being sent (statistics only, render_sink.h)
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
@@ -142,6 +143,13 @@ void ensure_frame()
 
 // ---- helpers --------------------------------------------------------------------------------------------------
 
+// sets H.prim for the calls inside a scope (draw-call statistics)
+struct PrimScope {
+	int saved;
+	explicit PrimScope(int p) : saved(H.prim) { H.prim = p; }
+	~PrimScope() { H.prim = saved; }
+};
+
 inline uint8_t clamp8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v)); }
 
 void draw(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
@@ -158,6 +166,7 @@ fs2_sink_draw plain_draw(int texture, int blend, unsigned flags = 0)
 	d.fog_mode = H.fog_mode;
 	d.fog_rgb[0] = clamp8(H.fog_r); d.fog_rgb[1] = clamp8(H.fog_g); d.fog_rgb[2] = clamp8(H.fog_b); d.fog_rgb[3] = 255;
 	d.fog_near = H.fog_near; d.fog_far = H.fog_far;
+	d.prim = H.prim;
 	return d;
 }
 
@@ -442,6 +451,7 @@ void h_pixel(int x, int y)
 	ensure_frame();
 	if (!drawing()) { return; }
 	const color &c = gr_screen.current_color;
+	const PrimScope prim(FS2_SINK_PRIM_LINE);	// gr_d3d_pixel is gr_line
 	solid_rect((float)(x + gr_screen.offset_x), (float)(y + gr_screen.offset_y), (float)(x + 1 + gr_screen.offset_x),
 		(float)(y + 1 + gr_screen.offset_y), c.red, c.green, c.blue, c.alpha);
 }
@@ -450,6 +460,7 @@ void h_pixel(int x, int y)
 // pixels from one end to the other inclusive, as D3D's line list does; others are a one pixel wide strip along the segment.
 void segment(int x1, int y1, int x2, int y2, const int ca[4], const int cb[4])
 {
+	const PrimScope prim(FS2_SINK_PRIM_LINE);	// D3D: a line list
 	const float ox = (float)gr_screen.offset_x, oy = (float)gr_screen.offset_y;
 	const int blend = (ca[3] < 255 || cb[3] < 255) ? FS2_SINK_BLEND_ALPHA : FS2_SINK_BLEND_OPAQUE;
 	static const uint16_t idx[6] = { 0, 1, 2, 0, 2, 3 };

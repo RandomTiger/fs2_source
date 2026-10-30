@@ -74,7 +74,18 @@ typedef struct fs2_sink_draw {
 				   its vertices (TMAP_FLAG_PIXEL_FOG), 0 = a tmapper poly that did not (a fog-on poly keeps the last set colour, as D3D),
 				   255 = any other draw call; a sink that does not implement fog ignores it */
 	float fog_near, fog_far;	/* fog distances in world units; vertex z is depth / 30000 (capped 0.98), so depth = z * 30000 */
+	int32_t prim;		/* FS2_SINK_PRIM_*: the D3D primitive the original renderer sent for this call; statistics only, the
+				   indices are a triangle list whatever it says */
 } fs2_sink_draw;
+
+/* prim values: what gr_d3d sent for the same call (draw-call statistics, FS2_DRAWSTATS) */
+#define FS2_SINK_PRIM_OTHER	0
+#define FS2_SINK_PRIM_FAN	1	/* D3DPT_TRIANGLEFAN: tmapper polys, bitmaps, rects, text, flash */
+#define FS2_SINK_PRIM_STRIP	2
+#define FS2_SINK_PRIM_LIST	3
+#define FS2_SINK_PRIM_LINE	4	/* D3DPT_LINELIST: lines, gradients, circles, pixels (gr_d3d_pixel is a line) */
+#define FS2_SINK_PRIM_POINT	5
+#define FS2_SINK_PRIM_COUNT	6
 
 typedef struct fs2_render_sink {
 	uint32_t size;		/* sizeof(fs2_render_sink) as the caller built it */

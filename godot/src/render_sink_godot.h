@@ -68,6 +68,14 @@ public:
 	int frames_committed() const { return committed; }
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
+	// Draw-call statistics (FS2_DRAWSTATS=1, off by default): calls and vertices per D3D primitive type (fs2_sink_draw.prim),
+	// counted over drawn frames and printed at shutdown. Measurement only: nothing drawn changes.
+	struct DrawStats {
+		bool on = false;
+		uint64_t frames = 0, batches = 0, tiny = 0;
+		uint64_t calls[FS2_SINK_PRIM_COUNT] = {}, verts[FS2_SINK_PRIM_COUNT] = {};
+	} draw_stats;
+	void draw_stats_print();
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
 	void set_perspective_mode(PerspectiveMode m) { batcher.set_perspective_mode(m); }
