@@ -771,29 +771,7 @@ void bm_get_frame_usage(int *ntotal, int *nnew)
 }
 #endif
 
-// given a loaded bitmap with valid info, calculate sections
-void bm_calc_sections(bitmap *be)
-{
-	int idx;
-
-	// number of x and y sections
-	be->sections.num_x = (ubyte)(be->w / MAX_BMAP_SECTION_SIZE);
-	if((be->sections.num_x * MAX_BMAP_SECTION_SIZE) < be->w){
-		be->sections.num_x++;
-	}
-	be->sections.num_y = (ubyte)(be->h / MAX_BMAP_SECTION_SIZE);
-	if((be->sections.num_y * MAX_BMAP_SECTION_SIZE) < be->h){
-		be->sections.num_y++;
-	}
-
-	// calculate the offsets for each section
-	for(idx=0; idx<be->sections.num_x; idx++){
-		be->sections.sx[idx] = (ushort)(MAX_BMAP_SECTION_SIZE * idx);
-	}
-	for(idx=0; idx<be->sections.num_y; idx++){
-		be->sections.sy[idx] = (ushort)(MAX_BMAP_SECTION_SIZE * idx);
-	}
-}
+// Claude: bm_calc_sections removed; D3D computes its 256 pixel tile grid itself (d3d_tile_grid, GrD3DTexture.cpp)
 
 // Creates a bitmap that exists in RAM somewhere, instead
 // of coming from a disk file.  You pass in a pointer to a
@@ -849,8 +827,7 @@ int bm_create( int bpp, int w, int h, void * data, int flags )
 	bm_bitmaps[n].handle = bm_get_next_handle()*MAX_BITMAPS + n;
 	bm_bitmaps[n].last_used = -1;
 
-	// fill in section info
-	bm_calc_sections(&bm_bitmaps[n].bm);
+	// Claude: section info removed (D3D tiles itself)
 	
 	return bm_bitmaps[n].handle;
 }
@@ -1019,8 +996,7 @@ int bm_load( char * real_filename )
 	bm_bitmaps[n].handle = bm_get_next_handle()*MAX_BITMAPS + n;
 	bm_bitmaps[n].last_used = -1;
 
-	// fill in section info
-	bm_calc_sections(&bm_bitmaps[n].bm);
+	// Claude: section info removed (D3D tiles itself)
 
 	return bm_bitmaps[n].handle;
 }
@@ -1207,8 +1183,7 @@ int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop
 		bm_bitmaps[n+i].handle = first_handle*MAX_BITMAPS + n+i;
 		bm_bitmaps[n+i].last_used = -1;
 
-		// fill in section info
-		bm_calc_sections(&bm_bitmaps[n+i].bm);
+		// Claude: section info removed (D3D tiles itself)
 
 		if ( i == 0 )	{
 			sprintf( bm_bitmaps[n+i].filename, "%s", filename );
@@ -1221,7 +1196,7 @@ int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop
 }
 
 // Gets info.   w,h,or flags,nframes or fps can be NULL if you don't care.
-void bm_get_info( int handle, int *w, int * h, ubyte * flags, int *nframes, int *fps, bitmap_section_info **sections )
+void bm_get_info( int handle, int *w, int * h, ubyte * flags, int *nframes, int *fps )	// Claude: sections parameter removed
 {
 	bitmap * bmp;
 
@@ -1236,7 +1211,6 @@ void bm_get_info( int handle, int *w, int * h, ubyte * flags, int *nframes, int 
 		if (flags) *flags = 0;
 		if (nframes) *nframes=0;
 		if (fps) *fps=0;
-		if (sections != NULL) *sections = NULL;
 		return;
 	}
 
@@ -1259,9 +1233,6 @@ void bm_get_info( int handle, int *w, int * h, ubyte * flags, int *nframes, int 
 		if (fps) {
 			*fps= 0;
 		}
-	}
-	if(sections != NULL){
-		*sections = &bm_bitmaps[bitmapnum].bm.sections;
 	}
 }
 
@@ -2631,22 +2602,4 @@ void bm_get_filename(int bitmapnum, char *filename)
 	strcpy(filename, bm_bitmaps[n].filename);
 }
 
-// given a bitmap and a section, return the size (w, h)
-void bm_get_section_size(int bitmapnum, int sx, int sy, int *w, int *h)
-{
-	int bw, bh;
-	bitmap_section_info *sections;
-
-	// bogus input?
-	Assert((w != NULL) && (h != NULL));
-	if((w == NULL) || (h == NULL)){
-		return;
-	}
-
-	// get bitmap info
-	bm_get_info(bitmapnum, &bw, &bh, NULL, NULL, NULL, &sections);
-
-	// determine the width and height of this section
-	*w = sx < (sections->num_x - 1) ? MAX_BMAP_SECTION_SIZE : bw - sections->sx[sx];
-	*h = sy < (sections->num_y - 1) ? MAX_BMAP_SECTION_SIZE : bh - sections->sy[sy];										
-}
+// Claude: bm_get_section_size removed; D3D computes its tile sizes itself (d3d_tile_size, GrD3DTexture.cpp)

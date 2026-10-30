@@ -222,7 +222,7 @@ extern uint bm_get_signature( int bitmapnum);
 extern void bm_unlock( int bitmapnum );
 
 // Gets info.   w,h,or flags,nframes or fps can be NULL if you don't care.
-extern void bm_get_info( int bitmapnum, int *w=NULL, int * h=NULL, ubyte * flags=NULL, int *nframes=NULL, int *fps=NULL, bitmap_section_info **sections = NULL );
+extern void bm_get_info( int bitmapnum, int *w=NULL, int * h=NULL, ubyte * flags=NULL, int *nframes=NULL, int *fps=NULL );	// Claude: sections parameter removed
 
 // get filename
 extern void bm_get_filename(int bitmapnum, char *filename);
@@ -341,11 +341,6 @@ void bm_set_components_argb_d3d_32_tex(ubyte *pixel, ubyte *r, ubyte *g, ubyte *
 // get the rgba components of a pixel, any of the parameters can be NULL
 void bm_get_components(ubyte *pixel, ubyte *r, ubyte *g, ubyte *b, ubyte *a);
 
-//============================================================================
-// section info stuff
-//============================================================================
-
-// given a bitmap and a section, return the size (w, h)
-void bm_get_section_size(int bitmapnum, int sx, int sy, int *w, int *h);
+// Claude: section info stuff (bm_get_section_size) removed; D3D computes its tiles itself (GrD3DInternal.h)
 
 #endif
