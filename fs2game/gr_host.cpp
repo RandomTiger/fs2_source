@@ -734,6 +734,8 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 	const unsigned dflags = ((flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0) | zflags | (H.cull ? FS2_SINK_DRAWF_CULL : 0);
 	fs2_sink_draw d = plain_draw(tex, blend, dflags);
 	d.zbias = H.zbias;
+	// D-20261030-052453: fog_rgb[3] marks a poly that set its own fog colour above (render_sink.h); the colour itself is unchanged
+	d.fog_rgb[3] = (flags & TMAP_FLAG_PIXEL_FOG) ? 1 : 0;
 	draw(d, out, nv, idx, (nv - 2) * 3);
 }
 

@@ -278,7 +278,7 @@ int GodotSink::s_frame_begin(void *u, int w, int h)
 	}
 	if constexpr (kNebFog == kNebFogGpu) {
 		s->batcher.set_fog_gpu(true, w, h);
-		s->batcher.fog_table_clear();
+		s->batcher.fog_table_clear(s->committed);
 	}
 	// a frame that was started and never ended is dropped
 	s->next_index = 0;
@@ -1160,6 +1160,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 	if constexpr (kNebFog == kNebFogGpu) {
 		if (fog) {
 			rs->material_set_param(m, "bg", gpu_bg_texture(parity));
+			rs->material_set_param(m, "bgp", gpu_bg_texture(parity ^ 1));	// the frame before's pre-render (CUSTOM1.w = 1)
 			rs->material_set_param(m, "ptab", gpu_tab_texture(parity));
 		}
 	}
@@ -1199,26 +1200,27 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
 		if (fog && kNebFog == kNebFogGpu) {
-			// fog gpu: CUSTOM1 = (table offset, nv, factor). The vertex shader does neb2_get_pixel (Neb.cpp 1229-1343) for each vertex of the
+			// fog gpu: CUSTOM1 = (table offset, nv, factor, 1 = cells of a poly of the frame before: look up on `bgp`, D-20261030-052453).
+			// The vertex shader does neb2_get_pixel (Neb.cpp 1229-1343) for each vertex of the
 			// poly on the 32x32 pre-render `bg` (the start cells come from `ptab`) and the integer average over the poly (GrD3DRender.cpp 962-980)
-			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\nuniform sampler2D ptab : filter_nearest, repeat_disable;\n";
+			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\nuniform sampler2D bgp : filter_nearest, repeat_disable;\nuniform sampler2D ptab : filter_nearest, repeat_disable;\n";
 			code += "varying flat vec3 fgc;\nvarying float fgf;\n";
-			code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
-			code += "ivec3 nbget(int xs, int ys) {\n\tivec3 s = nbpx(xs, ys);\n\tint n = 1;\n";
-			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys); n++; }\n";
-			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys); n++; }\n";
-			code += "\tif (ys > 0) { s += nbpx(xs, ys - 1); n++; }\n";
-			code += "\tif (ys < 30) { s += nbpx(xs, ys + 1); n++; }\n";
-			code += "\tif (xs > 0 && ys > 0) { s += nbpx(xs - 1, ys - 1); n++; }\n";
-			code += "\tif (xs < 31 && ys < 31) { s += nbpx(xs + 1, ys + 1); n++; }\n";
-			code += "\tif (ys > 0 && xs < 31) { s += nbpx(xs + 1, ys - 1); n++; }\n";
-			code += "\tif (ys < 31 && xs > 0) { s += nbpx(xs - 1, ys + 1); n++; }\n";
+			code += "ivec3 nbpx(int x, int y, bool p) { return ivec3(round((p ? texelFetch(bgp, ivec2(x, y), 0) : texelFetch(bg, ivec2(x, y), 0)).rgb * 255.0)); }\n";
+			code += "ivec3 nbget(int xs, int ys, bool p) {\n\tivec3 s = nbpx(xs, ys, p);\n\tint n = 1;\n";
+			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys, p); n++; }\n";
+			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys, p); n++; }\n";
+			code += "\tif (ys > 0) { s += nbpx(xs, ys - 1, p); n++; }\n";
+			code += "\tif (ys < 30) { s += nbpx(xs, ys + 1, p); n++; }\n";
+			code += "\tif (xs > 0 && ys > 0) { s += nbpx(xs - 1, ys - 1, p); n++; }\n";
+			code += "\tif (xs < 31 && ys < 31) { s += nbpx(xs + 1, ys + 1, p); n++; }\n";
+			code += "\tif (ys > 0 && xs < 31) { s += nbpx(xs + 1, ys - 1, p); n++; }\n";
+			code += "\tif (ys < 31 && xs > 0) { s += nbpx(xs - 1, ys + 1, p); n++; }\n";
 			code += "\treturn ivec3(s.x / n, s.y / n, s.z / n);\n}\n";
 			code += "void vertex() {\n\tvcol = COLOR; pc = CUSTOM0.xyz;\n";
-			code += "\tint off = int(CUSTOM1.x + 0.5);\n\tint nv = int(CUSTOM1.y + 0.5);\n\tivec3 tot = ivec3(0);\n";
+			code += "\tint off = int(CUSTOM1.x + 0.5);\n\tint nv = int(CUSTOM1.y + 0.5);\n\tbool p = CUSTOM1.w > 0.5;\n\tivec3 tot = ivec3(0);\n";
 			code += "\tfor (int i = 0; i < nv; i++) {\n\t\tint k = off + i;\n";
 			code += "\t\tivec2 c = ivec2(round(texelFetch(ptab, ivec2(k & 127, k >> 7), 0).rg * 255.0));\n";
-			code += "\t\ttot += nbget(c.x, c.y);\n\t}\n";
+			code += "\t\ttot += nbget(c.x, c.y, p);\n\t}\n";
 			code += "\tint d = max(nv, 1);\n\tfgc = vec3(float(tot.x / d), float(tot.y / d), float(tot.z / d)) / 255.0;\n\tfgf = CUSTOM1.z;\n}\n";
 		} else {
 			if (fog) {
