@@ -66,6 +66,8 @@ func _ready() -> void:
 		var scr: Node = ClassDB.instantiate("Fs2Screen")
 		add_child(scr)
 		game.set_screen(scr)
+		# the game draws its own cursor (h_flip), as it did over its D3D window; the OS cursor would be a second one
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	smoke = OS.get_environment("FS2_SMOKE") == "1"
 	inject = OS.get_environment("FS2_INJECT") == "1"
 	if smoke or inject:
@@ -207,7 +209,7 @@ const TEXT_SCRIPT := [
 	[200, "key", KEY_C], [100, "keys", "Key Boardx"], [0, "key", KEY_BACKSPACE], [0, "key", KEY_ENTER],	# a physical keyboard
 	[200, "key", KEY_ESCAPE],	# Escape on the pilot screen: the game quits
 ]
-# FS2_TOUCH_INJECT=1: the same steps, plus tap: a finger down at [x, y] as a fraction of the game's 4:3 picture, up the next Godot frame
+# FS2_TOUCH_INJECT=1: the same steps, plus tap: a finger down and up at once at [x, y], a fraction of the game's 4:3 picture
 var touch_inject := OS.get_environment("FS2_TOUCH_INJECT") == "1"
 const TOUCH_SCRIPT := [
 	[600, "text", "Gone"], [0, "ctl", 27],	# cancel the callsign box the game opens with, as TEXT_SCRIPT does
@@ -266,7 +268,7 @@ func _text_tick() -> void:
 				Input.parse_input_event(t)
 				var tu := t.duplicate()
 				tu.pressed = false
-				text_pending.append([tu])
+				Input.parse_input_event(tu)	# up in the same Godot frame: the quickest tap, which the host must still deliver as a click
 			"key":
 				text_pending.append([_key_event(s[2], s[2], 0, true), _key_event(s[2], s[2], 0, false)])
 			"keys":

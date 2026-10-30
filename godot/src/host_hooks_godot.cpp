@@ -198,6 +198,13 @@ static uint64_t Text_at_ms = 0;		// when the last character went
 static int Text_cost = 0;		// presses the last character put in the game's buffer
 static bool Text_down[256];		// keys a text event's keycode alone pressed, so only their releases go
 
+// Mouse buttons. The game's UI buttons (message boxes, most screens) act on a button seen down in one frame and up in a later
+// one, so a click that goes down and up between two game frames (a touchscreen tap, a trackpad press) would do nothing: a
+// button's release waits until the game has run a frame with it down (or, if the game is not stepping frames, 40 ms).
+static unsigned int Btn_down = 0;	// buttons the game was told are down
+static uint64_t Btn_frames = 0;		// game frames since a button last went down
+static uint64_t Btn_at_ms = 0;		// when it went down
+
 static bool is_headless_display()
 {
 	DisplayServer *ds = DisplayServer::get_singleton();
@@ -220,6 +227,9 @@ void reset()
 	Text_at_ms = 0;
 	Text_cost = 0;
 	memset(Text_down, 0, sizeof(Text_down));
+	Btn_down = 0;
+	Btn_frames = 0;
+	Btn_at_ms = 0;
 	// a headless Godot has no window to be in front, and the game must see itself in front as it did with the headless hooks
 	Foreground = true;
 	if (!is_headless_display()) {
@@ -331,6 +341,9 @@ void frame_tick()
 	if (Text_frames < 1000000) {
 		Text_frames++;
 	}
+	if (Btn_frames < 1000000) {
+		Btn_frames++;
+	}
 }
 
 void push_focus(bool got)
@@ -409,6 +422,9 @@ static void h_poll_events(void)
 		if (e.type == EV_TEXT && Text_cost > 0 && Text_frames < (uint64_t)Text_cost && now < Text_at_ms + 40u * (uint64_t)Text_cost) {
 			break;	// the game has not yet taken the last character; the rest waits behind it, in order
 		}
+		if (e.type == EV_MOUSE_BUTTON && e.b == 0 && (Btn_down & e.a) && Btn_frames < 1 && now < Btn_at_ms + 40u) {
+			break;	// the game has not yet run a frame with the button down; the release and the rest wait, in order
+		}
 		Queue.pop_front();
 		Consumed_count++;
 		Consumed_usec = (long long)Time::get_singleton()->get_ticks_usec();
@@ -439,6 +455,13 @@ static void h_poll_events(void)
 			break;
 		}
 		case EV_MOUSE_BUTTON:
+			if (e.b != 0) {
+				Btn_down |= e.a;
+				Btn_frames = 0;
+				Btn_at_ms = now;
+			} else {
+				Btn_down &= ~e.a;
+			}
 			Api->input_mouse_button(e.a, e.b);
 			break;
 		case EV_MOUSE_MOVE:

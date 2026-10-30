@@ -27,6 +27,7 @@
 #include "bmpman.h"
 #include "Font.h"
 #include "cmdline.h"
+#include "Mouse.h"
 // Line.h's INT_CLIPLINE scales with the Win32 MulDiv; this is the same (rounds to nearest, halves away from zero)
 static inline int MulDiv(int number, int numerator, int denominator)
 {
@@ -283,6 +284,12 @@ void depth_run_end()
 void h_flip()
 {
 	ensure_frame();
+	// the cursor, last, as gr_d3d_flip draws it: at the position gr_flip_frame read, the cursor bitmap (no debug arrow)
+	if (drawing() && mouse_is_visible() && (Gr_cursor != -1)) {
+		gr_reset_clip();
+		gr_set_bitmap(Gr_cursor);
+		gr_bitmap(Gr_flip_mouse_x, Gr_flip_mouse_y);
+	}
 	depth_run_end();
 	if (drawing()) { H.sink->frame_end(H.sink->user); }
 	H.frame = FRAME_NONE;
