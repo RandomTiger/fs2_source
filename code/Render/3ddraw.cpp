@@ -1749,15 +1749,13 @@ int g3_draw_2d_poly_bitmap(int x, int y, int w, int h, uint additional_tmap_flag
 	vertex v[4];
 	vertex *vertlist[4] = { &v[0], &v[1], &v[2], &v[3] };
 
-	int bw, bh;
+	// Claude: bw, bh and their bm_get_section_size call removed; only commented out code read them
 
 	g3_start_frame(1);
 
 	// turn off zbuffering	
 	saved_zbuffer_mode = gr_zbuffer_get();
 	gr_zbuffer_set(GR_ZBUFF_NONE);	
-
-	bm_get_section_size(gr_screen.current_bitmap, gr_screen.current_bitmap_sx, gr_screen.current_bitmap_sy, &bw, &bh);
 
 	// stuff coords	
 	v[0].sx = (float)x;

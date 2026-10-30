@@ -4346,7 +4346,10 @@ void game_set_frametime(int state)
 
 	if ( Last_time == 0 )	
 		Frametime = F1_0 / 30;
-	else
+	else if ( Game_host_paced && !replay_should_read() ) {	// Claude: host-paced live play steps exactly one cap interval per game frame (the host paces by the wall clock, so the measured gap would be added on top of the paced step)
+		Frametime = F1_0 / Framerate_cap;
+		thistime = Last_time + Frametime;
+	} else
 		Frametime = thistime - Last_time;
 
 //	Frametime = F1_0 / 30;
@@ -4421,6 +4424,18 @@ void game_set_frametime(int state)
 	flFrametime = f2fl(Frametime);
 	//if(!(Game_mode & GM_PLAYING_DEMO)){
 	timestamp_inc(flFrametime);
+
+	if ( Game_host_paced && getenv("FS2_PACELOG") ) {	// Claude: off by default; once per real second prints game seconds against real ms (host-paced speed check)
+		static double game_s = 0.0; static int real0 = 0;
+		int real_now = (int)(timer_get_fixed_seconds_unrecorded() / (F1_0 / 1000));
+		game_s += flFrametime;
+		if ( real0 == 0 ) real0 = real_now;
+		else if ( real_now - real0 >= 1000 ) {
+			printf("PACELOG game_s=%.4f real_ms=%d ratio=%.4f\n", game_s, real_now - real0, game_s * 1000.0 / (real_now - real0));
+			fflush(stdout);
+			game_s = 0.0; real0 = real_now;
+		}
+	}
 
 /*	if ((Framecount > 0) && (Framecount < 10)) {
 		mprintf(("Frame %2i: frametime = %.3f (%.3f)\n", Framecount, f2fl(Frametime), f2fl(debug_frametime)));

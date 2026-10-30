@@ -194,8 +194,10 @@
 #include "cfile.h"
 #include "Replay.h"
 #include "Autotest.h"
+#include "BitmapLog.h"	// Claude
 #include "InputTest.h"	// Claude
 #include "OsRegistry.h"	// Claude
+#include "OsApi.h"	// Claude: Os_no_window
 
 // variables
 class cmdline_parm {
@@ -233,6 +235,7 @@ cmdline_parm client_dodamage("-clientdamage", NULL);
 cmdline_parm pof_spew("-pofspew", NULL);
 cmdline_parm force_16bit("-force_16bit", NULL);	// Claude: was -32bit, now that 32 bit is the default
 cmdline_parm headless_arg("-headless", NULL);	// Claude: no window, graphics or sound device
+cmdline_parm nowindow_arg("-nowindow", NULL);	// Claude: test stand-in for a host-set Os_no_window; honoured only with -nographics
 cmdline_parm nographics_arg("-nographics", NULL);	// Claude: no graphics device: the null renderer, and no drawing
 cmdline_parm nosounddevice_arg("-nosounddevice", NULL);	// Claude: the sound system with no device (Sound.cpp)
 cmdline_parm nodraw_arg("-nodraw", NULL);	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing
@@ -261,6 +264,9 @@ cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.i
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
+cmdline_parm bmlog_arg("-bmlog", NULL);			// Claude: bitmap section evidence log, see BitmapLog.h
+cmdline_parm bmshots_arg("-bmshots", NULL);		// Claude
+cmdline_parm bmframes_arg("-bmframes", NULL);		// Claude
 cmdline_parm loadtimes_arg("-loadtimes", NULL);	// Claude: mission load times log, see LoadTimes.h
 int Cmdline_loadtimes = 0;						// Claude: -loadtimes
 
@@ -669,6 +675,11 @@ int parse_cmdline(char *cmdline)
 		Cmdline_nodraw = 1;
 	}
 
+	// Claude: no window handle at all; D3D needs one, so only with no graphics device (-nographics or -headless)
+	if(nowindow_arg.found() && Cmdline_nographics){
+		Os_no_window = 1;
+	}
+
 	// mouse coords
 	if(mouse_coords.found()){
 		Cmdline_mouse_coords = 1;
@@ -710,6 +721,11 @@ int parse_cmdline(char *cmdline)
 	if(dataset_arg.found()){	// Claude
 		Cmdline_dataset = dataset_arg.str();	// Claude
 	}	// Claude
+
+	// Claude: -bmlog, -bmshots, -bmframes
+	if(bmlog_arg.found() || bmshots_arg.found()){
+		bmlog_set_cmdline(bmlog_arg.found() ? bmlog_arg.str() : NULL, bmshots_arg.found() ? bmshots_arg.str() : NULL, bmframes_arg.found() ? bmframes_arg.str() : NULL);
+	}
 
 	// Claude: -loadtimes
 	if(loadtimes_arg.found()){

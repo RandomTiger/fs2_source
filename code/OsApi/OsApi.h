@@ -52,6 +52,13 @@ int os_foreground();
 // Claude: x64, HWNDs only use the low 32 bits, but uintptr_t keeps the cast quiet; uint on Win32 (D-20261020-194406 batch 3)
 uintptr_t os_get_window();
 
+// Claude: the window handle DirectSound uses: the host's Host_hooks.sound_window when it supplies one, else os_get_window()
+uintptr_t os_get_sound_window();
+
+// Claude: set by a host before os_init when it has its own window or none: the game then creates no window and os_get_window() returns 0.
+// Everything that needs a window handle must cope with 0 (DirectSound already returns "no sound" for it).  Never set with a game-drawn renderer.
+extern int Os_no_window;
+
 
 // process management --------------------------------------------------------------
 

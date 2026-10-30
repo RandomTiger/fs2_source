@@ -29,3 +29,14 @@ are shown in a message box (stderr under --headless) and the exit code is 3 (4: 
 are written under the data folder by the game, as before. FS2_CMD / FS2_DLL / FS2_ROOT still work for the gate harness.
 Gate: `tools\godot_pkg_check.ps1 [-Level L1|L2] [-Config r|d] [-Set ...]` runs the same recordings through the packaged exe, copied
 into each set's folder.
+
+### Build a package on a new PC (checklist)
+1. Install Visual Studio 2022 (Desktop C++ workload) and git; clone the repo (`core.autocrlf=false`) and check out the branch.
+2. Godot 4.7.2-stable: unzip `Godot_v4.7.2-stable_win64_console.exe` to a folder and set `GODOT_ENGINE_4_7` to that folder.
+3. godot-cpp (matching 4.7): clone it to a folder and set `FS2_GODOT_CPP` to it.
+4. Export templates: install the official 4.7.2-stable Windows release template in `%APPDATA%\Godot\export_templates\4.7.2.stable` (unmodified).
+5. Set `PATH_FS2` to a FreeSpace 2 install folder to build into (the retail data; use a copy, not the GOG install).
+6. Build `fs2game` (Release x64) with MSBuild: `FS2game64r.dll` lands in `PATH_FS2`.
+7. `tools\godot_package.ps1 -GodotCpp %FS2_GODOT_CPP% -GameDir %PATH_FS2%` builds the wrapper and exports `build\pkg\FS2Godot.exe`, `FS2Godot.pck`, `fs2godot_rel.dll`.
+8. Copy those three files plus `FS2game64r.dll` into the game's data folder (next to the `.vp` files) and run `FS2Godot.exe`.
+9. Check: with no data folder the exe shows the folders it tried and exits 3; with `FS2game64r.dll` missing it exits 4.

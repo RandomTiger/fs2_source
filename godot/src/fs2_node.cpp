@@ -1,8 +1,11 @@
 #include "fs2_node.h"
 #include "fs2_screen.h"
+#include "render_sink_godot.h"
 
+#include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/window.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -84,6 +87,33 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	api.set_fiber(fiber_mode);
 	if (api.set_host_pacing != nullptr) {
 		api.set_host_pacing(pace_realtime ? 1 : 0);
+	}
+	// D-20261029-060953: interactive shown play gives DirectSound Godot's own window. A headless Godot has none, and a game started with
+	// -headless or -nosounddevice has no sound device, so compared runs (gates, record, replay) keep the no-device side untouched.
+	if (api.set_window_handle != nullptr) {
+		const String cmd_padded = String(" ") + cmdline + " ";
+		const bool no_device = cmd_padded.contains(" -nosounddevice ") || cmd_padded.contains(" -headless ");
+		DisplayServer *ds = DisplayServer::get_singleton();
+		if (ds != nullptr && ds->get_name() != "headless" && !no_device) {
+			const int64_t hwnd = ds->window_get_native_handle(DisplayServer::WINDOW_HANDLE, 0);
+			api.set_window_handle((unsigned long long)hwnd);
+			UtilityFunctions::print("Fs2Game: sound window handle 0x", String::num_int64(hwnd, 16), " passed to the game (fs2_set_window_handle)");
+		} else {
+			api.set_window_handle(0);
+		}
+	}
+	// D-20261030-063743: nebula fog state. gpu for live shown play only; every scripted, trace-compared or gate run (-replay, -autotest, -record,
+	// -at_*) and every headless run keeps off, so no baseline moves. FS2_NEBFOG=off|same|lag|gpu overrides (gate C gpu runs, measurements).
+	{
+		const String cmd_padded = String(" ") + cmdline + " ";
+		const bool scripted = cmd_padded.contains(" -replay ") || cmd_padded.contains(" -autotest ") || cmd_padded.contains(" -record ") ||
+			cmd_padded.contains(" -at_") || cmd_padded.contains(" -headless ");
+		DisplayServer *nds = DisplayServer::get_singleton();
+		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
+		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
+		const String ov = OS::get_singleton()->get_environment("FS2_NEBFOG");
+		if (ov == "off") { fs2sink::g_nebfog = fs2sink::kNebFogOff; } else if (ov == "same") { fs2sink::g_nebfog = fs2sink::kNebFogSame; } else if (ov == "lag") { fs2sink::g_nebfog = fs2sink::kNebFogLag; } else if (ov == "gpu") { fs2sink::g_nebfog = fs2sink::kNebFogGpu; }
+		UtilityFunctions::print("Fs2Game: kNebFog ", fs2sink::g_nebfog == fs2sink::kNebFogGpu ? "gpu" : fs2sink::g_nebfog == fs2sink::kNebFogSame ? "same" : fs2sink::g_nebfog == fs2sink::kNebFogLag ? "lag" : "off");
 	}
 	pace_acc_usec = 0;
 	pace_last_usec = Time::get_singleton()->get_ticks_usec();

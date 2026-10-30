@@ -7,7 +7,12 @@
 #
 # The gate harness and developers keep the environment of runner.gd: FS2_CMD, FS2_DLL, FS2_ROOT. FS2_CMD set means a scripted
 # run: it takes FS2_ROOT and FS2_DLL when set, else the folder and DLL the rules above find. Without FS2_CMD this is live play:
-# `-window`, drawn through the host renderer, the game on a fiber (what runner.gd's FS2_GR_HOST, FS2_FIBER do).
+# the game's own `-window`, drawn through the host renderer, the game on a fiber (what runner.gd's FS2_GR_HOST, FS2_FIBER do).
+#
+# Window mode (live play only): fullscreen by default, the borderless kind at the display's own resolution (Godot's WINDOW_MODE_FULLSCREEN;
+# it alt-tabs, shows the launcher's message box and suits the Steam Deck's 1280x800 panel and gamescope). The game keeps its aspect and the
+# bars show black. The optional `-window` (or `--window`) on the exe's command line gives the 1152x648 window instead. Scripted runs
+# (FS2_CMD set) are never touched: they keep whatever Godot's own flags (--windowed, --resolution) or its project default give.
 # The values go to runner.gd through the process environment (OS.set_environment), so runner.gd needs no change.
 extends Node
 
@@ -46,11 +51,33 @@ func _ready() -> void:
 	OS.set_environment("FS2_ROOT", root.replace("/", "\\").rstrip("\\"))
 	OS.set_environment("FS2_DLL", dll.replace("/", "\\"))
 	if OS.get_environment("FS2_CMD") == "":
-		OS.set_environment("FS2_CMD", "-window")
+		OS.set_environment("FS2_CMD", "-window")	# the game's flag; the host renderer ignores it, the window mode is set below
 		OS.set_environment("FS2_GR_HOST", "1")
 		OS.set_environment("FS2_FIBER", "1")
+		_set_window_mode(_has_window_switch())
 	var runner: PackedScene = load("res://runner.tscn")
 	add_child(runner.instantiate())
+
+func _has_window_switch() -> bool:
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if a == "-window" or a == "--window":
+			return true
+	return false
+
+# Fullscreen unless windowed. A headless Godot has no window to set. The log line is what the launch tests read.
+func _set_window_mode(windowed: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not windowed:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	print("launch: window mode requested ", "windowed" if windowed else "fullscreen")
+	_report_window_mode.call_deferred()
+
+func _report_window_mode() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var m := DisplayServer.window_get_mode()
+	print("launch: window mode is ", "fullscreen" if m == DisplayServer.WINDOW_MODE_FULLSCREEN else "exclusive fullscreen" if m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN else "windowed", ", size ", DisplayServer.window_get_size(), ", screen ", DisplayServer.screen_get_size())
 
 # The folders to try when nothing names one: the exe's, then the current directory (as the OS gave it to the process).
 func _default_candidates(exe_dir: String) -> PackedStringArray:

@@ -46,6 +46,11 @@ typedef struct host_hooks {
 	// with no pad, zero *out and return 0. Same bits as the pad backend gave: buttons and axes in the standard
 	// gamepad order, sticks -1..1 with +y down, triggers 0..1. Safe to call every frame.
 	int		(*pad_poll)(pad_state *out);
+
+	// sound window: the platform window handle DirectSound takes its cooperative level on, as an integer, or 0 for
+	// none. The entry itself is optional and null by default; null (or 0) leaves the game's own window in use. The host
+	// owns the window: the game only hands the value to DirectSound and never subclasses, pumps, resizes or destroys it.
+	uintptr_t	(*sound_window)();
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
