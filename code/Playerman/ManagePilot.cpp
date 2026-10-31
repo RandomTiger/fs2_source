@@ -319,6 +319,7 @@ int verify_pilot_file(char *filename, int single, int *rank)
 		cfclose(file);
 		return -1;
 	}
+	if (file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 
 	type = !cfread_ubyte(file);
 	if (rank){
@@ -564,6 +565,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 		cfclose(file);
 		return -1;
 	}
+	if (Player_file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", Player_file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 
 	// read in whether he's a multiplayer or not
 	is_multi = cfread_ubyte(file);
@@ -1132,6 +1134,7 @@ int is_pilot_multi(CFILE *fp)
 		cfclose(fp);
 		return -1;
 	}
+	if (file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(fp); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 
 	// read in whether he's a multiplayer or not
 	is_multi = cfread_ubyte(fp);
