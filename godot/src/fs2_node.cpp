@@ -115,6 +115,7 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		if (ov == "off") { fs2sink::g_nebfog = fs2sink::kNebFogOff; } else if (ov == "same") { fs2sink::g_nebfog = fs2sink::kNebFogSame; } else if (ov == "lag") { fs2sink::g_nebfog = fs2sink::kNebFogLag; } else if (ov == "gpu") { fs2sink::g_nebfog = fs2sink::kNebFogGpu; }
 		UtilityFunctions::print("Fs2Game: kNebFog ", fs2sink::g_nebfog == fs2sink::kNebFogGpu ? "gpu" : fs2sink::g_nebfog == fs2sink::kNebFogSame ? "same" : fs2sink::g_nebfog == fs2sink::kNebFogLag ? "lag" : "off");
 	}
+	fs2sink::g_opaque_reorder = OS::get_singleton()->get_environment("FS2_OPAQUE_REORDER") != "0";
 	pace_acc_usec = 0;
 	pace_last_usec = Time::get_singleton()->get_ticks_usec();
 	if (!api.init(cmdline.utf8().get_data(), root_dir.utf8().get_data())) {

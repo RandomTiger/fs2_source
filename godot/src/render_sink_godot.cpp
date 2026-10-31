@@ -1,4 +1,5 @@
 #include "render_sink_godot.h"
+#include "opaque_reorder.h"
 #include "perf_prof.h"
 
 #include <cstring>
@@ -1021,6 +1022,11 @@ void GodotSink::end_run()
 	in_run = false;
 	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
 	RenderingServer *rs = RenderingServer::get_singleton();
+	if (g_opaque_reorder) {
+		const size_t before = run_batches.size();
+		reorder_opaque_batches(run_batches);
+		stat_reorder_saved += before - run_batches.size();
+	}
 	int first = -1, last = -1;
 	for (int i = 0; i < (int)run_batches.size(); i++) {
 		if (run_batches[i].key.zmode != 0) {

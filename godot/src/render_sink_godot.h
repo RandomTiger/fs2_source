@@ -51,6 +51,8 @@ constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2, kNebFogGpu = 3;
 // D-20261030-063743: the state is chosen at run time, Godot-side (Fs2Game::start, fs2_node.cpp): kNebFogGpu for live shown play (a window, no
 // -replay/-autotest/-record/-at_ run), kNebFogOff for every scripted, trace-compared or gate run. FS2_NEBFOG=off|same|lag|gpu overrides it.
 inline int g_nebfog = kNebFogOff;
+// P3a (GodotRender3D, D-20261031-120702): opaque depth-written batches of one epoch are regrouped by texture. FS2_OPAQUE_REORDER=0 turns it off.
+inline bool g_opaque_reorder = true;
 constexpr int kNebFogLagFrames = 1;
 constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
 
@@ -71,6 +73,7 @@ public:
 	int frames_committed() const { return committed; }
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
+	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
 	void set_perspective_mode(PerspectiveMode m) { batcher.set_perspective_mode(m); }

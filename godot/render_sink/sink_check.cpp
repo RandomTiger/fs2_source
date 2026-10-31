@@ -9,6 +9,7 @@
 #include "batcher.h"
 #include "fake_sink.h"
 #include "depth_contract.h"
+#include "opaque_reorder.h"
 #include "selftest_scenes.h"
 
 static int failures = 0;
@@ -327,6 +328,45 @@ static void test_batcher_cost()
 }
 
 // P1: the camera call and the depth contract
+static Batch mk(int tex, int blend, int zmode, int epoch, int nv)
+{
+	Batch b;
+	b.key.texture = tex; b.key.blend = blend; b.key.depth = 1; b.key.zmode = zmode; b.key.epoch = epoch; b.key.perspective = 1;
+	for (int i = 0; i < nv; i++) {
+		b.pos.push_back((float)i); b.pos.push_back(0); b.uv.push_back(0); b.uv.push_back(0);
+		for (int k = 0; k < 4; k++) { b.col.push_back(1); b.custom.push_back(1); }
+		b.z.push_back(0.5f);
+	}
+	for (int i = 0; i + 2 < nv; i++) { b.idx.push_back(0); b.idx.push_back(i + 1); b.idx.push_back(i + 2); }
+	return b;
+}
+
+static void test_opaque_reorder()
+{
+	const int O = FS2_SINK_BLEND_OPAQUE, A = FS2_SINK_BLEND_ALPHA;
+	std::vector<Batch> v;
+	// textures A B A B, then an alpha batch, then A B in the same epoch, then A in the next epoch
+	v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4)); v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4));
+	v.push_back(mk(3, A, 1, 0, 4));
+	v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4));
+	v.push_back(mk(1, O, 2, 1, 4));
+	long tris = 0;
+	for (const Batch &b : v) { tris += (long)b.idx.size() / 3; }
+	reorder_opaque_batches(v);
+	CHECK(v.size() == 6);	// {1,2} alpha {1,2} {1 epoch 1}
+	CHECK(v[0].key.texture == 1 && v[1].key.texture == 2 && v[2].key.blend == A);
+	CHECK(v[3].key.texture == 1 && v[4].key.texture == 2 && v[5].key.epoch == 1);
+	CHECK(v[0].nverts() == 8 && v[0].idx.size() == 12 && v[0].z.size() == 8);
+	long after = 0;
+	bool in_range = true;
+	for (const Batch &b : v) {
+		after += (long)b.idx.size() / 3;
+		for (int32_t i : b.idx) { if (i < 0 || i >= b.nverts()) { in_range = false; } }
+	}
+	CHECK(after == tris && in_range);
+	CHECK(v[0].idx[3] == 4 && v[0].idx[4] == 5);	// the second batch's indices were moved by 4
+}
+
 static void test_view_and_depth()
 {
 	fs2sink::FakeSink fake;
@@ -372,6 +412,7 @@ int main()
 	test_batcher_cost();
 	test_frame_rules();
 	test_view_and_depth();
+	test_opaque_reorder();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);
 		return 1;
