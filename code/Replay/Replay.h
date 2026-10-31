@@ -112,6 +112,8 @@ void  replay_write_ints(int tag, int *vals, int count);
 // records vals[0..count-1] and returns count.  Pack the live state into vals only when
 // replay_should_read() is 0.
 int   replay_input_device(int *vals, int count, int max);
+// The same for a device sharing the entry: in replay it takes the entry only when vals[0] there is magic.
+int   replay_input_device_tagged(int magic, int *vals, int count, int max);
 
 // sound handles: the live handle is kept unless the recorded call failed or succeeded differently.
 // duration_ms and looping feed the FS2_REPLAY_SOUND_MODEL diagnostic only.

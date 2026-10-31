@@ -243,6 +243,7 @@ cmdline_parm mouse_coords("-coords", NULL);
 cmdline_parm timeout("-timeout", NULL);
 cmdline_parm d3d_window("-window", NULL);
 cmdline_parm all_cutscenes_arg("-allcutscenes", NULL);		// Claude: list every cutscene in the tech room
+cmdline_parm bastion_arg("-bastion", NULL);		// Claude: the pilot picked starts in the Vasudan (Bastion) main hall, as the debug console's "bastion" (D-20261031-084800)
 cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
@@ -304,6 +305,7 @@ int Cmdline_window = 0;
 int Cmdline_no_ship_glow = 0;	// Claude: -noshipglow
 int Cmdline_no_force_glow = 0;	// Claude: -noforceglow
 int Cmdline_all_cutscenes = 0;		// Claude
+int Cmdline_bastion = 0;		// Claude: -bastion
 char *Cmdline_mission = NULL;	// Claude: -mission, or NULL
 
 static cmdline_parm Parm_list(NULL, NULL);
@@ -687,6 +689,11 @@ int parse_cmdline(char *cmdline)
 	// d3d windowed
 	if(d3d_window.found()){
 		Cmdline_window = 1;
+	}
+
+	// Claude: -bastion, the Vasudan (Bastion) main hall (D-20261031-084800)
+	if(bastion_arg.found()){
+		Cmdline_bastion = 1;
 	}
 
 	// Claude: list every cutscene in the tech room, seen or not

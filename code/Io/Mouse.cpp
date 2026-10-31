@@ -130,6 +130,9 @@
 #include "Autotest.h"	// Claude: -at_shots parks the cursor, see Autotest.h
 #include "DataSetProfile.h"	// Claude
 
+void gr_present_client_to_game(int *x, int *y);	// Claude: #112, GrD3D.cpp: borderless fullscreen picture placement
+void gr_present_game_to_client(int *x, int *y);	// Claude: #112
+
 #define MOUSE_MODE_DI	0
 #define MOUSE_MODE_WIN	1
 
@@ -183,6 +186,7 @@ static void mouse_get_cursor_pos(POINT *pnt)
 
 	GetCursorPos(pnt);
 	ScreenToClient((HWND)os_get_window(), pnt);
+	{ int gx = pnt->x, gy = pnt->y; gr_present_client_to_game(&gx, &gy); pnt->x = gx; pnt->y = gy; }	// Claude: #112: client to game coordinates, before autotest and the recording
 	autotest_cursor_pos(&pnt->x, &pnt->y);	// Claude: -at_shots parks the cursor, see Autotest.h
 
 	xy[0] = pnt->x;
@@ -457,6 +461,7 @@ void mouse_force_pos(int x, int y)
 
 		pnt.x = x;
 		pnt.y = y;
+		{ int cx = pnt.x, cy = pnt.y; gr_present_game_to_client(&cx, &cy); pnt.x = cx; pnt.y = cy; }	// Claude: #112: game to client coordinates
 		ClientToScreen((HWND) os_get_window(), &pnt);
 		SetCursorPos(pnt.x, pnt.y);
 	}

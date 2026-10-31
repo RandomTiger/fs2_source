@@ -16,6 +16,10 @@
 #include "KeyControl.h"
 #include "Timer.h"
 #include "Replay.h"
+#include "Autotest.h"
+#include "Ship.h"
+#include "ai.h"
+#include "AiGoals.h"
 
 extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is reading a device
 
@@ -28,6 +32,7 @@ extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is read
 #define PAD_ACTION_MENU_DOWN		1005
 #define PAD_ACTION_MENU_SELECT	1006
 #define PAD_ACTION_MENU_BACK		1007
+#define PAD_ACTION_TALK			1008			// held: voice push-to-talk
 
 // HUDsquadmsg.cpp
 extern void hud_squadmsg_pad_open();
@@ -35,6 +40,8 @@ extern void hud_squadmsg_pad_close();
 extern void hud_squadmsg_pad_move(int dir);
 extern void hud_squadmsg_pad_select();
 extern void hud_squadmsg_pad_back();
+extern int hud_squadmsg_voice_in_command();
+extern int hud_squadmsg_voice_row(int row, char **text, int *order, int *active);
 
 // Core layout. Everything else stays on the keyboard for now.
 static const pad_binding Pad_game_bindings[] = {
@@ -48,7 +55,7 @@ static const pad_binding Pad_game_bindings[] = {
 	{ PAD_LSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_SLOW },
 	{ PAD_LSHOULDER,			PAD_G_DOUBLE_TAP,			PAD_LAYER_BASE,	ZERO_THROTTLE },
 	{ PAD_INPUT_RSTICK_DOWN,	PAD_G_PRESS,			PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE },
-	{ PAD_SOUTH,				PAD_G_PRESS,				PAD_LAYER_BASE,	TARGET_NEXT_CLOSEST_HOSTILE },
+	{ PAD_SOUTH,				PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_TALK },	// voice push-to-talk, also while the squad menu is up
 	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_ANY,		PAD_ACTION_PAUSE },
 };
 
@@ -209,7 +216,118 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 	}
 }
 
-static void pad_game_update()
+// The pad's squad menu test (#119).  A test mission whose notes have PAD_TEST_NOTE gets its pad output from this
+// script instead of the pad (AutotestSquadPad); a replay reads it back from the recording.  When a step's mission
+// time comes, it first checks what the steps before it left (the same in the recording and in each replay), then
+// fires its pad action.  The pad opens the menu and presses rows through hud_squadmsg_menu_open/_press_row.
+#define PAD_TEST_NOTE			"autotest: squad pad"
+#define PAD_TEST_TALK_ON		-2		// start holding push-to-talk (South)
+#define PAD_TEST_TALK_OFF		-3
+
+enum { PT_CLOSED, PT_TOP, PT_ORDERS, PT_FORM_ROW, PT_FORMED, PT_TALK, PT_RELEASED };
+
+struct pad_test_step { float time; int action; int expect; char *what; };
+static pad_test_step Pad_test_steps[] = {
+	{ 10.0f, PAD_ACTION_MENU_OPEN,	PT_CLOSED,		"menu closed before the test" },
+	{ 11.0f, PAD_ACTION_MENU_DOWN,	PT_TOP,			"pad open: the top menu is up" },
+	{ 11.5f, PAD_ACTION_MENU_SELECT,	PT_TOP,			"down: still the top menu" },
+	{ 12.5f, PAD_ACTION_MENU_SELECT,	PT_TOP,			"row 2 (Wings): the wing list is up" },
+	{ 13.5f, PAD_ACTION_MENU_DOWN,	PT_FORM_ROW,	"row 1 (Beta): its orders are up, row 7 is Form on my wing" },
+	{ 13.7f, PAD_ACTION_MENU_DOWN,	PT_ORDERS,		"down 1: still the orders" },
+	{ 13.9f, PAD_ACTION_MENU_DOWN,	PT_ORDERS,		"down 2: still the orders" },
+	{ 14.1f, PAD_ACTION_MENU_DOWN,	PT_ORDERS,		"down 3: still the orders" },
+	{ 14.3f, PAD_ACTION_MENU_DOWN,	PT_ORDERS,		"down 4: still the orders" },
+	{ 14.5f, PAD_ACTION_MENU_DOWN,	PT_ORDERS,		"down 5: still the orders" },
+	{ 15.0f, PAD_ACTION_MENU_SELECT,	PT_ORDERS,		"down 6: still the orders" },
+	{ 20.0f, PAD_ACTION_MENU_OPEN,	PT_FORMED,		"row 7 (Form on my wing): sent, the menu closed, Beta 1 forms on the player" },
+	{ 21.0f, PAD_ACTION_MENU_BACK,	PT_TOP,			"pad open: the top menu is up" },
+	{ 22.0f, PAD_ACTION_MENU_CLOSE,	PT_TOP,			"back on the top menu: it stays up" },
+	{ 26.0f, PAD_ACTION_MENU_OPEN,	PT_CLOSED,		"pad close: the menu closed" },
+	{ 27.0f, PAD_ACTION_MENU_DOWN,	PT_TOP,			"pad open: the top menu is up" },
+	{ 27.5f, PAD_ACTION_MENU_DOWN,	PT_TOP,			"down: still the top menu" },
+	{ 28.0f, PAD_ACTION_MENU_SELECT,	PT_TOP,			"down: still the top menu" },
+	{ 29.0f, PAD_ACTION_MENU_BACK,	PT_ORDERS,		"row 3 (All fighters): the orders are up" },
+	{ 30.0f, PAD_ACTION_MENU_CLOSE,	PT_TOP,			"back from All fighters: the top menu" },
+	{ 32.0f, PAD_TEST_TALK_ON,		PT_CLOSED,		"pad close: the menu closed" },
+	{ 33.0f, -1,						PT_TALK,			"South held: push-to-talk held, the menu still closed" },
+	{ 34.0f, PAD_TEST_TALK_OFF,		PT_TALK,			"South still held" },
+	{ 35.0f, -1,						PT_RELEASED,	"South released: push-to-talk off, the menu still closed" },
+};
+#define PAD_TEST_STEPS	((int)(sizeof(Pad_test_steps) / sizeof(Pad_test_steps[0])))
+
+static int Pad_test_next = 0;
+static int Pad_test_talk = 0;
+
+static int pad_test_beta1_formed()
+{
+	int shipnum;
+	ai_info *aip;
+
+	// The order lands as an AI_GOAL_FORM_ON_WING goal, but the goal code clears every goal
+	// once it acts on it (ai_form_on_wing), so what lasts is the formation on the player.
+	shipnum = ship_name_lookup("Beta 1");
+	if ((shipnum < 0) || (Ships[shipnum].ai_index < 0) || (Player_obj == NULL)) {
+		return 0;
+	}
+	aip = &Ai_info[Ships[shipnum].ai_index];
+	return (aip->ai_flags & AIF_FORMATION_OBJECT) && (aip->goal_objnum == OBJ_INDEX(Player_obj));
+}
+
+static int pad_test_expect(int expect)
+{
+	int open = (Player->flags & PLAYER_FLAGS_MSG_MODE) ? 1 : 0;
+	int order, active;
+	char *text;
+
+	switch (expect) {
+	case PT_CLOSED:		return !open;
+	case PT_TOP:			return open && !hud_squadmsg_voice_in_command();
+	case PT_ORDERS:		return hud_squadmsg_voice_in_command();
+	case PT_FORM_ROW:		return hud_squadmsg_voice_row(6, &text, &order, &active) && active && !stricmp(text, "Form on my wing");
+	case PT_FORMED:		return !open && pad_test_beta1_formed();
+	case PT_TALK:			return !open && pad_voice_talk_held();
+	case PT_RELEASED:		return !open && !pad_voice_talk_held();
+	}
+	return 0;
+}
+
+// live: the output to fill while recording (or in a plain run); NULL in a replay, which only checks
+static void pad_test_frame(pad_output *live)
+{
+	pad_test_step *s;
+
+	if (!autotest_mission_note(PAD_TEST_NOTE)) {
+		Pad_test_next = 0;
+		Pad_test_talk = 0;
+		return;
+	}
+
+	if (live) {
+		memset(live, 0, sizeof(*live));
+		live->connected = 1;
+		live->tree_category = -1;
+		live->tree_node = -1;
+	}
+
+	if ((Pad_test_next < PAD_TEST_STEPS) && (autotest_mission_seconds() >= Pad_test_steps[Pad_test_next].time)) {
+		s = &Pad_test_steps[Pad_test_next++];
+		autotest_check(pad_test_expect(s->expect), s->what);
+		if (s->action == PAD_TEST_TALK_ON) {
+			Pad_test_talk = 1;
+		} else if (s->action == PAD_TEST_TALK_OFF) {
+			Pad_test_talk = 0;
+		} else if (live && (s->action >= 0)) {
+			live->fired[live->num_fired++] = s->action;
+		}
+	}
+
+	if (live && Pad_test_talk) {
+		live->held[live->num_held++] = PAD_ACTION_TALK;
+	}
+}
+
+// from_frame: pad_frame's update, the one the test script drives (pad_pause_pressed updates too, while paused)
+static void pad_game_update(int from_frame)
 {
 	int vals[PAD_REPLAY_MAX_INTS];
 	int n = 0;
@@ -218,7 +336,11 @@ static void pad_game_update()
 		pad_game_init();
 	}
 
-	if (!replay_should_read()) {
+	if (replay_should_read()) {
+		if (from_frame) {
+			pad_test_frame(NULL);
+		}
+	} else {
 		pad_state st;
 		pad_output live;
 
@@ -234,6 +356,9 @@ static void pad_game_update()
 		pad_core_update(&st, timer_get_milliseconds(), &live);
 
 		replay_pop();
+		if (from_frame) {
+			pad_test_frame(&live);
+		}
 		n = pad_game_pack(&live, vals);
 	}
 
@@ -245,7 +370,7 @@ void pad_frame()
 {
 	int i;
 
-	pad_game_update();
+	pad_game_update(1);
 
 	for (i = 0; i < Pad_game_out.num_fired; i++) {
 		int action = Pad_game_out.fired[i];
@@ -275,6 +400,11 @@ const pad_output *pad_game_output()
 int pad_control_held(int id)
 {
 	return pad_output_is_held(&Pad_game_out, id);
+}
+
+int pad_voice_talk_held()
+{
+	return pad_output_is_held(&Pad_game_out, PAD_ACTION_TALK);
 }
 
 void pad_read_flight(control_info *ci, float frame_time)
@@ -311,7 +441,7 @@ int pad_pause_pressed()
 {
 	int i;
 
-	pad_game_update();
+	pad_game_update(0);
 
 	for (i = 0; i < Pad_game_out.num_fired; i++) {
 		if (Pad_game_out.fired[i] == PAD_ACTION_PAUSE) {
