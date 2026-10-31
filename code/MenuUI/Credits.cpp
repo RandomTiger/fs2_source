@@ -329,6 +329,7 @@ static void credits_fs1_layout()
 	// tech database, simulator, cutscenes, credits tabs; exit
 	static int Fs1_coords[NUM_BUTTONS][2] = { {0,0}, {0,19}, {0,35}, {0,56}, {561,411} };
 	static int Fs1_image[4] = { 229, 20, 388, 283 };
+	static int Fs1_text[4] = { 43, 320, 458, 137 };	// Claude: FS1's text box, its FS.exe's gr_set_clip(43, 320, 458, 137) (#110)
 	int i;
 
 	for (i=0; i<NUM_BUTTONS; i++) {
@@ -337,6 +338,7 @@ static void credits_fs1_layout()
 	}
 	for (i=0; i<4; i++) {
 		Credits_image_coords[GR_640][i] = Fs1_image[i];
+		Credits_text_coords[GR_640][i] = Fs1_text[i];	// Claude (#110)
 	}
 }
 
@@ -353,6 +355,10 @@ void credits_init()
 		if(credits_wavfile_name != NULL){
 			credits_load_music(credits_wavfile_name);
 		}
+	}
+
+	if ( Cfile_fs1_data ) {	// Claude: before the text is wrapped and its start set, so both use FS1's text box (#110)
+		credits_fs1_layout();
 	}
 
 	// Use this id to trigger the start of music playing on the briefing screen
@@ -516,9 +522,6 @@ void credits_init()
 	Credit_stop_pos = -i2fl(h);
 	Credit_position = Credit_start_pos;
 
-	if ( Cfile_fs1_data ) {	// Claude
-		credits_fs1_layout();
-	}
 	Ui_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Ui_window.set_mask_bmap(Credits_bitmap_mask_fname[gr_screen.res]);
 	common_set_interface_palette("InterfacePalette");  // set the interface palette
