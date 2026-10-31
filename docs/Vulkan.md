@@ -4,10 +4,45 @@ Branch `Vulkan`, base `322407c`. Measurement only: no source change and no proje
 
 Machine: RTX 2060. Vulkan reports "Vulkan 1.3.280 - Forward+" and D3D12 reports "D3D12 12_0 - Forward+". Engine: Godot 4.7.2-stable (`FS2_GODOT`). Release game DLL and wrapper, built with L0 PASS and 0 warnings.
 
+## Update: quiet rerun (supersedes the figures below where they differ)
+
+The run described in Method was mostly noisy (53 of 68 runs flagged NOISY). Tom reran the comparison on a quiet machine. Those figures replace the noisy ones; the tables further down are kept as the original noisy run.
+
+Windowed, vsync on: both backends hold 60 fps in every scene. Game frame in ms, Vulkan vs D3D12:
+
+| Scene | Vulkan | D3D12 |
+|---|---|---|
+| sm3-06 | 4.9 | 7.0 |
+| sm2-07 | 6.6 | 8.3 |
+| md-01 | 4.7 | 6.1 |
+| menus | 1.8 | 2.0 |
+
+Vulkan's game frame is 15-30% shorter.
+
+Windowed, uncapped, fps, Vulkan vs D3D12:
+
+| Scene | Vulkan | D3D12 |
+|---|---|---|
+| sm3-06 | 1116 | 491 |
+| sm2-07 | 523 | 325 |
+| md-01 | 1481 | 1021 |
+| menus | 3233 | 4132 |
+
+Vulkan is 1.4-2.3x faster in the missions. D3D12 is faster in the menus only.
+
+What changed against the noisy run: D3D12 no longer drops to about 51 fps with vsync on (the "only Vulkan holds 60 fps" finding is withdrawn), and the uncapped gap shrinks from up to 2.9x to up to 2.3x.
+
+Caveats:
+- One run per case.
+- No fullscreen runs.
+- The rerun used a newer build (the GodotDrawCalls branch), so part of the gain comes from code changes, not only from the quieter machine.
+
+Recommendation unchanged: keep Vulkan as the driver.
+
 ## Result
 
 - **Vulkan is faster in every game scene.** Uncapped, its shown frame time is 1.4x to 2.9x shorter. The game-side time is the same on both backends. The gap is all in the sink (the wrapper's draw submission into Godot), which takes D3D12 about twice as long.
-- **Only Vulkan holds 60 fps with vsync on.** D3D12 drops to about 51 fps in both FS2 missions.
+- **Only Vulkan holds 60 fps with vsync on (noisy run; withdrawn, see the quiet rerun above).** D3D12 drops to about 51 fps in both FS2 missions.
 - **Vulkan gate C hashes equal the baseline 5fe0769 on every case that has a baseline.** D3D12 equals it on sm2-07 only. Elsewhere D3D12 differs by isolated single pixels (point sprites such as stars and debris). This is not visible in play.
 - **D3D12 starts about 0.45 s sooner** on an empty project and draws its first menu frame about 100 ms earlier. That is its only win, apart from trivial menu frames that are already under 1 ms.
 
