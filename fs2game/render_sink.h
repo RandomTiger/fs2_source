@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define FS2_RENDER_SINK_VERSION 3
+#define FS2_RENDER_SINK_VERSION 4
 
 /* v3 (P1, GodotRender3D): the game camera, for a sink that draws meshes. Informational: no draw changes with it. */
 typedef struct fs2_sink_view {
@@ -40,6 +40,24 @@ typedef struct fs2_sink_view {
 	int32_t user_clip;		/* 1: a user clip plane is on */
 	float clip_normal[3], clip_point[3];	/* in eye space, as the game keeps them */
 } fs2_sink_view;
+
+/* v4 (P3b, GodotRender3D): meshes. Geometry is created once per (model, submodel, LOD) in model space and drawn each frame with a
+ * transform and per-vertex colours (the game's CPU lighting, until the GPU lighting phase). All three mesh calls are optional (NULL = the
+ * sink has no mesh path; the host then draws polygons as before). A group is a run of triangles that share one draw state, kept in the
+ * retail submission order; a sink may join opaque, depth-written groups of equal state across meshes. */
+typedef struct fs2_sink_mesh_vertex {
+	float pos[3];		/* model space */
+	float normal[3];
+	float u, v;
+} fs2_sink_mesh_vertex;
+
+typedef struct fs2_sink_mesh_group {
+	int32_t texture;	/* texture id as texture_create(); 0 = none */
+	int32_t blend;		/* FS2_SINK_BLEND_* */
+	uint32_t flags;		/* FS2_SINK_DRAWF_* (ZREAD, ZWRITE, CULL, OVERLAY) */
+	int32_t zbias;
+	int32_t first_index, index_count;	/* into the mesh's index array; a multiple of 3 */
+} fs2_sink_mesh_group;
 
 /* texture formats handed to texture_create() */
 #define FS2_SINK_TEX_RGBA8	0	/* 4 bytes per pixel, r g b a in memory order */
@@ -127,6 +145,14 @@ typedef struct fs2_render_sink {
 
 	/* v3: the camera of the draws that follow, sent before the first depth draw of a frame and whenever it changes. Inside a frame only. */
 	void (*set_view)(void *user, const fs2_sink_view *view);
+
+	/* v4: meshes (optional, see above). mesh_draw: xform = model to eye, 3x4 row-major (rotation rows then translation in column 4), in the same
+	 * units and handedness as the game's Eye_matrix space; colours = one RGBA8 per vertex (ncolors == the mesh's vertex count) or NULL for
+	 * white; only inside a depth run. mesh_free of an unknown id is ignored. */
+	void (*mesh_create)(void *user, int32_t id, const fs2_sink_mesh_vertex *verts, int nverts,
+		const fs2_sink_mesh_group *groups, int ngroups, const uint32_t *indices, int nindices);
+	void (*mesh_free)(void *user, int32_t id);
+	void (*mesh_draw)(void *user, int32_t id, const float xform[12], const uint8_t *colours, int ncolours);
 } fs2_render_sink;
 
 #ifdef __cplusplus

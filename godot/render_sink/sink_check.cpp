@@ -367,6 +367,37 @@ static void test_opaque_reorder()
 	CHECK(v[0].idx[3] == 4 && v[0].idx[4] == 5);	// the second batch's indices were moved by 4
 }
 
+static void test_mesh_api()
+{
+	FakeSink fake;
+	fs2_render_sink *s = fake.sink();
+	CHECK(s->mesh_create && s->mesh_free && s->mesh_draw);
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	const unsigned char px[4] = { 255, 255, 255, 255 };
+	s->texture_create(s->user, 7, 1, 1, FS2_SINK_TEX_RGBA8, 0, px);
+	fs2_sink_mesh_vertex v[3] = {};
+	v[1].pos[0] = 1; v[2].pos[1] = 1;
+	const uint32_t idx[3] = { 0, 1, 2 };
+	fs2_sink_mesh_group g = { 7, FS2_SINK_BLEND_OPAQUE, FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE, 0, 0, 3 };
+	s->mesh_create(s->user, 1, v, 3, &g, 1, idx, 3);
+	CHECK(fake.errors.empty());
+	const float xf[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 10 };
+	s->depth_begin(s->user);
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);
+	s->depth_end(s->user);
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshDraw) == 1);
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);	// outside a run
+	CHECK(fake.errors.size() == 1);
+	s->mesh_free(s->user, 1);
+	s->depth_begin(s->user);
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);	// freed
+	CHECK(fake.errors.size() == 2);
+	fs2_sink_mesh_group bad = { 7, FS2_SINK_BLEND_OPAQUE, 0, 0, 0, 6 };
+	s->mesh_create(s->user, 2, v, 3, &bad, 1, idx, 3);
+	CHECK(fake.errors.size() == 3);
+	s->frame_end(s->user);
+}
+
 static void test_view_and_depth()
 {
 	fs2sink::FakeSink fake;
@@ -413,6 +444,7 @@ int main()
 	test_frame_rules();
 	test_view_and_depth();
 	test_opaque_reorder();
+	test_mesh_api();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);
 		return 1;

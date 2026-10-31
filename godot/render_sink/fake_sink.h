@@ -16,7 +16,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -31,6 +31,7 @@ public:
 	bool want_frames = true;		// what frame_begin answers
 	int frames_begun = 0, frames_ended = 0;
 	fs2_sink_view last_view = {};		// the last set_view
+	std::set<int32_t> meshes;		// live mesh ids (v4)
 
 	fs2_render_sink *sink() { return &table; }
 
@@ -209,6 +210,40 @@ private:
 		if (v == nullptr || v->canvas_w <= 0 || v->canvas_h <= 0) { s->err("set_view with no canvas"); return; }
 		s->last_view = *v;
 		s->add(Cmd::SetView);
+	}
+
+	static void s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
+		const uint32_t *idx, int ni)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("mesh_create outside a frame");
+		if (id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0 || ni % 3 != 0) { s->err("mesh_create with bad arguments"); return; }
+		for (int i = 0; i < ni; i++) {
+			if (idx[i] >= (uint32_t)nv) { s->err("mesh_create index out of range"); return; }
+		}
+		for (int i = 0; i < ng; i++) {
+			if (g[i].first_index < 0 || g[i].index_count <= 0 || g[i].index_count % 3 != 0 || g[i].first_index + g[i].index_count > ni) { s->err("mesh_create group out of range"); return; }
+			if (g[i].texture != 0 && s->textures.count(g[i].texture) == 0) { s->err("mesh_create with an unknown texture"); return; }
+		}
+		s->meshes.insert(id);
+		Cmd &c = s->add(Cmd::MeshCreate);
+		c.a = id; c.b = nv; c.c = ng; c.d = ni / 3;
+	}
+	static void s_mesh_free(void *u, int32_t id)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("mesh_free outside a frame");
+		s->meshes.erase(id);
+		s->add(Cmd::MeshFree).a = id;
+	}
+	static void s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *, int ncol)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("mesh_draw outside a frame");
+		if (!s->in_depth) { s->err("mesh_draw outside a depth run"); }
+		if (xform == nullptr || s->meshes.count(id) == 0) { s->err("mesh_draw of an unknown mesh"); }
+		Cmd &c = s->add(Cmd::MeshDraw);
+		c.a = id; c.b = ncol;
 	}
 };
 
