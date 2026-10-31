@@ -357,7 +357,7 @@ static void joy_test_check(int step)
 // the scripted pad, as the test host's pad_poll
 
 // the script, in gameplay frames from the first one; a frame's state is what that frame's pad_frame polls
-#define PAD_TEST_TAP			20			// South (Target next hostile, press) and the right shoulder (Fire secondary, hold) down for this frame only
+#define PAD_TEST_TAP			20			// D-pad Up (Shield to top, press; South is push-to-talk since #118) and the right shoulder (Fire secondary, hold) down for this frame only
 #define PAD_TEST_LOW_START		35			// the right trigger at 0.2, under the 0.3 threshold...
 #define PAD_TEST_HOLD_START		40			// ...then fully down (Fire primary, hold) from here...
 #define PAD_TEST_HOLD_END		60			// ...to here, where it comes up
@@ -416,7 +416,7 @@ static void pad_test_script(int step, pad_state *st)
 	pad_test_idle(st);
 
 	if (step == PAD_TEST_TAP) {
-		st->button[PAD_SOUTH] = 1;
+		st->button[PAD_DPAD_UP] = 1;
 		st->button[PAD_RSHOULDER] = 1;
 	}
 	if ((step >= PAD_TEST_LOW_START) && (step < PAD_TEST_HOLD_START)) {
@@ -503,7 +503,7 @@ static void pad_test_check(int step)
 		check_pad(-1, -1, 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 	if (step == PAD_TEST_TAP + 1) {
-		check_pad(TARGET_NEXT_CLOSEST_HOSTILE, FIRE_SECONDARY, 0.0f, 0.0f, 0.0f, 0.0f);
+		check_pad(SHIELD_XFER_TOP, FIRE_SECONDARY, 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 	if ((step > PAD_TEST_LOW_START) && (step <= PAD_TEST_HOLD_START)) {
 		check_pad(-1, -1, 0.0f, 0.0f, 0.0f, 0.0f);	// under the trigger threshold
