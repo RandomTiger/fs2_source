@@ -12,6 +12,8 @@
 #include "opaque_reorder.h"
 #include "selftest_scenes.h"
 
+using namespace fs2sink;
+
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { std::printf("FAIL line %d: %s\n", __LINE__, #cond); failures++; } } while (0)
 
@@ -364,7 +366,7 @@ static void test_opaque_reorder()
 		for (int32_t i : b.idx) { if (i < 0 || i >= b.nverts()) { in_range = false; } }
 	}
 	CHECK(after == tris && in_range);
-	CHECK(v[0].idx[3] == 4 && v[0].idx[4] == 5);	// the second batch's indices were moved by 4
+	CHECK(v[0].idx[6] == 4 && v[0].idx[7] == 5);	// the second batch's indices were moved by 4
 }
 
 static void test_mesh_api()
@@ -435,6 +437,7 @@ static void test_view_and_depth()
 
 int main()
 {
+	std::setvbuf(stdout, nullptr, _IONBF, 0);
 	test_scenes();
 	test_tex_convert();
 	test_batcher_merge();

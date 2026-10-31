@@ -55,6 +55,9 @@ public:
 		table.depth_end = &FakeSink::s_depth_end;
 		table.depth_clear = &FakeSink::s_depth_clear;
 		table.set_view = &FakeSink::s_set_view;
+		table.mesh_create = &FakeSink::s_mesh_create;
+		table.mesh_free = &FakeSink::s_mesh_free;
+		table.mesh_draw = &FakeSink::s_mesh_draw;
 	}
 
 	int count(Cmd::Kind k) const
