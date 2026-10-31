@@ -69,6 +69,7 @@ enum CounterId {
 	C_FOG_SAME,	// fog reads answered by a same-frame probe
 	C_FOG_LAG,	// fog reads answered from the probe of an earlier drawn frame
 	C_FOG_WAIT,	// lag reads whose probe had not been rendered yet (rendered first, counted)
+	C_MESH_DRAWS,	// v4 mesh draws that reached a 3D layer
 	C_COUNT
 };
 extern const char *const counter_names[C_COUNT];
