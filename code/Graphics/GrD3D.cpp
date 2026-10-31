@@ -230,6 +230,43 @@ DDCAPS DD_hel_caps;
 int D3D_texture_divider = 1;
 
 int D3D_window = 0;
+int D3D_present_blt = 0;	// Claude: #112: frames are blitted to the screen, not flipped (-window, and fullscreen scaled into a borderless window)
+RECT D3D_present_rect = { 0, 0, 0, 0 };	// Claude: #112: where the game picture sits, in client coordinates
+
+// Claude: #112: map a point between the window's client area and the game screen (gr_screen.max_w x max_h).
+// Identity when the picture is at 0,0 at 1:1 (-window), or before the device is set up.
+static int d3d_present_floor_div(int a, int b)
+{
+	return (a >= 0) ? (a / b) : -((-a + b - 1) / b);
+}
+
+void gr_present_client_to_game(int *x, int *y)
+{
+	int w = D3D_present_rect.right - D3D_present_rect.left;
+	int h = D3D_present_rect.bottom - D3D_present_rect.top;
+	if ( (w <= 0) || (h <= 0) || (gr_screen.max_w <= 0) || (gr_screen.max_h <= 0) )	{
+		return;
+	}
+	if ( (D3D_present_rect.left == 0) && (D3D_present_rect.top == 0) && (w == gr_screen.max_w) && (h == gr_screen.max_h) )	{
+		return;
+	}
+	*x = d3d_present_floor_div((*x - D3D_present_rect.left) * gr_screen.max_w, w);
+	*y = d3d_present_floor_div((*y - D3D_present_rect.top) * gr_screen.max_h, h);
+}
+
+void gr_present_game_to_client(int *x, int *y)
+{
+	int w = D3D_present_rect.right - D3D_present_rect.left;
+	int h = D3D_present_rect.bottom - D3D_present_rect.top;
+	if ( (w <= 0) || (h <= 0) || (gr_screen.max_w <= 0) || (gr_screen.max_h <= 0) )	{
+		return;
+	}
+	if ( (D3D_present_rect.left == 0) && (D3D_present_rect.top == 0) && (w == gr_screen.max_w) && (h == gr_screen.max_h) )	{
+		return;
+	}
+	*x = D3D_present_rect.left + d3d_present_floor_div(*x * w, gr_screen.max_w);
+	*y = D3D_present_rect.top + d3d_present_floor_div(*y * h, gr_screen.max_h);
+}
 
 char Device_init_error[512] = "";
 
@@ -1098,7 +1135,7 @@ int gr_d3d_create_rendering_objects(int clear)
 		ddsd.dwSize = sizeof( ddsd );
 
 		// windowed
-		if(D3D_window){		
+		if(D3D_present_blt){	// Claude: was D3D_window (#112: fullscreen blits too)
 			ddsd.dwFlags = DDSD_CAPS;
 			ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE;			
 		}
@@ -1117,7 +1154,7 @@ int gr_d3d_create_rendering_objects(int clear)
 		}
 		
 		// create a clipper and a backbuffer in windowed mode
-		if(D3D_window){
+		if(D3D_present_blt){	// Claude: was D3D_window (#112)
 			// create a clipper for windowed mode	
 			LPDIRECTDRAWCLIPPER pcClipper;
 			HRESULT hr = lpDD->CreateClipper(0, &pcClipper, NULL);
@@ -1350,7 +1387,9 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 		D3D_cursor_clip_rect.top = 0;
 		D3D_cursor_clip_rect.right = gr_screen.max_w-1;
 		D3D_cursor_clip_rect.bottom = gr_screen.max_h-1;
+		SetRect( &D3D_present_rect, 0, 0, gr_screen.max_w, gr_screen.max_h );	// Claude: #112: 1:1 at the client origin
 	} else {
+#if 0	// Claude: #112: replaced by the borderless window below; the display mode is no longer changed
 		// Prepare the window to go full screen
 	#ifndef NDEBUG
 		mprintf(( "Window in debugging mode... mouse clicking may cause problems!\n" ));
@@ -1379,6 +1418,44 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 		D3D_cursor_clip_rect.right = gr_screen.max_w-1;
 		D3D_cursor_clip_rect.bottom = gr_screen.max_h-1;
 	#endif
+#endif	// Claude: #112
+		// Claude: #112 borderless fullscreen: a WS_POPUP window over the whole monitor, at the desktop's own mode.
+		// The game screen keeps its size (max_w x max_h) and is blitted into D3D_present_rect, scaled and centred, black bars round it.
+		HMONITOR monitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTOPRIMARY );	// Claude
+		MONITORINFO monitor_info;	// Claude
+		memset( &monitor_info, 0, sizeof(monitor_info) );	// Claude
+		monitor_info.cbSize = sizeof(monitor_info);	// Claude
+		GetMonitorInfo( monitor, &monitor_info );	// Claude
+		RECT mon_rect = monitor_info.rcMonitor;	// Claude
+		int mon_w = mon_rect.right - mon_rect.left;	// Claude
+		int mon_h = mon_rect.bottom - mon_rect.top;	// Claude
+		SetWindowLong( hwnd, GWL_EXSTYLE, 0 );	// Claude
+		SetWindowLong( hwnd, GWL_STYLE, WS_POPUP );	// Claude
+		ShowWindow( hwnd, SW_SHOWNORMAL );	// Claude
+		SetWindowPos( hwnd, HWND_TOPMOST, mon_rect.left, mon_rect.top, mon_w, mon_h, SWP_FRAMECHANGED );	// Claude
+		SetActiveWindow( hwnd );	// Claude
+		SetForegroundWindow( hwnd );	// Claude
+
+		// Claude: aspect fit: scale = min(mon_w / max_w, mon_h / max_h) as a fraction, so the picture fills the monitor's height (or width) with black bars on the other axis; the blit stretches
+		int pic_w, pic_h;	// Claude
+		if ( mon_w * gr_screen.max_h <= mon_h * gr_screen.max_w )	{	// Claude: width limits
+			pic_w = mon_w;	// Claude
+			pic_h = (mon_w * gr_screen.max_h) / gr_screen.max_w;	// Claude
+		} else {	// Claude: height limits
+			pic_h = mon_h;	// Claude
+			pic_w = (mon_h * gr_screen.max_w) / gr_screen.max_h;	// Claude
+		}	// Claude
+		D3D_present_rect.left = (mon_w - pic_w) / 2;	// Claude
+		D3D_present_rect.top = (mon_h - pic_h) / 2;	// Claude
+		D3D_present_rect.right = D3D_present_rect.left + pic_w;	// Claude
+		D3D_present_rect.bottom = D3D_present_rect.top + pic_h;	// Claude
+		mprintf(( "Borderless fullscreen: monitor %dx%d, game %dx%d shown at %d,%d size %dx%d\n", mon_w, mon_h, gr_screen.max_w, gr_screen.max_h, D3D_present_rect.left, D3D_present_rect.top, pic_w, pic_h ));	// Claude
+
+		// Claude: the cursor stays on the picture (screen coordinates; the window's client origin is the monitor's corner)
+		D3D_cursor_clip_rect.left = mon_rect.left + D3D_present_rect.left;	// Claude
+		D3D_cursor_clip_rect.top = mon_rect.top + D3D_present_rect.top;	// Claude
+		D3D_cursor_clip_rect.right = mon_rect.left + D3D_present_rect.right;	// Claude
+		D3D_cursor_clip_rect.bottom = mon_rect.top + D3D_present_rect.bottom;	// Claude
 	}
 
 	// active d3d device
@@ -1400,7 +1477,7 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 		goto D3DError;
 	}	
  
-	if(D3D_window){
+	if(D3D_present_blt){	// Claude: was D3D_window (#112: borderless fullscreen is not exclusive)
 		ddrval = lpDD->SetCooperativeLevel( hwnd, DDSCL_NORMAL );
 	} else {
 		ddrval = lpDD->SetCooperativeLevel( hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN | DDSCL_NOWINDOWCHANGES );
@@ -1412,7 +1489,7 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 	}
 		
 	// Go to full screen!
-	if(!D3D_window){
+	if(!D3D_present_blt){	// Claude: was !D3D_window (#112: the desktop mode is kept)
 		os_suspend();
 		ddrval = lpDD->SetDisplayMode( screen_width, screen_height, gr_screen.bits_per_pixel, 0, 0 );
 		os_resume();
@@ -1448,7 +1525,7 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 	}
 
 	// if we're in windowed mode, fill in bits per pixel and bytes per pixel here
-	if(D3D_window){
+	if(D3D_present_blt){	// Claude: was D3D_window (#112: fullscreen takes the desktop's too)
 		gr_screen.bits_per_pixel = ScreenFormat.dwRGBBitCount;
 		gr_screen.bytes_per_pixel = gr_screen.bits_per_pixel / 8;
 	}
@@ -1746,6 +1823,43 @@ void gr_d3d_save_mouse_area(int x, int y, int w, int h )
 }
 
 
+// Claude: #112: borderless fullscreen.  Given the -window blit rects (the client area in screen coordinates, and the source),
+// blit the whole game screen into D3D_present_rect instead and fill the bars round it black, after waiting for the vertical blank.
+// The picture is aspect fitted (a fractional scale); the Blt stretches it, with whatever filtering the driver uses.
+static void d3d_present_fullscreen(RECT *rect, RECT *view_rect)
+{
+	RECT pic = D3D_present_rect;
+	OffsetRect( &pic, rect->left, rect->top );
+
+	DDBLTFX fill;
+	memset( &fill, 0, sizeof(fill) );
+	fill.dwSize = sizeof(fill);
+	fill.dwFillColor = 0;
+
+	RECT bar;
+	if ( pic.top > rect->top )	{
+		SetRect( &bar, rect->left, rect->top, rect->right, pic.top );
+		lpFrontBuffer->Blt( &bar, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fill );
+	}
+	if ( pic.bottom < rect->bottom )	{
+		SetRect( &bar, rect->left, pic.bottom, rect->right, rect->bottom );
+		lpFrontBuffer->Blt( &bar, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fill );
+	}
+	if ( pic.left > rect->left )	{
+		SetRect( &bar, rect->left, pic.top, pic.left, pic.bottom );
+		lpFrontBuffer->Blt( &bar, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fill );
+	}
+	if ( pic.right < rect->right )	{
+		SetRect( &bar, pic.right, pic.top, rect->right, pic.bottom );
+		lpFrontBuffer->Blt( &bar, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT, &fill );
+	}
+
+	*rect = pic;
+	SetRect( view_rect, 0, 0, gr_screen.max_w, gr_screen.max_h );
+
+	lpDD->WaitForVerticalBlank( DDWAITVB_BLOCKBEGIN, NULL );
+}
+
 void gr_d3d_flip()
 {
 	int mx, my;
@@ -1793,7 +1907,7 @@ void gr_d3d_flip()
 //		return;
 //	}
 
-	if(D3D_window){
+	if(D3D_present_blt){	// Claude: was D3D_window (#112)
 		// blt region
 		RECT rect, view_rect;
 		GetClientRect( (HWND)os_get_window(), &rect);
@@ -1813,6 +1927,9 @@ void gr_d3d_flip()
 			lpBackBuffer->Restore();
 			d3d_tcache_flush();
 		}
+		if ( !D3D_window )	{	// Claude: #112
+			d3d_present_fullscreen( &rect, &view_rect );	// Claude: #112: into the present rect, bars black, vsync
+		}	// Claude
 
 		// do the blit
 		lpFrontBuffer->Blt(&rect, lpBackBuffer, &view_rect, 0, NULL );
@@ -1865,6 +1982,21 @@ void gr_d3d_flip()
 void gr_d3d_flip_cleanup()
 {
 	d3d_stop_frame();
+
+	if ( D3D_present_blt )	{	// Claude: #112: no flip chain to flip (it failed under -window): blit, as gr_d3d_flip does
+		RECT rect, view_rect;	// Claude
+		GetClientRect( (HWND)os_get_window(), &rect );	// Claude
+		ClientToScreen( (HWND)os_get_window(), (POINT*)&rect.left );	// Claude
+		ClientToScreen( (HWND)os_get_window(), (POINT*)&rect.right );	// Claude
+		SetRect( &view_rect, 0, 0, gr_screen.max_w - 1, gr_screen.max_h - 1 );	// Claude: as gr_d3d_flip under -window
+		if ( !D3D_window )	{	// Claude
+			d3d_present_fullscreen( &rect, &view_rect );	// Claude
+		}	// Claude
+		if ( lpFrontBuffer->Blt( &rect, lpBackBuffer, &view_rect, DDBLT_WAIT, NULL ) != DD_OK )	{	// Claude
+			mprintf(( "Blt failed!\n" ));	// Claude
+		}	// Claude
+		return;	// Claude
+	}	// Claude
 
 	if (lpFrontBuffer->Flip( NULL, 1 ) != DD_OK )	{
 		mprintf(( "Flip failed!\n" ));
@@ -1975,7 +2107,7 @@ int gr_d3d_save_screen()
 
 	// Claude: windowed, the front buffer is the whole desktop and the game's last frame is still in the back buffer
 	// (the flip blits it to the window), so save from there; full-screen, the flip swapped it to the front (review 52)
-	LPDIRECTDRAWSURFACE lpSaveFrom = D3D_window ? lpBackBuffer : lpFrontBuffer;	// Claude
+	LPDIRECTDRAWSURFACE lpSaveFrom = D3D_present_blt ? lpBackBuffer : lpFrontBuffer;	// Claude (#112: was D3D_window; borderless fullscreen blits too)
 	ddrval = lpSaveFrom->Lock( NULL, &ddsd, DDLOCK_WAIT, NULL );	// Claude: was lpFrontBuffer
 	if ( ddrval != DD_OK )	{
 		free(Gr_saved_screen);
@@ -2695,9 +2827,10 @@ void gr_d3d_init()
 	
 	D3D_32bit = 0;
 	D3D_window = Cmdline_window;
+	D3D_present_blt = 1;	// Claude: #112: -window, and fullscreen is now scaled into a borderless window; both blit
 
 	// windowed?
-	if(D3D_window){
+	if(D3D_present_blt){	// Claude: was D3D_window (#112: fullscreen takes the desktop's bits per pixel too; -force_16bit still picks 16 bit textures)
 		gr_d3d_init_device(gr_screen.max_w, gr_screen.max_h);
 	} else {
 		// 32 bit mode		

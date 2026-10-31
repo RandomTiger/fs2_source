@@ -8,6 +8,9 @@
 #include "OsApi.h"
 #include "../Pad/PadXInput.h"
 
+void gr_present_client_to_game(int *x, int *y);	// Claude: #112, GrD3D.cpp: borderless fullscreen picture placement
+void gr_present_game_to_client(int *x, int *y);
+
 static longlong host_win32_time_counter()
 {
 	LARGE_INTEGER t;
@@ -27,6 +30,7 @@ static void host_win32_mouse_get_pos(int *x, int *y)
 	POINT pnt;
 	GetCursorPos(&pnt);
 	ScreenToClient((HWND)os_get_window(), &pnt);
+	gr_present_client_to_game((int *)&pnt.x, (int *)&pnt.y);	// Claude: #112: client to game coordinates (borderless fullscreen picture placement, GrD3D.cpp)
 	*x = pnt.x;
 	*y = pnt.y;
 }
@@ -36,6 +40,7 @@ static void host_win32_mouse_set_pos(int x, int y)
 	POINT pnt;
 	pnt.x = x;
 	pnt.y = y;
+	gr_present_game_to_client((int *)&pnt.x, (int *)&pnt.y);	// Claude: #112: game to client coordinates
 	ClientToScreen((HWND)os_get_window(), &pnt);
 	SetCursorPos(pnt.x, pnt.y);
 }

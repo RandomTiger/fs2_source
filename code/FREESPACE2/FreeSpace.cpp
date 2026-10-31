@@ -556,6 +556,7 @@
 #include "Replay.h"
 #include "DataSetInstall.h"	// Claude
 #include "DataSetProfile.h"	// Claude
+#include "../Voice/VoiceGame.h"	// Claude: voice control
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -2141,6 +2142,7 @@ void game_init()
 
 	if (!Is_standalone) {
 		snd_init(use_eax);
+		voice_game_init();	// Claude: voice control
 	}
 /////////////////////////////
 // SOUND INIT END
@@ -6551,6 +6553,7 @@ DCF(pofspew, "")
 void game_shutdown(void)
 {
 	replay_shutdown();
+	voice_game_close();	// Claude: voice control
 
 	os_timer_precise(0);
 
