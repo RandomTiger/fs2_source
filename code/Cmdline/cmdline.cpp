@@ -247,6 +247,7 @@ cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
+cmdline_parm autotest_debugcam_arg("-at_debugcam", NULL);	// Claude: the debug camera test, see Autotest.h (#125)
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
@@ -657,6 +658,9 @@ int parse_cmdline(char *cmdline)
 			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
 		if(autotest_menus_arg.found()){	// Claude: -at_menus
 			autotest_set_menus();
+		}
+		if(autotest_debugcam_arg.found()){	// Claude: -at_debugcam (#125)
+			autotest_set_debugcam();
 		}
 		if(autotest_shots_arg.found()){	// Claude: -at_shots
 			autotest_set_shots(autotest_shots_arg.str());

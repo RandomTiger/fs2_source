@@ -44,6 +44,9 @@
 #include "font.h"
 #include "Alphacolors.h"
 #include "beam.h"
+#include "3d.h"		// Claude: debug camera (#125)
+#include "timer.h"
+#include "mouse.h"
 
 // ----------------------------------------------------------------------------------------------------------------
 // PAUSE DEFINES/VARS
@@ -105,6 +108,159 @@ extern int ai_paused;
 extern int last_single_step;
 extern int game_single_step;
 
+// Claude: debug camera (#125).  Shift+Pause in a single-player mission pauses the game as the Pause key does
+// and shows the frozen scene from a free camera: W/S forward and back, A/D strafe, the mouse looks, Shift
+// moves faster, Shift+Pause or Esc leaves.  Only the view moves: no mission time passes and nothing is
+// simulated.  The 3D view and each object's OF_WAS_RENDERED (which ship-ship collision reads) are put back
+// on leaving, so the next game frame sees what it would have after a plain pause.  Nothing is saved to the
+// pilot file.
+int Pause_debug_camera = 0;		// set by the Shift+Pause key before GS_EVENT_PAUSE_GAME; cleared on leaving
+
+#define DEBUG_CAMERA_SPEED			150.0f		// metres a second
+#define DEBUG_CAMERA_FAST				6.0f			// with Shift held
+#define DEBUG_CAMERA_LOOK				0.003f		// radians per mouse step
+
+extern int Keep_mouse_centered;
+extern matrix View_matrix, Unscaled_matrix, Light_matrix, Eye_matrix;
+extern vector View_position, Light_base, Eye_position, Matrix_scale;
+extern float View_zoom;
+extern void obj_render_all(void (*render_function)(object *objp));
+extern void obj_render(object *obj);
+extern void beam_render_all();
+extern void particle_render_all();
+extern void trail_render_all();
+extern void mflash_render_all();
+extern void render_shields();
+extern void nebl_render_all();
+extern void neb2_render_setup(vector *eye_pos, matrix *eye_orient);
+extern void neb2_render_player();
+extern void stars_draw(int show_stars, int show_suns, int show_nebulas, int show_subspace);
+
+static vector Dc_pos;
+static angles Dc_angles;
+static int Dc_last_ms;
+static matrix Dc_save_view_matrix, Dc_save_unscaled_matrix, Dc_save_light_matrix, Dc_save_eye_matrix;
+static vector Dc_save_view_position, Dc_save_light_base, Dc_save_eye_position, Dc_save_matrix_scale;
+static float Dc_save_view_zoom;
+static ubyte Dc_save_rendered[MAX_OBJECTS];
+
+static void debug_camera_init()
+{
+	int i;
+
+	Dc_save_view_matrix = View_matrix;
+	Dc_save_unscaled_matrix = Unscaled_matrix;
+	Dc_save_light_matrix = Light_matrix;
+	Dc_save_eye_matrix = Eye_matrix;
+	Dc_save_view_position = View_position;
+	Dc_save_light_base = Light_base;
+	Dc_save_eye_position = Eye_position;
+	Dc_save_matrix_scale = Matrix_scale;
+	Dc_save_view_zoom = View_zoom;
+	for (i=0; i<MAX_OBJECTS; i++) {
+		Dc_save_rendered[i] = (Objects[i].flags & OF_WAS_RENDERED) ? 1 : 0;
+	}
+
+	// start where the player's view was
+	Dc_pos = Eye_position;
+	vm_extract_angles_matrix(&Dc_angles, &Eye_matrix);
+	Dc_last_ms = timer_get_milliseconds();
+}
+
+static void debug_camera_close()
+{
+	int i;
+
+	View_matrix = Dc_save_view_matrix;
+	Unscaled_matrix = Dc_save_unscaled_matrix;
+	Light_matrix = Dc_save_light_matrix;
+	Eye_matrix = Dc_save_eye_matrix;
+	View_position = Dc_save_view_position;
+	Light_base = Dc_save_light_base;
+	Eye_position = Dc_save_eye_position;
+	Matrix_scale = Dc_save_matrix_scale;
+	View_zoom = Dc_save_view_zoom;
+	for (i=0; i<MAX_OBJECTS; i++) {
+		if (Dc_save_rendered[i]) {
+			Objects[i].flags |= OF_WAS_RENDERED;
+		} else {
+			Objects[i].flags &= ~OF_WAS_RENDERED;
+		}
+	}
+	Keep_mouse_centered = 0;
+}
+
+static void debug_camera_do()
+{
+	int k, now, dx, dy;
+	float dt, speed, fwd, side;
+	matrix orient;
+
+	k = Pause_win.process() & ~KEY_DEBUGGED;
+	if ( (k == KEY_ESC) || (k == (KEY_SHIFTED | KEY_PAUSE)) ) {
+		gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
+	}
+
+	now = timer_get_milliseconds();
+	dt = (now - Dc_last_ms) / 1000.0f;
+	Dc_last_ms = now;
+	if (dt < 0.0f) {
+		dt = 0.0f;
+	} else if (dt > 0.1f) {
+		dt = 0.1f;
+	}
+
+	// mouse look: right turns right, down looks down
+	mouse_get_delta(&dx, &dy, NULL);
+	Dc_angles.h += dx * DEBUG_CAMERA_LOOK;
+	Dc_angles.p += dy * DEBUG_CAMERA_LOOK;
+	if (Dc_angles.p > PI/2 - 0.01f) {
+		Dc_angles.p = PI/2 - 0.01f;
+	} else if (Dc_angles.p < -PI/2 + 0.01f) {
+		Dc_angles.p = -PI/2 + 0.01f;
+	}
+	vm_angles_2_matrix(&orient, &Dc_angles);
+
+	speed = DEBUG_CAMERA_SPEED * dt;
+	if (keyd_pressed[KEY_LSHIFT] || keyd_pressed[KEY_RSHIFT]) {
+		speed *= DEBUG_CAMERA_FAST;
+	}
+	fwd = (float)(keyd_pressed[KEY_W] - keyd_pressed[KEY_S]);
+	side = (float)(keyd_pressed[KEY_D] - keyd_pressed[KEY_A]);
+	vm_vec_scale_add2(&Dc_pos, &orient.fvec, fwd * speed);
+	vm_vec_scale_add2(&Dc_pos, &orient.rvec, side * speed);
+
+	// the scene as game_render_frame draws it, without the HUD
+	gr_reset_clip();
+	gr_clear();
+	neb2_render_setup(&Dc_pos, &orient);
+	g3_start_frame(1);			// the game's own z-buffer switch (game_zbuffer) is in FreeSpace.cpp, which the tools linking code.lib lack
+	g3_set_view_matrix(&Dc_pos, &orient, Dc_save_view_zoom);
+	if ( Game_subspace_effect ) {
+		stars_draw(0,0,0,1);
+	} else {
+		stars_draw(1,1,1,0);
+	}
+	obj_render_all(obj_render);
+	beam_render_all();
+	particle_render_all();
+	trail_render_all();
+	mflash_render_all();
+	render_shields();
+	nebl_render_all();
+	neb2_render_player();
+	g3_end_frame();
+
+	gr_set_color_fast(&Color_normal);
+	gr_set_font(FONT1);
+	gr_string(10, 10, NOX("Debug camera: W/S/A/D move, mouse look, Shift faster, Shift+Pause or Esc leaves"));
+
+	Pause_win.draw();
+	Keep_mouse_centered = 1;		// the flip reads the mouse; keep it in the window so the look never stops
+	gr_flip();
+	Keep_mouse_centered = 0;
+}
+
 // ----------------------------------------------------------------------------------------------------------------
 // PAUSE FUNCTIONS
 //
@@ -116,6 +272,14 @@ void pause_init(int multi)
 	if ( Paused ) {
 		return;
 	}	
+
+	// Claude: debug camera (#125), single player only
+	if (multi || (Game_mode & GM_STANDALONE_SERVER)) {
+		Pause_debug_camera = 0;
+	}
+	if (Pause_debug_camera) {
+		debug_camera_init();
+	}
 
 	// pause all beam weapon sounds
 	beam_pause_sounds();
@@ -154,6 +318,8 @@ void pause_do(int multi)
 
 	if(Game_mode & GM_STANDALONE_SERVER){
 		multi_pause_do();
+	} else if (Pause_debug_camera) {	// Claude: debug camera (#125)
+		debug_camera_do();
 	} else {		
 		//	RENDER A GAME FRAME HERE AS THE BACKGROUND
 		gr_restore_screen(Pause_saved_screen);
@@ -208,6 +374,12 @@ void pause_close(int multi)
 	// if we're not paused - do nothing
 	if ( !Paused ) {
 		return;
+	}
+
+	// Claude: debug camera (#125): the view and render flags put back
+	if (Pause_debug_camera) {
+		debug_camera_close();
+		Pause_debug_camera = 0;
 	}
 
 	// unpause all beam weapon sounds
