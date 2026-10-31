@@ -1031,6 +1031,17 @@ void main_hall_do(float frametime)
 	}
 #endif
 
+	// Claude: -mission starts that mission once, on the first main hall frame, the way the simulator room starts one
+	if (Cmdline_mission != NULL) {
+		strncpy(Game_current_mission_filename, Cmdline_mission, MAX_FILENAME_LEN - 1);
+		Game_current_mission_filename[MAX_FILENAME_LEN - 1] = 0;
+		if (!strchr(Game_current_mission_filename, '.') && (strlen(Game_current_mission_filename) + 4 < MAX_FILENAME_LEN)) {
+			strcat(Game_current_mission_filename, ".fs2");
+		}
+		Cmdline_mission = NULL;
+		Game_mode &= ~(GM_CAMPAIGN_MODE);
+		gameseq_post_event(GS_EVENT_START_GAME);
+	}
 	// Claude: the autotest menu tour clicks a region here, the way the player does (docs/AUTOTEST.md)
 	autotest_main_hall_click(&code, &snazzy_action);
 

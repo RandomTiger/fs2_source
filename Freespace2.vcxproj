@@ -153,6 +153,10 @@
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
+    <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
+    <Manifest>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -247,6 +251,10 @@
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
+    <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
+    <Manifest>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

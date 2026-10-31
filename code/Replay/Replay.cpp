@@ -33,6 +33,7 @@
 #include "Autotest.h"
 #include "Popup.h"
 #include "localize.h"
+#include "OsApi.h"
 
 #define REPLAY_FILE_VERSION		5	// Claude: 2 adds the autotest settings, 3 the view position, 4 (PrePort, D-035) leaves the sound-device answers and the flip's cursor read out of the stream, 5 (GodotPrep, D-056) the language and low-memory mode
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
@@ -813,9 +814,21 @@ static void replay_drain_events()
 	}
 }
 
+// A poll that only a fullscreen game away from the front makes (the flip waiting for its surface).
+// A windowed replay never makes it, so it leaves no os_poll entry; the events it dispatches are still
+// recorded with their own reads and replay at the next read (#108)
+static int Replay_poll_unrecorded = 0;
+
+void replay_unrecorded_os_poll()
+{
+	Replay_poll_unrecorded = 1;
+	os_poll();
+	Replay_poll_unrecorded = 0;
+}
+
 void replay_os_poll()
 {
-	if (!replay_hook_live()) {
+	if (!replay_hook_live() || Replay_poll_unrecorded) {
 		return;
 	}
 
