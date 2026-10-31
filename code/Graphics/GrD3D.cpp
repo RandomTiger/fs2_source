@@ -1435,16 +1435,14 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 		SetActiveWindow( hwnd );	// Claude
 		SetForegroundWindow( hwnd );	// Claude
 
-		// Claude: scale = min(mon_w / max_w, mon_h / max_h); a whole number when it is 1 or more, so pixels stay square and crisp
+		// Claude: aspect fit: scale = min(mon_w / max_w, mon_h / max_h) as a fraction, so the picture fills the monitor's height (or width) with black bars on the other axis; the blit stretches
 		int pic_w, pic_h;	// Claude
-		if ( (mon_w >= gr_screen.max_w) && (mon_h >= gr_screen.max_h) )	{	// Claude
-			int scale = min( mon_w / gr_screen.max_w, mon_h / gr_screen.max_h );	// Claude
-			pic_w = gr_screen.max_w * scale;	// Claude
-			pic_h = gr_screen.max_h * scale;	// Claude
-		} else {	// Claude: a monitor smaller than the game screen: shrink to fit
-			float scale = min( (float)mon_w / (float)gr_screen.max_w, (float)mon_h / (float)gr_screen.max_h );	// Claude
-			pic_w = fl2i( gr_screen.max_w * scale );	// Claude
-			pic_h = fl2i( gr_screen.max_h * scale );	// Claude
+		if ( mon_w * gr_screen.max_h <= mon_h * gr_screen.max_w )	{	// Claude: width limits
+			pic_w = mon_w;	// Claude
+			pic_h = (mon_w * gr_screen.max_h) / gr_screen.max_w;	// Claude
+		} else {	// Claude: height limits
+			pic_h = mon_h;	// Claude
+			pic_w = (mon_h * gr_screen.max_w) / gr_screen.max_h;	// Claude
 		}	// Claude
 		D3D_present_rect.left = (mon_w - pic_w) / 2;	// Claude
 		D3D_present_rect.top = (mon_h - pic_h) / 2;	// Claude
@@ -1826,7 +1824,7 @@ void gr_d3d_save_mouse_area(int x, int y, int w, int h )
 
 // Claude: #112: borderless fullscreen.  Given the -window blit rects (the client area in screen coordinates, and the source),
 // blit the whole game screen into D3D_present_rect instead and fill the bars round it black, after waiting for the vertical blank.
-// No DDBLTFX_ARITHSTRETCHY, so a stretch is point sampled (nearest pixel); at a whole-number scale it is exact.
+// The picture is aspect fitted (a fractional scale); the Blt stretches it, with whatever filtering the driver uses.
 static void d3d_present_fullscreen(RECT *rect, RECT *view_rect)
 {
 	RECT pic = D3D_present_rect;
