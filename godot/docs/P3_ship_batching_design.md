@@ -18,3 +18,9 @@ Sink v4 `mesh_create(id, local verts, per-texture index groups)` once per (model
 - Lighting stays on the CPU in P3b: the game's per-vertex colours are sent each frame with `mesh_draw`; GPU lighting is P7. This keeps fidelity and the gate baselines.
 - Geometry is static per (model, submodel, LOD) and cached by the sink; the game sends the matrix, state and colours only.
 - Everything stays behind `kRender3D` (default off) until the bulk test passes.
+
+## Clip plane (Tom 2026-10-31: "maybe just when warping")
+The mesh shader gets one eye-space clip plane (from `fs2_sink_view.user_clip/clip_normal/clip_point`) and discards fragments behind it. It is used for warp-in/out only (`Ship.cpp` ~2539). A ship in large-ship breakup (`ShipFX.cpp` ~2010/2039) is sent to the CPU path by the host, so it renders as retail. Eye checks and a pixel tolerance for the warp cut edge go in the per-class list; a warp-in/out ship joins the bulk test map.
+
+## Background (P5)
+Stars, suns, bitmaps, backgrounds and the subspace tunnel are meshes at far depth after a depth clear, ships in front; nebula fog reuses the GPU fog path. Not before the ship mesh path.
