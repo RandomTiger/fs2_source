@@ -15,6 +15,9 @@ void	pad_frame();
 // From check_control(): 1 if the pad holds continuous control id (FIRE_PRIMARY, AFTERBURNER, ...).
 int	pad_control_held(int id);
 
+// From voice_frame(): 1 while the pad holds the voice push-to-talk button (South, 360: A).
+int	pad_voice_talk_held();
+
 // From read_keyboard_controls(): adds the pad's yaw, pitch, roll and throttle.
 void	pad_read_flight(struct control_info *ci, float frame_time);
 

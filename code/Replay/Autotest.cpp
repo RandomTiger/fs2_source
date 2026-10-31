@@ -124,6 +124,7 @@ static int Autotest_missions_failed = 0;
 static int Autotest_asserts = 0;
 static int Autotest_int3s = 0;
 static int Autotest_warnings = 0;
+static int Autotest_checks_failed = 0;	// autotest_check: a device test's known answers (#119)
 
 #define AUTOTEST_MAX_SITES		64
 #define AUTOTEST_LOG_PER_SITE	3
@@ -1396,6 +1397,26 @@ void autotest_frame()
 	autotest_log_events();
 }
 
+// a device's own test script (the pad's squad menu test, #119) asks these from its frame code
+int autotest_mission_note(char *note)
+{
+	return Autotest_rules && Autotest_in_mission && (strstr(The_mission.notes, note) != NULL);
+}
+
+float autotest_mission_seconds()
+{
+	return Autotest_in_mission ? f2fl(Missiontime - Autotest_mission_start) : -1.0f;
+}
+
+// logs a known answer; a wrong one fails the run.  Runs in the recording and in its replays alike.
+void autotest_check(int ok, char *what)
+{
+	if (!ok) {
+		Autotest_checks_failed++;
+	}
+	autotest_logf("Check %s at mission time %.2f: %s\n", ok ? "passed" : "FAILED", f2fl(Missiontime), what);
+}
+
 int autotest_popup(char *text)
 {
 	if (!Autotest_rules) {
@@ -1471,7 +1492,10 @@ int autotest_exit_code(int code)
 	}
 
 	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)
-	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
+	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings || Autotest_checks_failed;
+	if (Autotest_checks_failed) {
+		autotest_logf("Checks failed %d\n", Autotest_checks_failed);
+	}
 	for (i = 0; i < Autotest_num_sites; i++) {
 		autotest_logf("%6d x %s %s line %d\n", Autotest_sites[i].count, Autotest_sites[i].kind, Autotest_sites[i].file ? Autotest_sites[i].file : "", Autotest_sites[i].line);
 	}

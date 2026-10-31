@@ -1,6 +1,7 @@
 # PadControl status
 
 Design: `docs/PAD_CONTROL.md`.
+Parent branch `VoiceControl` (merged down into this one); its notes are in STATUS.md on that branch.
 
 ## Batch 1: core layout (built, not yet tested in game)
 1. `code/Pad/PadXInput.*`: XInput backend (loaded at run time), first connected pad,

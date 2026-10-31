@@ -920,6 +920,22 @@ int hud_squadmsg_get_key()
 	return -1;
 }
 
+// Claude: menu entry points shared by the control pad and voice blocks below (#89)
+
+// Claude: open the menu if it is closed; 1 if it is open now
+static int hud_squadmsg_menu_open()
+{
+	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
+		hud_squadmsg_toggle();
+	return (Player->flags & PLAYER_FLAGS_MSG_MODE) ? 1 : 0;
+}
+
+// Claude: press a row's number key (row on the visible page); the menu acts on it as on the key
+static void hud_squadmsg_menu_press_row( int row )
+{
+	Msg_key = keys_used[row];
+}
+
 // Claude: control pad. The pad drives this menu with a highlighted row: move, select, back.
 // The row is on the visible page; -1 = the pad is not driving the menu.
 LOCAL int Squadmsg_pad_row = -1;
@@ -961,10 +977,7 @@ static int hud_squadmsg_pad_highlight()
 
 void hud_squadmsg_pad_open()
 {
-	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
-		hud_squadmsg_toggle();
-
-	if ( Player->flags & PLAYER_FLAGS_MSG_MODE ) {
+	if ( hud_squadmsg_menu_open() ) {	// Claude: shared with voice (#89)
 		Squadmsg_pad_row = 0;
 		Squadmsg_pad_mode = Squad_msg_mode;
 		Squadmsg_pad_first = First_menu_item;
@@ -1017,7 +1030,7 @@ void hud_squadmsg_pad_select()
 	if ( (Squadmsg_pad_row < 0) || (Squadmsg_pad_row >= hud_squadmsg_pad_rows()) )
 		return;
 
-	Msg_key = keys_used[Squadmsg_pad_row];
+	hud_squadmsg_menu_press_row( Squadmsg_pad_row );	// Claude: shared with voice (#89)
 }
 
 // one menu back; the top menu stays open (releasing the pad button closes it)
@@ -1045,6 +1058,265 @@ void hud_squadmsg_pad_back()
 	}
 
 	Msg_mode_timestamp = timestamp(DEFAULT_MSG_TIMEOUT);
+}
+
+// Claude: voice control (code/Voice/VoiceGame.cpp).  Opens the menu at a target and selects a
+// row the way a number key does, so the menu's own checks (greyed-out rows, EMP) still apply.
+
+// Claude: can the player message anyone now (the conditions the "Message What" menu checks)
+static int hud_squadmsg_voice_can_message()
+{
+	if ( (Player == NULL) || (Player_obj == NULL) || (Player_ship == NULL) )
+		return 0;
+	if ( emp_active_local() || (Game_mode & GM_DEAD) )
+		return 0;
+	if ( (Game_mode & GM_MULTIPLAYER) && (NETPLAYER_IS_OBSERVER(Net_player) || !multi_can_message(Net_player)) )
+		return 0;
+	if ( Player_ship->team == TEAM_TRAITOR )
+		return 0;
+	if ( hud_communications_state(Player_ship) != COMM_OK )
+		return 0;
+	return 1;
+}
+
+// Claude: a ship voice offers as a target: alive, on the player's team, one the menu can list
+int hud_squadmsg_voice_ship_known( int shipnum )
+{
+	ship *shipp;
+
+	if ( (Player_obj == NULL) || (Player_ship == NULL) || (shipnum < 0) || (shipnum >= MAX_SHIPS) || (Ships[shipnum].objnum < 0) )
+		return 0;
+	shipp = &Ships[shipnum];
+	if ( !(Ship_info[shipp->ship_info_index].flags & CAN_MESSAGE) || (shipp->team != Player_ship->team) )
+		return 0;
+	if ( &Objects[shipp->objnum] == Player_obj )
+		return 0;
+	return 1;
+}
+
+// Claude: a wing voice offers as a target: still present, on the player's team
+int hud_squadmsg_voice_wing_known( int wingnum )
+{
+	wing *wingp;
+
+	if ( (Player_ship == NULL) || (wingnum < 0) || (wingnum >= num_wings) )
+		return 0;
+	wingp = &Wings[wingnum];
+	if ( (wingp->flags & WF_WING_GONE) || (wingp->current_count <= 0) || (wingp->ship_index[0] < 0) )
+		return 0;
+	if ( Ships[wingp->ship_index[0]].team != Player_ship->team )
+		return 0;
+	return 1;
+}
+
+// Claude: the checks hud_squadmsg_count_ships() makes for one ship
+static int hud_squadmsg_voice_ship_valid( int shipnum )
+{
+	ship *shipp;
+
+	if ( !hud_squadmsg_voice_ship_known(shipnum) )
+		return 0;
+	shipp = &Ships[shipnum];
+	if ( shipp->flags & (SF_DEPARTING|SF_DYING) )
+		return 0;
+	if ( is_instructor(&Objects[shipp->objnum]) )
+		return 0;
+	if ( shipp->orders_accepted == 0 )
+		return 0;
+	if ( (Objects[shipp->objnum].flags & OF_PLAYER_SHIP) && !(Game_mode & GM_MULTIPLAYER) )
+		return 0;
+	return 1;
+}
+
+// Claude: open the menu (if closed) in a command mode at instance
+static int hud_squadmsg_voice_open( int instance, int mode )
+{
+	if ( !hud_squadmsg_menu_open() )	// Claude: shared with the pad (#89)
+		return 0;
+
+	Msg_shortcut_command = -1;
+	Msg_instance = instance;
+	hud_squadmsg_do_mode( mode );
+	Msg_mode_timestamp = timestamp(DEFAULT_MSG_TIMEOUT);
+	return 1;
+}
+
+// Claude: open the command menu at a ship, a wing or all fighters.  0 (and the fail sound) if
+// the menu would not offer it.
+int hud_squadmsg_voice_open_ship( int shipnum )
+{
+	if ( hud_squadmsg_voice_can_message() && hud_squadmsg_voice_ship_valid(shipnum) && hud_squadmsg_voice_open(shipnum, SM_MODE_SHIP_COMMAND) )
+		return 1;
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_open_wing( int wingnum )
+{
+	int valid, save_shortcut;
+
+	valid = 0;
+	if ( hud_squadmsg_voice_can_message() && hud_squadmsg_voice_wing_known(wingnum) ) {
+		save_shortcut = Msg_shortcut_command;
+		Msg_shortcut_command = -1;
+		valid = hud_squadmsg_wing_valid( &Wings[wingnum], Player_ship->team );
+		Msg_shortcut_command = save_shortcut;
+	}
+	if ( valid && hud_squadmsg_voice_open(wingnum, SM_MODE_WING_COMMAND) )
+		return 1;
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_open_all_fighters()
+{
+	if ( hud_squadmsg_voice_can_message() && hud_squadmsg_count_fighters() && hud_squadmsg_voice_open(MESSAGE_ALL_FIGHTERS, SM_MODE_SHIP_COMMAND) )
+		return 1;
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+// Claude: the order the menu holds for a target (its shortcut key was pressed, or the order was
+// said first), as an index into Comm_orders; -1 if none
+int hud_squadmsg_voice_held_order()
+{
+	int i;
+
+	if ( (Player == NULL) || !(Player->flags & PLAYER_FLAGS_MSG_MODE) || (Msg_shortcut_command == -1) )
+		return -1;
+	if ( (Squad_msg_mode != SM_MODE_TYPE_SELECT) && (Squad_msg_mode != SM_MODE_SHIP_SELECT) && (Squad_msg_mode != SM_MODE_WING_SELECT) )
+		return -1;
+	for ( i = 0; i < MAX_SHIP_ORDERS; i++ ) {
+		if ( Comm_orders[i].value == Msg_shortcut_command )
+			return i;
+	}
+	return -1;
+}
+
+// Claude: an order said before its target: press its shortcut key.  A menu already open is
+// closed first, as the key would not act on it.  0 (and the fail sound) if no message can go.
+int hud_squadmsg_voice_shortcut( int order )
+{
+	if ( (order < 0) || (order >= MAX_SHIP_ORDERS) || !hud_squadmsg_voice_can_message() ) {
+		gamesnd_play_iface(SND_GENERAL_FAIL);
+		return 0;
+	}
+	if ( Player->flags & PLAYER_FLAGS_MSG_MODE )
+		hud_squadmsg_toggle();
+	hud_squadmsg_shortcut( Comm_orders[order].value );
+	return 1;
+}
+
+// Claude: send the held order to a ship, a wing or all fighters, if the menu would list them for
+// it, as picking them from the menu does.  0 (and the fail sound) if not; the menu stays up, so
+// another target can be said.
+static int hud_squadmsg_voice_holds( int order )
+{
+	return (order >= 0) && (order < MAX_SHIP_ORDERS) && (hud_squadmsg_voice_held_order() == order) && hud_squadmsg_voice_can_message();
+}
+
+int hud_squadmsg_voice_send_ship( int shipnum, int order )
+{
+	int command;
+
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_voice_ship_valid(shipnum) ) {
+		command = Comm_orders[order].value;
+		if ( (command != IGNORE_TARGET_ITEM) && (Ships[shipnum].orders_accepted & command) && hud_squadmsg_ship_order_valid(shipnum, command) ) {
+			hud_squadmsg_send_ship_command( shipnum, command, 1 );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_send_wing( int wingnum, int order )
+{
+	int command;
+
+	// capture goes to a ship only: its key offers no wings
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_voice_wing_known(wingnum) ) {
+		command = Comm_orders[order].value;
+		if ( (command != IGNORE_TARGET_ITEM) && (command != CAPTURE_TARGET_ITEM) && hud_squadmsg_wing_valid(&Wings[wingnum], Player_ship->team) ) {
+			hud_squadmsg_send_wing_command( wingnum, command, 1 );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+int hud_squadmsg_voice_send_all_fighters( int order )
+{
+	int command;
+
+	if ( hud_squadmsg_voice_holds(order) && hud_squadmsg_count_fighters() ) {
+		command = Comm_orders[order].value;
+		if ( command != CAPTURE_TARGET_ITEM ) {
+			hud_squadmsg_send_to_all_fighters( command );
+			hud_squadmsg_toggle();
+			return 1;
+		}
+	}
+	gamesnd_play_iface(SND_GENERAL_FAIL);
+	return 0;
+}
+
+// Claude: 1 while the menu shows a ship's or wing's orders
+int hud_squadmsg_voice_in_command()
+{
+	if ( (Player == NULL) || !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
+		return 0;
+	return (Squad_msg_mode == SM_MODE_SHIP_COMMAND) || (Squad_msg_mode == SM_MODE_WING_COMMAND);
+}
+
+// Claude: the rows a number key can reach
+int hud_squadmsg_voice_num_rows()
+{
+	int n;
+
+	if ( !hud_squadmsg_voice_in_command() || (Num_menu_items <= 0) )
+		return 0;
+	n = Num_menu_items;
+	if ( n > MAX_KEYS_NO_SCROLL )
+		n = MAX_KEYS_NO_SCROLL;
+	return n;
+}
+
+// Claude: one row: its text, its order (index into Comm_orders, -1 if none) and whether it is active
+int hud_squadmsg_voice_row( int row, char **text, int *order, int *active )
+{
+	int i;
+
+	if ( (row < 0) || (row >= hud_squadmsg_voice_num_rows()) )
+		return 0;
+
+	*text = MsgItems[row].text;
+	*active = MsgItems[row].active;
+	*order = -1;
+	for ( i = 0; i < MAX_SHIP_ORDERS; i++ ) {
+		if ( Comm_orders[i].value == MsgItems[row].instance ) {
+			*order = i;
+			break;
+		}
+	}
+	return 1;
+}
+
+// Claude: press the row's number key, if the row still shows that order.  The menu sends the
+// order, or plays the fail sound for a greyed-out row.
+int hud_squadmsg_voice_select_row( int row, int order )
+{
+	char *text;
+	int row_order, active;
+
+	if ( !hud_squadmsg_voice_row(row, &text, &row_order, &active) || (row_order != order) )
+		return 0;
+
+	hud_squadmsg_menu_press_row( row );	// Claude: shared with the pad (#89)
+	return 1;
 }
 
 // function which will essentially print out the contents of the current state of the messaging
