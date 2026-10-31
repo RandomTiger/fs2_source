@@ -249,6 +249,7 @@ cmdline_parm trace_arg("-trace", NULL);
 cmdline_parm fulltrace_arg("-fulltrace", NULL);
 cmdline_parm replay_pace_arg("-replay_pace", NULL);		// Claude: replay at the recorded speed, see Replay.h
 cmdline_parm autorecord_arg("-autorecord", NULL);		// Claude: record every mission played, see Replay.h
+cmdline_parm mission_arg("-mission", NULL);		// Claude: start a mission from the main hall, see MainHallMenu.cpp
 cmdline_parm autotest_arg("-autotest", NULL);			// Claude: autotest, see Autotest.h
 cmdline_parm autotest_mission_arg("-at_mission", NULL);
 cmdline_parm autotest_time_arg("-at_time", NULL);
@@ -303,6 +304,7 @@ int Cmdline_window = 0;
 int Cmdline_no_ship_glow = 0;	// Claude: -noshipglow
 int Cmdline_no_force_glow = 0;	// Claude: -noforceglow
 int Cmdline_all_cutscenes = 0;		// Claude
+char *Cmdline_mission = NULL;	// Claude: -mission, or NULL
 
 static cmdline_parm Parm_list(NULL, NULL);
 static int Parm_list_inited = 0;
@@ -722,6 +724,11 @@ int parse_cmdline(char *cmdline)
 	// Claude: -loadtimes
 	if(loadtimes_arg.found()){
 		Cmdline_loadtimes = 1;
+	}
+
+	// Claude: -mission.  Autotest and replay pick their own mission.
+	if(mission_arg.found() && !autotest_arg.found() && !replay_arg.found()){
+		Cmdline_mission = mission_arg.str();
 	}
 
 	// Claude: autotest.  The -at_ flags do nothing without -autotest.

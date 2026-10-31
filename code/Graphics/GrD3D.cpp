@@ -197,6 +197,7 @@
 #include "SystemVars.h"
 #include "Cfile.h"
 #include "cmdline.h"
+#include "Replay.h"
 
 
 LPDIRECTDRAW			lpDD1 = NULL;
@@ -1833,7 +1834,8 @@ void gr_d3d_flip()
 			os_sleep(1000);	// Wait a second
 
 			// os poll?
-			os_poll();
+			// Claude: only a fullscreen game away from the front gets here, and a windowed replay never does, so this poll leaves no os_poll entry (#108)
+			replay_unrecorded_os_poll();	// Claude: was os_poll()
 
 			goto TryFlipAgain;
 		} else if (ddrval != DD_OK )	{

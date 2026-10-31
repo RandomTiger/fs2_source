@@ -140,6 +140,7 @@ int  replay_event_mouse(unsigned int flags, int set);
 int  replay_event_focus(int got_focus);
 int  replay_live_focus();		// 0 while a replay is feeding the mission: live focus changes must not change game state
 void replay_os_poll();
+void replay_unrecorded_os_poll();	// os_poll() with no os_poll entry, for a poll a windowed replay never makes (#108)
 
 // wrap a function returning int / float.  The live expression is evaluated only when the
 // value is not coming from the recording.
