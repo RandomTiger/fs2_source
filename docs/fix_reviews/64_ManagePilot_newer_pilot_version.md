@@ -22,8 +22,8 @@ At each of the three places that test the lower bound, one added line refuses a 
 
 ## What was checked
 - Builds: Release and Debug, on OriginalSourceBugFixes and on RecordPlayback after the merge.
-- With a copy of a version-141 pilot (`AutotestPilot.plr` written by Enhanced) in the players folder, Release and Debug RecordPlayback builds: `-autotest -at_pilot` on it logs that it cannot load and falls back to the scratch pilot with no crash; the Barracks pilot list (menu tour) leaves it out; its SHA256 is unchanged afterwards.
-- A version-140 pilot (`Tom.plr`) still loads.
+- With a copy of a version-141 pilot (an `AutotestPilot.plr` written by Enhanced) in the players folder, Release and Debug RecordPlayback builds: `-autotest -at_pilot` on it logs that it cannot load and falls back to the scratch pilot with no crash; the Barracks pilot list (menu tour) leaves it out; its SHA256 is unchanged afterwards.
+- A version-140 pilot (a new pilot made by the RecordPlayback Release build) still loads, Release and Debug.
 - `replay_check.ps1` (quick suite) Release and Debug on RecordPlayback, and `rp_gate.ps1`.
 
 ## Not changed
