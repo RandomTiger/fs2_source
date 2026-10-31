@@ -390,6 +390,14 @@ void parse_medal_tbl()
 #define FS1_NUM_MEDALS		16
 static int Medals_rank_region = RANK_MEDAL_REGION;
 
+// Claude: FS1 data: retail FS1 labels the medal under the mouse centred under that medal, one text line below its
+// box (blit_label in its FS.exe: x = left + (width - text width) / 2, y = bottom + text height), with these boxes
+// (its table at 0x5d10b0, the bounds of Medals-m.pcx's regions): medals 0-15, then the rank (#109).
+static int Fs1_label_rects[FS1_NUM_MEDALS + 1][4] = { {109,73,166,157}, {473,73,530,154}, {146,149,206,237}, {219,150,278,242},
+	{360,150,419,238}, {432,149,492,236}, {88,242,153,344}, {168,242,230,345}, {247,249,310,348}, {328,249,391,349},
+	{406,243,469,348}, {483,242,550,352}, {341,107,364,127}, {373,107,396,127}, {405,107,428,127}, {287,184,350,214},
+	{209,112,272,125} };
+
 static void medals_fs1_layout()
 {
 	// medals 0-15, then the rank
@@ -579,6 +587,12 @@ void blit_label(char *label, int *coords, int num)
 	gr_get_string_size(&sw, NULL, text);
 	x = Medals_label_coords[gr_screen.res][0] + (Medals_label_coords[gr_screen.res][2] - sw) / 2;
 	y = Medals_label_coords[gr_screen.res][1];
+	if ( Cfile_fs1_data ) {	// Claude: FS1 data: coords is the medal's box from Fs1_label_rects, the label goes under it (#109)
+		int sh;
+		gr_get_string_size(&sw, &sh, text);
+		x = coords[0] + (coords[2] - coords[0] - sw) / 2;
+		y = coords[3] + sh;
+	}
 
 	// do it
 	gr_string(x, y, text);
@@ -629,9 +643,9 @@ int medal_main_do()
 	region = snazzy_menu_do((ubyte*)Medals_mask->data, Medals_mask_w, Medals_mask_h, NUM_MEDAL_REGIONS, Medal_regions, &selected);
 	if ( Cfile_fs1_data && (region >= 0) ) {	// Claude: FS1's rank is region 16, its region 12 a medal
 		if (region == Medals_rank_region) {
-			blit_label(Ranks[Player_score->rank].name, &Medal_coords[gr_screen.res][region][0], 1);
+			blit_label(Ranks[Player_score->rank].name, Fs1_label_rects[FS1_NUM_MEDALS], 1);	// Claude: FS1's box (#109)
 		} else if ( (region < FS1_NUM_MEDALS) && (Player_score->medals[region] > 0) ) {
-			blit_label(Medals[region].name, &Medal_coords[gr_screen.res][region][0], Player_score->medals[region] );
+			blit_label(Medals[region].name, Fs1_label_rects[region], Player_score->medals[region] );	// Claude: FS1's box (#109)
 		}
 		region = -1;
 	}

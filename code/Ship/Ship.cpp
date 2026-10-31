@@ -1745,7 +1745,7 @@ void ship_level_init()
 	for (i=0; i<MAX_SHIPS; i++ )	{
 		memset(&Ships[i], 0, sizeof(ship));	// Claude: D-055
 		Ships[i].objnum = -1;
-		Ships[i].next_swarm_path = 0;	// Claude: never initialised: a new process has 0 here, a game started again in the same process had the last mission's count (D-055)
+		Ships[i].next_swarm_path = 0;	// Claude: never set anywhere, so a later mission's first swarm volley started on the path the last mission left (fix review 65)
 	}
 
 	for ( i = 0; i < MAX_EXITED_SHIPS; i++ ) {

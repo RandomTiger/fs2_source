@@ -331,6 +331,7 @@
 #include "mainhallmenu.h"
 #include "aigoals.h"
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "../Voice/VoiceGame.h"	// Claude: voice control
 
 // --------------------------------------------------------------
 // Global to file 
@@ -1824,6 +1825,7 @@ void game_process_keys()
 		} // end switch
 	} while (k);
 
+	voice_frame();	// Claude: voice control: push-to-talk, and recorded voice results (may set button_info bits)
 	pad_frame();	// Claude: control pad sets its button_info bits
 
 	button_info_do(&Player->bi);	// call functions based on status of button_info bit vectors
