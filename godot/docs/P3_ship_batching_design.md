@@ -24,3 +24,6 @@ The mesh shader gets one eye-space clip plane (from `fs2_sink_view.user_clip/cli
 
 ## Background (P5)
 Stars, suns, bitmaps, backgrounds and the subspace tunnel are meshes at far depth after a depth clear, ships in front; nebula fog reuses the GPU fog path. Not before the ship mesh path.
+
+## Engine glow (Tom 2026-10-31: "if it looks the same as retail it's fine")
+Retail draws thruster glow after the whole model: a camera-facing additive quad (`g3_draw_bitmap`, `ModelInterp.cpp` ~2744) at the nozzle point, one depth for the whole quad, depth read only. The mesh path keeps that: opaque batches first, then the glow quads as their own additive draws in the original order. No glow shader in P3. A glow that is both over and behind parts of the same mesh (depth fade, volume) is a P7 option, off by default.
