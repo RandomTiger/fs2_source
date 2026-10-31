@@ -312,6 +312,7 @@
 #include "AlphaColors.h"
 #include "demo.h"
 #include "fishtank.h"
+#include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
 
 // #include "movie.h"
 
@@ -434,6 +435,7 @@ typedef struct main_hall_defines {
 // use main hall 0 by default
 main_hall_defines Main_hall_defines[GR_NUM_RESOLUTIONS][NUM_MAIN_HALLS];
 main_hall_defines *Main_hall = &Main_hall_defines[0][0];
+int Main_hall_count = 0;	// Claude: the main halls the loaded mainhall.tbl defines, for the autotest menu tour (D-20261031-084801)
 
 int Vasudan_funny = 0;
 int Vasudan_funny_plate = -1;
@@ -1023,6 +1025,9 @@ void main_hall_do(float frametime)
 #else 
 	}
 #endif
+
+	// Claude: the autotest menu tour clicks a region here, the way the player does (docs/AUTOTEST.md)
+	autotest_main_hall_click(&code, &snazzy_action);
 
 	// do any processing based upon what happened to the snazzy menu
 	switch (snazzy_action) {
@@ -2097,6 +2102,18 @@ void main_hall_read_table()
 			count++;
 		}
 	}
+	// Claude: count a hall only if the data has its background and mask, which main_hall_init needs (the demos' tables define a second hall without its art)
+	for(Main_hall_count = 0; Main_hall_count < count; Main_hall_count++){	// Claude
+		char art_file[MAX_FILENAME_LEN+5];	// Claude
+		sprintf_s(art_file, sizeof(art_file), "%s.pcx", Main_hall_defines[gr_screen.res][Main_hall_count].bitmap);	// Claude
+		if(!cf_find_file_location(art_file, CF_TYPE_ANY, NULL, NULL, NULL)){	// Claude
+			break;	// Claude
+		}	// Claude
+		sprintf_s(art_file, sizeof(art_file), "%s.pcx", Main_hall_defines[gr_screen.res][Main_hall_count].mask);	// Claude
+		if(!cf_find_file_location(art_file, CF_TYPE_ANY, NULL, NULL, NULL)){	// Claude
+			break;	// Claude
+		}	// Claude
+	}	// Claude
 
 	// are we funny?
 	if(Vasudan_funny){

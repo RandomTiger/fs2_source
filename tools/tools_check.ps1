@@ -181,7 +181,7 @@ if (Get-VpFile 'sm1-01.fs2' $m) {
 	$p.Refresh(); $main = $p.MainWindowHandle
 	$null = [ToolWindows]::Command($main, 0xE101)		# ID_FILE_OPEN
 	$open = $false
-	for ($i = 0; $i -lt 15 -and -not $open; $i++) { Start-Sleep 1; $open = [ToolWindows]::FileDialog($p.Id, 'ToolsCheck.fs2') }
+	for ($i = 0; $i -lt 15 -and -not $open; $i++) { Start-Sleep 1; $open = [ToolWindows]::FileDialog($p.Id, $m) }	# full path: a new PC's dialog starts outside data\missions
 	$null = Wait-Text $p '^ToolsCheck' 30; Start-Sleep 3
 	$title = ((Texts $p) -split ' / ')[0]
 	$null = [ToolWindows]::Command($main, 0xE103)		# ID_FILE_SAVE
