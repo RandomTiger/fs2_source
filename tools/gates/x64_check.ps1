@@ -6,8 +6,25 @@ $gh = Split-Path $RepoRoot -Parent
 Require-Env PATH_FS2
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $msb = Get-MSBuild
+# The checkout of branch $b on this machine (#102): this checkout if it is on $b, else a worktree of this clone on $b,
+# else a folder fs2_<b> or fs2_source_<b> beside it. None found is a FAIL, never a skip.
+function Find-BranchRepo([string]$b) {
+	if ((git -C $RepoRoot rev-parse --abbrev-ref HEAD) -eq $b) { return $RepoRoot }
+	$wt = $null
+	foreach ($l in (git -C $RepoRoot worktree list --porcelain)) {
+		if ($l -like 'worktree *') { $wt = $l.Substring(9) }
+		elseif ($l -eq "branch refs/heads/$b") { return (Resolve-Path $wt).Path }
+	}
+	foreach ($n in "fs2_$b", "fs2_source_$b") {
+		$p = Join-Path $gh $n
+		if ((Test-Path "$p\Freespace2.vcxproj") -and ((git -C $p rev-parse --abbrev-ref HEAD) -eq $b)) { return $p }
+	}
+	return $null
+}
 foreach ($b in $Branches) {
-	$repo = "$gh\fs2_source_$b"
+	$repo = Find-BranchRepo $b
+	if (-not $repo) { "FAIL no checkout of $b found (this checkout, its worktrees, or $gh\fs2_$b)"; exit 1 }
+	"$b checkout: $repo"
 	foreach ($c in 'Release', 'Debug') {
 		Remove-Item "$env:PATH_FS2\FS2vs2022$(if ($c -eq 'Release') {'r'} else {'d'})64.exe" -ErrorAction SilentlyContinue
 		$f = "$env:TEMP\x64_$b`_$c.txt"
