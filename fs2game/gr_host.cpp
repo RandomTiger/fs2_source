@@ -122,6 +122,8 @@ struct Host {
 	bool zget_pending = false;		// get() seen, the next set() is the save half of a pair
 	int zget_saved = GR_ZBUFF_NONE;
 	bool run_open = false;			// a sink depth run is open (drawn frames only)
+	bool view_sent = false;			// H.view was sent to the sink in this run
+	fs2_sink_view view = {};		// the camera last sent (v3)
 	int zbias = 0;
 	int cull = 0;
 	// ship glow queue (see "ship glow"): host only
@@ -450,6 +452,40 @@ void depth_run_end()
 	glow_flush();
 	if (H.run_open && drawing()) { H.sink->depth_end(H.sink->user); }
 	H.run_open = false;
+	H.view_sent = false;
+}
+
+// v3: the 3D camera, read from the g3 globals (g3_set_view_matrix runs after g3_start_frame has opened the run), sent when it differs
+// from the one the sink has. Reads game state only.
+} // namespace
+extern float View_zoom;
+extern vector Matrix_scale;
+extern matrix Eye_matrix;
+extern vector Eye_position;
+extern int Canvas_width, Canvas_height;
+extern int G3_user_clip;
+extern vector G3_user_clip_normal, G3_user_clip_point;
+namespace {
+void send_view()
+{
+	fs2_sink_view v = {};
+	v.eye_pos[0] = Eye_position.x; v.eye_pos[1] = Eye_position.y; v.eye_pos[2] = Eye_position.z;
+	v.eye_rvec[0] = Eye_matrix.rvec.x; v.eye_rvec[1] = Eye_matrix.rvec.y; v.eye_rvec[2] = Eye_matrix.rvec.z;
+	v.eye_uvec[0] = Eye_matrix.uvec.x; v.eye_uvec[1] = Eye_matrix.uvec.y; v.eye_uvec[2] = Eye_matrix.uvec.z;
+	v.eye_fvec[0] = Eye_matrix.fvec.x; v.eye_fvec[1] = Eye_matrix.fvec.y; v.eye_fvec[2] = Eye_matrix.fvec.z;
+	v.scale[0] = Matrix_scale.x; v.scale[1] = Matrix_scale.y; v.scale[2] = Matrix_scale.z;
+	v.zoom = View_zoom;
+	v.canvas_w = Canvas_width; v.canvas_h = Canvas_height;
+	v.user_clip = G3_user_clip;
+	if (G3_user_clip) {
+		v.clip_normal[0] = G3_user_clip_normal.x; v.clip_normal[1] = G3_user_clip_normal.y; v.clip_normal[2] = G3_user_clip_normal.z;
+		v.clip_point[0] = G3_user_clip_point.x; v.clip_point[1] = G3_user_clip_point.y; v.clip_point[2] = G3_user_clip_point.z;
+	}
+	if (v.canvas_w <= 0 || v.canvas_h <= 0) { return; }
+	if (H.view_sent && std::memcmp(&v, &H.view, sizeof(v)) == 0) { return; }
+	H.view = v;
+	H.view_sent = true;
+	H.sink->set_view(H.sink->user, &v);
 }
 
 void h_flip()
@@ -832,7 +868,8 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 	if (zbuffering) {
 		zflags = (is_scaler || gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER) ? FS2_SINK_DRAWF_ZREAD
 			: (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
-		if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
+		if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+		send_view();
 	}
 
 	int blend, alpha = 255;
@@ -1285,7 +1322,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	if (sink == nullptr || sink->version != FS2_RENDER_SINK_VERSION || sink->size < sizeof(fs2_render_sink)) { return 0; }
 	if (!sink->frame_begin || !sink->frame_end || !sink->clear || !sink->set_clip || !sink->texture_create || !sink->texture_free
 		|| !sink->texture_free_all || !sink->draw_tris || !sink->capture_to_texture || !sink->read_region || !sink->set_gamma
-		|| !sink->depth_begin || !sink->depth_end || !sink->depth_clear) {
+		|| !sink->depth_begin || !sink->depth_end || !sink->depth_clear || !sink->set_view) {
 		return 0;
 	}
 	H.sink_copy = *sink;

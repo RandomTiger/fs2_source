@@ -16,7 +16,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -30,6 +30,7 @@ public:
 	std::vector<std::string> errors;	// rule breaks seen
 	bool want_frames = true;		// what frame_begin answers
 	int frames_begun = 0, frames_ended = 0;
+	fs2_sink_view last_view = {};		// the last set_view
 
 	fs2_render_sink *sink() { return &table; }
 
@@ -52,6 +53,7 @@ public:
 		table.depth_begin = &FakeSink::s_depth_begin;
 		table.depth_end = &FakeSink::s_depth_end;
 		table.depth_clear = &FakeSink::s_depth_clear;
+		table.set_view = &FakeSink::s_set_view;
 	}
 
 	int count(Cmd::Kind k) const
@@ -199,6 +201,14 @@ private:
 		if (!s->in_depth) { s->err("depth_clear outside a depth run"); }
 		Cmd &c = s->add(Cmd::DepthClear);
 		c.a = x; c.b = y; c.c = w; c.d = h;
+	}
+	static void s_set_view(void *u, const fs2_sink_view *v)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("set_view outside a frame");
+		if (v == nullptr || v->canvas_w <= 0 || v->canvas_h <= 0) { s->err("set_view with no canvas"); return; }
+		s->last_view = *v;
+		s->add(Cmd::SetView);
 	}
 };
 

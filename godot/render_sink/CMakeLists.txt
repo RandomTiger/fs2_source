@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(fs2sinkcheck CXX)
 
-add_executable(fs2_sink_check sink_check.cpp ../../fs2game/render_sink.h fake_sink.h batcher.h selftest_scenes.h ../../fs2game/tex_convert.h)
+add_executable(fs2_sink_check sink_check.cpp ../../fs2game/render_sink.h fake_sink.h depth_contract.h batcher.h selftest_scenes.h ../../fs2game/tex_convert.h)
 target_include_directories(fs2_sink_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../fs2game)
 target_compile_features(fs2_sink_check PRIVATE cxx_std_17)
 target_compile_options(fs2_sink_check PRIVATE /W4 /WX)

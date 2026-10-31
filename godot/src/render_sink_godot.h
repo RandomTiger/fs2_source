@@ -21,6 +21,7 @@
 #include <godot_cpp/variant/rid.hpp>
 
 #include "batcher.h"
+#include "depth_contract.h"
 #include "render_sink.h"
 
 namespace fs2sink {
@@ -216,6 +217,9 @@ private:
 	static void s_depth_begin(void *u);
 	static void s_depth_end(void *u);
 	static void s_depth_clear(void *u, int x, int y, int w, int h);
+	static void s_set_view(void *u, const fs2_sink_view *v);
+	fs2_sink_view view = {};	// the last camera the game sent (v3)
+	bool have_view = false;
 };
 
 } // namespace fs2sink

@@ -60,6 +60,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.depth_begin = &GodotSink::s_depth_begin;
 	sink.depth_end = &GodotSink::s_depth_end;
 	sink.depth_clear = &GodotSink::s_depth_clear;
+	sink.set_view = &GodotSink::s_set_view;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -972,6 +973,16 @@ void GodotSink::s_depth_end(void *u)
 	}
 }
 
+// v3: the camera is kept for the mesh path (P1); no draw uses it yet
+void GodotSink::s_set_view(void *u, const fs2_sink_view *v)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (s->in_frame && v != nullptr) {
+		s->view = *v;
+		s->have_view = true;
+	}
+}
+
 // Depth cleared in a rectangle: everything drawn after it is in front of everything before it. Approximation: the
 // whole layer, not only the rectangle. The same as D3D while the depth draws after the clear do not overlap earlier
 // ones outside the rectangle; in the missions checked (R1-9) they are the target box model, whose z is near 0 and
@@ -1511,7 +1522,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	Vector3 *pp = pos.ptrw();
 	for (int i = 0; i < nv; i++) {
 		/* zbias: retail D3D adds ~1 depth-buffer step per unit (decals, subobjects over the hull); 2.0 here was ~60 game m per unit and pulled insignias and turrets through the hull */
-		const float d = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f + b.z[i] * 1000.0f - (float)b.key.zbias * 0.05f;
+		const float d = legacy_depth(b.z[i], epoch, MAX_EPOCH, b.key.zbias);
 		pp[i] = Vector3(b.pos[i * 2] - hw, hh - b.pos[i * 2 + 1], origin - d);
 	}
 	std::memcpy(uvs.ptrw(), b.uv.data(), sizeof(float) * 2 * (size_t)nv);

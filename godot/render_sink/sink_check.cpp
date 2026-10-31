@@ -8,6 +8,7 @@
 #include "tex_convert.h"
 #include "batcher.h"
 #include "fake_sink.h"
+#include "depth_contract.h"
 #include "selftest_scenes.h"
 
 static int failures = 0;
@@ -325,6 +326,42 @@ static void test_batcher_cost()
 	}
 }
 
+// P1: the camera call and the depth contract
+static void test_view_and_depth()
+{
+	fs2sink::FakeSink fake;
+	fs2_render_sink *s = fake.sink();
+	fs2_sink_view v = {};
+	v.canvas_w = 640; v.canvas_h = 480; v.scale[0] = v.scale[1] = v.scale[2] = 1.0f; v.zoom = 1.0f;
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	s->set_view(s->user, &v);
+	CHECK(fake.count(fs2sink::Cmd::SetView) == 1 && fake.last_view.canvas_w == 640);
+	s->frame_end(s->user);
+	CHECK(fake.errors.empty());
+
+	// the game's projection (g3_project_vertex) of eye space points, rebuilt from what the host sends
+	const float pts[][3] = { { 10, 5, 100 }, { -300, 200, 5000 }, { 0.2f, -0.1f, 0.5f }, { 5000, -4000, 40000 }, { 3, 2, 29000 } };
+	for (const auto &p : pts) {
+		float w = 1.0f / p[2];
+		const float sx = (640.0f + p[0] * 640.0f * w) * 0.5f, sy = (480.0f - p[1] * 480.0f * w) * 0.5f;
+		if (w > 1.0f) { w = 1.0f; }
+		float zd = p[2] / 30000.0f;
+		if (zd > 0.98f) { zd = 0.98f; }
+		float e[3];
+		CHECK(fs2sink::reconstruct_eye(v, sx, sy, w, zd, e) == 1);
+		const float tol = 1e-3f * p[2] + 1e-3f;
+		CHECK(std::fabs(e[0] - p[0]) < tol && std::fabs(e[1] - p[1]) < tol && std::fabs(e[2] - p[2]) < tol);
+	}
+	float e[3];
+	CHECK(fs2sink::reconstruct_eye(v, 0, 0, 1.0f, 0.0f, e) == 0);	// no depth and a clamped sw: not recoverable
+
+	// the contract: nearer epoch, smaller z, larger bias are all nearer (smaller distance)
+	CHECK(fs2sink::legacy_depth(0.5f, 3, 24, 0) == 2.0f + 21 * 1100.0f + 500.0f);
+	CHECK(fs2sink::legacy_depth(0.1f, 0, 24, 0) < fs2sink::legacy_depth(0.2f, 0, 24, 0));
+	CHECK(fs2sink::legacy_depth(0.5f, 1, 24, 0) < fs2sink::legacy_depth(0.5f, 0, 24, 0));
+	CHECK(fs2sink::legacy_depth(0.5f, 0, 24, 4) < fs2sink::legacy_depth(0.5f, 0, 24, 0));
+}
+
 int main()
 {
 	test_scenes();
@@ -334,6 +371,7 @@ int main()
 	test_perspective_equivalence();
 	test_batcher_cost();
 	test_frame_rules();
+	test_view_and_depth();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);
 		return 1;

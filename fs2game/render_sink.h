@@ -28,7 +28,18 @@
 extern "C" {
 #endif
 
-#define FS2_RENDER_SINK_VERSION 2
+#define FS2_RENDER_SINK_VERSION 3
+
+/* v3 (P1, GodotRender3D): the game camera, for a sink that draws meshes. Informational: no draw changes with it. */
+typedef struct fs2_sink_view {
+	float eye_pos[3];		/* world position of the eye (Eye_position) */
+	float eye_rvec[3], eye_uvec[3], eye_fvec[3];	/* world to eye rotation rows, unscaled (Eye_matrix) */
+	float scale[3];			/* Matrix_scale: aspect and zoom, folded into the game's view rows */
+	float zoom;			/* View_zoom */
+	int32_t canvas_w, canvas_h;	/* the 3D canvas the projection maps to, in pixels */
+	int32_t user_clip;		/* 1: a user clip plane is on */
+	float clip_normal[3], clip_point[3];	/* in eye space, as the game keeps them */
+} fs2_sink_view;
 
 /* texture formats handed to texture_create() */
 #define FS2_SINK_TEX_RGBA8	0	/* 4 bytes per pixel, r g b a in memory order */
@@ -113,6 +124,9 @@ typedef struct fs2_render_sink {
 	void (*depth_begin)(void *user);
 	void (*depth_end)(void *user);
 	void (*depth_clear)(void *user, int x, int y, int w, int h);
+
+	/* v3: the camera of the draws that follow, sent before the first depth draw of a frame and whenever it changes. Inside a frame only. */
+	void (*set_view)(void *user, const fs2_sink_view *view);
 } fs2_render_sink;
 
 #ifdef __cplusplus
