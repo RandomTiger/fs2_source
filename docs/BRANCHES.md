@@ -40,8 +40,10 @@ Each branch in use has its own folder (a git worktree, like a second Perforce wo
 | Tag | Merged into |
 |---|---|
 | `32BitRendering-done` | `Enhanced` |
+| `AllMedals-done` | `Enhanced` |
 | `CosmeticRandom-done` | `RecordPlayback` |
 | `DebrisOffscreenFix-done` | `PrePort` |
+| `DebugCamera-done` | `Enhanced` |
 | `GodotPrep-closed` | `PrePort64` (layer closed, D-20261021-200950) |
 | `LogicDrawSplit-done` | `PrePort` |
 | `PrePortCleanup-closed` | `PrePort32` (layer closed, D-20261021-200950, D-20261022-173525) |

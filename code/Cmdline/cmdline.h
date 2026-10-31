@@ -161,6 +161,7 @@ extern int Cmdline_multi_stream_chat_to_file;
 extern int Cmdline_freespace_no_sound;
 extern int Cmdline_freespace_no_music;
 extern int Cmdline_gimme_all_medals;
+extern int Cmdline_allmedals;	// Claude: -allmedals, the medals screen shows every medal, the top rank and every badge (#124)
 extern int Cmdline_use_last_pilot;
 extern int Cmdline_cd_check;
 extern int Cmdline_start_netgame;

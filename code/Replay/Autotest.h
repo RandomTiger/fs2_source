@@ -44,6 +44,7 @@ extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a r
 // command line (called from parse_cmdline)
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
 void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
+void autotest_set_debugcam();	// -at_debugcam: Shift+Pause, the debug camera moved and turned, then Shift+Pause back (#125)
 void autotest_set_shots(char *dir);	// -at_shots: a screenshot of each screen of the tour
 
 // recording header

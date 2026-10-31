@@ -417,6 +417,25 @@ static void medals_fs1_layout()
 	Medals_buttons[GR_640][MEDALS_EXIT].hotspot = 17;
 }
 
+// Claude: -allmedals (#124): the stats the medals screen shows, a copy of the pilot's with every medal at its last version,
+// every badge and the top rank.  The pilot's own stats are not changed, so nothing reaches the pilot file.  A slot the
+// loaded medals.tbl leaves empty stays empty.
+static scoring_struct Medals_all_score;
+static void medals_all_fill(scoring_struct *from)
+{
+	int idx;
+
+	Medals_all_score = *from;
+	for (idx=0; idx<NUM_MEDALS; idx++) {
+		if (Medals[idx].name[0] == 0) {
+			Medals_all_score.medals[idx] = 0;
+		} else {
+			Medals_all_score.medals[idx] = (Medals[idx].num_versions > 1) ? Medals[idx].num_versions : 1;
+		}
+	}
+	Medals_all_score.rank = NUM_RANKS - 1;
+}
+
 void medal_main_init(player *pl, int mode)
 {
 	int idx;
@@ -434,6 +453,10 @@ void medal_main_init(player *pl, int mode)
 		}
 	}
 	#endif
+	if (Cmdline_allmedals) {	// Claude: -allmedals (#124), shown from a copy
+		medals_all_fill(Player_score);
+		Player_score = &Medals_all_score;
+	}
 
 	Medals_mode = mode;
 	if ( Cfile_fs1_data ) {	// Claude

@@ -322,6 +322,7 @@
 #include "crypt.h"
 #include "Ui.h"
 #include "multi_pause.h"
+#include "MissionPause.h"	// Claude: Pause_debug_camera (#125)
 #include "multi_observer.h"
 #include "multi_endgame.h"
 #include "Beam.h"
@@ -1821,6 +1822,14 @@ void game_process_keys()
 
 			case KEY_PAUSE:
 				game_process_pause_key();
+				break;
+
+			// Claude: Shift+Pause pauses with the debug camera, single player only (#125)
+			case KEY_SHIFTED | KEY_PAUSE:
+				if ( !(Game_mode & GM_MULTIPLAYER) ) {
+					Pause_debug_camera = 1;
+					gameseq_post_event( GS_EVENT_PAUSE_GAME );
+				}
 				break;
 		} // end switch
 	} while (k);
