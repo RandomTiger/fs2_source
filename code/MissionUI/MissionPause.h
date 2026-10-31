@@ -58,4 +58,7 @@ void pause_debug_do();
 // debug pause close
 void pause_debug_close();
 
+// Claude: set before GS_EVENT_PAUSE_GAME to pause with the debug camera (Shift+Pause, #125)
+extern int Pause_debug_camera;
+
 #endif

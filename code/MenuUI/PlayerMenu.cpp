@@ -413,7 +413,7 @@ void player_select_init()
 	// start a looping ambient sound
 	main_hall_start_ambient();
 
-	Player_select_force_bastion = 0;
+	Player_select_force_bastion = Cmdline_bastion;	// Claude: was 0; -bastion sets it as the debug console's "bastion" does (D-20261031-084800)
 
 #ifdef FS2_DEMO
 	/*

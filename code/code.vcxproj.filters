@@ -157,6 +157,9 @@
     <Filter Include="Network">
       <UniqueIdentifier>{fe574423-fbb7-4b31-aaef-225070c846fd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Voice">
+      <UniqueIdentifier>{28357b5f-c02d-424a-8aa5-f88c98148b90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Anim\AnimPlay.cpp">
@@ -797,6 +800,18 @@
     </ClCompile>
     <ClCompile Include="TgaUtils\TgaUtils.cpp">
       <Filter>TgaUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="Voice\VoiceCapture.cpp">
+      <Filter>Voice</Filter>
+    </ClCompile>
+    <ClCompile Include="Voice\VoiceCore.cpp">
+      <Filter>Voice</Filter>
+    </ClCompile>
+    <ClCompile Include="Voice\VoiceEngine.cpp">
+      <Filter>Voice</Filter>
+    </ClCompile>
+    <ClCompile Include="Voice\VoiceGame.cpp">
+      <Filter>Voice</Filter>
     </ClCompile>
     <ClCompile Include="Inetfile\CFtp.cpp">
       <Filter>InetFile</Filter>
@@ -1519,6 +1534,18 @@
     </ClInclude>
     <ClInclude Include="TgaUtils\TgaUtils.h">
       <Filter>TgaUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="Voice\VoiceCapture.h">
+      <Filter>Voice</Filter>
+    </ClInclude>
+    <ClInclude Include="Voice\VoiceCore.h">
+      <Filter>Voice</Filter>
+    </ClInclude>
+    <ClInclude Include="Voice\VoiceEngine.h">
+      <Filter>Voice</Filter>
+    </ClInclude>
+    <ClInclude Include="Voice\VoiceGame.h">
+      <Filter>Voice</Filter>
     </ClInclude>
     <ClInclude Include="Inetfile\CFtp.h">
       <Filter>InetFile</Filter>
