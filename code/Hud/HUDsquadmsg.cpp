@@ -920,6 +920,22 @@ int hud_squadmsg_get_key()
 	return -1;
 }
 
+// Claude: menu entry points shared by the control pad and voice blocks below (#89)
+
+// Claude: open the menu if it is closed; 1 if it is open now
+static int hud_squadmsg_menu_open()
+{
+	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
+		hud_squadmsg_toggle();
+	return (Player->flags & PLAYER_FLAGS_MSG_MODE) ? 1 : 0;
+}
+
+// Claude: press a row's number key (row on the visible page); the menu acts on it as on the key
+static void hud_squadmsg_menu_press_row( int row )
+{
+	Msg_key = keys_used[row];
+}
+
 // Claude: control pad. The pad drives this menu with a highlighted row: move, select, back.
 // The row is on the visible page; -1 = the pad is not driving the menu.
 LOCAL int Squadmsg_pad_row = -1;
@@ -961,10 +977,7 @@ static int hud_squadmsg_pad_highlight()
 
 void hud_squadmsg_pad_open()
 {
-	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
-		hud_squadmsg_toggle();
-
-	if ( Player->flags & PLAYER_FLAGS_MSG_MODE ) {
+	if ( hud_squadmsg_menu_open() ) {	// Claude: shared with voice (#89)
 		Squadmsg_pad_row = 0;
 		Squadmsg_pad_mode = Squad_msg_mode;
 		Squadmsg_pad_first = First_menu_item;
@@ -1017,7 +1030,7 @@ void hud_squadmsg_pad_select()
 	if ( (Squadmsg_pad_row < 0) || (Squadmsg_pad_row >= hud_squadmsg_pad_rows()) )
 		return;
 
-	Msg_key = keys_used[Squadmsg_pad_row];
+	hud_squadmsg_menu_press_row( Squadmsg_pad_row );	// Claude: shared with voice (#89)
 }
 
 // one menu back; the top menu stays open (releasing the pad button closes it)
@@ -1118,11 +1131,8 @@ static int hud_squadmsg_voice_ship_valid( int shipnum )
 // Claude: open the menu (if closed) in a command mode at instance
 static int hud_squadmsg_voice_open( int instance, int mode )
 {
-	if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) ) {
-		hud_squadmsg_toggle();
-		if ( !(Player->flags & PLAYER_FLAGS_MSG_MODE) )
-			return 0;
-	}
+	if ( !hud_squadmsg_menu_open() )	// Claude: shared with the pad (#89)
+		return 0;
 
 	Msg_shortcut_command = -1;
 	Msg_instance = instance;
@@ -1305,7 +1315,7 @@ int hud_squadmsg_voice_select_row( int row, int order )
 	if ( !hud_squadmsg_voice_row(row, &text, &row_order, &active) || (row_order != order) )
 		return 0;
 
-	Msg_key = keys_used[row];
+	hud_squadmsg_menu_press_row( row );	// Claude: shared with the pad (#89)
 	return 1;
 }
 

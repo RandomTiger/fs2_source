@@ -4,9 +4,12 @@ Branch `PadControl`, from `VS2022` at 94ea4fa. Exes: `FS2pad_d.exe` / `FS2pad_r.
 
 Parent: `VoiceControl` (Tom, 2026-10-22). The pad needs voice for squad orders, so PadControl takes
 updates only from `VoiceControl`, merged down, and merges into `Enhanced` itself once the voice
-commits it carries are already there (D-20261021-154901). The squad menu currently has two sets of
-entry points, pad's `hud_squadmsg_pad_*` and voice's `hud_squadmsg_voice_*`; moving pad onto
-voice's is issue #89.
+commits it carries are already there (D-20261021-154901). The squad menu's pad block
+(`hud_squadmsg_pad_*`: highlighted row, move, back) and voice block (`hud_squadmsg_voice_*`:
+open at a target, press a row by its order) open the menu and press a row through the same two
+helpers, `hud_squadmsg_menu_open()` and `hud_squadmsg_menu_press_row()` (issue #89). Row counting
+stays separate: the pad counts the visible page in every menu mode, voice the number-key rows of a
+command menu.
 
 ## Goals
 - Fly a mission from a pad. The pad does not have to cover every control; the keyboard
