@@ -13,3 +13,8 @@ Sink v4 `mesh_create(id, local verts, per-texture index groups)` once per (model
 
 ## Order of work
 1. P3a regroup (done). 2. Mesh depth harness with the dummy mesh path. 3. Fighters (no moving parts). 4. Classes with `$rotate` parts (`VisualMovingParts`). 5. Turrets, capital ships. Each step bulk-tested at the end: L0 Build, sink_check, one L2 Full, eye checks, frame-cost on a ship-heavy map.
+
+## P3b working assumptions (reversible, inside the Tom order; change if the steward or Tom objects)
+- Lighting stays on the CPU in P3b: the game's per-vertex colours are sent each frame with `mesh_draw`; GPU lighting is P7. This keeps fidelity and the gate baselines.
+- Geometry is static per (model, submodel, LOD) and cached by the sink; the game sends the matrix, state and colours only.
+- Everything stays behind `kRender3D` (default off) until the bulk test passes.
