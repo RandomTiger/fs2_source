@@ -151,6 +151,7 @@
 #include "AudioStr.h"
 #include "freespace.h"
 #include "alphacolors.h"
+#include "cfile.h"	// Claude: Cfile_fs1_data
 
 /////////////////////////////////////////////////////////////////////////////
 // Red Alert Mission-Level
@@ -390,6 +391,27 @@ void red_alert_blit_title()
 	gr_set_font(FONT1);
 }
 
+// Claude: FS1 data: the red alert screen in FS1's layout (#113), from its FS.exe: the buttons are RAB_05 (replay, at 0, 435,
+// mask region 5) and RAB_04 (continue, at 552, 411, region 4), where FS2's RAB_00/01 and regions 0/1 do not exist in FS1's
+// RedAlert-m; the briefing text is wrapped at 410 and drawn at 118, 167 with height 286 (brief_color_text_init and
+// brief_render_text there), inside FS1's box.  The title is centred over that box as FS2 centres it over its own.
+// Overwrites the GR_640 entries (FS1 has 640 art only); FS2 data keeps FS2's.
+static void red_alert_fs1_layout()
+{
+	Buttons[GR_640][RA_REPLAY_MISSION].filename = "RAB_05";
+	Buttons[GR_640][RA_REPLAY_MISSION].x = 0;
+	Buttons[GR_640][RA_REPLAY_MISSION].y = 435;
+	Buttons[GR_640][RA_REPLAY_MISSION].hotspot = 5;
+	Buttons[GR_640][RA_CONTINUE].filename = "RAB_04";
+	Buttons[GR_640][RA_CONTINUE].x = 552;
+	Buttons[GR_640][RA_CONTINUE].y = 411;
+	Buttons[GR_640][RA_CONTINUE].hotspot = 4;
+	Ra_brief_text_wnd_coords[GR_640][RA_X_COORD] = 118;
+	Ra_brief_text_wnd_coords[GR_640][RA_Y_COORD] = 167;
+	Ra_brief_text_wnd_coords[GR_640][RA_W_COORD] = 410;
+	Ra_brief_text_wnd_coords[GR_640][RA_H_COORD] = 286;
+}
+
 // Called once when red alert interface is started
 void red_alert_init()
 {
@@ -398,6 +420,9 @@ void red_alert_init()
 
 	if ( Red_alert_inited ) {
 		return;
+	}
+	if ( Cfile_fs1_data ) {	// Claude (#113)
+		red_alert_fs1_layout();
 	}
 
 	// common_set_interface_palette("ControlConfigPalette");  // set the interface palette
