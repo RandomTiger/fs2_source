@@ -27,6 +27,7 @@ extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is read
 #define PAD_ACTION_MENU_DOWN		1005
 #define PAD_ACTION_MENU_SELECT	1006
 #define PAD_ACTION_MENU_BACK		1007
+#define PAD_ACTION_TALK			1008			// held: voice push-to-talk
 
 // HUDsquadmsg.cpp
 extern void hud_squadmsg_pad_open();
@@ -47,7 +48,7 @@ static const pad_binding Pad_game_bindings[] = {
 	{ PAD_LSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_SLOW },
 	{ PAD_LSHOULDER,			PAD_G_DOUBLE_TAP,			PAD_LAYER_BASE,	ZERO_THROTTLE },
 	{ PAD_INPUT_RSTICK_DOWN,	PAD_G_PRESS,			PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE },
-	{ PAD_SOUTH,				PAD_G_PRESS,				PAD_LAYER_BASE,	TARGET_NEXT_CLOSEST_HOSTILE },
+	{ PAD_SOUTH,				PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_TALK },	// voice push-to-talk, also while the squad menu is up
 	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_ANY,		PAD_ACTION_PAUSE },
 };
 
@@ -274,6 +275,11 @@ const pad_output *pad_game_output()
 int pad_control_held(int id)
 {
 	return pad_output_is_held(&Pad_game_out, id);
+}
+
+int pad_voice_talk_held()
+{
+	return pad_output_is_held(&Pad_game_out, PAD_ACTION_TALK);
 }
 
 void pad_read_flight(control_info *ci, float frame_time)

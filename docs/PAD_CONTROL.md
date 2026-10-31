@@ -78,6 +78,7 @@ in Descent"); that is too coarse for a thumbstick.
 | Left shoulder | hold | lower throttle (same rate as the left trigger) |
 | Left shoulder | double tap | zero throttle (hard stop) |
 | Right shoulder | hold | fire secondary |
+| South (360: A) | hold | voice push-to-talk, as the `PushToTalk` key (`docs/VOICE_CONTROL.md`); works while the squad menu is up |
 | Special button | press | pause |
 
 Match target speed has no slot yet (was LB double tap); it goes in the pad tree.
@@ -108,10 +109,10 @@ Categories:
 | Commands | Drives the existing squad message menu. That menu has more than four items per page, so here Up/Down move through it, Right selects, Left goes back. It reuses the game's own menu and HUD. |
 | Targeting | Hostile, subsystem, cargo, turret, friendly branches. |
 | Weapons | Cycle primary, cycle secondary, missile link, etc. |
-| (4th face button) | Free: a direct action or a fourth category (ETS / power). |
+| (4th face button) | South: voice push-to-talk, so no fourth category for now (ETS / power was the idea). |
 
 Which face button opens which category is just a table entry in `pad.cfg`. Default
-(arbitrary): West = Targeting, North = Weapons, East = Commands, South = free.
+(arbitrary): West = Targeting, North = Weapons, East = Commands. South is voice push-to-talk.
 
 The tree is data (`PadCore`), so it ports to Godot as is. Only the HUD drawing
 (`PadHud.cpp`, new file) is FS2-specific.

@@ -31,6 +31,7 @@
 #include "VoiceEngine.h"
 #include "VoiceCapture.h"
 #include "VoiceGame.h"
+#include "../Pad/PadGame.h"	// Claude: control pad: its push-to-talk button
 
 // HUDsquadmsg.cpp
 extern int hud_squadmsg_voice_ship_known(int shipnum);
@@ -304,7 +305,7 @@ static int voice_live(voice_result *r)
 	}
 
 	if (voice_engine_state() == VOICE_ENGINE_READY) {
-		if (keyd_pressed[Voice_ptt_key]) {
+		if (keyd_pressed[Voice_ptt_key] || pad_voice_talk_held()) {
 			if (Voice_talking) {
 				count = voice_capture_poll(&samples);
 				voice_engine_stream_feed(samples, count);
