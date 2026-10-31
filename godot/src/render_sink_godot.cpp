@@ -24,6 +24,7 @@
 #include <godot_cpp/variant/rect2.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/vector4.hpp>
 
 using namespace godot;
 
@@ -1785,19 +1786,29 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	for (MeshGroup &mg : it->second.groups) {
 		const RID mat = mesh_group_material(mg, cols);
 		l.mesh_materials.push_back(mat);
-		RID inst = rs->instance_create2(mg.mesh_rid, l.scenario);
-		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
-		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
-		rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
+		RID inst;
+		if (kInstancePool && !spare_instances.empty()) {
+			inst = spare_instances.back();
+			spare_instances.pop_back();
+			rs->instance_set_base(inst, mg.mesh_rid);
+			rs->instance_set_scenario(inst, l.scenario);
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		} else {
+			inst = rs->instance_create2(mg.mesh_rid, l.scenario);
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+			rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+			rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
+		}
 		rs->instance_geometry_set_material_override(inst, mat);
 		// per-draw values are material parameters (the material is per draw), not instance uniforms: those come from a fixed-size buffer
-		rs->material_set_param(mat, "r0", Color(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
-		rs->material_set_param(mat, "r1", Color(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
-		rs->material_set_param(mat, "r2", Color(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
+		// Vector4, not Color: a Color on a vec4 uniform can be taken as sRGB and converted, which wrecks values above 1
+		rs->material_set_param(mat, "r0", Vector4(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
+		rs->material_set_param(mat, "r1", Vector4(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
+		rs->material_set_param(mat, "r2", Vector4(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
 		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
-		rs->material_set_param(mat, "cfg", Color(0.5f * cw, 0.5f * ch, dbase, origin));
+		rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
 		// canvas centre relative to the screen centre, y up
-		rs->material_set_param(mat, "org",Color((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
+		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
 		l.instances.push_back(inst);
 	}
 }

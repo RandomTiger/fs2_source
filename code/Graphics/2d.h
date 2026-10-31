@@ -610,12 +610,12 @@ typedef struct gr_host_backend {
 	// rgb = 3 bytes per vertex, lit, before gamma. mesh_draw: 1 drawn, 0 draw on the CPU path this time, -1 mesh invalid (drop it).
 	int (*mesh_ready)();
 	int (*mesh_create)(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
-	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv);
+	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 	void (*mesh_free)(int key);
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
-extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv);
+extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST

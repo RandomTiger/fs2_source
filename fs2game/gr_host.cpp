@@ -139,7 +139,7 @@ struct Host {
 		bool sink_made = false;
 		float bmin[3] = {}, bmax[3] = {};	// model space bounds: a draw that reaches the near plane stays on the polygon path (it clips there)
 		bool cpu_only = false;				// a group has a glow texture: stays on the polygon path
-		int zmode = -1, zbias = 0, cull = 0;	// the state the sink copy was made for
+		int zmode = -1, zbias = 0, cull = 0, tiled = 0;	// the state the sink copy was made for
 		std::vector<int> tex;				// sink texture per group at creation
 		std::vector<int> blend;
 	};
@@ -1051,7 +1051,7 @@ void h_mesh_free(int key)
 	H.meshes.erase(it);
 }
 
-int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
+int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
 {
 	auto it = H.meshes.find(key);
 	if (it == H.meshes.end()) { return -1; }
@@ -1073,19 +1073,20 @@ int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
 
 	// the sink copy: made, or remade when the state or a texture it was made with has changed
 	const int zmode = H.zmode;
-	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != H.cull;
+	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != H.cull || m.tiled != tiled;
 	std::vector<int> tex(m.g.size());
 	std::vector<int> blend(m.g.size());
 	for (size_t i = 0; i < m.g.size(); i++) {
 		const int bmp = m.g[i].bitmap;
-		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL);
+		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
 		if (tex[i] == 0) { return 0; }
 		if (glow_tex_get(bmp) != 0) { m.cpu_only = true; return 0; }
-		const TexKey k = { bmp, bm_get_signature(bmp), 0 };
+		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
+		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
 		auto f = H.tex.find(k);
 		bool opaque = false;
 		if (f == H.tex.end()) {
-			for (auto &e : H.tex) { if (e.first.handle == bmp && e.first.kind == TK_NORMAL) { opaque = e.second.opaque; break; } }
+			for (auto &e : H.tex) { if (e.first.handle == bmp && e.first.kind == tkind) { opaque = e.second.opaque; break; } }
 		} else {
 			opaque = f->second.opaque;
 		}
@@ -1106,7 +1107,7 @@ int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
 		}
 		H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
 		m.sink_made = true;
-		m.zmode = zmode; m.zbias = H.zbias; m.cull = H.cull;
+		m.zmode = zmode; m.zbias = H.zbias; m.cull = H.cull; m.tiled = tiled;
 		m.tex = tex; m.blend = blend;
 	}
 

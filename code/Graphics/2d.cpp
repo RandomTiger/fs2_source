@@ -503,10 +503,10 @@ int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_gr
 	return Gr_host_backend->mesh_create(key, vtx, nv, g, ng, idx, ni);
 }
 
-int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
+int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
 {
 	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_draw) { return 0; }
-	return Gr_host_backend->mesh_draw(key, xform, rgb, nv);
+	return Gr_host_backend->mesh_draw(key, xform, rgb, nv, tiled);
 }
 
 void gr_host_mesh_free(int key)
