@@ -1757,6 +1757,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	if (it == mesh_data.end()) { return; }
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
 	fs2perf::count(fs2perf::C_MESH_DRAWS);
+	stat_mesh_draws++;
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
 	const float origin = 29000.0f - 0.25f * (float)order;

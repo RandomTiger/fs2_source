@@ -37,6 +37,7 @@ var shot_dir := OS.get_environment("FS2_SHOT_DIR")
 var shot_every := int(OS.get_environment("FS2_SHOT_EVERY")) if OS.get_environment("FS2_SHOT_EVERY") != "" else 300
 var shot_next := 0
 var shot_n := 0
+var shot_md_prev := 0
 var shot_path := OS.get_environment("FS2_SHOT")
 var shot_frame := int(OS.get_environment("FS2_SHOT_FRAME")) if OS.get_environment("FS2_SHOT_FRAME") != "" else 300
 var inject_step := 0
@@ -189,10 +190,21 @@ func _inject_tick() -> void:
 func _process(_delta: float) -> void:
 	if st_on:
 		_stats_tick()
+	var md_now := 0
+	var md_last := 0
+	if shot_dir != "":
+		md_now = int(game.get_stats().get("mesh_draws", 0))
+		md_last = md_now - shot_md_prev
+		shot_md_prev = md_now
 	if shot_dir != "" and game.get_frame_count() >= shot_next:
 		shot_next = game.get_frame_count() + shot_every
 		var im := get_viewport().get_texture().get_image()
 		im.save_png("%s/shot_%03d.png" % [shot_dir, shot_n])
+		# mesh draws of the frame just shown (D-20261031-192444: a class's shot counts only when its draws were there)
+		var lf := FileAccess.open("%s/mesh_draws.txt" % shot_dir, FileAccess.READ_WRITE if FileAccess.file_exists("%s/mesh_draws.txt" % shot_dir) else FileAccess.WRITE)
+		lf.seek_end()
+		lf.store_line("shot_%03d %d" % [shot_n, md_last])
+		lf.close()
 		shot_n += 1
 	if shot_path != "" and game.get_frame_count() >= shot_frame:
 		var img := get_viewport().get_texture().get_image()

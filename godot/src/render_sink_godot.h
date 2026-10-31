@@ -75,6 +75,7 @@ public:
 	int frames_committed() const { return committed; }
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
+	unsigned long long stat_mesh_draws = 0;	// mesh draws that reached a 3D layer, all frames (counted-shot proof)
 	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
