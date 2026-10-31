@@ -250,11 +250,13 @@ cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every s
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
+cmdline_parm allmedals_arg("-allmedals", NULL);	// Claude: the medals screen shows every medal, the top rank and every badge (#124)
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
 int Cmdline_freespace_no_music = 0;
 int Cmdline_gimme_all_medals = 0;
+int Cmdline_allmedals = 0;	// Claude: -allmedals (#124)
 int Cmdline_use_last_pilot = 0;
 int Cmdline_multi_protocol = -1;
 int Cmdline_cd_check = 1;
@@ -619,6 +621,11 @@ int parse_cmdline(char *cmdline)
 	// mouse coords
 	if(mouse_coords.found()){
 		Cmdline_mouse_coords = 1;
+	}
+
+	// Claude: -allmedals, the medals screen fully populated; display only, the pilot is not changed (#124)
+	if(allmedals_arg.found()){
+		Cmdline_allmedals = 1;
 	}
 
 	// net timeout

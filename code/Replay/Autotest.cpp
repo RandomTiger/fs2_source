@@ -36,6 +36,7 @@
 #include "SnazzyUI.h"
 #include "Popup.h"
 #include "MainHallMenu.h"
+#include "cmdline.h"
 
 #ifdef _DEBUG
 #include <rtcapi.h>
@@ -560,6 +561,7 @@ typedef struct autotest_stop {
 	int open, arg;	// how its screen opens (AUTOTEST_OPEN_*), and the event, region or key
 	int state, leave;
 	autotest_view views[AUTOTEST_MAX_VIEWS];
+	int all_medals;	// 1: opened with -allmedals set, which is set back after the stop (#124)
 } autotest_stop;
 static autotest_stop Autotest_tour[] = {
 	{ "Main hall",			AUTOTEST_OPEN_NONE,		0,									GS_STATE_MAIN_MENU,					AUTOTEST_TOUR_STAY,
@@ -573,6 +575,8 @@ static autotest_stop Autotest_tour[] = {
 		  { "controls/controls_weapons", KEY_TAB }, { "controls/controls_misc", KEY_TAB } } },
 	{ "HUD config",			AUTOTEST_OPEN_OPTIONS_KEY,	KEY_H,						GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/hud_config", 0 } } },
+	{ "Medals (all)",		AUTOTEST_OPEN_BARRACKS_BUTTON,	AUTOTEST_BARRACKS_MEDALS_BUTTON,	GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
+		{ { "main_hall_pilot/medals_all", 0 } }, 1 },
 	{ "Medals",				AUTOTEST_OPEN_BARRACKS_BUTTON,	AUTOTEST_BARRACKS_MEDALS_BUTTON,	GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/medals", 0 } } },
 	{ "Barracks",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_BARRACKS,			GS_STATE_BARRACKS_MENU,				GS_EVENT_MAIN_MENU,
@@ -653,6 +657,7 @@ static int Autotest_tour_passed = 0;
 static int Autotest_tour_skipped = 0;
 static int Autotest_tour_failed = 0;
 extern int Main_hall_count;				// MainHallMenu.cpp: the main halls the loaded mainhall.tbl defines
+static int Autotest_tour_all_medals_was = -1;	// a stop with all_medals: Cmdline_allmedals before the stop set it, or -1 (#124)
 static int Autotest_tour_bastion_was = -1;	// AUTOTEST_OPEN_BASTION: Player->on_bastion before the stop set it, or -1
 
 void autotest_set_menus()
@@ -865,11 +870,21 @@ static void autotest_tour_bastion_restore(int enter)
 	}
 }
 
+// a stop with all_medals is over: -allmedals set back (#124)
+static void autotest_tour_all_medals_restore()
+{
+	if (Autotest_tour_all_medals_was >= 0) {
+		Cmdline_allmedals = Autotest_tour_all_medals_was;
+		Autotest_tour_all_medals_was = -1;
+	}
+}
+
 static void autotest_tour_end(char *why)
 {
 	int i, j;
 
 	autotest_tour_bastion_restore(0);
+	autotest_tour_all_medals_restore();
 
 	if (why) {
 		autotest_logf("FAILED: menu tour stopped at '%s': %s\n", Autotest_tour[Autotest_tour_stop].name, why);
@@ -906,6 +921,7 @@ static void autotest_tour_start_view(int key)
 static void autotest_tour_next_stop()
 {
 	autotest_tour_bastion_restore(1);
+	autotest_tour_all_medals_restore();
 	Autotest_tour_phase = AUTOTEST_TOUR_GO;
 	Autotest_tour_view = 0;
 	if (++Autotest_tour_stop == AUTOTEST_TOUR_STOPS) {
@@ -1128,6 +1144,10 @@ static void autotest_tour_frame(int state)
 					break;
 
 				case AUTOTEST_OPEN_BARRACKS_BUTTON:
+					if (s->all_medals) {
+						Autotest_tour_all_medals_was = Cmdline_allmedals;
+						Cmdline_allmedals = 1;
+					}
 					barracks_button_pressed(s->arg);
 					break;
 
