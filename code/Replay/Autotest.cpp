@@ -35,6 +35,7 @@
 #include "GrInternal.h"
 #include "SnazzyUI.h"
 #include "Popup.h"
+#include "MainHallMenu.h"
 
 #ifdef _DEBUG
 #include <rtcapi.h>
@@ -524,6 +525,7 @@ static void autotest_main_menu()
 #define AUTOTEST_OPEN_BARRACKS_BUTTON	7	// press a Barracks button, Barracks opened first and closed after (D-20261022-060501)
 #define AUTOTEST_OPEN_SIM_ROOM_BUTTON	8	// press a Simulator room button, the Simulator room opened first and closed after (D-20261022-065951)
 #define AUTOTEST_OPEN_TECH_ROOM_BUTTON	9	// press a Tech room button, the Tech room opened first by its main hall region and closed after (D-20261022-090902)
+#define AUTOTEST_OPEN_BASTION		10		// the Vasudan (Bastion) main hall, main hall 1: the main hall entered again with Player->on_bastion set, which is set back after; skipped if the main hall table has one hall (D-20261031-084801)
 #define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
@@ -562,6 +564,8 @@ typedef struct autotest_stop {
 static autotest_stop Autotest_tour[] = {
 	{ "Main hall",			AUTOTEST_OPEN_NONE,		0,									GS_STATE_MAIN_MENU,					AUTOTEST_TOUR_STAY,
 		{ { "main_hall_pilot/main_hall", 0 }, { "main_hall_pilot/main_hall_help", AUTOTEST_TOUR_HELP } } },
+	{ "Bastion main hall",	AUTOTEST_OPEN_BASTION,	0,									GS_STATE_MAIN_MENU,					AUTOTEST_TOUR_STAY,
+		{ { "main_hall_pilot/main_hall_bastion", 0 }, { "main_hall_pilot/main_hall_bastion_help", AUTOTEST_TOUR_HELP } } },
 	{ "Options",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_OPTIONS,			GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE,
 		{ { "options/options_general", 0 }, { "options/options_multi", KEY_RIGHT }, { "options/options_detail", KEY_RIGHT } } },
 	{ "Control config",		AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
@@ -648,6 +652,8 @@ static int Autotest_tour_screens = 0;		// views in the tour
 static int Autotest_tour_passed = 0;
 static int Autotest_tour_skipped = 0;
 static int Autotest_tour_failed = 0;
+extern int Main_hall_count;				// MainHallMenu.cpp: the main halls the loaded mainhall.tbl defines
+static int Autotest_tour_bastion_was = -1;	// AUTOTEST_OPEN_BASTION: Player->on_bastion before the stop set it, or -1
 
 void autotest_set_menus()
 {
@@ -838,9 +844,32 @@ static void autotest_tour_skip(char *why)
 	Autotest_tour_view = 0;
 }
 
+// the main hall entered again, as game_leave_state() and game_enter_state() do for GS_STATE_MAIN_MENU, so main_hall_init()
+// picks the hall from Player->on_bastion
+static void autotest_main_hall_enter()
+{
+	main_hall_close();
+	main_hall_init(Player->on_bastion ? 1 : 0);
+}
+
+// AUTOTEST_OPEN_BASTION's stop is over: Player->on_bastion set back, and the main hall it picks entered again
+static void autotest_tour_bastion_restore(int enter)
+{
+	if (Autotest_tour_bastion_was < 0) {
+		return;
+	}
+	Player->on_bastion = (ubyte)Autotest_tour_bastion_was;
+	Autotest_tour_bastion_was = -1;
+	if (enter && (gameseq_get_state() == GS_STATE_MAIN_MENU)) {
+		autotest_main_hall_enter();
+	}
+}
+
 static void autotest_tour_end(char *why)
 {
 	int i, j;
+
+	autotest_tour_bastion_restore(0);
 
 	if (why) {
 		autotest_logf("FAILED: menu tour stopped at '%s': %s\n", Autotest_tour[Autotest_tour_stop].name, why);
@@ -876,6 +905,7 @@ static void autotest_tour_start_view(int key)
 
 static void autotest_tour_next_stop()
 {
+	autotest_tour_bastion_restore(1);
 	Autotest_tour_phase = AUTOTEST_TOUR_GO;
 	Autotest_tour_view = 0;
 	if (++Autotest_tour_stop == AUTOTEST_TOUR_STOPS) {
@@ -1042,6 +1072,21 @@ static void autotest_tour_frame(int state)
 					autotest_tour_end("the Tech room did not open");
 				}
 				return;
+			}
+			// the Vasudan (Bastion) main hall: main hall 1, entered from the main hall with Player->on_bastion set (D-20261031-084801)
+			if (s->open == AUTOTEST_OPEN_BASTION) {
+				if (Main_hall_count < 2) {
+					autotest_tour_skip("no second hall");
+					autotest_tour_next_stop();
+					return;
+				}
+				if (state != GS_STATE_MAIN_MENU) {
+					autotest_tour_end("the Bastion main hall opens only from the main hall");
+					return;
+				}
+				Autotest_tour_bastion_was = Player->on_bastion;
+				Player->on_bastion = 1;
+				autotest_main_hall_enter();
 			}
 			if (Autotest_tour_options == 1) {
 				Autotest_tour_options = 2;
