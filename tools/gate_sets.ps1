@@ -18,7 +18,9 @@ function Get-GateSet([string]$Set, [string]$Repo, [string]$Retail) {
 		default { throw "Unknown -Set '$Set' (autotest, fs1, demo, fs1demo)" }
 	}
 	$s = @{ Name = $Set; Dir = $dir; CopyMissions = ($Set -eq 'autotest'); RecDir = $null; Missions = @() }
-	if ($Set -eq 'fs1demo') {
+	# fs1demo is a recording set from the format-4 recordings (D-20261031-064721, restore point of D-20261026-223829); the
+	# live-run clean-run rule stays only for a checkout without recordings\fs1demo
+	if ($Set -eq 'fs1demo' -and -not (Get-ChildItem (Join-Path $Repo 'recordings\fs1demo') -Filter *.fs2rec -ErrorAction SilentlyContinue)) {
 		$s.Missions = @('btmdemo', 'demo01', 'demo02a', 'demo02b')
 		$s.Flags = { param($m, $trace) "-window -autotest -headless -at_mission $m -at_pilot Tom -at_time 60 -trace `"$trace`"" }
 	} else {
