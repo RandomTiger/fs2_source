@@ -11,12 +11,13 @@ All three keep everything still: the player sits at the origin facing +z, ships 
 |---|---|---|
 | `VisualSpace` | Open space: background nebulas, planets, suns, glow maps | Bitmaps `dneb03` and `neb18`, planets `planeth` (upper right) and `planetc` (lower left), 2000 stars. A Ravana is broadside at about 3.3 km with its unlit side to the camera, so its glow points show. A Lilith is upper left and an Aeolus upper right. The sun is high and beyond the ships, out of view. |
 | `VisualNebula` | Full nebula (`nbackpurp2`) and fog falloff | An Aeolus at 250 m, a Lilith (Shivan glow through fog) at 500 m, a Moloch at 800 m and an Orion at 1200 m. In the original renderer the two far ships are lost in the fog. |
+| `VisualMovingParts` | Ships with a part that turns on its own (radar dishes, solar panels, grinders, claws, jump rings, comm node pieces) | 19 classes on an arc, broadside, still, big ships further out; spacing is a first guess. Turret-only classes are not in it. Used to check the 3D ship renderer keeps rotating sections turning. |
 | `VisualSubspace` | Subspace tunnel (mission flag 1) | An Aeolus on the left at 600 m (engine glows) and a Lilith on the right at 550 m. |
 
 The missions are retail FS2 data only. The ship classes and bitmaps are not in the demos or FS1.
 
 ## Files
-- Scripts: `tools/missions/VisualSpace.ps1`, `VisualNebula.ps1`, `VisualSubspace.ps1`. Edit a script and rerun it; never edit the `.fs2` by hand.
+- Scripts: `tools/missions/VisualSpace.ps1`, `VisualNebula.ps1`, `VisualSubspace.ps1`, `VisualMovingParts.ps1`. Edit a script and rerun it; never edit the `.fs2` by hand.
 - Generated missions: `data/missions/Visual*.fs2`, on `RecordPlayback`, which merges upward.
 - The generator, `tools/missions/MissionGen.ps1`, takes these background fields on the mission hashtable:
   - `$m.Stars`: star count. The default is 500.
