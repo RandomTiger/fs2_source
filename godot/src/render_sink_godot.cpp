@@ -1594,13 +1594,15 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
 // interpolates in screen space.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
-	String code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, ";
+	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
+	// the game culls back faces on the CPU (g3_check_normal_facing) for polys that carry the cull flag; the mesh does it on the GPU
+	code += cull ? (kMeshFrontCCW ? "cull_back, " : "cull_front, ") : "cull_disabled, ";
 	code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";
 	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
 	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
@@ -1650,7 +1652,7 @@ void GodotSink::mesh_group_material(MeshGroup &mg)
 	if (mg.material.is_valid() && mg.built_tex == tex) { return; }
 	if (!mg.material.is_valid()) { mg.material = rs->material_create(); }
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
-	rs->material_set_shader(mg.material, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt));
+	rs->material_set_shader(mg.material, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0));
 	rs->material_set_param(mg.material, "tex", tex);
 	rs->material_set_param(mg.material, "zbias", (float)mg.g.zbias);
 	mg.built_tex = tex;

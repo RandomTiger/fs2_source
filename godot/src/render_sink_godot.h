@@ -53,6 +53,8 @@ constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2, kNebFogGpu = 3;
 inline int g_nebfog = kNebFogOff;
 // P3a (GodotRender3D, D-20261031-120702): opaque depth-written batches of one epoch are regrouped by texture. FS2_OPAQUE_REORDER=0 turns it off.
 inline bool g_opaque_reorder = true;
+// P3b: winding of front faces on the layer (y up) for mesh draws with the cull flag; settled by the depth harness (design note)
+constexpr bool kMeshFrontCCW = true;
 constexpr int kNebFogLagFrames = 1;
 constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
 
@@ -243,7 +245,7 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull);
 	void mesh_group_material(MeshGroup &mg);
 	void free_mesh_data(MeshData &md);
 	void add_mesh_to_layer(Layer &l, const MeshDraw &d, int order);

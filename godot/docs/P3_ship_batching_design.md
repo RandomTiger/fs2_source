@@ -27,3 +27,9 @@ Stars, suns, bitmaps, backgrounds and the subspace tunnel are meshes at far dept
 
 ## Engine glow (Tom 2026-10-31: "if it looks the same as retail it's fine")
 Retail draws thruster glow after the whole model: a camera-facing additive quad (`g3_draw_bitmap`, `ModelInterp.cpp` ~2744) at the nozzle point, one depth for the whole quad, depth read only. The mesh path keeps that: opaque batches first, then the glow quads as their own additive draws in the original order. No glow shader in P3. A glow that is both over and behind parts of the same mesh (depth fade, volume) is a P7 option, off by default.
+
+## Host findings (P3b, read of ModelInterp.cpp)
+- The game culls on the CPU per poly (`g3_check_normal_facing(point, face normal)`), so the mesh path needs GPU back-face culling for groups with `FS2_SINK_DRAWF_CULL` (done: `cull_back`/`cull_front` by `kMeshFrontCCW`, to be confirmed by the harness against a CPU-drawn poly).
+- Lighting is per normal index (`Interp_lighting->r/g/b[norm]`, filled lazily in `model_interp_tmappoly`), so a mesh vertex keeps (vertnum, normnum, u, v) and the host builds the per-vertex colours from the normal-indexed table at draw time.
+- Textures are chosen per poly (`pm->textures[w(p+40)]`, forced/xparent/subspace variants), so those variants stay on the polygon path at first; only the plain textured case is meshed.
+- Sortnorm traversal order is view dependent but irrelevant for opaque depth-written polys; alpha polys keep the polygon path.
