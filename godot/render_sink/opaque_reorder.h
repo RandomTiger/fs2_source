@@ -15,7 +15,7 @@ namespace fs2sink {
 // and the batches of a group are joined. Alpha, additive and write-less batches keep their place and split the stretches.
 inline bool reorderable(const Batch &b)
 {
-	return b.key.depth == 1 && b.key.blend == FS2_SINK_BLEND_OPAQUE && b.key.zmode == 2;
+	return b.key.texture >= 0 && b.key.depth == 1 && b.key.blend == FS2_SINK_BLEND_OPAQUE && b.key.zmode == 2;
 }
 
 inline void join_batch(Batch &dst, const Batch &s)

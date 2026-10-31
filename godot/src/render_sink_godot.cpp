@@ -62,6 +62,9 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.depth_end = &GodotSink::s_depth_end;
 	sink.depth_clear = &GodotSink::s_depth_clear;
 	sink.set_view = &GodotSink::s_set_view;
+	sink.mesh_create = &GodotSink::s_mesh_create;
+	sink.mesh_free = &GodotSink::s_mesh_free;
+	sink.mesh_draw = &GodotSink::s_mesh_draw;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -85,6 +88,10 @@ void GodotSink::shutdown()
 		for (auto &m : spatial_materials) {
 			rs->free_rid(m.second);
 		}
+		for (auto &m : mesh_data) { free_mesh_data(m.second); }
+		mesh_data.clear();
+		for (auto &sh : mesh_shaders) { rs->free_rid(sh.second); }
+		mesh_shaders.clear();
 		for (RID &r : gpu_tab) {
 			if (r.is_valid()) { rs->free_rid(r); }
 			r = RID();
@@ -1063,6 +1070,7 @@ void GodotSink::end_run()
 		}
 	}
 	run_batches.clear();
+	mesh_draws.clear();
 	cur_item = RID();
 	if (clipped) {
 		open_clip_item();
@@ -1488,6 +1496,11 @@ void GodotSink::gpu_frame_end()
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
+	if (b.key.texture < 0) {
+		const size_t di = (size_t)(-(int64_t)b.key.texture - 1);
+		if (di < mesh_draws.size()) { add_mesh_to_layer(l, mesh_draws[di], order); }
+		return;
+	}
 	fs2perf::Zone _pz(fs2perf::Z_LAYER_ADD);
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
 	fs2perf::count(fs2perf::C_MESHES);
@@ -1574,6 +1587,169 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
 	}
 	l.instances.push_back(inst);
+}
+
+// ---- v4 meshes (P3b) ----------------------------------------------------------------------------------------------------------------
+// The mesh shader reproduces the sink's depth contract (depth_contract.h) per vertex: eye = xform * model position; the screen
+// position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
+// UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
+// interpolates in screen space.
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u);
+	auto it = mesh_shaders.find(skey);
+	if (it != mesh_shaders.end()) { return it->second; }
+	String code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, shadows_disabled, fog_disabled, ";
+	code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";
+	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
+	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
+	code += ";\nuniform sampler2D tex : ";
+	code += lin ? "filter_linear, " : "filter_nearest, ";
+	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
+	code += "uniform float zbias = 0.0;\ninstance uniform vec4 r0;\ninstance uniform vec4 r1;\ninstance uniform vec4 r2;\ninstance uniform vec4 cfg;\nvarying vec3 pc;\n";
+	code += "void vertex() {\n\tvec3 p = VERTEX;\n\tvec3 e = vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
+	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
+	code += "\tPOSITION = PROJECTION_MATRIX * vec4(cfg.x * e.x / z, cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n}\n";
+	code += "void fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
+	code += "\tvec4 c = t;\n";
+	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
+	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
+	RID sh = rs->shader_create();
+	rs->shader_set_code(sh, code);
+	mesh_shaders[skey] = sh;
+	return sh;
+}
+
+void GodotSink::free_mesh_data(MeshData &md)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (MeshGroup &mg : md.groups) {
+		if (mg.material.is_valid()) { rs->free_rid(mg.material); }
+		if (mg.mesh_rid.is_valid()) { rs->free_rid(mg.mesh_rid); }
+	}
+	md.groups.clear();
+}
+
+// The group's material, rebuilt when the texture it was built with is no longer the one the id maps to (a freed and re-created bitmap).
+void GodotSink::mesh_group_material(MeshGroup &mg)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool a8 = false;
+	uint32_t tflags = 0;
+	RID tex = white_texture();
+	if (mg.g.texture != 0) {
+		auto it = textures.find(mg.g.texture);
+		if (it != textures.end()) {
+			tex = it->second.rid;
+			a8 = (it->second.format == FS2_SINK_TEX_A8);
+			tflags = it->second.flags;
+		}
+	}
+	if (mg.material.is_valid() && mg.built_tex == tex) { return; }
+	if (!mg.material.is_valid()) { mg.material = rs->material_create(); }
+	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
+	rs->material_set_shader(mg.material, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt));
+	rs->material_set_param(mg.material, "tex", tex);
+	rs->material_set_param(mg.material, "zbias", (float)mg.g.zbias);
+	mg.built_tex = tex;
+	rs->mesh_surface_set_material(mg.mesh_rid, 0, mg.material);
+}
+
+void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
+	const uint32_t *idx, int ni)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (!s->in_frame || id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0) { return; }
+	RenderingServer *rs = RenderingServer::get_singleton();
+	auto old = s->mesh_data.find(id);
+	if (old != s->mesh_data.end()) { s->free_mesh_data(old->second); s->mesh_data.erase(old); }
+	MeshData md;
+	for (int gi = 0; gi < ng; gi++) {
+		MeshGroup mg;
+		mg.g = g[gi];
+		const bool zr = (g[gi].flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (g[gi].flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+		mg.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
+		// the vertices of this group only, renumbered
+		std::map<uint32_t, int> remap;
+		std::vector<uint32_t> used;
+		PackedInt32Array indices;
+		indices.resize(g[gi].index_count);
+		for (int k = 0; k < g[gi].index_count; k++) {
+			const uint32_t src = idx[g[gi].first_index + k];
+			auto r = remap.find(src);
+			if (r == remap.end()) { r = remap.emplace(src, (int)used.size()).first; used.push_back(src); }
+			indices.ptrw()[k] = r->second;
+		}
+		PackedVector3Array pos;
+		PackedVector2Array uvs;
+		pos.resize((int64_t)used.size());
+		uvs.resize((int64_t)used.size());
+		for (size_t k = 0; k < used.size(); k++) {
+			const fs2_sink_mesh_vertex &sv = v[used[k]];
+			pos.ptrw()[k] = Vector3(sv.pos[0], sv.pos[1], sv.pos[2]);
+			uvs.ptrw()[k] = Vector2(sv.u, sv.v);
+		}
+		Array arrays;
+		arrays.resize(RenderingServer::ARRAY_MAX);
+		arrays[RenderingServer::ARRAY_VERTEX] = pos;
+		arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
+		arrays[RenderingServer::ARRAY_INDEX] = indices;
+		mg.mesh_rid = rs->mesh_create();
+		rs->mesh_add_surface_from_arrays(mg.mesh_rid, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
+		// the vertices are model space, not where the camera looks: the culling box is made huge so Godot never drops the instance
+		rs->mesh_set_custom_aabb(mg.mesh_rid, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
+		md.groups.push_back(mg);
+	}
+	s->mesh_data[id] = std::move(md);
+}
+
+void GodotSink::s_mesh_free(void *u, int32_t id)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto it = s->mesh_data.find(id);
+	if (it == s->mesh_data.end()) { return; }
+	s->free_mesh_data(it->second);
+	s->mesh_data.erase(it);
+}
+
+void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *, int)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (!s->in_frame || !s->in_run || xform == nullptr || s->mesh_data.find(id) == s->mesh_data.end()) { return; }
+	s->batcher.flush();
+	MeshDraw d;
+	d.id = id;
+	std::memcpy(d.xf, xform, sizeof(d.xf));
+	d.epoch = s->run_epoch;
+	s->mesh_draws.push_back(d);
+	Batch b;
+	b.key.texture = -(int32_t)s->mesh_draws.size();
+	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
+	s->run_batches.push_back(b);
+}
+
+void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
+{
+	auto it = mesh_data.find(d.id);
+	if (it == mesh_data.end()) { return; }
+	fs2perf::count(fs2perf::C_LAYER_BATCHES);
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
+	const float origin = 29000.0f - 0.25f * (float)order;
+	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
+	for (MeshGroup &mg : it->second.groups) {
+		mesh_group_material(mg);
+		RID inst = rs->instance_create2(mg.mesh_rid, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+		rs->instance_geometry_set_shader_parameter(inst, "r0", Color(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
+		rs->instance_geometry_set_shader_parameter(inst, "r1", Color(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
+		rs->instance_geometry_set_shader_parameter(inst, "r2", Color(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
+		rs->instance_geometry_set_shader_parameter(inst, "cfg", Color(0.5f * (float)width, 0.5f * (float)height, dbase, origin));
+		l.instances.push_back(inst);
+	}
 }
 
 } // namespace fs2sink
