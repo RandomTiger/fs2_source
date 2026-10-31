@@ -561,6 +561,7 @@ int verify_pilot_file(char *filename, int single, int *rank)
 		cfclose(file);
 		return -1;
 	}
+	if (file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 	if (file_version >= 141) {	// Claude: 141: the data-set tag after the version (D-20261023-201747)
 		cfread_int(file);	// Claude
 	}	// Claude
@@ -815,6 +816,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 		cfclose(file);
 		return -1;
 	}
+	if (Player_file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", Player_file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(file); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 	if (Player_file_version >= 141) {	// Claude: 141: the writer's data set after the version (D-20261023-201747)
 		cfread_int(file);	// Claude: the guard read it into saved_data_set
 	}	// Claude
@@ -1397,6 +1399,7 @@ int is_pilot_multi(CFILE *fp)
 		cfclose(fp);
 		return -1;
 	}
+	if (file_version > CURRENT_PLAYER_FILE_VERSION) { mprintf(("Pilot file is version %u, newer than %d; not loaded\n", file_version, CURRENT_PLAYER_FILE_VERSION)); cfclose(fp); return -1; }	// Claude: newer than this build (Enhanced writes 141): refused, left as it is, never deleted (#114)
 	if (file_version >= 141) {	// Claude: 141: the data-set tag after the version (D-20261023-201747)
 		cfread_int(fp);	// Claude
 	}	// Claude

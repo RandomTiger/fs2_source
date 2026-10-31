@@ -114,6 +114,29 @@ TraceDiff A.trace B.trace -curve           CSV: the largest difference of each k
 
 The tolerance file has one `kind value` per line. The kinds are `pos`, `orient`, `vel`, `rotvel`, `health`, `energy` and `control`. See `docs/tolerances.txt`. The exit code is 0 for a match, 1 for a divergence and 2 for a usage or file error.
 
+## Drift report
+
+```
+tools\drift_report.ps1 -A RUN_A -B RUN_B [-Out report.txt]
+tools\drift_report.ps1 -SelfTest NAME.trace [-Out folder]
+```
+
+**Diagnostic, not a gate result (#96, D-20261031-065902).** Every report starts with that line. A drift report is never quoted as a pass: strict replay (`REPLAY OK`) and TraceDiff exit 0 stay the only pass, and the strict verdicts are unchanged. The tool reads existing recordings and traces only; it runs no game.
+
+A run is a `.fs2rec` (its `.trace` beside it) or a `.trace` alone. The report gives:
+1. the strict TraceDiff verdict, quoted unchanged with its exit code, and the first diverging frame. Exit 2 (for example a trace version this layer does not read) is reported as not comparable, never as zero drift;
+2. with two recordings, entries per tag in each stream, the classes whose counts differ, and the first entry where the tag sequences differ once the ignore list is taken out;
+3. per kind (`TraceDiff -curve`), the first frame that drifts, the largest drift and the drift at the last common full frame.
+
+The ignore list, each item by a logged decision; nothing else is ignored:
+- `RT_SND_*` (tags 18-24), sound-device answers: device-dependent, no logic reads them (D-035 item 2; left the stream in format 4).
+- `RT_STREAM_*` (tags 25-27, 30), music-stream answers: same reason (D-035 item 2).
+- The flip cursor: an `RT_MOUSE_POS` straight after another one, gr_flip's cursor read after mouse_eval_deltas' own (D-035 item 3).
+
+Named but not ignored: the clock read that times a music or voice stream starting (D-035 (a)) is an `RT_TIMER_MS` like any other, so it shows only as a `RT_TIMER_MS` count difference; `RT_INPUT_DEVICE` and `RT_JOY_PRESENT` answers.
+
+`-SelfTest` compares the trace with itself (must be zero drift) and with a copy carrying one injected drift (pos.x of the first object +0.5 m at the middle full frame, and its hash changed), which must be reported at that frame as `pos`.
+
 ## Known limits
 
 - Red alert missions replay from the simulator (where there is no carry-over). In a campaign their carry-over (wingmen, hull, ammo from the previous mission) is read from the recorded pilot file, but no recording tests that yet. A red alert mission entered straight from the one before it is not the first mission since the game started, so it cannot be recorded; restart and use Continue Campaign.
