@@ -365,7 +365,7 @@ void voice_frame()
 
 	if (Replay_mode == REPLAY_PLAY) {
 		if (replay_should_read()) {
-			n = replay_input_device(vals, 0, VOICE_MAX_VALS);
+			n = replay_input_device_tagged(VOICE_MAGIC, vals, 0, VOICE_MAX_VALS);	// only its own entry: the pad shares the tag (#123)
 			if ((n == VOICE_NUM_VALS) && (vals[0] == VOICE_MAGIC)) {
 				voice_apply(vals[1], vals[2], vals[3]);
 			}
