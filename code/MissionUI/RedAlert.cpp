@@ -152,6 +152,7 @@
 #include "freespace.h"
 #include "alphacolors.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
+#include "DataSetProfile.h"	// Claude: Game_profile->red_alert_flash (#117)
 
 /////////////////////////////////////////////////////////////////////////////
 // Red Alert Mission-Level
@@ -269,6 +270,7 @@ int Ra_brief_text_wnd_coords[GR_NUM_RESOLUTIONS][4] = {
 
 static UI_WINDOW Ui_window;
 // static hud_anim Flash_anim;
+static hud_anim Flash_anim;	// Claude: FS1's AlertFlash (#117)
 static int Background_bitmap;
 static int Red_alert_inited = 0;
 
@@ -394,7 +396,7 @@ void red_alert_blit_title()
 // Claude: FS1 data: the red alert screen in FS1's layout (#113), from its FS.exe: the buttons are RAB_05 (replay, at 0, 435,
 // mask region 5) and RAB_04 (continue, at 552, 411, region 4), where FS2's RAB_00/01 and regions 0/1 do not exist in FS1's
 // RedAlert-m; the briefing text is wrapped at 410 and drawn at 118, 167 with height 286 (brief_color_text_init and
-// brief_render_text there), inside FS1's box.  The title is centred over that box as FS2 centres it over its own.
+// brief_render_text there), inside FS1's box.  The title is FS1's AlertFlash animation, from the data-set row (#117).
 // Overwrites the GR_640 entries (FS1 has 640 art only); FS2 data keeps FS2's.
 static void red_alert_fs1_layout()
 {
@@ -452,6 +454,10 @@ void red_alert_init()
 	
 	// hud_anim_init(&Flash_anim, Ra_flash_coords[gr_screen.res][RA_X_COORD], Ra_flash_coords[gr_screen.res][RA_Y_COORD], NOX("AlertFlash"));
 	// hud_anim_load(&Flash_anim);
+	if ( Game_profile->red_alert_flash ) {	// Claude: the data set's title animation, as FS1 (#117)
+		hud_anim_init(&Flash_anim, Ra_flash_coords[gr_screen.res][RA_X_COORD], Ra_flash_coords[gr_screen.res][RA_Y_COORD], (char *)Game_profile->red_alert_flash);
+		hud_anim_load(&Flash_anim);
+	}
 
 	Red_alert_voice = -1;
 
@@ -486,6 +492,9 @@ void red_alert_close()
 		
 		Ui_window.destroy();
 		// hud_anim_release(&Flash_anim);
+		if ( Game_profile->red_alert_flash ) {	// Claude (#117)
+			hud_anim_release(&Flash_anim);
+		}
 		common_free_interface_palette();		// restore game palette
 		game_flush();
 	}
@@ -526,6 +535,9 @@ void red_alert_do_frame(float frametime)
 
 	Ui_window.draw();
 	// hud_anim_render(&Flash_anim, frametime);
+	if ( Game_profile->red_alert_flash ) {	// Claude (#117)
+		hud_anim_render(&Flash_anim, frametime);
+	}
 
 	gr_set_font(FONT1);
 
@@ -541,7 +553,9 @@ void red_alert_do_frame(float frametime)
 	}
 
 	// blit incoming transmission
-	red_alert_blit_title();
+	if ( !Game_profile->red_alert_flash ) {	// Claude: a data set with a title animation has no title text (#117)
+		red_alert_blit_title();
+	}
 
 	gr_flip();
 }

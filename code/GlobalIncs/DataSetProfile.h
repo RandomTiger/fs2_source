@@ -77,6 +77,10 @@ typedef struct data_set_profile {
 	// the frame strip under the picture window is 16 rows lower in the demo's
 	// BARRACKS.PCX (retail y 165-167, demo y 181-184), so (0,+16) (D-20261021-095912).
 	int	barracks_pic_number_offset[2];
+	// The red alert screen's title (RedAlert.cpp, #117): NULL = FS2's flashing "Incoming Transmission" text; else the
+	// animation played there instead, at Ra_flash_coords.  FS1's FS.exe has no such text and calls
+	// hud_anim_init(&Flash_anim, 61, 108, "AlertFlash"), the call FS2 left commented out.
+	const char	*red_alert_flash;
 } data_set_profile;
 
 // full_version_screens bits (one field for every data set; FS1Compat's walls joined at the FS2Demo merge, D-20261021-142001)
