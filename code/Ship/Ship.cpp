@@ -1748,6 +1748,7 @@ void ship_level_init()
 	Num_exited_ships = 0;
 	for (i=0; i<MAX_SHIPS; i++ )	{
 		Ships[i].objnum = -1;
+		Ships[i].next_swarm_path = 0;	// Claude: never set anywhere, so a later mission's first swarm volley started on the path the last mission left (fix review 65)
 	}
 
 	for ( i = 0; i < MAX_EXITED_SHIPS; i++ ) {
