@@ -222,12 +222,21 @@ function Save-Mission($m) {
 
 	W '#Reinforcements		;! 0 total'; W; W
 	W '#Background bitmaps		;! 1 total'; W
-	W '$Num stars: 500'
-	W '$Ambient light level: 0'
+	W "`$Num stars: $(if ($null -ne $m.Stars) { $m.Stars } else { 500 })"
+	W "`$Ambient light level: $([int]$m.Ambient)"
 	if ($m.Nebula) { W "+Neb2: $(if ($m.NebBack) { $m.NebBack } else { 'nbackpurp2' })"; W; W '+Neb2Flags: 63'; W }
-	W '$Sun: SunWhite'; W '+Angles: 0.000000 0.000000 0.000000'; W '+Scale: 1.000000'
-	W '$Starbitmap: neb08'; W '+Angles: 0.000000 0.000000 0.000000'
-	W '+ScaleX: 10.000000'; W '+ScaleY: 10.000000'; W '+DivX: 1'; W '+DivY: 1'; W
+	# Suns: @{ Name; Angles = @(p, b, h) in degrees; Scale }. Bitmaps: @{ Name; Angles; ScaleX; ScaleY; DivX; DivY }.
+	$suns = if ($m.Suns) { $m.Suns } else { @(@{ Name = 'SunWhite' }) }
+	$bmps = if ($m.Bitmaps) { $m.Bitmaps } else { @(@{ Name = 'neb08'; ScaleX = 10; ScaleY = 10 }) }
+	function Format-Ang($a) { if ($a) { ($a | % { '{0:F6}' -f ([double]$_ * [Math]::PI / 180) }) -join ' ' } else { '0.000000 0.000000 0.000000' } }
+	function Format-Num($v, $def) { '{0:F6}' -f $(if ($null -ne $v) { [double]$v } else { [double]$def }) }
+	foreach ($s in $suns) { W "`$Sun: $($s.Name)"; W "+Angles: $(Format-Ang $s.Angles)"; W "+Scale: $(Format-Num $s.Scale 1)" }
+	foreach ($b in $bmps) {
+		W "`$Starbitmap: $($b.Name)"; W "+Angles: $(Format-Ang $b.Angles)"
+		W "+ScaleX: $(Format-Num $b.ScaleX 1)"; W "+ScaleY: $(Format-Num $b.ScaleY 1)"
+		W "+DivX: $(if ($b.DivX) { $b.DivX } else { 1 })"; W "+DivY: $(if ($b.DivY) { $b.DivY } else { 1 })"
+	}
+	W
 
 	W '#Asteroid Fields'; W
 	if ($m.Asteroids) {
