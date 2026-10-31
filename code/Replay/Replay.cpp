@@ -31,6 +31,7 @@
 #include "RedAlert.h"
 #include "Autotest.h"
 #include "Popup.h"
+#include "OsApi.h"
 
 #define REPLAY_FILE_VERSION		3	// Claude: 2 adds the autotest settings, 3 the view position
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
@@ -636,9 +637,21 @@ static void replay_drain_events()
 	}
 }
 
+// A poll that only a fullscreen game away from the front makes (the flip waiting for its surface).
+// A windowed replay never makes it, so it leaves no os_poll entry; the events it dispatches are still
+// recorded with their own reads and replay at the next read (#108)
+static int Replay_poll_unrecorded = 0;
+
+void replay_unrecorded_os_poll()
+{
+	Replay_poll_unrecorded = 1;
+	os_poll();
+	Replay_poll_unrecorded = 0;
+}
+
 void replay_os_poll()
 {
-	if (!replay_hook_live()) {
+	if (!replay_hook_live() || Replay_poll_unrecorded) {
 		return;
 	}
 
@@ -1165,10 +1178,6 @@ void replay_load_end()
 			Hdr.campaign_size = replay_read_player_file(filename, &Hdr_campaign);
 		}
 	} else {
-		if (red_alert_mission()) {
-			replay_fatal("Red alert missions are not supported by replay yet");
-		}
-
 		// the loadout the player committed in the recorded run.  The briefing restores it
 		// through the same path as a player re-flying a mission.
 		Player_loadout = Hdr_loadout;
@@ -1382,6 +1391,14 @@ void replay_drive_state(int state)
 			if (!Replay_committed) {
 				Replay_committed = 1;
 				commit_pressed();
+			}
+			break;
+
+		case GS_STATE_RED_ALERT:
+			// a red alert mission has no briefing; its screen's continue button enters the game
+			if (!Replay_committed) {
+				Replay_committed = 1;
+				gameseq_post_event(GS_EVENT_ENTER_GAME);
 			}
 			break;
 	}

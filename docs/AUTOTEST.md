@@ -21,6 +21,10 @@ FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_spee
 
 Autotest never saves the pilot file, so the pilot's skill level, stats and settings are left as they were.
 
+No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
+
+Base-layer worktrees (`VS2022`, `OriginalSourceBugFixes`, `RecordPlayback`) and `Enhanced` must not share a players folder: Enhanced writes pilot version 141, which a base build refuses (not listed, not loaded, left as it is, #114).
+
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
 
 ## What happens
@@ -32,9 +36,23 @@ The `-at_` flags do nothing without `-autotest`. An invalid value stops the run 
 
 ## Menu tour
 ```
-FS2vs2022d.exe -window -autotest -at_menus [-at_mission FILE]
+FS2vs2022d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
+tools\menu_check.ps1 [-Configs r,d] [-Shots FOLDER] [-Mission FILE]
 ```
-Visits every single-player screen and quits: options, control and HUD config, medals, barracks, tech room, campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log, hotkeys, gameplay help, the in-game options, controls and HUD config, and the debriefing. Each screen is opened the way its button opens it, drawn for 30 frames and closed the way its Back button closes it. The log names each screen and ends with `Menu tour: N of N screens seen`; a screen that does not open, closes by itself or does not go back fails the run (exit code 2). The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data). `tools\menu_check.ps1` runs it in Release and Debug.
+Visits every single-player screen and quits: the main hall, the Vasudan (Bastion) main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
+- Each screen, tab, page and help overlay is a view. Main hall rooms are opened by clicking their region, other screens the way their button or key opens them. Each view is drawn for 30 frames (gameplay 120) and the screen is closed the way its Back button closes it.
+- The log has one line per view: `Screen '<category>/<screen>': PASS`, `FAIL <why>` or `SKIP <why>`. A view fails if its screen does not open, closes by itself or does not go back, if its help overlay does not show, or if an `Assert`, `Int3` or `Warning` fires while it is up. After a crash the views not reached are listed as `FAIL not reached`. The log ends with `Menu tour: N screens, N passed, N failed, N skipped`. Any failure gives exit code 2.
+- A screen that shows the "not in demo" popup (`game_feature_not_in_demo_popup`) is skipped: `SKIP not in demo`. The stops it hosts (below) are then skipped without being opened, naming the screen with the wall: `SKIP not in demo (host Tech room)` (D-20261022-090902).
+- The Vasudan (Bastion) main hall (`main_hall_pilot/main_hall_bastion` and `main_hall_pilot/main_hall_bastion_help`, its MH2 overlay) is main hall 1. The tour sets the pilot's `on_bastion`, enters the main hall again so `main_hall_init(1)` runs, shows both views, then sets `on_bastion` back and enters the main hall again. Nothing is written to the pilot file. If the loaded `mainhall.tbl` defines fewer than two halls, or the data lacks the second hall's background or mask (the FS2 and FS1 demos), both views are `SKIP no second hall` (D-20261031-084801, D-20261031-084802).
+- **Rule:** a tour stop for a screen with a demo wall is opened through the player's entry, never by posting its state event, so the tour meets the wall the player meets (D-20261021-201402). HUD config (main menu and in-game) is the H key on the Options screen: the tour opens Options first and closes it again after.
+  Medals is the Barracks medals button: the tour opens Barracks through its main hall region, presses the button, and closes Barracks to the main hall after (D-20261022-060501).
+  Simulator room and Credits are the Tech room's Mission Simulator and Credits tabs: the tour opens the Tech room through its main hall region, presses the tab, and leaves to the main hall after (D-20261022-090902).
+  Cutscenes is the Simulator room's Cutscenes button: the tour opens the Simulator room as its own stop does (the Tech room, then its Mission Simulator tab), presses the button, and closes the Simulator room to the main hall after (D-20261022-065951, D-20261022-090902).
+- With a mission that has only a briefing (training or scramble, for example `-at_mission btm-01` in FS1), the briefing views are `briefing/briefing_training` and `briefing/briefing_training_help`, and ship and weapon select are `SKIP`.
+- In Debug builds a run-time check failure (`/RTC`) or a CRT assert also counts: the screen is logged as `FAIL` and the game exits with code `0x80000003`.
+- `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
+- The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
+- `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build.
 
 ## Test missions
 Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy them to the game's `data\missions` folder to run them (`tools\replay_check.ps1` does this). Most are generated by the scripts in `tools/missions` (`MissionGen.ps1` and one script per mission): edit the script and rerun it, not the `.fs2` file.
@@ -74,6 +92,7 @@ While an autotest runs:
 | 2 | A mission did not start, an `Assert`, `Int3` or `Warning` was hit, or a flag was invalid |
 | 5 | The watchdog found the game stuck |
 | `0xC...` | A crash, with its exception code |
+| `0x80000003` | A Debug run-time check failure or CRT assert |
 | 3, 4 | A replay desync or setup error (`docs/REPLAY.md`) |
 
 ## Recordings
@@ -87,7 +106,6 @@ tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 - The time limit is in mission time, which a replay reproduces exactly. A real-time limit would end the replay on a different frame.
 - `-autotest` on a replay adds only the log, the watchdog and the no-dialog handling. The replay still drives the menus itself.
 - If an `Assert` or `Int3` fired while recording, replay with `-autotest` too, or the replay stops at the same `Assert` dialog.
-- Red alert missions can be run, but replay does not support them yet, so the log warns when one is recorded.
 
 ## Not covered
 - Nobody flies the player ship, so player weapons, collisions and the player's own damage are not tested. AI ships fight as normal.

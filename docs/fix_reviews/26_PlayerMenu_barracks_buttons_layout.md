@@ -4,6 +4,8 @@
 
 This fix was first committed straight onto `RecordPlayback` (f058d3f, 2026-10-10). It is repeated here, identically, so the original-game fix sits on the right layer; the merge up to `RecordPlayback` changes nothing there.
 
+**History note (2026-10-22, Tom's decision, D-20261022-085601).** The change appears twice in `RecordPlayback`'s history: f058d3f is the earlier direct commit, made before the branch rule existed; 0195e97 on `OriginalSourceBugFixes` is this review, although its commit message says "review 25". The code on both branches is identical. The pushed history is kept as it is; this note is the correction.
+
 ## The bug
 `PlayerMenu.cpp` and `Barracks.cpp` each define their own `struct barracks_buttons`, with different layouts. C++ requires one definition per name across the program, so the linker keeps a single copy of the compiler-generated destructor for both. On exit, one of the two static button arrays is destroyed with the other file's layout, and its `UI_BUTTON` is destroyed at the wrong offset.
 
