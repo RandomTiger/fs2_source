@@ -186,6 +186,7 @@ extern int Cmdline_window;
 extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
 extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 extern int Cmdline_all_cutscenes;	// Claude: -allcutscenes
+extern int Cmdline_bastion;	// Claude: -bastion, the Vasudan (Bastion) main hall (D-20261031-084800)
 extern char *Cmdline_mission;	// Claude: -mission, see MainHallMenu.cpp
 
 #endif
