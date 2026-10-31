@@ -112,16 +112,11 @@ foreach ($m in $Missions) {
 		}
 		if (($mode -eq 'headless') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'No graphics device' -Quiet)) { $res = "NOT HEADLESS ($res)" }
 		$counts = Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
-		# PrePort32 only, named waiver (D-20261029-180121, Tom 2026-10-29): AutotestSquadMenu in -nodraw/-headless
-		# first diverges at its first squad-menu key frame, because the menu logic runs in the HUD draw here (D-049 (e)).
-		# It must still match the drawn recording up to that frame, with no Assert or Int3. Dropped at PrePort64.
-		$waived = ($m -eq 'AutotestSquadMenu') -and ($mode -ne 'draw') -and ($diff -match '^DIVERGED at frame 407 ') -and ($code -eq 3) -and ($res -match '^DESYNC') -and (-not $counts -or ($counts.Matches[0].Value -match 'Asserts 0, Int3 0'))
-		if ($waived) { $diff += ' [WAIVED D-20261029-180121]' }
-		elseif (($res -notmatch '^REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
+		if (($res -notmatch '^REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $mode exit=$code $res / $diff"
 		# an autotest run exits 0 only with no Assert, Int3 or Warning (D-029, D-077)
 		if ($counts) { $line += " ($($counts.Matches[0].Value))" }
-		if (($code -ne 0) -and -not $waived) { $ok = $false }
+		if ($code -ne 0) { $ok = $false }
 		# a Debug build must prove its array guards fire (D-20261018-030012)
 		if (($Config -match '^d') -and -not (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 	}
