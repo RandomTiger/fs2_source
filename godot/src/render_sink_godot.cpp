@@ -1612,7 +1612,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += ";\nuniform sampler2D tex : ";
 	code += lin ? "filter_linear, " : "filter_nearest, ";
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
-	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\ninstance uniform vec4 r0;\ninstance uniform vec4 r1;\ninstance uniform vec4 r2;\ninstance uniform vec4 cfg;\ninstance uniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
+	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
 	code += "void vertex() {\n\tvec3 p = VERTEX;\n\tvec3 e = vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x + cfg.x * e.x / z, org.y + cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n";
@@ -1788,13 +1788,14 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
 		rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
 		rs->instance_geometry_set_material_override(inst, mat);
-		rs->instance_geometry_set_shader_parameter(inst, "r0", Color(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
-		rs->instance_geometry_set_shader_parameter(inst, "r1", Color(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
-		rs->instance_geometry_set_shader_parameter(inst, "r2", Color(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
+		// per-draw values are material parameters (the material is per draw), not instance uniforms: those come from a fixed-size buffer
+		rs->material_set_param(mat, "r0", Color(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
+		rs->material_set_param(mat, "r1", Color(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
+		rs->material_set_param(mat, "r2", Color(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
 		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
-		rs->instance_geometry_set_shader_parameter(inst, "cfg", Color(0.5f * cw, 0.5f * ch, dbase, origin));
+		rs->material_set_param(mat, "cfg", Color(0.5f * cw, 0.5f * ch, dbase, origin));
 		// canvas centre relative to the screen centre, y up
-		rs->instance_geometry_set_shader_parameter(inst, "org", Color((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
+		rs->material_set_param(mat, "org",Color((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
 		l.instances.push_back(inst);
 	}
 }
