@@ -12,8 +12,6 @@ master                    original 1999 source, as provided by Volition. Never c
               PrePort32   port preparation that needs no engine, rendered and 32-bit; code removal (cleanup) lives here
                 PrePort64 x64, headless, with the host seam: the last point before an engine is chosen
                   Godot   the game running in Godot, cut from PrePort64, with its own feature branches off it
-                    Vulkan          Vulkan renderer work and measurements (docs/Vulkan.md), a Godot sub-branch
-                      SteamIntegration   Steam integration, cut from Godot, now child of Vulkan (D-20261031-085751)
                     GodotEnhanced   the Godot game with its features combined (later)
 ```
 
