@@ -593,6 +593,11 @@ extern int Gr_mmx;
 
 // Claude: P7, the host's backend (D-20261027-185301).  The host fills these before gr_init(.., GR_HOST); init fills in gr_screen's
 // gf_ table like gr_dummy_init does.  Any entry may be NULL except init.
+typedef struct gr_host_mesh_group {	// Claude: P3b, one texture's triangles of a host mesh
+	int bitmap;						// bmpman handle
+	int first_index;
+	int index_count;
+} gr_host_mesh_group;
 typedef struct gr_host_backend {
 	void (*init)();
 	void (*cleanup)();
@@ -601,7 +606,17 @@ typedef struct gr_host_backend {
 	void (*bitmap)(int x, int y);										// Claude: P7-3, gr_bitmap (all sections of gr_screen.current_bitmap)
 	void (*bitmap_ex)(int x, int y, int w, int h, int sx, int sy);	// Claude: P7-3, gr_bitmap_ex
 	int no_device;													// Claude: P7-4, nonzero when the host draws nothing (headless); then it counts as the null renderer does for Autotest's "no device" test
+	// Claude: P3b, optional model meshes (render 3D). vtx = 8 floats per vertex (pos3, normal3, uv2); xform = 3x4 model to eye, row major;
+	// rgb = 3 bytes per vertex, lit, before gamma. mesh_draw: 1 drawn, 0 draw on the CPU path this time, -1 mesh invalid (drop it).
+	int (*mesh_ready)();
+	int (*mesh_create)(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
+	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv);
+	void (*mesh_free)(int key);
 } gr_host_backend;
+extern int gr_host_mesh_ready();
+extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
+extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv);
+extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST
 extern int gr_host_no_device();		// Claude: P7-4, 1 when gr_screen.mode is GR_HOST and the registered backend says it has no device

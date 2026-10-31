@@ -141,6 +141,8 @@ private:
 		int w = 0, h = 0;
 		bool probe_parent = false;	// its parent viewport is a fog probe slot (fog lag), not the game viewport
 		std::vector<godot::RID> instances;
+		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
+		std::vector<std::pair<int, godot::RID>> mesh_coltex;	// (rows, texture)
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
 	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
@@ -230,8 +232,6 @@ private:
 	struct MeshGroup {
 		fs2_sink_mesh_group g;
 		godot::RID mesh_rid;		// a mesh with one surface, kept across frames
-		godot::RID material;
-		godot::RID built_tex;		// the texture RID the material was built with
 		int zmode = 2;
 	};
 	struct MeshData {
@@ -241,12 +241,17 @@ private:
 		int32_t id = 0;
 		float xf[12] = {};
 		int epoch = 0;
+		int cw = 0, ch = 0, ox = 0, oy = 0;	// the canvas and its screen origin when drawn
+		std::vector<uint8_t> col;	// RGBA8 per mesh vertex
 	};
+	std::vector<godot::RID> mesh_mat_pool;
+	std::map<int, std::vector<godot::RID>> mesh_col_pool;	// by rows
+	void release_mesh_res(Layer &l, bool free_them);
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
 	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull);
-	void mesh_group_material(MeshGroup &mg);
+	godot::RID mesh_group_material(MeshGroup &mg, const godot::RID &cols);
 	void free_mesh_data(MeshData &md);
 	void add_mesh_to_layer(Layer &l, const MeshDraw &d, int order);
 	static void s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,

@@ -1132,6 +1132,7 @@ void GodotSink::release_layers(std::vector<Layer> &layers)
 			}
 		}
 		l.instances.clear();
+		release_mesh_res(l, false);
 		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
 		spare_layers.push_back(l);
 	}
@@ -1145,6 +1146,7 @@ void GodotSink::free_layer(Layer &l)
 		rs->free_rid(i);
 	}
 	l.instances.clear();
+	release_mesh_res(l, true);
 	rs->free_rid(l.viewport);
 	rs->free_rid(l.camera);
 	rs->free_rid(l.scenario);
@@ -1579,6 +1581,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 		spare_instances.pop_back();
 		rs->instance_set_base(inst, mesh);
 		rs->instance_set_scenario(inst, l.scenario);
+		rs->instance_geometry_set_material_override(inst, RID());	// a pooled instance may come from a mesh draw, which overrides its material
 		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
 	} else {
 		inst = rs->instance_create2(mesh, l.scenario);
@@ -1609,13 +1612,14 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += ";\nuniform sampler2D tex : ";
 	code += lin ? "filter_linear, " : "filter_nearest, ";
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
-	code += "uniform float zbias = 0.0;\ninstance uniform vec4 r0;\ninstance uniform vec4 r1;\ninstance uniform vec4 r2;\ninstance uniform vec4 cfg;\nvarying vec3 pc;\n";
+	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\ninstance uniform vec4 r0;\ninstance uniform vec4 r1;\ninstance uniform vec4 r2;\ninstance uniform vec4 cfg;\ninstance uniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
 	code += "void vertex() {\n\tvec3 p = VERTEX;\n\tvec3 e = vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
-	code += "\tPOSITION = PROJECTION_MATRIX * vec4(cfg.x * e.x / z, cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n}\n";
+	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x + cfg.x * e.x / z, org.y + cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n";
+	code += "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
 	code += "void fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
-	code += "\tvec4 c = t;\n";
+	code += "\tvec4 c = t;\n\tc.rgb *= vcol;\n";
 	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
 	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 	RID sh = rs->shader_create();
@@ -1628,14 +1632,13 @@ void GodotSink::free_mesh_data(MeshData &md)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	for (MeshGroup &mg : md.groups) {
-		if (mg.material.is_valid()) { rs->free_rid(mg.material); }
 		if (mg.mesh_rid.is_valid()) { rs->free_rid(mg.mesh_rid); }
 	}
 	md.groups.clear();
 }
 
-// The group's material, rebuilt when the texture it was built with is no longer the one the id maps to (a freed and re-created bitmap).
-void GodotSink::mesh_group_material(MeshGroup &mg)
+// A material for one group of one draw: the group's shader and texture, and the draw's colour table.
+RID GodotSink::mesh_group_material(MeshGroup &mg, const RID &cols)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1649,14 +1652,23 @@ void GodotSink::mesh_group_material(MeshGroup &mg)
 			tflags = it->second.flags;
 		}
 	}
-	if (mg.material.is_valid() && mg.built_tex == tex) { return; }
-	if (!mg.material.is_valid()) { mg.material = rs->material_create(); }
+	RID mat;
+	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
-	rs->material_set_shader(mg.material, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0));
-	rs->material_set_param(mg.material, "tex", tex);
-	rs->material_set_param(mg.material, "zbias", (float)mg.g.zbias);
-	mg.built_tex = tex;
-	rs->mesh_surface_set_material(mg.mesh_rid, 0, mg.material);
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0));
+	rs->material_set_param(mat, "tex", tex);
+	rs->material_set_param(mat, "cols", cols);
+	rs->material_set_param(mat, "zbias", (float)mg.g.zbias);
+	return mat;
+}
+
+void GodotSink::release_mesh_res(Layer &l, bool free_them)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (RID &m : l.mesh_materials) { if (free_them) { rs->free_rid(m); } else { mesh_mat_pool.push_back(m); } }
+	for (auto &t : l.mesh_coltex) { if (free_them) { rs->free_rid(t.second); } else { mesh_col_pool[t.first].push_back(t.second); } }
+	l.mesh_materials.clear();
+	l.mesh_coltex.clear();
 }
 
 void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
@@ -1688,18 +1700,23 @@ void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v
 		PackedVector2Array uvs;
 		pos.resize((int64_t)used.size());
 		uvs.resize((int64_t)used.size());
+		PackedFloat32Array orig;
+		orig.resize((int64_t)used.size());
 		for (size_t k = 0; k < used.size(); k++) {
 			const fs2_sink_mesh_vertex &sv = v[used[k]];
 			pos.ptrw()[k] = Vector3(sv.pos[0], sv.pos[1], sv.pos[2]);
 			uvs.ptrw()[k] = Vector2(sv.u, sv.v);
+			orig.ptrw()[k] = (float)used[k];
 		}
 		Array arrays;
 		arrays.resize(RenderingServer::ARRAY_MAX);
 		arrays[RenderingServer::ARRAY_VERTEX] = pos;
 		arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
+		arrays[RenderingServer::ARRAY_CUSTOM0] = orig;	// the vertex's index in the whole mesh: where its colour is in the draw's table
 		arrays[RenderingServer::ARRAY_INDEX] = indices;
 		mg.mesh_rid = rs->mesh_create();
-		rs->mesh_add_surface_from_arrays(mg.mesh_rid, RenderingServer::PRIMITIVE_TRIANGLES, arrays);
+		rs->mesh_add_surface_from_arrays(mg.mesh_rid, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(),
+			(BitField<RenderingServer::ArrayFormat>)((int64_t)RenderingServer::ARRAY_CUSTOM_R_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT));
 		// the vertices are model space, not where the camera looks: the culling box is made huge so Godot never drops the instance
 		rs->mesh_set_custom_aabb(mg.mesh_rid, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
 		md.groups.push_back(mg);
@@ -1716,7 +1733,7 @@ void GodotSink::s_mesh_free(void *u, int32_t id)
 	s->mesh_data.erase(it);
 }
 
-void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *, int)
+void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *colours, int ncolours)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
 	if (!s->in_frame || !s->in_run || xform == nullptr || s->mesh_data.find(id) == s->mesh_data.end()) { return; }
@@ -1724,7 +1741,9 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 	MeshDraw d;
 	d.id = id;
 	std::memcpy(d.xf, xform, sizeof(d.xf));
+	if (colours != nullptr && ncolours > 0) { d.col.assign(colours, colours + (size_t)ncolours * 4); }
 	d.epoch = s->run_epoch;
+	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
 	b.key.texture = -(int32_t)s->mesh_draws.size();
@@ -1741,15 +1760,41 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
 	const float origin = 29000.0f - 0.25f * (float)order;
 	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
+	// the draw's colour table: 256 texels wide, a row per 256 vertices, rows rounded up to a power of two so tables pool
+	int rows = 1;
+	while (rows * 256 < (int)(d.col.size() / 4)) { rows <<= 1; }
+	RID cols = white_texture();
+	if (!d.col.empty()) {
+		std::vector<RID> &pool = mesh_col_pool[rows];
+		PackedByteArray bytes;
+		bytes.resize((int64_t)rows * 256 * 4);
+		std::memset(bytes.ptrw(), 255, (size_t)bytes.size());
+		std::memcpy(bytes.ptrw(), d.col.data(), d.col.size());
+		Ref<Image> img = Image::create_from_data(256, rows, false, Image::FORMAT_RGBA8, bytes);
+		if (!pool.empty()) {
+			cols = pool.back();
+			pool.pop_back();
+			rs->texture_2d_update(cols, img, 0);
+		} else {
+			cols = rs->texture_2d_create(img);
+		}
+		l.mesh_coltex.push_back(std::make_pair(rows, cols));
+	}
 	for (MeshGroup &mg : it->second.groups) {
-		mesh_group_material(mg);
+		const RID mat = mesh_group_material(mg, cols);
+		l.mesh_materials.push_back(mat);
 		RID inst = rs->instance_create2(mg.mesh_rid, l.scenario);
 		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
 		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+		rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
+		rs->instance_geometry_set_material_override(inst, mat);
 		rs->instance_geometry_set_shader_parameter(inst, "r0", Color(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
 		rs->instance_geometry_set_shader_parameter(inst, "r1", Color(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
 		rs->instance_geometry_set_shader_parameter(inst, "r2", Color(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
-		rs->instance_geometry_set_shader_parameter(inst, "cfg", Color(0.5f * (float)width, 0.5f * (float)height, dbase, origin));
+		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
+		rs->instance_geometry_set_shader_parameter(inst, "cfg", Color(0.5f * cw, 0.5f * ch, dbase, origin));
+		// canvas centre relative to the screen centre, y up
+		rs->instance_geometry_set_shader_parameter(inst, "org", Color((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
 		l.instances.push_back(inst);
 	}
 }

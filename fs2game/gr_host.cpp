@@ -76,6 +76,7 @@ struct HostTex {
 	int sink_id;		// 0 = not uploaded (a TK_GLOW entry: no glow for this bitmap)
 	int type;			// TCACHE_TYPE_* it was uploaded as
 	int w, h;
+	bool opaque;		// RGBA8 texture with every alpha 255 (a mesh group of it may be drawn opaque)
 };
 
 // one queued ship glow poly (see "ship glow")
@@ -130,6 +131,20 @@ struct Host {
 	std::vector<GlowPoly> glow_q;
 	std::vector<fs2_sink_vertex> glow_v;
 	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
+	// render 3D meshes (P3b): the model builder hands geometry over once; the sink copy is made on the first draw in an accepted frame
+	struct HostMesh {
+		std::vector<fs2_sink_mesh_vertex> v;
+		std::vector<gr_host_mesh_group> g;
+		std::vector<uint32_t> idx;
+		bool sink_made = false;
+		float bmin[3] = {}, bmax[3] = {};	// model space bounds: a draw that reaches the near plane stays on the polygon path (it clips there)
+		bool cpu_only = false;				// a group has a glow texture: stays on the polygon path
+		int zmode = -1, zbias = 0, cull = 0;	// the state the sink copy was made for
+		std::vector<int> tex;				// sink texture per group at creation
+		std::vector<int> blend;
+	};
+	std::unordered_map<int, HostMesh> meshes;
+	std::vector<uint8_t> mesh_rgba;
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
@@ -341,6 +356,10 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
+	t.opaque = (format == FS2_SINK_TEX_RGBA8);
+	if (t.opaque) {
+		for (size_t i = 3; i < px.size(); i += 4) { if (px[i] != 255) { t.opaque = false; break; } }
+	}
 	// UI text and 2D bitmaps keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
 	uint32_t tf = (aa || bitmap_2d) ? 0 : FS2_SINK_TEXF_LINEAR;
 	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
@@ -476,6 +495,7 @@ void send_view()
 	v.scale[0] = Matrix_scale.x; v.scale[1] = Matrix_scale.y; v.scale[2] = Matrix_scale.z;
 	v.zoom = View_zoom;
 	v.canvas_w = Canvas_width; v.canvas_h = Canvas_height;
+	v.origin_x = gr_screen.offset_x + gr_screen.clip_left; v.origin_y = gr_screen.offset_y + gr_screen.clip_top;
 	v.user_clip = G3_user_clip;
 	if (G3_user_clip) {
 		v.clip_normal[0] = G3_user_clip_normal.x; v.clip_normal[1] = G3_user_clip_normal.y; v.clip_normal[2] = G3_user_clip_normal.z;
@@ -977,6 +997,133 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
 
+// ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
+// Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
+// (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
+// in an accepted frame, when the textures can be uploaded, and again when the draw state (z mode, zbias, cull) or a texture
+// changes. Groups are drawn opaque when the texture has no alpha below 255, else alpha blended; polygons that glow stay CPU.
+bool mesh_switch()
+{
+	static int on = -1;
+	if (on < 0) {
+		const char *e = getenv("FS2_RENDER3D");
+		on = (e != nullptr && e[0] == '1') ? 1 : 0;
+	}
+	return on == 1;
+}
+
+int h_mesh_ready()
+{
+	return H.sink != nullptr && H.sink->mesh_create && H.sink->mesh_draw && H.sink->mesh_free && mesh_switch();
+}
+
+int h_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni)
+{
+	if (nv <= 0 || ng <= 0 || ni <= 0 || vtx == nullptr) { return 0; }
+	auto old = H.meshes.find(key);
+	if (old != H.meshes.end()) {
+		if (old->second.sink_made && H.sink != nullptr) { H.sink->mesh_free(H.sink->user, key); }
+		H.meshes.erase(old);
+	}
+	Host::HostMesh &m = H.meshes[key];
+	m.v.resize((size_t)nv);
+	for (int i = 0; i < nv; i++) {
+		fs2_sink_mesh_vertex &o = m.v[(size_t)i];
+		const float *s = vtx + 8 * i;
+		o.pos[0] = s[0]; o.pos[1] = s[1]; o.pos[2] = s[2];
+		o.normal[0] = s[3]; o.normal[1] = s[4]; o.normal[2] = s[5];
+		o.u = s[6]; o.v = s[7];
+		for (int k = 0; k < 3; k++) {
+			if (i == 0 || s[k] < m.bmin[k]) { m.bmin[k] = s[k]; }
+			if (i == 0 || s[k] > m.bmax[k]) { m.bmax[k] = s[k]; }
+		}
+	}
+	m.g.assign(g, g + ng);
+	m.idx.assign(idx, idx + ni);
+	return 1;
+}
+
+void h_mesh_free(int key)
+{
+	auto it = H.meshes.find(key);
+	if (it == H.meshes.end()) { return; }
+	if (it->second.sink_made && H.sink != nullptr) { H.sink->mesh_free(H.sink->user, key); }
+	H.meshes.erase(it);
+}
+
+int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
+{
+	auto it = H.meshes.find(key);
+	if (it == H.meshes.end()) { return -1; }
+	Host::HostMesh &m = it->second;
+	if ((int)m.v.size() != nv) { return -1; }
+	if (m.cpu_only || H.zmode == GR_ZBUFF_NONE || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
+	{
+		// the nearest the box gets to the eye plane: the mesh path does not clip at the near plane
+		float nearest = 1e30f;
+		for (int c = 0; c < 8; c++) {
+			const float px = (c & 1) ? m.bmax[0] : m.bmin[0], py = (c & 2) ? m.bmax[1] : m.bmin[1], pz = (c & 4) ? m.bmax[2] : m.bmin[2];
+			const float ez = xform[8] * px + xform[9] * py + xform[10] * pz + xform[11];
+			if (ez < nearest) { nearest = ez; }
+		}
+		if (nearest < 4.0f) { return 0; }
+	}
+	ensure_frame();
+	if (!drawing()) { return 0; }
+
+	// the sink copy: made, or remade when the state or a texture it was made with has changed
+	const int zmode = H.zmode;
+	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != H.cull;
+	std::vector<int> tex(m.g.size());
+	std::vector<int> blend(m.g.size());
+	for (size_t i = 0; i < m.g.size(); i++) {
+		const int bmp = m.g[i].bitmap;
+		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL);
+		if (tex[i] == 0) { return 0; }
+		if (glow_tex_get(bmp) != 0) { m.cpu_only = true; return 0; }
+		const TexKey k = { bmp, bm_get_signature(bmp), 0 };
+		auto f = H.tex.find(k);
+		bool opaque = false;
+		if (f == H.tex.end()) {
+			for (auto &e : H.tex) { if (e.first.handle == bmp && e.first.kind == TK_NORMAL) { opaque = e.second.opaque; break; } }
+		} else {
+			opaque = f->second.opaque;
+		}
+		blend[i] = opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA;
+		if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
+	}
+	if (remake) {
+		std::vector<fs2_sink_mesh_group> sg(m.g.size());
+		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD
+			| ((zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE) ? FS2_SINK_DRAWF_ZWRITE : 0) | FS2_SINK_DRAWF_CULL;	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
+		for (size_t i = 0; i < m.g.size(); i++) {
+			sg[i].texture = tex[i];
+			sg[i].blend = blend[i];
+			sg[i].flags = fl;
+			sg[i].zbias = H.zbias;
+			sg[i].first_index = m.g[i].first_index;
+			sg[i].index_count = m.g[i].index_count;
+		}
+		H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		m.sink_made = true;
+		m.zmode = zmode; m.zbias = H.zbias; m.cull = H.cull;
+		m.tex = tex; m.blend = blend;
+	}
+
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	H.mesh_rgba.resize((size_t)nv * 4);
+	for (int i = 0; i < nv; i++) {
+		H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
+		H.mesh_rgba[(size_t)i * 4 + 1] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 1]];
+		H.mesh_rgba[(size_t)i * 4 + 2] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 2]];
+		H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+	}
+	H.sink->mesh_draw(H.sink->user, key, xform, H.mesh_rgba.data(), nv);
+	return 1;
+}
+
 #define SCALE_UV(x, x0, x1, y0, y1) (((((x) - (x0)) * ((y1) - (y0))) / ((x1) - (x0))) + (y0))
 
 // gr_d3d_scaler: clip the two corner vertices to the clip rectangle, moving the uvs with them, then a textured quad
@@ -1295,6 +1442,7 @@ void host_cleanup()
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
+	H.meshes.clear();
 	H.release_pending.clear();
 	H.capture_pending.clear();
 	Bm_release_hook = nullptr;
@@ -1335,6 +1483,10 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.bitmap = h_bitmap;
 	Backend.bitmap_ex = h_bitmap_ex;
 	Backend.no_device = 0;
+	Backend.mesh_ready = h_mesh_ready;
+	Backend.mesh_create = h_mesh_create;
+	Backend.mesh_draw = h_mesh_draw;
+	Backend.mesh_free = h_mesh_free;
 	gr_host_backend_register(&Backend);
 	return 1;
 }

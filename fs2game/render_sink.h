@@ -37,6 +37,7 @@ typedef struct fs2_sink_view {
 	float scale[3];			/* Matrix_scale: aspect and zoom, folded into the game's view rows */
 	float zoom;			/* View_zoom */
 	int32_t canvas_w, canvas_h;	/* the 3D canvas the projection maps to, in pixels */
+	int32_t origin_x, origin_y;	/* the canvas's top left on the screen (screen offset plus clip origin) */
 	int32_t user_clip;		/* 1: a user clip plane is on */
 	float clip_normal[3], clip_point[3];	/* in eye space, as the game keeps them */
 } fs2_sink_view;

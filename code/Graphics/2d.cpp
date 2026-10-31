@@ -491,6 +491,29 @@ int gr_host_backend_registered()
 	return Gr_host_backend != NULL;	// Claude: P7-8
 }
 
+// Claude: P3b, optional model meshes; all null-safe (no backend, or a backend without mesh support, means the CPU path)
+int gr_host_mesh_ready()
+{
+	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->mesh_ready && Gr_host_backend->mesh_ready();
+}
+
+int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_create) { return 0; }
+	return Gr_host_backend->mesh_create(key, vtx, nv, g, ng, idx, ni);
+}
+
+int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_draw) { return 0; }
+	return Gr_host_backend->mesh_draw(key, xform, rgb, nv);
+}
+
+void gr_host_mesh_free(int key)
+{
+	if (Gr_host_backend && Gr_host_backend->mesh_free) { Gr_host_backend->mesh_free(key); }
+}
+
 int gr_host_no_device()
 {
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->no_device;
