@@ -6,7 +6,7 @@ REPLAY OK, and TraceDiff exits 0 comparing the two traces. TraceDiff also compar
 
 Usage: tools\dll_check.ps1 [-Config r|d] [-Out <dir>] [-Missions a,b,...] [-Set autotest|fs1|demo|fs1demo] [-GameDir <dir>] [-NoNative] [-Fiber 1|stress]
 
--Config   r (Release, the default) or d (Debug): selects FS2vs2022<c>64.exe and FS2game64<c>.dll in the game dir.
+-Config   r (Release, the default) or d (Debug): selects FS2_<Layer>_<c>64.exe and FS2game_<Layer>_64<c>.dll in the game dir.
 -Set      the folder under recordings\ (default autotest).
 -NoNative skip the native run and compare with the recorded trace only (quick; not the gate).
 Build first: tools\build_dll.ps1 or MSBuild fs2game\fs2game.vcxproj and tools\fs2run\fs2run.vcxproj (x64), and
@@ -22,6 +22,7 @@ param(
 	[string]$Fiber	# '1' or 'stress': the game runs on a fiber in the DLL run (G3); the native baseline never does
 )
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')
@@ -31,8 +32,8 @@ if ($run -ne $GameDir) { Install-GateBuild $gs $GameDir $Config }
 if (-not $Out) { $Out = Join-Path $repo ("replays\dll_" + $Config + '_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 $runner = Join-Path $repo 'tools\bin\fs2run.exe'
-$dll = Join-Path $run "FS2game64$Config.dll"
-$exe = ".\FS2vs2022${Config}64.exe"
+$dll = Join-Path $run (Get-FS2Dll $Config)
+$exe = ".\$(Get-FS2Exe "${Config}64")"
 foreach ($f in $td, $runner, $dll) { if (-not (Test-Path $f)) { throw "Missing $f" } }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
@@ -44,7 +45,7 @@ $Missions = $Missions | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 if (-not $Missions) { $Missions = $gs.Missions }
 if (-not $Missions) { throw 'No missions' }
 
-function Wait-NoGame { while (Get-Process FS2vs2022*, fs2run -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
+function Wait-NoGame { while (Get-Process ($FS2ProcessNames + 'fs2run') -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
 
 function Verdict([string]$a, [string]$b) {
 	if (-not (Test-Path $b)) { return 'NO TRACE' }

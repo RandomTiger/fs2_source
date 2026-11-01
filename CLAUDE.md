@@ -17,7 +17,7 @@ The recorder records a person playing a mission. It replays the same inputs into
 
 ## Paths
 - Game install: the `PATH_FS2` environment variable. It differs per machine; never hard-code it.
-- Built exes go to `PATH_FS2`, named after the branch's layer (D-20261101-064106): `FS2_<Layer>_d.exe` (Debug) and `FS2_<Layer>_r.exe` (Release), here `FS2_PrePort64_d.exe` / `_r.exe` (x64: `_d64` / `_r64`). The layer name lives only in `build\layer.props`; scripts read it through `tools\layer.ps1` (`Get-FS2Exe r|d`). Each branch keeps its own value: on a merge into a branch, keep that branch's value, conflict or not. The old `FS2vs2022*.exe` files in the installs are no longer built.
+- Built exes go to `PATH_FS2`, named after the branch's layer (D-20261101-064106): `FS2_<Layer>_d.exe` (Debug) and `FS2_<Layer>_r.exe` (Release), here `FS2_Godot_d.exe` / `_r.exe` (x64: `_d64` / `_r64`); the game DLL is `FS2game_Godot_64r.dll` / `_64d.dll` (`Get-FS2Dll r|d`). The layer name lives only in `build\layer.props`; scripts read it through `tools\layer.ps1` (`Get-FS2Exe r|d`). Each branch keeps its own value: on a merge into a branch, keep that branch's value, conflict or not. The old `FS2vs2022*.exe` files in the installs are no longer built.
 - `TraceDiff.exe` goes to `tools\bin\`.
 - MSBuild: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe`
 

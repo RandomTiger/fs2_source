@@ -18,14 +18,14 @@ First use of a fresh checkout: `godot --headless --path godot --import` (tools/g
 `tools\godot_check.ps1 [-Config r|d] [-Missions a,b] [-Quick]`; runner.gd reads FS2_DLL, FS2_ROOT, FS2_CMD (and FS2_CMD2 for the restart check).
 
 ## Package (batch P)
-`tools\godot_package.ps1 [-Godot <exe override>] -GodotCpp <godot-cpp> [-Stage <data dir> -GameDir <dir with FS2game64r.dll>]`
+`tools\godot_package.ps1 [-Godot <exe override>] -GodotCpp <godot-cpp> [-Stage <data dir> -GameDir <dir with FS2game_<Layer>_64r.dll>]`
 builds the template_release wrapper (`bin/fs2godot_rel.dll`), exports preset "Windows Desktop" with the stock 4.7.2-stable
 Windows release template (official, unmodified, installed per user in `%APPDATA%\Godot\export_templates\4.7.2.stable`, never in
-git) and leaves `build/pkg/FS2Godot.exe` + `FS2Godot.pck` + `fs2godot_rel.dll`. Install = those three files plus `FS2game64r.dll`
+git) and leaves `build/pkg/FS2Godot.exe` + `FS2Godot.pck` + `fs2godot_rel.dll`. Install = those three files plus `FS2game_<Layer>_64r.dll`
 in the game's data folder. Locations also read from GODOT_ENGINE_4_7 (the engine folder; unset is an error unless -Godot is given), FS2_GODOT_CPP, PATH_FS2 (machine profile).
 Launch (`launch.gd`, the main scene): no arguments and no environment variables; the data folder is the exe's folder, else the
 current folder, first valid wins (`*.vp` there or in `Data\`); `--fs2-root <dir>` names it instead. None valid: the folders tried
-are shown in a message box (stderr under --headless) and the exit code is 3 (4: fs2game64r.dll missing). Config, pilots and logs
+are shown in a message box (stderr under --headless) and the exit code is 3 (4: FS2game_<Layer>_64r.dll missing). Config, pilots and logs
 are written under the data folder by the game, as before. FS2_CMD / FS2_DLL / FS2_ROOT still work for the gate harness.
 Gate: `tools\godot_pkg_check.ps1 [-Level L1|L2] [-Config r|d] [-Set ...]` runs the same recordings through the packaged exe, copied
 into each set's folder.
@@ -36,7 +36,7 @@ into each set's folder.
 3. godot-cpp (matching 4.7): clone it to a folder and set `FS2_GODOT_CPP` to it.
 4. Export templates: install the official 4.7.2-stable Windows release template in `%APPDATA%\Godot\export_templates\4.7.2.stable` (unmodified).
 5. Set `PATH_FS2` to a FreeSpace 2 install folder to build into (the retail data; use a copy, not the GOG install).
-6. Build `fs2game` (Release x64) with MSBuild: `FS2game64r.dll` lands in `PATH_FS2`.
+6. Build `fs2game` (Release x64) with MSBuild: `FS2game_<Layer>_64r.dll` lands in `PATH_FS2`.
 7. `tools\godot_package.ps1 -GodotCpp %FS2_GODOT_CPP% -GameDir %PATH_FS2%` builds the wrapper and exports `build\pkg\FS2Godot.exe`, `FS2Godot.pck`, `fs2godot_rel.dll`.
-8. Copy those three files plus `FS2game64r.dll` into the game's data folder (next to the `.vp` files) and run `FS2Godot.exe`.
-9. Check: with no data folder the exe shows the folders it tried and exits 3; with `FS2game64r.dll` missing it exits 4.
+8. Copy those three files plus `FS2game_<Layer>_64r.dll` into the game's data folder (next to the `.vp` files) and run `FS2Godot.exe`.
+9. Check: with no data folder the exe shows the folders it tried and exits 3; with `FS2game_<Layer>_64r.dll` missing it exits 4.

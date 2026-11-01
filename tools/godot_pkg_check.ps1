@@ -5,7 +5,7 @@ template_release wrapper fs2godot_rel.dll). The package is copied into the data 
 --path, no FS2_ROOT and no hand-set root: the launcher takes the exe's folder. Only what a scripted run needs is set: FS2_CMD
 (the game's command line) and FS2_DLL for the game DLL of the chosen configuration.
 Pass = exe exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x64 trace of the same configuration (and the recorded
-trace). -Config r|d picks the game DLL (fs2game64r.dll / fs2game64d.dll). Exit codes as godot_check.
+trace). -Config r|d picks the game DLL (FS2game_<Layer>_64r.dll / _64d.dll). Exit codes as godot_check.
 
 Usage: tools\godot_pkg_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative]
          [-Pkg dir] [-Level L1|L2] [-Seed n] [-Only a,b] [-NoHostChecks]
@@ -27,6 +27,7 @@ param(
 	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { Join-Path $env:USERPROFILE 'fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
@@ -37,8 +38,8 @@ $run = $gs.Dir
 if ($run -ne $GameDir) { Install-GateBuild $gs $GameDir $Config }
 if (-not $Out) { $Out = Join-Path $repo ("replays\godotpkg_" + $Config + '_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
-$dll = Join-Path $run "FS2game64$Config.dll"
-$exe = ".\FS2vs2022${Config}64.exe"
+$dll = Join-Path $run (Get-FS2Dll $Config)
+$exe = ".\$(Get-FS2Exe "${Config}64")"
 foreach ($f in 'FS2Godot.exe', 'FS2Godot.pck', 'fs2godot_rel.dll') { if (-not (Test-Path (Join-Path $Pkg $f))) { throw "Missing $f in $Pkg (tools\godot_package.ps1)" } }
 foreach ($f in $td, $dll) { if (-not (Test-Path $f)) { throw "Missing $f" } }
 # the package goes into the data folder, beside the game DLL: that is how it ships

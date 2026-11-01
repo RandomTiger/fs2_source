@@ -34,10 +34,11 @@ function Get-GateSet([string]$Set, [string]$Repo, [string]$Retail) {
 
 # Other sets run in a folder that is not the retail one: put this build's x64 exes and DLLs there (the demo set has its own
 # FS2_DEMO build, built there by build_demo64.ps1, so nothing is copied for it).
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 function Install-GateBuild($s, [string]$Retail, [string]$Config) {
 	if (-not (Test-Path $s.Dir)) { throw "No folder $($s.Dir) for set $($s.Name)" }
 	if (($s.Name -eq 'fs1') -or ($s.Name -eq 'fs1demo')) {
-		foreach ($f in "FS2vs2022${Config}64.exe", "FS2game64$Config.dll") { Copy-Item (Join-Path $Retail $f) $s.Dir -Force }
+		foreach ($f in (Get-FS2Exe "${Config}64"), (Get-FS2Dll $Config)) { Copy-Item (Join-Path $Retail $f) $s.Dir -Force }
 	}
 }
 
