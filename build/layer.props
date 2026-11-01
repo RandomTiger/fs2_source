@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The layer name of this branch (D-20261101-064106). Every exe and DLL name derives from it:
+     FS2_<Layer>_r.exe / _d / _r64 / _d64, FS2game_<Layer>_64r.dll / _64d.dll.
+     The vcxproj files import this file; scripts read it through tools\layer.ps1. No other copy of the name exists.
+     Each branch sets its own value. On a merge into a branch, keep that branch's value, conflict or not
+     (a feature branch's own value is dropped when it merges into its target). -->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <FS2Layer>OriginalSourceBugFixes</FS2Layer>
+  </PropertyGroup>
+</Project>
