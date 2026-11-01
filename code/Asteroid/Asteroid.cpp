@@ -2254,5 +2254,12 @@ void asteroid_page_in()
 
 			}
 		} 
+
+		// Claude: the impact explosion was read from disk on the first hit; page it with the field (W11)
+		if ( Asteroid_impact_explosion_ani >= 0 ) {	// Claude
+			int nframes;	// Claude
+			bm_get_info( Asteroid_impact_explosion_ani, NULL, NULL, NULL, &nframes );	// Claude
+			bm_page_in_texture( Asteroid_impact_explosion_ani, nframes );	// Claude
+		}	// Claude
 	}
 }

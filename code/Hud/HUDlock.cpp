@@ -1253,4 +1253,5 @@ void hud_lock_determine_lock_point(vector *lock_world_pos_out)
 void hudlock_page_in()
 {
 	bm_page_in_aabitmap( Lock_gauge.first_frame, Lock_gauge.num_frames );
+	bm_page_in_aabitmap( Lock_anim.first_frame, Lock_anim.num_frames );	// Claude: the lock spinner was read from disk on the first lock (W11)
 }

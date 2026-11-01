@@ -122,6 +122,17 @@ function Replay($label, $missions, $fs1Dir) {
 		}
 		Fail $f.Name $set $f.Config $frame $txt
 	}
+	# no texture made inside a frame (W11, D-20261101-064802): the game writes its late loads into autotest.log at level
+	# close; textures, animations and nebula must be 0 (heads and ui are reported only, D-20261101-064804/065735)
+	foreach ($al in @(Get-ChildItem $o -Filter '*.autotest.log' -ErrorAction SilentlyContinue)) {
+		foreach ($m in @(Select-String $al.FullName -Pattern 'after load: textures (\d+) .*?animations (\d+) .*?nebula (\d+)')) {
+			$g = $m.Matches[0].Groups
+			if (([int]$g[1].Value + [int]$g[2].Value + [int]$g[3].Value) -gt 0) {
+				$names = @(Select-String $al.FullName -Pattern '\] late (textures|animations|nebula) (\S+)' | ForEach-Object { $_.Matches[0].Groups[2].Value } | Select-Object -Unique) -join ' '
+				Fail ($al.Name -replace '\.autotest\.log$', '') '-' '-' '' "late texture load after level paging: $($m.Line -replace '^\[[^\]]*\] ', '') ($names)"
+			}
+		}
+	}
 	$done = $r | Where-Object { $_ -match '^DONE ' } | Select-Object -Last 1
 	if (-not $done) { Fail "replay $label" '-' '-' '' "replay_check did not finish: $(($r | Select-Object -Last 3) -join ' / ')" }
 	$script:steps += "replay $label`: $done"
