@@ -1363,11 +1363,6 @@ int replay_language(int lang)
 	return (Replay_mode == REPLAY_PLAY) ? Hdr.language : lang;
 }
 
-int replay_low_mem(int low_mem)
-{
-	return (Replay_mode == REPLAY_PLAY) ? Hdr.low_mem : low_mem;
-}
-
 static uint replay_mission_checksum()
 {
 	char filename[MAX_FILENAME_LEN + 8], *ext;
@@ -1540,7 +1535,7 @@ void replay_enter_game()
 		Hdr.view_position[1] = View_position.y;
 		Hdr.view_position[2] = View_position.z;
 		Hdr.language = lcl_get_language();
-		Hdr.low_mem = game_using_low_mem() ? 1 : 0;
+		Hdr.low_mem = 0;	// Claude: low-memory mode removed (W13); the field stays in the header
 
 		// the file is only created once there is a mission to put in it
 		if (Replay_auto) {
