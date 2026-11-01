@@ -9,7 +9,7 @@ $msb = Get-MSBuild
 foreach ($b in $Branches) {
 	$repo = "$gh\fs2_source_$b"
 	foreach ($c in 'Release', 'Debug') {
-		Remove-Item "$env:PATH_FS2\FS2vs2022$(if ($c -eq 'Release') {'r'} else {'d'})64.exe" -ErrorAction SilentlyContinue
+		Remove-Item "$env:PATH_FS2\$(Get-FS2Exe "$(ConvertTo-FS2Config $c)64" $repo)" -ErrorAction SilentlyContinue
 		$f = "$env:TEMP\x64_$b`_$c.txt"
 		& $msb "$repo\Freespace2.vcxproj" /p:Configuration=$c /p:Platform=x64 "/p:SolutionDir=$repo\" /v:q /nologo /m 2>&1 | Out-File $f
 		if (Select-String $f -Pattern ': (fatal )?error ') { "$b x64 $c BUILD FAILED"; exit 1 }
