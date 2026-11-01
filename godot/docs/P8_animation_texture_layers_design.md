@@ -2,7 +2,7 @@
 
 Order: Tom 2026-11-01. "We want the particle anis to completely load into textures. Texture layers, a system that allows many games to exist in the same texture setup." Also the done-definition: no lazy loading of fixed data (memory note render3d-no-lazy-fixed-data).
 
-Status: draft for Tom's review. No code.
+Status: scope decided by Tom; no code yet.
 
 ## Goal
 Every animation (.ani: particle fire and smoke, fireballs, shockwaves, explosions, muzzle flash, beam particles, shield, debris, thruster, weapon impact) is uploaded whole at load, one frame per layer of an array texture. A draw names (array, layer). No texture upload at draw time. Draws that use the same array batch together whatever frame they show.
@@ -26,11 +26,11 @@ Every animation (.ani: particle fire and smoke, fireballs, shockwaves, explosion
 - The sink entries and shader are mine (GodotRender3D).
 - Original source: only the load hook in BmpMan if the existing `Bm_release_hook` pattern is not enough (minimal, byte-safe, replay-verified).
 
-## Open questions for Tom
-1. Scope: only particle-class animations (particle, fireball, shockwave, muzzle flash, beam particle, debris), or every .ani including UI and briefing animations?
-2. Memory: all frames of every animation at full size, all resident. Fireballs and shockwaves are the big ones. Accept the budget, or cap by mission?
-3. Load time: preload at game start (all .ani of the data set) or at mission load (those the mission uses)? Mission load needs a hook after mission parse; game start is simpler and fully non-lazy.
-4. Frame dropping: keep the retail `can_drop_frames` behaviour, or load all frames?
+## Decisions (Tom 2026-11-01)
+1. Scope: effects only (particles, fireballs, shockwaves, explosions, muzzle flash, beams, debris, shield, thrusters). UI, briefing and icon animations stay as they are.
+2. Load time: mission load (animations the mission uses), via a hook after mission parse.
+3. Frame dropping: `can_drop_frames` is the retail low-memory option (`bm_set_low_mem`, LowMem setting): mode 0 all frames (our reference, D-046), mode 1 every other frame at half size and half fps, mode 2 first frame only (debug). It saves RAM on small machines, not frame rate. The layers load whatever frame count BmpMan reports, so the setting keeps working and nothing changes for the game or trace. (Tom asked what it is; answer given, default kept.)
+4. Memory budget: open. All frames of the mission's effect animations stay resident; size to be measured on the largest missions before the budget is fixed.
 
 ## Order of work if approved
 1. Brief to Godot agent: load-side hook and preload pass.
