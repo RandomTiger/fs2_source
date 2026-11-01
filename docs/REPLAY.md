@@ -45,6 +45,7 @@ TraceDiff recordings\NAME.trace replays\NAME.trace
   - After `REPLAY OK` the game quits normally. Without `-autotest` that is the original game's exit code, 1; only under `-autotest` does 0 mean a pass. Judge a replay by `REPLAY OK` and a TraceDiff `MATCH`, not by the exit code (D-033).
 - Add `-fulltrace` to write the full state every frame instead of every 60 frames. Use it to pin down the exact frame and field once TraceDiff has found a divergence.
 - Add `-replay_pace` to watch or listen to a replay at the speed it was recorded. Without it a replay runs as fast as the PC can draw. Pacing only waits in real time after each mission frame; the trace is the same either way.
+- Add `-shot_frames F1,F2,... [-shot_dir DIR]` to save the picture of those mission frames as `DIR\frame_<F>.bmp` (docs/VISUAL_COMPARE.md). The trace is the same either way.
 
 ## What is recorded
 

@@ -746,12 +746,14 @@ static void autotest_press(int key)
 	key_mark(key, 0, 0);
 }
 
-// the last frame drawn, from the back buffer, as a 24-bit BMP: <-at_shots>\<category>\<screen>.bmp.  The back buffer
-// still holds it at the start of a frame: in a window the frame is copied to the screen, and in full screen the buffers swap.
-static void autotest_shot(char *name)
+// the last frame drawn, from the back buffer, as a 24-bit BMP: <dir>\<name>.bmp, a '/' in name making a subfolder.  The
+// back buffer still holds it at the start of a frame: in a window the frame is copied to the screen, and in full screen
+// the buffers swap.  Under the Godot host the render sink reads back the last frame the viewport rendered.
+// Returns 1 when the file was written.  Used by -at_shots and by -shot_frames (Replay.cpp).
+int autotest_save_screen(char *dir, char *name)
 {
 	char path[MAX_PATH], *p;
-	int w, h, bpp, row, x, y;
+	int w, h, bpp, row, x, y, ok = 0;
 	ubyte *data, *line;
 	uint pixel;
 	color_gun *guns[3] = { &Gr_blue, &Gr_green, &Gr_red };
@@ -759,19 +761,16 @@ static void autotest_shot(char *name)
 	BITMAPINFOHEADER ih;
 	FILE *fp;
 
-	if (!Autotest_shots[0]) {
-		return;
-	}
 	w = gr_screen.max_w;
 	h = gr_screen.max_h;
 	bpp = gr_screen.bytes_per_pixel;
 	if ((bpp != 2) && (bpp != 4)) {
 		autotest_logf("Screenshot of '%s' not saved: %d bytes per pixel\n", name, bpp);
-		return;
+		return 0;
 	}
 
-	sprintf(path, "%s\\%s.bmp", Autotest_shots, name);
-	for (p = path + strlen(Autotest_shots) + 1; *p; p++) {
+	sprintf(path, "%s\\%s.bmp", dir, name);
+	for (p = path + strlen(dir) + 1; *p; p++) {
 		if (*p == '/') {
 			*p = 0;
 			CreateDirectory(path, NULL);
@@ -814,12 +813,23 @@ static void autotest_shot(char *name)
 			fwrite(line, row, 1, fp);
 		}
 		autotest_logf("Shot: %s %s\n", name, path);
+		ok = 1;
 	}
 	if (fp) {
 		fclose(fp);
 	}
 	free(data);
 	free(line);
+	return ok;
+}
+
+// -at_shots: <-at_shots>\<category>\<screen>.bmp
+static void autotest_shot(char *name)
+{
+	if (!Autotest_shots[0]) {
+		return;
+	}
+	autotest_save_screen(Autotest_shots, name);
 }
 
 // -at_debugcam: the debug camera test (#125).  AUTOTEST_DEBUGCAM_TIME seconds into the mission, Shift+Pause is
