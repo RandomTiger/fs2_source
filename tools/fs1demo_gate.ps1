@@ -28,8 +28,9 @@ param(
 
 $repo = Split-Path $PSScriptRoot
 $hl = @(if ($Headless) { '-Headless' })
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 foreach ($d in $Fs2Dir, $Fs1Dir, $DemoDir, $Fs1DemoDir) { if (-not $d -or -not (Test-Path $d)) { "FAIL missing folder '$d' (see the parameters)"; exit 1 } }
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 New-Item -ItemType Directory -Force $Out | Out-Null
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
@@ -39,7 +40,7 @@ $saved = @($Fs2Dir, $Fs1Dir, $DemoDir)
 foreach ($d in $saved) {
 	$b = Join-Path $bak ($d -replace '[:\\ ]', '_')
 	New-Item -ItemType Directory -Force $b | Out-Null
-	Copy-Item (Join-Path $d 'FS2vs2022r.exe'), (Join-Path $d 'FS2vs2022d.exe') $b -ErrorAction SilentlyContinue
+	Copy-Item (Join-Path $d (Get-FS2Exe r)), (Join-Path $d (Get-FS2Exe d)) $b -ErrorAction SilentlyContinue
 }
 
 function Build([string]$into) {
@@ -60,7 +61,7 @@ try {
 
 	# 1. retail and FS1 recordings
 	if (-not (Build $Fs2Dir)) { exit 1 }
-	Copy-Item (Join-Path $Fs2Dir 'FS2vs2022r.exe'), (Join-Path $Fs2Dir 'FS2vs2022d.exe') $Fs1Dir
+	Copy-Item (Join-Path $Fs2Dir (Get-FS2Exe r)), (Join-Path $Fs2Dir (Get-FS2Exe d)) $Fs1Dir
 	$env:FS2DEMO_TEST = $null	# the demo set runs in step 2, from its own build
 	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'retail') -Configs r,d -GameDir $Fs2Dir -Fs1Dir $Fs1Dir @hl | Select-Object -Last 1
 	Get-Content (Join-Path $Out 'retail\summary.txt') | Where-Object { $_ -match '^FAIL' }
