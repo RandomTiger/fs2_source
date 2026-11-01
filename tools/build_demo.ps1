@@ -4,7 +4,7 @@ Builds the FS2_DEMO exe (docs/FS2_DEMO.md) in Release and Debug from clean, into
   tools\build_demo.ps1 [-GameDir <dir>] [-Configs Release,Debug]
 
 -GameDir defaults to $env:FS2DEMO_TEST, the scratch folder demo tests run in (a copy of the demo data, never the
-install itself). The exes keep the retail names, FS2vs2022r.exe and FS2vs2022d.exe, so they must not go to the
+install itself). The exes keep the retail names, FS2_<Layer>_r.exe and _d.exe (tools\layer.ps1), so they must not go to the
 retail game folder. Objects go to their own folder per worktree in %LOCALAPPDATA%, and code.lib and the .tlog lists
 are cleared before and after, so a retail build in the same checkout and this one never share objects (a stale
 FS2_DEMO object desyncs retail replays). The last line is PASS, or FAIL with the reason.
@@ -15,6 +15,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir -or -not (Test-Path $GameDir)) { 'FAIL no demo test folder (-GameDir or FS2DEMO_TEST)'; exit 1 }
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 $env:PATH_FS2 = $GameDir
@@ -30,7 +31,7 @@ function Clear-Shared {
 
 $failed = @()
 foreach ($c in $Configs) {
-	$exe = Join-Path $GameDir ("FS2vs2022{0}.exe" -f $(if ($c -eq 'Release') { 'r' } else { 'd' }))
+	$exe = Join-Path $GameDir (Get-FS2Exe $c)
 	$int = Join-Path $env:LOCALAPPDATA ("fs2_demo_obj\{0}_{1}\" -f (Split-Path $repo -Leaf), $c)
 	Clear-Shared
 	Remove-Item $exe -ErrorAction SilentlyContinue

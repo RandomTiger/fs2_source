@@ -5,9 +5,9 @@ $OutRoot = if ($env:FS2_GATE_OUT) { $env:FS2_GATE_OUT } else { Join-Path $env:TE
 Require-Env PATH_FS2, PATH_FS1
 Initialize-Fs2DemoScratch; Initialize-Fs1DemoScratch	# FS2_PROCDUMP (optional) = procdump.exe, for crash dumps
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; "$Tag GATE DONE"; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; "$Tag GATE DONE"; exit 1 }
 git -C $Repo log --oneline -1
-foreach ($d in $env:PATH_FS2, $env:PATH_FS1, $env:FS1DEMO_PATH) { Remove-Item "$d\FS2vs2022r.exe", "$d\FS2vs2022d.exe" -ErrorAction SilentlyContinue }
+foreach ($d in $env:PATH_FS2, $env:PATH_FS1, $env:FS1DEMO_PATH) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 $o = Join-Path $OutRoot "${Tag}_suite_full"; Remove-Item -Recurse -Force $o -ErrorAction SilentlyContinue
 '--- suite_check -Full ' + (Get-Date -Format HH:mm)

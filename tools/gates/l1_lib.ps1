@@ -126,7 +126,7 @@ function Read-ReplayFailures([string]$Summary) {
 }
 
 # --- Godot side -------------------------------------------------------------------------------------------------
-# Same set through godot_check.ps1 (stock godot --headless + fs2godot + fs2game64 DLL), Release and Debug, one call per
+# Same set through godot_check.ps1 (stock godot --headless + fs2godot + FS2game_<Layer>_64 DLL), Release and Debug, one call per
 # set and config. Prerequisite is the L0 build as for godot_check itself (x64 exes, DLLs, fs2godot.dll, demo x64 build);
 # nothing is built here. The menu tours are native-only (no Godot tour exists), so they run in l1_gate.ps1.
 function Invoke-GodotL1([string]$Repo, [string]$GodotCheck, [string]$SetFile, [int]$Seed, [string[]]$Only, [string]$Out) {

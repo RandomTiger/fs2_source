@@ -4,7 +4,7 @@ Hand-played FreeSpace 1 recordings kept as reference material, not tests. No gat
 
 To replay one, run from the FS1 install (`PATH_FS1`) without `-autotest`; a hand-played replay exits 1 on success (D-033):
 ```
-FS2vs2022r.exe -window -replay <abs path>\NAME.fs2rec -trace <out>\NAME.trace
+FS2_Enhanced_r.exe -window -replay <abs path>\NAME.fs2rec -trace <out>\NAME.trace
 tools\bin\TraceDiff.exe recordings\reference\fs1\NAME.trace <out>\NAME.trace
 ```
 
