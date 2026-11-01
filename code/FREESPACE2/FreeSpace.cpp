@@ -1398,6 +1398,7 @@ void game_level_close()
 	ct_level_close();
 	beam_level_close();
 	mflash_level_close();
+	loadtime_level_close();	// Claude: writes the late texture load totals, see LoadTimes.h
 
 	audiostream_unpause_all();
 	Game_paused = 0;

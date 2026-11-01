@@ -55,6 +55,7 @@ void mflash_game_init();
 
 // initialize muzzle flash stuff for the level
 void mflash_level_init();
+void mflash_page_in();	// Claude: page the blob animations with the level (W11)
 
 // shutdown stuff for the level
 void mflash_level_close();

@@ -8896,6 +8896,13 @@ void ship_page_in()
 			} else {
 				nprintf(( "Paging", "Couldn't load model '%s'\n", si->pof_file ));
 			}
+
+			// Claude: the contrail bitmaps were read from disk when the first contrail was drawn; page them with the class (W11)
+			for (j=0; j<si->ct_count; j++ )	{	// Claude
+				if ( si->ct_info[j].bitmap > -1 )	{	// Claude
+					bm_page_in_texture( si->ct_info[j].bitmap );	// Claude
+				}	// Claude
+			}	// Claude
 		}
 	}
 

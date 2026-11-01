@@ -1282,7 +1282,9 @@ void stars_page_in()
 
 	// Initialize the subspace stuff
 
-	if ( Game_subspace_effect )	{
+	// Claude: Game_subspace_effect is set on entering play, after this runs, so the first subspace mission loaded the
+	// Claude: models and their textures on the first frame drawn; the mission flag says it up front (W11)
+	if ( Game_subspace_effect || (The_mission.flags & MISSION_FLAG_SUBSPACE) )	{	// Claude
 
 		Subspace_model_inner = model_load( "subspace_small.pof", NULL, NULL );
 		Assert(Subspace_model_inner>-1);
