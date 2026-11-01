@@ -476,6 +476,7 @@
 #include "Ship.h"
 #include "Replay.h"
 #include "LoadTimes.h"	// Claude: -loadtimes
+extern int neb2_is_nebula_bitmap(int handle);	// Claude: late texture load count, see LoadTimes.h
 
 #ifndef NDEBUG
 #define BMPMAN_NDEBUG
@@ -1789,6 +1790,11 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 			return NULL;
 		}		
 
+		// Claude: a load from disk after level paging is a texture made inside a frame; count it (LoadTimes.h)
+		if ( be->type != BM_TYPE_USER )	{
+			loadtime_late_bitmap( be->filename, neb2_is_nebula_bitmap(handle) ? LT_LATE_NEBULA : ((be->type == BM_TYPE_ANI) ? LT_LATE_ANI : LT_LATE_TEXTURE), bmp->w * bmp->h * (bmp->bpp / 8) * ((be->type == BM_TYPE_ANI) ? bm_bitmaps[be->info.ani.first_frame].info.ani.num_frames : 1) );	// Claude
+		}	// Claude
+
 		// always go back to screen format
 		BM_SELECT_SCREEN_FORMAT();
 	}
@@ -2209,7 +2215,7 @@ void bm_page_in_stop()
 					bm_lock( bm_bitmaps[i].handle, 16, bm_bitmaps[i].used_flags );
 				}
 				bm_unlock( bm_bitmaps[i].handle );
-				loadtime_add(LT_BM_LOCK, lt_lock, bm_bitmaps[i].bm.w * bm_bitmaps[i].bm.h * (bm_bitmaps[i].bm.bpp / 8));	// Claude: -loadtimes
+				loadtime_add((bm_bitmaps[i].type == BM_TYPE_ANI) ? LT_BM_LOCK_ANI : LT_BM_LOCK, lt_lock, bm_bitmaps[i].bm.w * bm_bitmaps[i].bm.h * (bm_bitmaps[i].bm.bpp / 8));	// Claude: -loadtimes, animation frames apart
 
 				if ( d3d_preloading )	{
 					fix lt_preload = loadtime_start();	// Claude: -loadtimes
@@ -2249,6 +2255,7 @@ void bm_page_in_stop()
 	gr_preload_done();		// Claude: the renderer builds ship glow textures now, not during play
 
 	Bm_paging = 0;
+	loadtime_level_paged();	// Claude: loads during play from here on are counted as late (LoadTimes.h)
 }
 
 int bm_get_cache_slot( int bitmap_id, int separate_ani_frames )

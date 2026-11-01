@@ -471,6 +471,22 @@ void neb2_page_in()
 	}
 }
 
+// Claude: is this one of the nebula's bitmaps (poofs, background model texture, lightning)? Read only, for the
+// Claude: late texture load count (LoadTimes.h)
+int neb2_is_nebula_bitmap(int handle)
+{
+	extern int Nmodel_bitmap;
+	extern int nebl_is_bitmap(int handle);
+	int idx;
+
+	for(idx=0; idx<MAX_NEB2_POOFS; idx++){
+		if(Neb2_poofs[idx] == handle){
+			return 1;
+		}
+	}
+	return (Nmodel_bitmap == handle) || nebl_is_bitmap(handle);
+}
+
 // should we not render this object because its obscured by the nebula?
 int neb_skip_opt = 1;
 DCF(neb_skip, "")

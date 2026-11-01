@@ -9,6 +9,7 @@
 #include "pstypes.h"
 #include "LoadTimes.h"
 #include "Timer.h"
+#include "GameSequence.h"
 
 #define LOADTIMES_LOG		"loadtimes.log"
 #define LOADTIMES_MAX_MARKS	64
@@ -19,6 +20,7 @@ static char *Loadtime_counter_names[LT_NUM_COUNTERS] = {
 	"model_load",
 	"snd_load",
 	"bm_lock (page_in_stop)",
+	"bm_lock (page_in_stop) animations",
 	"gr_preload",
 };
 
@@ -33,6 +35,10 @@ static fix Loadtime_mark_times[LOADTIMES_MAX_MARKS];
 static int Loadtime_calls[LT_NUM_COUNTERS];
 static fix Loadtime_time[LT_NUM_COUNTERS];
 static double Loadtime_bytes[LT_NUM_COUNTERS];
+static int Loadtime_late_on = 0;					// set by bm_page_in_stop, cleared by game_level_close
+int Loadtime_late_count[LT_LATE_NUM];
+static double Loadtime_late_bytes[LT_LATE_NUM];
+static char *Loadtime_late_names[LT_LATE_NUM] = { "textures", "animations", "nebula" };
 
 static int loadtime_ms(fix t)
 {
@@ -116,4 +122,48 @@ void loadtime_add(int counter, fix start, int bytes)
 	Loadtime_calls[counter]++;
 	Loadtime_time[counter] += timer_get_fixed_seconds_unrecorded() - start;
 	Loadtime_bytes[counter] += bytes;
+}
+
+void loadtime_level_paged()
+{
+	Loadtime_late_on = 1;
+	memset(Loadtime_late_count, 0, sizeof(Loadtime_late_count));
+	memset(Loadtime_late_bytes, 0, sizeof(Loadtime_late_bytes));
+}
+
+void loadtime_late_bitmap(char *filename, int kind, int bytes)
+{
+	FILE *fp;
+
+	// only during play: a menu opened from a mission (options, help) loads its own screens
+	if (!Loadtime_late_on || (gameseq_get_state() != GS_STATE_GAME_PLAY) || (kind < 0) || (kind >= LT_LATE_NUM)) {
+		return;
+	}
+	Loadtime_late_count[kind]++;
+	Loadtime_late_bytes[kind] += bytes;
+	mprintf(("Late bitmap load (%s): %s, %d bytes\n", Loadtime_late_names[kind], filename, bytes));
+	if (Cmdline_loadtimes && ((fp = fopen(LOADTIMES_LOG, "a")) != NULL)) {
+		fprintf(fp, "late %s %s %d\n", Loadtime_late_names[kind], filename, bytes);
+		fclose(fp);
+	}
+}
+
+void loadtime_level_close()
+{
+	FILE *fp;
+	char line[256];
+
+	if (!Loadtime_late_on) {
+		return;
+	}
+	Loadtime_late_on = 0;
+	sprintf(line, "after load: %s %d (%.0f bytes) %s %d (%.0f bytes) %s %d (%.0f bytes)",
+		Loadtime_late_names[0], Loadtime_late_count[0], Loadtime_late_bytes[0],
+		Loadtime_late_names[1], Loadtime_late_count[1], Loadtime_late_bytes[1],
+		Loadtime_late_names[2], Loadtime_late_count[2], Loadtime_late_bytes[2]);
+	mprintf(("%s\n", line));
+	if (Cmdline_loadtimes && ((fp = fopen(LOADTIMES_LOG, "a")) != NULL)) {
+		fprintf(fp, "%s\n\n", line);
+		fclose(fp);
+	}
 }

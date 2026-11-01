@@ -475,6 +475,19 @@ void nebl_init()
 	}
 }
 
+// Claude: is this a lightning bolt texture or glow? Read only, for the late texture load count (LoadTimes.h)
+int nebl_is_bitmap(int handle)
+{
+	int idx;
+
+	for(idx=0; idx<Num_bolt_types; idx++){
+		if((Bolt_types[idx].texture == handle) || (Bolt_types[idx].glow == handle)){
+			return 1;
+		}
+	}
+	return 0;
+}
+
 // initialize lightning before entering a level
 void nebl_level_init()
 {
