@@ -6,7 +6,7 @@ hooks (joy_read, pad_poll). The same known-answer checks run on what comes back.
 
 Per config and per test (joy, pad), in the gate folder:
   a  native x64 run with -at_input <joy|pad>: the log must say PASS, trace T_n
-  b  stock `godot --headless` + fs2godot + FS2game64<c>.dll with -at_input <joy|pad>host, recording R: PASS, trace T_g
+  b  stock `godot --headless` + fs2godot + FS2game_<Layer>_64<c>.dll with -at_input <joy|pad>host, recording R: PASS, trace T_g
   c  each recording (native's and Godot's) replayed natively and in Godot: REPLAY OK, trace MATCHes the one it was recorded with
      (the two live traces are compared and logged but not scored: live frame timing follows the wall clock)
 
@@ -23,14 +23,15 @@ param(
 	[switch]$Packaged
 )
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Godot -and -not $Packaged) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set, and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\godot_input_" + $Config + '_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
-$dll = Join-Path $GameDir "FS2game64$Config.dll"
-$exe = Join-Path $GameDir "FS2vs2022${Config}64.exe"
+$dll = Join-Path $GameDir (Get-FS2Dll $Config)
+$exe = Join-Path $GameDir (Get-FS2Exe "${Config}64")
 $proj = Join-Path $repo 'godot'
 $pkg = Join-Path $GameDir 'FS2Godot.exe'
 $need = @($td, $dll, $exe, (Join-Path $proj 'bin\fs2godot.dll'))
@@ -42,7 +43,7 @@ if (-not $Packaged -and -not (Test-Path (Join-Path $proj '.godot\extension_list.
 $summary = Join-Path $Out 'summary.txt'
 Remove-Item $summary -ErrorAction SilentlyContinue
 
-function Wait-NoGame { while (Get-Process FS2vs2022*, fs2run, Godot*, FS2Godot* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
+function Wait-NoGame { while (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*', 'FS2Godot*') -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
 function Verdict([string]$a, [string]$b) {
 	if (-not ((Test-Path $a) -and (Test-Path $b))) { return 'NO TRACE' }
 	$o = & $td $a $b

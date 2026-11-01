@@ -6,7 +6,7 @@ Performance profile driver (performance pass, step 1). Measurement only. Runs on
   -Run      the game folder (own scratch copy; never the shared install)
   -Sample   stack sampler Hz (0 = clean timing run)
   -Config   r (default) or d
-One game at a time: refuses to start while an FS2vs2022*, fs2run or Godot process of this scratch runs.
+One game at a time: refuses to start while an FS2_* (or old FS2vs2022*), fs2run or Godot process of this scratch runs.
 #>
 param(
 	[Parameter(Mandatory)][string]$Set,
@@ -21,11 +21,12 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not $env:GODOT_ENGINE_4_7) { $env:GODOT_ENGINE_4_7 = 'C:\dev\Tools\godot_4.7.2' }
 $godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe'
 $proj = Join-Path $repo 'godot'
 $rec = Join-Path $repo "recordings\$Set\$Mission.fs2rec"
-$dll = Join-Path $Run "FS2game64$Config.dll"
+$dll = Join-Path $Run (Get-FS2Dll $Config)
 foreach ($f in $godot, $rec, $dll, (Join-Path $proj 'bin\fs2godot.dll')) { if (-not (Test-Path $f)) { throw "Missing $f" } }
 if (-not $Tag) { $Tag = "${Set}_${Mission}_" + $(if ($Sample) { "s$Sample" } else { 'clean' }) }
 if (-not $Out) { $Out = Join-Path $Run 'perf_out' }

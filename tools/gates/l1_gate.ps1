@@ -34,7 +34,7 @@ Require-Env PATH_FS2, PATH_FS1
 Initialize-Fs2DemoScratch; Initialize-Fs1DemoScratch
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $fs1 = $env:PATH_FS1; $fs1d = $env:FS1DEMO_PATH
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'L1 FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'L1 FAIL the game is running'; exit 1 }
 if (-not $Out) { $Out = Join-Path $OutRoot ("${Label}_" + $start.ToString('yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $td = Join-Path $Repo 'tools\bin\TraceDiff.exe'
@@ -68,7 +68,7 @@ function Finish {
 # 1. build (L0)
 if (-not $NoBuild) {
 	"build $((Get-Date).ToString('HH:mm'))"
-	foreach ($d in $env:PATH_FS2, $fs1, $fs1d) { Remove-Item "$d\FS2vs2022r.exe", "$d\FS2vs2022d.exe" -ErrorAction SilentlyContinue }
+	foreach ($d in $env:PATH_FS2, $fs1, $fs1d) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 	Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 	$b = RunPs "$sp\build.ps1" @('-Repo', $Repo, '-TraceDiff')
 	foreach ($c in 'Release', 'Debug') {
@@ -82,7 +82,7 @@ if (-not $NoBuild) {
 	Step 'demo build' ($d[-1] -match '^PASS') "$($d[-1])"
 	if ($fails) { Finish }
 }
-foreach ($x in 'FS2vs2022r.exe', 'FS2vs2022d.exe') {
+foreach ($x in (Get-FS2Exe r $Repo), (Get-FS2Exe d $Repo)) {
 	foreach ($d in $fs1, $fs1d) { if ((Test-Path $d) -and (Test-Path "$env:PATH_FS2\$x")) { Copy-Item "$env:PATH_FS2\$x" $d -Force } }
 }
 

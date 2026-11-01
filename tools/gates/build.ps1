@@ -18,7 +18,7 @@ if ($TraceDiff) {
 foreach ($c in $Configs) {
 	# every worktree links into the same game folder, and MSBuild will not relink a worktree whose
 	# objects are up to date, so a newer exe from another branch would otherwise stay there
-	$exe = Join-Path $env:PATH_FS2 ($(if ($c -eq 'Release') { 'FS2vs2022r.exe' } else { 'FS2vs2022d.exe' }))
+	$exe = Join-Path $env:PATH_FS2 (Get-FS2Exe $c $Repo)
 	Remove-Item $exe -ErrorAction SilentlyContinue
 	& $msb Freespace2.vcxproj "/p:Configuration=$c" /p:Platform=Win32 /m /v:m /nologo > "$logs\$c.log" 2>&1
 	$code = $LASTEXITCODE; Save-Utf8 "$logs\$c.log"; $global:LASTEXITCODE = $code

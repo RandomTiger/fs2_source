@@ -31,11 +31,11 @@ The missions are retail FS2 data only. The ship classes and bitmaps are not in t
 Copy the mission into the game folder, then run it from there (`PATH_FS2`, or the FS1 install for FS1 builds):
 ```
 copy data\missions\VisualSpace.fs2 %PATH_FS2%\data\missions\
-FS2vs2022r.exe -window -autotest -at_mission VisualSpace -at_time 60 -at_speed 1
+FS2_RecordPlayback_r.exe -window -autotest -at_mission VisualSpace -at_time 60 -at_speed 1
 ```
 - Pass `-at_speed 1`. Without it autotest runs at 4x speed, and 60 s of mission time ends after about 15 s.
 - The mission notes contain `autotest: player stays still`, so `-playernpc` does not move the player.
-- Only one game instance can run at a time. Check that no `FS2vs2022*` process is running first.
+- Only one game instance can run at a time. Check that no `FS2_*` (or old `FS2vs2022*`) process is running first.
 - The shots include the HUD. The targeting reticle partly covers the middle of each view.
 
 ## Capturing a shot

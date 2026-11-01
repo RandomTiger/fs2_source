@@ -16,13 +16,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not $env:GODOT_ENGINE_4_7) { $env:GODOT_ENGINE_4_7 = 'C:\dev\Tools\godot_4.7.2' }
 $godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe'
 $proj = Join-Path $repo 'godot'
 $rec = Join-Path $repo "recordings\$Set\$Mission.fs2rec"
-$dll = Join-Path $Run "FS2game64$Config.dll"
+$dll = Join-Path $Run (Get-FS2Dll $Config)
 foreach ($f in $godot, $rec, $dll, (Join-Path $proj 'bin\fs2godot.dll')) { if (-not (Test-Path $f)) { throw "Missing $f" } }
-if (Get-Process FS2vs2022*, fs2run, Godot* -ErrorAction SilentlyContinue) { throw 'a game is running' }
+if (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*') -ErrorAction SilentlyContinue) { throw 'a game is running' }
 Remove-Item $Out -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Out | Out-Null
 if ($Set -eq 'autotest') { Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $Run 'data\missions') -Force }

@@ -28,6 +28,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $Reference) { throw 'Set FS2_REFERENCE or pass -Reference (the fs2_reference checkout)' }
 $refRoot = Join-Path $Reference 'fs1_retail'
 $maskFile = Join-Path $refRoot 'masks.json'
@@ -45,7 +46,7 @@ Add-Type -Path (Join-Path $PSScriptRoot 'visual_compare.cs') -ReferencedAssembli
 $logs = @()
 if (-not $Shots) {
 	if (-not $GameDir) { throw 'Set PATH_FS1 or pass -GameDir' }
-	$running = Get-Process FS2vs2022*, FS, Freespace* -ErrorAction SilentlyContinue
+	$running = Get-Process ($FS2ProcessNames + 'FS', 'Freespace*') -ErrorAction SilentlyContinue
 	if ($running) { throw "A game is running ($(($running | ForEach-Object { $_.ProcessName }) -join ', ')). Close it and run again." }
 	$Shots = Join-Path $Out 'shots'
 	$runs = @(@{ name = 'tour'; mission = $Mission })
@@ -59,7 +60,7 @@ if (-not $Shots) {
 			Remove-Item $log -ErrorAction SilentlyContinue
 			$argList = "-window -autotest -at_menus -at_shots `"$dir`""
 			if ($run.mission) { $argList += " -at_mission $($run.mission)" }
-			$p = Start-Process ".\FS2vs2022$Config.exe" -ArgumentList $argList -PassThru
+			$p = Start-Process ".\$(Get-FS2Exe $Config)" -ArgumentList $argList -PassThru
 			if (-not $p.WaitForExit(600000)) { Stop-Process $p -Force }
 			if (Test-Path $log) {
 				$copy = Join-Path $Shots "$($run.name).autotest.log"	# with the shots, so -Shots finds it
