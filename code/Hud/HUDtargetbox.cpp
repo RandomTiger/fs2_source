@@ -1949,8 +1949,14 @@ void hudtargetbox_page_in()
 	bm_page_in_aabitmap( Target_view_extra.first_frame, Target_view_extra.num_frames );
 
 	// Claude: the target box static was loaded and read from disk on its first draw; load and page it with the level (W11)
-	if ( Target_static.num_frames <= 0 ) {	// Claude
-		hud_anim_load( &Target_static );	// Claude
+	if ( Target_static.num_frames <= 0 ) {	// Claude: hud_anim_load without its Int3: the FS2 demo has no TargetStatic.ani
+		int fps = 0;	// Claude
+		Target_static.first_frame = bm_load_animation( Target_static.name, &Target_static.num_frames, &fps );	// Claude
+		if ( Target_static.first_frame == -1 ) {	// Claude
+			Target_static.num_frames = 0;	// Claude: hud_anim_render tries again on first draw, as before
+		} else if ( fps != 0 ) {	// Claude
+			Target_static.total_time = i2fl(Target_static.num_frames)/fps;	// Claude
+		}	// Claude
 	}	// Claude
 	bm_page_in_aabitmap( Target_static.first_frame, Target_static.num_frames );	// Claude
 }
