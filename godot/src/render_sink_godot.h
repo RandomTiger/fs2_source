@@ -14,6 +14,7 @@
 #define FS2_RENDER_SINK_GODOT_H
 
 #include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -76,6 +77,7 @@ public:
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
 	unsigned long long stat_mesh_draws = 0;	// mesh draws that reached a 3D layer, all frames (counted-shot proof)
+	unsigned long long stat_mesh_models = 0;	// distinct (model, state) per run summed: batching potential = draws vs this
 	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).

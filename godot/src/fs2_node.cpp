@@ -272,6 +272,7 @@ Dictionary Fs2Game::get_stats() const
 	if (screen != nullptr) {
 		d["sink_usec"] = (int64_t)static_cast<Fs2Screen *>(screen)->sink_core().stat_sink_usec;
 		d["mesh_draws"] = (int64_t)static_cast<Fs2Screen *>(screen)->sink_core().stat_mesh_draws;
+		d["mesh_models"] = (int64_t)static_cast<Fs2Screen *>(screen)->sink_core().stat_mesh_models;
 		d["sink_frames"] = static_cast<Fs2Screen *>(screen)->get_frames_committed();
 	}
 	d["input_consumed"] = (int64_t)fs2host::consumed_count();

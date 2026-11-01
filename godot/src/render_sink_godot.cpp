@@ -1073,6 +1073,7 @@ void GodotSink::end_run()
 		}
 	}
 	run_batches.clear();
+	{ std::set<std::pair<int32_t, int>> seen; for (const MeshDraw &md : mesh_draws) { seen.insert(std::make_pair(md.id, md.state)); } stat_mesh_models += seen.size(); }
 	mesh_draws.clear();
 	cur_item = RID();
 	if (clipped) {
