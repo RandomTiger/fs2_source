@@ -28,6 +28,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { $GameDir = if ($Fs1) { $env:PATH_FS1 } else { $env:PATH_FS2 } }
 if (-not $GameDir) { throw 'Set PATH_FS2 (PATH_FS1 with -Fs1) or pass -GameDir' }
 $rec = if ($RecDir) { $RecDir } else { Join-Path $repo $(if ($Fs1) { 'recordings\fs1' } else { 'recordings\autotest' }) }
@@ -48,12 +49,12 @@ foreach ($m in $Missions) {
 	}
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$npc = if ($NoPlayerNpc) { '' } else { ' -playernpc' }
-	$p = Start-Process (Join-Path $GameDir 'FS2vs2022r.exe') -WorkingDirectory $GameDir -Wait -PassThru `
+	$p = Start-Process (Join-Path $GameDir (Get-FS2Exe r)) -WorkingDirectory $GameDir -Wait -PassThru `
 		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc $Extra -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$line = "$m ($t s$npc) record exit=$($p.ExitCode) " + (Get-Content (Join-Path $rec "$m.fs2rec.record.log") -Tail 1)
 	foreach ($c in 'r', 'd') {
-		$p = Start-Process (Join-Path $GameDir "FS2vs2022$c.exe") -WorkingDirectory $GameDir -Wait -PassThru `
+		$p = Start-Process (Join-Path $GameDir (Get-FS2Exe $c)) -WorkingDirectory $GameDir -Wait -PassThru `
 			-ArgumentList "-window -autotest -replay `"$rec\$m.fs2rec`" -trace `"$out\${m}_$c.trace`""
 		Copy-Item (Join-Path $rec "$m.fs2rec.replay.log") (Join-Path $out "$m.$c.replay.log")
 		$res = (Select-String -Path (Join-Path $rec "$m.fs2rec.replay.log") -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Matches[0].Value

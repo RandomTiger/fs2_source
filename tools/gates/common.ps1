@@ -2,6 +2,7 @@
 # checkouts are found from this script's location, installs from the PATH_* environment variables,
 # and a missing variable is a stated FAIL, never a C:\ default.
 $RepoRoot = (Resolve-Path "$PSScriptRoot\..\..").Path
+. "$PSScriptRoot\..\layer.ps1"	# exe names: Get-FS2Exe r|d [-Repo] (D-20261101-064106)
 function Require-Env([string[]]$Names) {
 	foreach ($n in $Names) {
 		if (-not [Environment]::GetEnvironmentVariable($n)) { "FAIL environment variable $n is not set (see the machine profile)"; exit 1 }

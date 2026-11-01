@@ -6,8 +6,8 @@ Pass = Godot exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x6
 
 Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative] [-Fiber 1|stress]
 -Quick  the per-commit quick set (14 custom + sm1-01 + sm3-06), taken from the 'custom' list below if present.
-Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot 4.7.2 in the folder $env:GODOT_ENGINE_4_7 (or -Godot exe), FS2game64<c>.dll,
-FS2vs2022<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
+Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot 4.7.2 in the folder $env:GODOT_ENGINE_4_7 (or -Godot exe), FS2game_<Layer>_64<c>.dll,
+FS2_<Layer>_<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
 #>
 param(
 	[string]$Config = 'r',
@@ -27,6 +27,7 @@ param(
 	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { 'C:\Users\Claude\fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
 if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
@@ -37,8 +38,8 @@ $run = $gs.Dir
 if ($run -ne $GameDir) { Install-GateBuild $gs $GameDir $Config }
 if (-not $Out) { $Out = Join-Path $repo ("replays\godot_" + $Config + '_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
-$dll = Join-Path $run "FS2game64$Config.dll"
-$exe = ".\FS2vs2022${Config}64.exe"
+$dll = Join-Path $run (Get-FS2Dll $Config)
+$exe = ".\$(Get-FS2Exe "${Config}64")"
 $proj = Join-Path $repo 'godot'
 foreach ($f in $td, $dll, $Godot, (Join-Path $proj 'bin\fs2godot.dll')) { if (-not (Test-Path $f)) { throw "Missing $f" } }
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -55,7 +56,7 @@ if ($Quick -and -not $Missions) {
 if (-not $Missions) { $Missions = $gs.Missions }
 if (-not $Missions) { throw 'No missions' }
 
-function Wait-NoGame { while (Get-Process FS2vs2022*, fs2run, Godot* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
+function Wait-NoGame { while (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*') -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
 function Verdict([string]$a, [string]$b) {
 	if (-not (Test-Path $b)) { return 'NO TRACE' }
 	$o = & $td $a $b

@@ -5,13 +5,14 @@ Builds the FS2_DEMO x64 game exe and fs2game.dll (Release and Debug) into the de
   tools\build_demo64.ps1 [-GameDir <dir>] [-Configs Release,Debug]
 
 -GameDir defaults to $env:FS2DEMO_TEST (C:\Games\FS2D_scratch when unset), made with tools\make_demo_test.ps1. Names:
-FS2vs2022r64.exe / d64 and FS2game64r.dll / d. Last line PASS, or FAIL with the reason.
+FS2_<Layer>_r64.exe / d64 and FS2game_<Layer>_64r.dll / d (tools\layer.ps1). Last line PASS, or FAIL with the reason.
 #>
 param(
 	[string]$GameDir = $(if ($env:FS2DEMO_TEST) { $env:FS2DEMO_TEST } else { 'C:\Games\FS2D_scratch' }),
 	[string[]]$Configs = @('Release', 'Debug')
 )
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not (Test-Path $GameDir)) { "FAIL no demo test folder $GameDir"; exit 1 }
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 $env:PATH_FS2 = $GameDir
@@ -26,7 +27,7 @@ function Clear-Shared {
 $failed = @()
 foreach ($c in $Configs) {
 	$k = if ($c -eq 'Release') { 'r' } else { 'd' }
-	foreach ($proj in @(@('Freespace2.vcxproj', "FS2vs2022${k}64.exe", 'exe'), @('fs2game\fs2game.vcxproj', "FS2game64$k.dll", 'dll'))) {
+	foreach ($proj in @(@('Freespace2.vcxproj', (Get-FS2Exe "${k}64"), 'exe'), @('fs2game\fs2game.vcxproj', (Get-FS2Dll $k), 'dll'))) {
 		$out = Join-Path $GameDir $proj[1]
 		$int = Join-Path $env:LOCALAPPDATA ("fs2_demo_obj64\{0}_{1}_{2}\" -f (Split-Path $repo -Leaf), $c, $proj[2])
 		Clear-Shared

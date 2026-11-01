@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- fs2game.dll: the game as a plain C DLL (x64 only, D-20261022-143922/143923). Compiles what the exe project compiles
-     including the exe's FreeSpaceWin32.cpp (CD and launcher functions; its WinMain is never called), links code.lib, and exports the C API in fs2_api.h. Output FS2game64r.dll / FS2game64d.dll in PATH_FS2. -->
+     including the exe's FreeSpaceWin32.cpp (CD and launcher functions; its WinMain is never called), links code.lib, and exports the C API in fs2_api.h. Output FS2game_<Layer>_64r.dll / _64d.dll in PATH_FS2, the layer from build\layer.props. -->
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -32,18 +32,19 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup Label="UserMacros" />
+  <Import Project="$(MSBuildThisFileDirectory)..\build\layer.props" /><!-- Claude: layer name for the DLL names (D-20261101-064106) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>$(RepoDir)x64\Debug\fs2game\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2game64d</TargetName>
+    <TargetName>FS2game_$(FS2Layer)_64d</TargetName>
     <TargetExt>.dll</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>$(RepoDir)x64\Release\fs2game\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2game64r</TargetName>
+    <TargetName>FS2game_$(FS2Layer)_64r</TargetName>
     <TargetExt>.dll</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

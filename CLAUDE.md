@@ -17,7 +17,7 @@ The recorder records a person playing a mission. It replays the same inputs into
 
 ## Paths
 - Game install: the `PATH_FS2` environment variable. It differs per machine; never hard-code it.
-- Built exes go to `PATH_FS2`, named `FS2vs2022d.exe` (Debug) and `FS2vs2022r.exe` (Release). The fs2_source_ue repo builds the same names into the same folder, so whichever repo built last is the exe there.
+- Built exes go to `PATH_FS2`, named after the branch's layer (D-20261101-064106): `FS2_<Layer>_d.exe` (Debug) and `FS2_<Layer>_r.exe` (Release), here `FS2_Godot_d.exe` / `_r.exe` (x64: `_d64` / `_r64`); the game DLL is `FS2game_Godot_64r.dll` / `_64d.dll` (`Get-FS2Dll r|d`). The layer name lives only in `build\layer.props`; scripts read it through `tools\layer.ps1` (`Get-FS2Exe r|d`). Each branch keeps its own value: on a merge into a branch, keep that branch's value, conflict or not. The old `FS2vs2022*.exe` files in the installs are no longer built.
 - `TraceDiff.exe` goes to `tools\bin\`.
 - MSBuild: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe`
 
@@ -30,9 +30,9 @@ MSBuild freespace2.sln /t:TraceDiff /p:Configuration=Release /p:Platform=x86 /m
 ## Verify a change
 For each recording in `recordings/`:
 ```
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_<Layer>_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 ```
 Run with the working directory set to `PATH_FS2`, and pass absolute paths to the recording. `NAME.fs2rec.replay.log` must say `REPLAY OK`, and TraceDiff must exit with 0. On a divergence, report the frame and fields to Tom and let him decide. Never change thresholds or re-record to make a test pass.
 
-Replay with both `FS2vs2022d.exe` and `FS2vs2022r.exe`. If the change has an off switch, replay each with it on and off.
+Replay with both the Debug and the Release exe. If the change has an off switch, replay each with it on and off.
