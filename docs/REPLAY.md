@@ -5,7 +5,7 @@ This build of FreeSpace 2 can record one mission played by a person and replay i
 ## Recording
 
 ```
-FS2vs2022d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.trace
 ```
 
 1. Start the game, pick the pilot and the mission (campaign ready room, or the tech room simulator), and play it.
@@ -15,7 +15,7 @@ FS2vs2022d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.tra
 
 To make a recording with nobody playing, use the autotest (`docs/AUTOTEST.md`):
 ```
-FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
 ```
 
 Put a file name in double quotes if it contains a space.
@@ -23,7 +23,7 @@ Put a file name in double quotes if it contains a space.
 ### Recording every mission you play
 
 ```
-FS2vs2022d.exe -window -autorecord DIRECTORY
+FS2_RecordPlayback_d.exe -window -autorecord DIRECTORY
 ```
 
 - Each mission is recorded to `DIRECTORY\MISSION.fs2rec`, with `MISSION.trace` and `MISSION.fs2rec.record.log` next to it. With no directory, it is `Recordings` in the game directory.
@@ -34,7 +34,7 @@ FS2vs2022d.exe -window -autorecord DIRECTORY
 ## Replaying
 
 ```
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_RecordPlayback_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 TraceDiff recordings\NAME.trace replays\NAME.trace
 ```
 

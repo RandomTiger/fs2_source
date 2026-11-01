@@ -8,16 +8,16 @@ $Repo = $RepoRoot; $dd = $env:FS1DEMO_PATH; $fs2 = $env:PATH_FS2
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $out = Join-Path $env:TEMP 'fd_gate'; New-Item -ItemType Directory -Force $out | Out-Null
 $bad = @()
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 "repo at $(git -C $Repo log --oneline -1)"
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-foreach ($d in $fs2, $dd) { Remove-Item "$d\FS2vs2022r.exe", "$d\FS2vs2022d.exe" -ErrorAction SilentlyContinue }
+foreach ($d in $fs2, $dd) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 foreach ($c in 'Release', 'Debug') {
 	Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 	& $msb "$Repo\Freespace2.vcxproj" /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$Repo\" /m /v:q /nologo > "$out\build_$c.txt" 2>&1
 	"build $c exit $LASTEXITCODE"; if ($LASTEXITCODE) { $bad += "build $c" }
 }
-foreach ($e in 'r', 'd') { if (Test-Path "$fs2\FS2vs2022$e.exe") { Copy-Item "$fs2\FS2vs2022$e.exe" $dd -Force } else { $bad += "exe $e" } }
+foreach ($e in 'r', 'd') { if (Test-Path "$fs2\$(Get-FS2Exe $e $Repo)") { Copy-Item "$fs2\$(Get-FS2Exe $e $Repo)" $dd -Force } else { $bad += "exe $e" } }
 if (-not $bad) {
 	$m = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\fs1demo_run.ps1" -Configs r,d -GameDir $dd -Out "$out\missions"
 	$m
