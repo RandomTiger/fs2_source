@@ -25,6 +25,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $CaseFile) { $CaseFile = Join-Path $PSScriptRoot 'frame_cases.json' }
 $lib = Get-Content $CaseFile -Raw | ConvertFrom-Json
 $Cases = $Cases | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
@@ -48,12 +49,12 @@ if ($Capture) {
 		New-Item -ItemType Directory -Force $od | Out-Null
 		$trace = Join-Path $od 'replay.trace'
 		$frames = ($c.frames -join ',')
-		while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+		while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 		Remove-Item "$rec.replay.log" -ErrorAction SilentlyContinue
 		if ($Runner) {
 			$code = & $Runner -Rec $rec -Trace $trace -Frames $frames -ShotDir $od
 		} else {
-			$p = Start-Process ".\FS2vs2022$Config.exe" -ArgumentList "-window -autotest -replay `"$rec`" -trace `"$trace`" -shot_frames $frames -shot_dir `"$od`"" -PassThru
+			$p = Start-Process ".\$(Get-FS2Exe $Config)" -ArgumentList "-window -autotest -replay `"$rec`" -trace `"$trace`" -shot_frames $frames -shot_dir `"$od`"" -PassThru
 			if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $code = 'TIMEOUT' } else { $code = $p.ExitCode }
 		}
 		$res = 'NO LOG'

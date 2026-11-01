@@ -5,7 +5,7 @@ renderers and compared pixel by pixel.
 
 ## Saving frames: `-shot_frames`
 ```
-FS2vs2022r.exe -window -autotest -replay <file.fs2rec> -shot_frames 300,1500 [-shot_dir <dir>]
+FS2_FrameShots_r.exe -window -autotest -replay <file.fs2rec> -shot_frames 300,1500 [-shot_dir <dir>]
 ```
 - Each listed frame (the trace's frame number) is saved as `<dir>\frame_<F>.bmp` (six digits), 24-bit, at the game's
   screen size. `<dir>` defaults to `<recording>.shots`. Up to 64 frames.
