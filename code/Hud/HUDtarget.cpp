@@ -5623,4 +5623,5 @@ void hudtarget_page_in()
 	bm_page_in_aabitmap( Energy_bar_gauges.first_frame, Energy_bar_gauges.num_frames);
 	bm_page_in_aabitmap( Toggle_gauge.first_frame, Toggle_gauge.num_frames);
 	bm_page_in_aabitmap( Cmeasure_gauge.first_frame, Cmeasure_gauge.num_frames);
+	hudbrackets_page_in();	// Claude: the "ships attacking" marker (W11)
 }
