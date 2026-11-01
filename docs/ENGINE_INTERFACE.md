@@ -72,5 +72,15 @@ The version string (`get_version_string`) stays in the game; it uses no Windows 
 ## BmpMan is on the renderer's side (decision D-044)
 A leak is logic reading presentation state, or reaching presentation by a path other than this interface. BmpMan's pixel conversion (`bm_lock`, the `BM_SELECT_*` pointers, the `Gr_current_*`, `Gr_t_*`, `Gr_ta_*` and `Bm_pixel_format` globals) is presentation: it turns image files into the renderer's texture format, and nothing on the logic side reads it. Its boundary is `BmpMan.h`. A host either reuses BmpMan and sets its format globals from its own texture format, or replaces it behind `BmpMan.h`. Either way nothing in BmpMan names a Godot type.
 
+## The level's bitmaps are known before play (W11, decisions D-20261101-064802 to 064806)
+Level paging (`level_page_in`, `bm_page_in_start` to `bm_page_in_stop`) marks every bitmap the level can draw, and `bm_page_in_stop` loads them, so no texture is read from disk inside a frame. A host that uploads its own textures reads the same set once paging has finished:
+
+- `int bm_get_level_bitmaps(bm_level_bitmap *list, int max)` (`BmpMan.h`) fills up to `max` entries and returns how many the level has (call it with `max` 0 to size the list). Each entry has the bitmap `handle`, `nframes` (an animation is one entry: frames `handle` to `handle + nframes - 1`; a still has 1), `flags` and `filename`. Flags say how the game draws it: `BM_LEVEL_TEXTURE` (0), `BM_LEVEL_AABITMAP` (HUD alpha bitmap), `BM_LEVEL_XPARENT`, `BM_LEVEL_NONDARK`.
+- `BM_LEVEL_LISTED` marks a file the level may play outside BmpMan: the talking heads (`AnimPlay`), every variant of every persona head the messages can use, the wingman death scream and the Terran Command head. Its `handle` is -1 and `nframes` 0. The game does not load these ahead; it reads a head when the message plays (D-20261101-064804). A host may load them ahead.
+- The list is valid from `bm_page_in_stop` until the next `bm_page_in_start`. It names no host type.
+- A page-in function adds to it with the existing `bm_page_in_*` calls, or `bm_page_in_listed(filename)` for a listed file.
+
+The check: a bitmap read from disk by `bm_lock` during play after paging is counted as a late load (`Replay/LoadTimes.h`) and written to `autotest.log` and, with `-loadtimes`, `loadtimes.log`. Late textures, animations and nebula bitmaps must be 0, and the L1 gate fails otherwise. Talking heads (`heads`) and bitmaps read while an in-play popup is up (`ui`, the death popup and `popup.cpp`, D-20261101-065735) are reported only.
+
 ## Size of a backend
 About 200 functions, or about 120 if cfile stays in the game. Render is about 65 to 70 plus about 25 for textures, audio 56, input 47, platform about 28. The renderer branches and colour-global reads outside the seams are now capability queries (`gr_screen.hardware`, `gr_screen.texture_bpp`, `gr_texture_memory`).

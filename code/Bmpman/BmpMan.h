@@ -310,6 +310,27 @@ void bm_page_in_xparent_texture( int bitmapnum, int num_frames=1 );
 // If num_frames is passed, assume this is an animation
 void bm_page_in_aabitmap( int bitmapnum, int num_frames=1 );
 
+// Claude: the bitmaps the current level needs, for a host that uploads its own textures (W11, D-20261101-064802,
+// Claude: docs/ENGINE_INTERFACE.md).  Valid from bm_page_in_stop until the next bm_page_in_start.
+#define BM_LEVEL_TEXTURE		0			// a model, effect or particle texture
+#define BM_LEVEL_AABITMAP		(1<<0)	// an 8-bit alpha bitmap (HUD)
+#define BM_LEVEL_XPARENT		(1<<1)	// a texture with a transparent colour
+#define BM_LEVEL_NONDARK		(1<<2)	// a texture with non-darkening colours
+#define BM_LEVEL_LISTED		(1<<3)	// not loaded by the game: a file the level may play outside BmpMan (talking heads,
+									// D-20261101-064804); handle is -1 and nframes 0
+typedef struct bm_level_bitmap {
+	int		handle;						// the first frame of an animation
+	int		nframes;						// frames handle .. handle+nframes-1; 1 for a still
+	int		flags;						// BM_LEVEL_*
+	char	filename[MAX_FILENAME_LEN];
+} bm_level_bitmap;
+
+// Fills up to max entries (list may be NULL when max is 0) and returns how many the level has.
+int bm_get_level_bitmaps( bm_level_bitmap *list, int max );
+
+// Between bm_page_in_start and bm_page_in_stop: a file the level may play outside BmpMan.  Listed, not loaded.
+void bm_page_in_listed( char *filename );
+
 // 
 // Mode: 0 = High memory
 //       1 = Low memory ( every other frame of ani's)

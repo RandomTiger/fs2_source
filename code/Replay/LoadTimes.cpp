@@ -10,6 +10,10 @@
 #include "LoadTimes.h"
 #include "Timer.h"
 #include "GameSequence.h"
+#include "Popup.h"
+#include "Autotest.h"
+
+extern int Popupdead_active;
 
 #define LOADTIMES_LOG		"loadtimes.log"
 #define LOADTIMES_MAX_MARKS	64
@@ -38,7 +42,7 @@ static double Loadtime_bytes[LT_NUM_COUNTERS];
 static int Loadtime_late_on = 0;					// set by bm_page_in_stop, cleared by game_level_close
 int Loadtime_late_count[LT_LATE_NUM];
 static double Loadtime_late_bytes[LT_LATE_NUM];
-static char *Loadtime_late_names[LT_LATE_NUM] = { "textures", "animations", "nebula" };
+static char *Loadtime_late_names[LT_LATE_NUM] = { "textures", "animations", "nebula", "heads", "ui" };
 
 static int loadtime_ms(fix t)
 {
@@ -139,12 +143,22 @@ void loadtime_late_bitmap(char *filename, int kind, int bytes)
 	if (!Loadtime_late_on || (gameseq_get_state() != GS_STATE_GAME_PLAY) || (kind < 0) || (kind >= LT_LATE_NUM)) {
 		return;
 	}
+	// a popup over play (death popup, popup.cpp) loads its screen when it opens
+	if ((kind != LT_LATE_HEAD) && (popup_active() || Popupdead_active)) {
+		kind = LT_LATE_UI;
+	}
 	Loadtime_late_count[kind]++;
 	Loadtime_late_bytes[kind] += bytes;
 	mprintf(("Late bitmap load (%s): %s, %d bytes\n", Loadtime_late_names[kind], filename, bytes));
 	if (Cmdline_loadtimes && ((fp = fopen(LOADTIMES_LOG, "a")) != NULL)) {
 		fprintf(fp, "late %s %s %d\n", Loadtime_late_names[kind], filename, bytes);
 		fclose(fp);
+	}
+	if (kind < LT_LATE_HEAD) {		// the L1 gate reads these from autotest.log
+		char note[128];
+		_snprintf(note, sizeof(note) - 1, "late %s %s %d\n", Loadtime_late_names[kind], filename, bytes);
+		note[sizeof(note) - 1] = 0;
+		autotest_note(note);
 	}
 }
 
@@ -157,11 +171,15 @@ void loadtime_level_close()
 		return;
 	}
 	Loadtime_late_on = 0;
-	sprintf(line, "after load: %s %d (%.0f bytes) %s %d (%.0f bytes) %s %d (%.0f bytes)",
+	sprintf(line, "after load: %s %d (%.0f bytes) %s %d (%.0f bytes) %s %d (%.0f bytes) %s %d (%.0f bytes) %s %d (%.0f bytes)",
 		Loadtime_late_names[0], Loadtime_late_count[0], Loadtime_late_bytes[0],
 		Loadtime_late_names[1], Loadtime_late_count[1], Loadtime_late_bytes[1],
-		Loadtime_late_names[2], Loadtime_late_count[2], Loadtime_late_bytes[2]);
+		Loadtime_late_names[2], Loadtime_late_count[2], Loadtime_late_bytes[2],
+		Loadtime_late_names[3], Loadtime_late_count[3], Loadtime_late_bytes[3],
+		Loadtime_late_names[4], Loadtime_late_count[4], Loadtime_late_bytes[4]);
 	mprintf(("%s\n", line));
+	strcat(line, "\n");
+	autotest_note(line);		// the L1 gate fails on textures, animations or nebula above 0
 	if (Cmdline_loadtimes && ((fp = fopen(LOADTIMES_LOG, "a")) != NULL)) {
 		fprintf(fp, "%s\n\n", line);
 		fclose(fp);

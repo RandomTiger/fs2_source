@@ -384,6 +384,7 @@
 #include "HUDconfig.h"
 #include "Replay.h"
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "bmpman.h"	// Claude: bm_page_in_listed (W11)
 
 // here is a text list of the builtin message names.  These names are used to match against
 // names read in for builtin message radio bits to see what message to play.  These are
@@ -2092,6 +2093,56 @@ int message_anim_is_playing()
 	}
 
 	return 0;
+}
+
+// Claude: list (not load) every talking head the messages can play: each variant of each persona's head, the
+// Claude: wingman death scream and the Terran Command head.  The same names message_play_anim builds.  For a host
+// Claude: that loads its files ahead (bm_get_level_bitmaps, W11, D-20261101-064804); the game still loads a
+// Claude: head when it plays.  Reads nothing that changes play.
+void message_page_in_heads()
+{
+	int i, k, persona_index, nheads, scream;
+	char base[MAX_FILENAME_LEN], name[MAX_FILENAME_LEN], *p;
+
+	for ( i = 0; i < Num_messages; i++ ) {
+		if ( Messages[i].avi_info.index < 0 ) {
+			continue;
+		}
+		if ( strlen(Message_avis[Messages[i].avi_info.index].name) >= MAX_FILENAME_LEN - 2 ) {
+			continue;
+		}
+		strcpy( base, Message_avis[Messages[i].avi_info.index].name );
+		p = strchr( base, '.' );
+		if ( p ) {
+			*p = '\0';
+		}
+		if ( (i >= Num_builtin_messages) && _strnicmp(HEAD_PREFIX_STRING, base, strlen(HEAD_PREFIX_STRING)-1) ) {
+			bm_page_in_listed( base );		// not a head: played by its own name
+			continue;
+		}
+		persona_index = Messages[i].persona_index;
+		nheads = Game_profile->wingman_heads;
+		scream = 0;
+		if ( (persona_index >= 0) && (Personas[persona_index].flags & (PERSONA_FLAG_WINGMAN | PERSONA_FLAG_SUPPORT)) ) {
+			scream = 1;
+		} else if ( (persona_index >= 0) && (Personas[persona_index].flags & (PERSONA_FLAG_COMMAND | PERSONA_FLAG_LARGE)) ) {
+			nheads = Game_profile->command_heads;
+		}
+		for ( k = 0; k < nheads; k++ ) {
+			sprintf( name, "%s%c", base, 'a'+k );
+			bm_page_in_listed( name );
+		}
+		if ( scream ) {
+			sprintf( name, "%s%c", base, 'a'+2 );	// the death scream
+			bm_page_in_listed( name );
+		}
+	}
+
+	// a message converted to Terran Command plays the command head
+	for ( k = 0; k < Game_profile->command_heads; k++ ) {
+		sprintf( name, "%s%c", COMMAND_HEAD_PREFIX, 'a'+k );
+		bm_page_in_listed( name );
+	}
 }
 
 // Load mission messages (this is called by the level paging code when running with low memory)

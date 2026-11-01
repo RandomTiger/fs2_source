@@ -13,7 +13,9 @@
  * Texture loads after level paging: a bitmap read from disk in bm_lock after bm_page_in_stop, during play, is a
  * texture made inside a frame.  Each one is counted as a texture, an animation (BM_TYPE_ANI, all frames) or a nebula
  * bitmap, and logged by name (Debug log always, loadtimes.log with -loadtimes).  At game_level_close one line gives
- * the totals for the level: "after load: textures N (bytes) animations N (bytes) nebula N (bytes)".  The counts read
+ * the totals for the level: "after load: textures N (bytes) animations N (bytes) nebula N (bytes) heads N (bytes)
+ * ui N (bytes)".  Textures, animations and nebula should be 0 (the L1 gate checks them); heads are loaded when they
+ * play and ui while a popup is up, so those two are reported only.  The counts read
  * no timer and change nothing, so they are kept with the log off.
  *
  * Every time is read from timer_get_fixed_seconds_unrecorded, so the log adds nothing to a recording
@@ -47,6 +49,8 @@ enum {
 	LT_LATE_TEXTURE,
 	LT_LATE_ANI,
 	LT_LATE_NEBULA,
+	LT_LATE_HEAD,		// an animation read by anim_load (talking heads): listed, not paged (D-20261101-064804)
+	LT_LATE_UI,			// a bitmap read while an in-play popup is up (popupdead, popup.cpp): reported only (D-20261101-065735)
 	LT_LATE_NUM
 };
 void loadtime_level_paged();								// end of bm_page_in_stop: loads during play from now on are late
