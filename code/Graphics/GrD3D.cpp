@@ -1019,10 +1019,35 @@ BOOL WINAPI gr_d2d_enum( LPGUID lpGUID,
 	return D3DENUMRET_OK;
 }
 
+// Claude: load the Windows ddraw.dll before the first DirectDraw call. GOG installs put DDrawCompat
+// in the game folder as ddraw.dll, which would otherwise be loaded first and slows the borderless
+// fullscreen present. ddraw.dll is delay-loaded (Freespace2.vcxproj), so the delay-load helper
+// then finds this copy already loaded.
+static void d3d_load_system_ddraw()
+{
+	static int done = 0;
+	if ( done )	{
+		return;
+	}
+	done = 1;
+
+	char path[MAX_PATH];
+	UINT len = GetSystemDirectory( path, MAX_PATH );
+	if ( (len == 0) || (len + 11 >= MAX_PATH) )	{
+		return;
+	}
+	strcat( path, "\\ddraw.dll" );
+	if ( !LoadLibrary( path ) )	{
+		mprintf(( "GR_D3D_INIT: could not load %s\n", path ));
+	}
+}
+
 d3d_device *d3d_poll_devices()
 {
 	int i;
 	HRESULT ddrval;
+
+	d3d_load_system_ddraw();	// Claude
 
 	Num_d2d_devices = 0;
 	Num_d3d_devices = 0;
@@ -1461,6 +1486,7 @@ void gr_d3d_init_device(int screen_width, int screen_height)
 	D3D_device = dd;	
 
 	os_suspend();
+	d3d_load_system_ddraw();	// Claude
 	ddrval = DirectDrawCreate( dd->pguid_2d, &lpDD1, NULL );
 	os_resume();
 	if ( ddrval != DD_OK ) {
