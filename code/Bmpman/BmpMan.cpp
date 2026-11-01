@@ -558,7 +558,7 @@ int Bm_paging = 0;
 static char Bm_listed[BM_MAX_LISTED][MAX_FILENAME_LEN];
 static int Bm_num_listed = 0;
 
-static int Bm_low_mem = 0;			
+// Claude: low-memory mode removed (W13)
 
 // 16 bit pixel formats
 int Bm_pixel_format = BM_PIXEL_FORMAT_ARGB;
@@ -580,14 +580,7 @@ int Bm_pixel_format = BM_PIXEL_FORMAT_ARGB;
 #define BM_SET_A(p, a)	{ switch(Bm_pixel_format){ case BM_PIXEL_FORMAT_ARGB: BM_SET_A_ARGB(((char*)p), a); break; case BM_PIXEL_FORMAT_D3D: BM_SET_A_D3D(p, a); break;  default: Int3(); } }
 
 // ===========================================
-// Mode: 0 = High memory
-//       1 = Low memory ( every other frame of ani's)
-//       2 = Debug low memory ( only use first frame of each ani )
-void bm_set_low_mem( int mode )
-{
-	Assert( (mode >= 0)  && (mode<=2 ));
-	Bm_low_mem = mode;
-}
+// Claude: low-memory mode removed (W13)
 
 
 static int bm_get_next_handle()
@@ -1093,7 +1086,7 @@ static int find_block_of(int n)
 //
 // returns:		bitmap number of first frame in the animation
 //
-int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop_frames)
+int bm_load_animation( char *real_filename, int *nframes, int *fps)	// Claude: no can_drop_frames (W13)
 {
 	int	i, n;
 	anim	the_anim;
@@ -1116,29 +1109,17 @@ int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop
 		return -1;
 	}
 
-	int reduced = 0;
+	// Claude: low-memory mode removed (W13)
 #ifndef NDEBUG
 	// for debug of ANI sizes
 	strcpy(the_anim.name, real_filename);
 #endif
 	anim_read_header(&the_anim, fp);
-	if ( can_drop_frames )	{
-		if ( Bm_low_mem == 1 )	{
-			reduced = 1;
-			the_anim.total_frames = ( the_anim.total_frames+1)/2;
-		} else if ( Bm_low_mem == 2 )	{
-			the_anim.total_frames = 1;	
-		}
-	}
 	cfclose(fp);
 
 	*nframes = the_anim.total_frames;
 	if ( fps != NULL )	{
-		if ( reduced )	{
-			*fps = the_anim.fps / 2;
-		} else {
-			*fps = the_anim.fps;
-		}
+		*fps = the_anim.fps;	// Claude: never halved (W13)
 	}
 
 	// first check to see if this ani already has it's frames loaded
@@ -1149,10 +1130,7 @@ int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop
 	}
 	
 	if ( i < MAX_BITMAPS ) {
-		// in low memory modes this can happen
-		if(!Bm_low_mem){
-			Assert(bm_bitmaps[i].info.ani.num_frames == *nframes);
-		}
+		Assert(bm_bitmaps[i].info.ani.num_frames == *nframes);	// Claude: always, no low-memory mode (W13)
 		return bm_bitmaps[i].handle;
 	}
 
@@ -1173,11 +1151,7 @@ int bm_load_animation( char *real_filename, int *nframes, int *fps, int can_drop
 		bm_bitmaps[n+i].bm.w = short(the_anim.width);
 		bm_bitmaps[n+i].bm.rowsize = short(the_anim.width);
 		bm_bitmaps[n+i].bm.h = short(the_anim.height);
-		if ( reduced )	{
-			bm_bitmaps[n+i].bm.w /= 2;
-			bm_bitmaps[n+i].bm.rowsize /= 2;
-			bm_bitmaps[n+i].bm.h /= 2;
-		}
+		// Claude: low-memory mode removed (W13)
 		bm_bitmaps[n+i].bm.flags = 0;
 		bm_bitmaps[n+i].bm.bpp = 0;
 		bm_bitmaps[n+i].bm.data = 0;
@@ -1432,11 +1406,7 @@ void bm_lock_ani( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 		anim_free(the_anim);
 	}
 
-	int can_drop_frames = 0;
-
-	if ( the_anim->total_frames != bm_bitmaps[first_frame].info.ani.num_frames )	{
-		can_drop_frames = 1;
-	}
+	// Claude: low-memory mode removed (W13)
 	bm = &bm_bitmaps[first_frame].bm;
 	if(bpp == 32){	// Claude: 32 bit textures
 		size = bm->w * bm->h * 4;
@@ -1553,10 +1523,7 @@ void bm_lock_ani( int handle, int bitmapnum, bitmap_entry *be, bitmap *bmp, ubyt
 
 		bm_convert_format( first_frame+i, bm, bpp, flags );
 
-		// Skip a frame
-		if ( (i < nframes-1)  && can_drop_frames )	{
-			frame_data = anim_get_next_raw_buffer(the_anim_instance, 0, flags & BMP_AABITMAP ? 1 : 0, bm->bpp);
-		}
+		// Claude: low-memory mode removed (W13)
 
 		//mprintf(( "Checksum = %d\n", be->palette_checksum ));
 	}

@@ -278,8 +278,7 @@ int game_get_default_skill_level();
 // a keypress.  See CPP file for more info.
 void game_flush();
 
-// running with low-memory (less than 48MB)
-bool game_using_low_mem();
+// Claude: low-memory mode removed (W13)
 
 // misc ---------------------------------------------------------------
 

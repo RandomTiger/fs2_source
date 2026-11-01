@@ -172,7 +172,7 @@ void mflash_level_init()
 		// blobs
 		for(idx=0; idx<Mflash_info[i].num_blobs; idx++){
 			Mflash_info[i].blob_anims[idx] = -1;
-			Mflash_info[i].blob_anims[idx] = bm_load_animation(Mflash_info[i].blob_names[idx], &num_frames, &fps, 1);
+			Mflash_info[i].blob_anims[idx] = bm_load_animation(Mflash_info[i].blob_names[idx], &num_frames, &fps);	// Claude: no can_drop_frames (W13)
 			Assert(Mflash_info[i].blob_anims[idx] >= 0);
 		}
 	}
