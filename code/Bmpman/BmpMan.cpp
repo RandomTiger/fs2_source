@@ -476,6 +476,7 @@
 #include "Ship.h"
 #include "Replay.h"
 #include "LoadTimes.h"	// Claude: -loadtimes
+extern int neb2_is_nebula_bitmap(int handle);	// Claude: late texture load count, see LoadTimes.h
 
 #ifndef NDEBUG
 #define BMPMAN_NDEBUG
@@ -552,6 +553,11 @@ int Bm_max_ram = 0;		//16*1024*1024;			// Only use 16 MB for textures
 int bm_next_handle = 1;
 
 int Bm_paging = 0;
+
+// Claude: files the level may play outside BmpMan, for bm_get_level_bitmaps (W11)
+#define BM_MAX_LISTED	128
+static char Bm_listed[BM_MAX_LISTED][MAX_FILENAME_LEN];
+static int Bm_num_listed = 0;
 
 static int Bm_low_mem = 0;			
 
@@ -1795,6 +1801,11 @@ bitmap * bm_lock( int handle, ubyte bpp, ubyte flags )
 			return NULL;
 		}		
 
+		// Claude: a load from disk after level paging is a texture made inside a frame; count it (LoadTimes.h)
+		if ( be->type != BM_TYPE_USER )	{
+			loadtime_late_bitmap( be->filename, neb2_is_nebula_bitmap(handle) ? LT_LATE_NEBULA : ((be->type == BM_TYPE_ANI) ? LT_LATE_ANI : LT_LATE_TEXTURE), bmp->w * bmp->h * (bmp->bpp / 8) * ((be->type == BM_TYPE_ANI) ? bm_bitmaps[be->info.ani.first_frame].info.ani.num_frames : 1) );	// Claude
+		}	// Claude
+
 		// always go back to screen format
 		BM_SELECT_SCREEN_FORMAT();
 	}
@@ -2159,6 +2170,7 @@ void bm_page_in_start()
 	int i;
 
 	Bm_paging = 1;
+	Bm_num_listed = 0;	// Claude: bm_page_in_listed (W11)
 
 	// Mark all as inited
 	for (i = 0; i < MAX_BITMAPS; i++)	{
@@ -2219,7 +2231,7 @@ void bm_page_in_stop()
 					bm_lock( bm_bitmaps[i].handle, 16, bm_bitmaps[i].used_flags );
 				}
 				bm_unlock( bm_bitmaps[i].handle );
-				loadtime_add(LT_BM_LOCK, lt_lock, bm_bitmaps[i].bm.w * bm_bitmaps[i].bm.h * (bm_bitmaps[i].bm.bpp / 8));	// Claude: -loadtimes
+				loadtime_add((bm_bitmaps[i].type == BM_TYPE_ANI) ? LT_BM_LOCK_ANI : LT_BM_LOCK, lt_lock, bm_bitmaps[i].bm.w * bm_bitmaps[i].bm.h * (bm_bitmaps[i].bm.bpp / 8));	// Claude: -loadtimes, animation frames apart
 
 				if ( d3d_preloading )	{
 					fix lt_preload = loadtime_start();	// Claude: -loadtimes
@@ -2259,6 +2271,64 @@ void bm_page_in_stop()
 	gr_preload_done();		// Claude: the renderer builds ship glow textures now, not during play
 
 	Bm_paging = 0;
+	loadtime_level_paged();	// Claude: loads during play from here on are counted as late (LoadTimes.h)
+}
+
+// Claude: the bitmaps marked for this level, then the listed files; see BmpMan.h (W11, D-20261101-064802)
+int bm_get_level_bitmaps( bm_level_bitmap *list, int max )
+{
+	int i, n = 0;
+	bm_level_bitmap e;
+
+	for (i = 0; i < MAX_BITMAPS; i++)	{
+		if ( (bm_bitmaps[i].type == BM_TYPE_NONE) || !bm_bitmaps[i].preloaded )	{
+			continue;
+		}
+		if ( (bm_bitmaps[i].type == BM_TYPE_ANI) && (bm_bitmaps[i].info.ani.first_frame != i) )	{
+			continue;		// one entry per animation, at its first frame
+		}
+		e.handle = bm_bitmaps[i].handle;
+		e.nframes = (bm_bitmaps[i].type == BM_TYPE_ANI) ? bm_bitmaps[i].info.ani.num_frames : 1;
+		switch ( bm_bitmaps[i].preloaded )	{
+		case 2:	e.flags = BM_LEVEL_AABITMAP;	break;
+		case 3:	e.flags = BM_LEVEL_XPARENT;	break;
+		case 4:	e.flags = BM_LEVEL_NONDARK;	break;
+		default:	e.flags = BM_LEVEL_TEXTURE;	break;
+		}
+		strcpy( e.filename, bm_bitmaps[i].filename );
+		if ( n < max )	{
+			list[n] = e;
+		}
+		n++;
+	}
+	for (i = 0; i < Bm_num_listed; i++)	{
+		if ( n < max )	{
+			list[n].handle = -1;
+			list[n].nframes = 0;
+			list[n].flags = BM_LEVEL_LISTED;
+			strcpy( list[n].filename, Bm_listed[i] );
+		}
+		n++;
+	}
+	return n;
+}
+
+// Claude: a file the level may play outside BmpMan, listed and not loaded; see BmpMan.h (W11, D-20261101-064804)
+void bm_page_in_listed( char *filename )
+{
+	int i;
+
+	if ( (filename == NULL) || (strlen(filename) >= MAX_FILENAME_LEN) )	{
+		return;
+	}
+	for (i = 0; i < Bm_num_listed; i++)	{
+		if ( !stricmp(Bm_listed[i], filename) )	{
+			return;
+		}
+	}
+	if ( Bm_num_listed < BM_MAX_LISTED )	{
+		strcpy( Bm_listed[Bm_num_listed++], filename );
+	}
 }
 
 int bm_get_cache_slot( int bitmap_id, int separate_ani_frames )

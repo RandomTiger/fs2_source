@@ -44,6 +44,7 @@ struct object;
 
 // initialize flak stuff for the level
 void flak_level_init();
+void flak_page_in();	// Claude: page the muzzle flash animation with the level (W11)
 
 // close down flak stuff
 void flak_level_close();

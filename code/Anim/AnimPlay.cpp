@@ -185,6 +185,7 @@
 #include "PCXUtils.h"
 #include "PackUnPack.h"
 #include "cfile.h"
+#include "LoadTimes.h"	// Claude: late load count (W11)
 
 static color Color_xparent;
 
@@ -988,6 +989,7 @@ anim *anim_load(char *real_filename, int file_mapped)
 
 		// store how long the anim should take on playback (in seconds)
 		ptr->time = i2fl(ptr->total_frames)/ptr->fps;
+		loadtime_late_bitmap( name, LT_LATE_HEAD, ptr->width * ptr->height * ptr->total_frames );	// Claude: counted only during play (LoadTimes.h, W11)
 
 		for(idx=0;idx<ptr->num_keys;idx++){
 			ptr->keys[idx].frame_num = 0;

@@ -3440,6 +3440,8 @@ void weapons_page_in()
 		Assert( cmeasurep->model_num > -1 );
 	}
 
+	mflash_page_in();	// Claude: muzzle flash blobs (W11)
+	flak_page_in();		// Claude: flak muzzle flash (W11)
 }
 
 // call to get the "color" of the laser at the given moment (since glowing lasers can cycle colors)

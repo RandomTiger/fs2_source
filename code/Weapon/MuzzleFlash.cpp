@@ -178,6 +178,21 @@ void mflash_level_init()
 	}
 }
 
+// Claude: page in every muzzle flash blob with the level; they were read from disk on the first shot (W11)
+void mflash_page_in()
+{
+	int i, idx, nframes;
+
+	for(i=0; i<Num_mflash_types; i++){
+		for(idx=0; idx<Mflash_info[i].num_blobs; idx++){
+			if(Mflash_info[i].blob_anims[idx] >= 0){
+				bm_get_info(Mflash_info[i].blob_anims[idx], NULL, NULL, NULL, &nframes);
+				bm_page_in_texture(Mflash_info[i].blob_anims[idx], nframes);
+			}
+		}
+	}
+}
+
 // shutdown stuff for the level
 void mflash_level_close()
 {
