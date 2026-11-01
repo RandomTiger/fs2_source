@@ -488,6 +488,28 @@ int nebl_is_bitmap(int handle)
 	return 0;
 }
 
+// Claude: page in the bolt textures and glows of the mission's storm with the level (W11)
+void nebl_page_in()
+{
+	int idx, type;
+
+	if(Storm == NULL){
+		return;
+	}
+	for(idx=0; idx<Storm->num_bolt_types; idx++){
+		type = Storm->bolt_types[idx];
+		if((type < 0) || (type >= Num_bolt_types)){
+			continue;
+		}
+		if(Bolt_types[type].texture >= 0){
+			bm_page_in_texture(Bolt_types[type].texture);
+		}
+		if(Bolt_types[type].glow >= 0){
+			bm_page_in_texture(Bolt_types[type].glow);
+		}
+	}
+}
+
 // initialize lightning before entering a level
 void nebl_level_init()
 {

@@ -469,6 +469,15 @@ void neb2_page_in()
 			bm_page_in_texture(Neb2_poofs[idx]);
 		}
 	}
+
+	// Claude: the background model texture and the lightning bolts were read from disk on their first draw;
+	// Claude: page them with the level (W11)
+	extern int Nmodel_bitmap;	// Claude
+	extern void nebl_page_in();	// Claude
+	if(Nmodel_bitmap >= 0){	// Claude
+		bm_page_in_texture(Nmodel_bitmap);	// Claude
+	}	// Claude
+	nebl_page_in();	// Claude
 }
 
 // Claude: is this one of the nebula's bitmaps (poofs, background model texture, lightning)? Read only, for the
