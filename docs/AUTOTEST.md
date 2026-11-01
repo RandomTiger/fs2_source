@@ -59,7 +59,7 @@ Visits every single-player screen and quits: the main hall, the Vasudan (Bastion
 ## Debug camera test
 Shift+Pause in a single-player mission pauses with a free camera (W/S/A/D move, mouse looks, Shift faster, Shift+Pause or Esc leaves); plain Pause is unchanged (#125). `-at_debugcam` with `-at_mission` tests it: 5 s into the mission it presses Shift+Pause, holds W then D, moves the mouse, checks the view moved and turned, presses Shift+Pause again and lets the mission play on. It logs `Debug camera test: PASS` or `FAILED: debug camera test: <why>`. The keys and cursor go through the recorder, so add `-record`/`-trace` and the recording replays it. With `-at_shots` it saves `debugcam\before`, `start`, `moved` and `after`.
 ```
-FS2vs2022r.exe -window -autotest -at_mission sm1-01 -at_time 30 -at_pilot AutotestPilot -at_debugcam -at_shots FOLDER
+FS2_Enhanced_r.exe -window -autotest -at_mission sm1-01 -at_time 30 -at_pilot AutotestPilot -at_debugcam -at_shots FOLDER
 ```
 
 ## Test missions

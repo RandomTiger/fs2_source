@@ -40,7 +40,7 @@ $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $Out | Out-Null
 # the test missions the autotest recordings play
 Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
-$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir 'FS2vs2022r.exe'))
+$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir (Get-FS2Exe r)))
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
@@ -58,7 +58,7 @@ $Configs = $Configs | ForEach-Object { $_ -split ',' }
 $CrossCheck = $CrossCheck | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 if ($Missions) { $recs = $recs | Where-Object { $Missions -contains $_.File.BaseName }; $demoRecs = @($demoRecs | Where-Object { $Missions -contains $_.File.BaseName }) }
 if ($demoRecs -and -not $demoOk) {
-	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with FS2vs2022r.exe (-DemoDir or FS2DEMO_TEST)" | Tee-Object -FilePath $summary -Append }
+	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with $(Get-FS2Exe r) (-DemoDir or FS2DEMO_TEST)" | Tee-Object -FilePath $summary -Append }
 	$demoRecs = @()
 }
 $recs = @($recs) + $demoRecs
