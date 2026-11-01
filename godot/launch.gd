@@ -103,8 +103,15 @@ func _arg_root() -> String:
 			return a.substr("--fs2-root=".length())
 	return ""
 
+# A data-set folder (DataSetInstall.cpp) counts too: fs2demo or fs1demo beside the exe, or its installer from which the game makes it.
 func _has_data(dir: String) -> bool:
-	return _has_vp(dir) or _has_vp(dir.path_join("Data"))
+	if _has_vp(dir) or _has_vp(dir.path_join("Data")):
+		return true
+	for s in [["fs2demo", "fs2demo10.exe"], ["fs1demo", "fsdemo10.exe"]]:
+		var sub: String = dir.path_join(s[0])
+		if _has_vp(sub) or _has_vp(sub.path_join("Data")) or FileAccess.file_exists(dir.path_join(s[1])):
+			return true
+	return false
 
 func _has_vp(dir: String) -> bool:
 	var d := DirAccess.open(dir)
