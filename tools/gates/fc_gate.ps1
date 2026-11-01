@@ -20,7 +20,7 @@ $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $out = Join-Path $env:TEMP $Label
 New-Item -ItemType Directory -Force $out | Out-Null
 $bad = @()
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 "repo $Repo at $(git -C $Repo log --oneline -1)"
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 & $msb "$Repo\tools\TraceDiff\TraceDiff.vcxproj" /p:Configuration=Release /p:Platform=Win32 "/p:SolutionDir=$Repo\" /m /v:q /nologo > "$out\td.txt" 2>&1
@@ -28,15 +28,15 @@ $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe
 # every worktree links into the same game folders: delete first so no other branch's exe survives a no-op link.
 # Since the Enhanced merge-down (24cd57f) the project links into PATH_FS2 (one exe for every data set); an older
 # FS1Compat linked into PATH_FS1. Either way the exes are taken from wherever the build put them.
-foreach ($d in $fs2, $Fs1Dir) { Remove-Item "$d\FS2vs2022r.exe", "$d\FS2vs2022d.exe" -ErrorAction SilentlyContinue }
+foreach ($d in $fs2, $Fs1Dir) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 foreach ($c in 'Release', 'Debug') {
 	Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 	& $msb "$Repo\Freespace2.vcxproj" /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$Repo\" /m /v:q /nologo > "$out\build_$c.txt" 2>&1
 	"build $c exit $LASTEXITCODE"; if ($LASTEXITCODE) { $bad += "build $c" }
 }
 foreach ($e in 'r', 'd') {
-	if (-not (Test-Path "$Fs1Dir\FS2vs2022$e.exe") -and (Test-Path "$fs2\FS2vs2022$e.exe")) { Copy-Item "$fs2\FS2vs2022$e.exe" $Fs1Dir }
-	if (-not (Test-Path "$Fs1Dir\FS2vs2022$e.exe")) { "FAIL no FS2vs2022$e.exe in $Fs1Dir"; $bad += "exe $e" } }
+	if (-not (Test-Path "$Fs1Dir\$(Get-FS2Exe $e $Repo)") -and (Test-Path "$fs2\$(Get-FS2Exe $e $Repo)")) { Copy-Item "$fs2\$(Get-FS2Exe $e $Repo)" $Fs1Dir }
+	if (-not (Test-Path "$Fs1Dir\$(Get-FS2Exe $e $Repo)")) { "FAIL no $(Get-FS2Exe $e $Repo) in $Fs1Dir"; $bad += "exe $e" } }
 if (-not $bad) {
 	$f = @(Get-ChildItem "$Repo\recordings\fs1" -Filter *.fs2rec | ForEach-Object { $_.BaseName })
 	$r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\replay_check.ps1" -Configs r,d -CrossCheck ($f -join ',') -Missions ($f -join ',') -GameDir $fs2 -Fs1Dir $Fs1Dir -Out "$out\fs1"
