@@ -186,6 +186,16 @@ typedef struct fs2_render_sink {
 	/* v4, optional: the user clip plane for the mesh draws that follow (the game's g3_start_user_clip_plane): plane = nx, ny, nz, w in eye space; a point
 	 * is kept where nx*x + ny*y + nz*z + w > 0. NULL = no clip. A sink without it makes the host draw a clipped model on the CPU path. */
 	void (*mesh_clip)(void *user, const float plane[4]);
+
+	/* v4, optional: animation frames as the layers of one array texture (P8). Allowed in or out of a frame (mission load).
+	 * texture_array_create: pixels = nlayers * w * h * bytes per pixel, layer after layer, tightly packed, copied before the call returns; format and
+	 * texflags as texture_create. texture_layer: the texture id `id` (unused) now names layer `layer` of the array, so draws and mesh groups that name
+	 * `id` sample that layer and nothing else about a draw changes (order, blend, state). A sink may batch draws of one array across layers.
+	 * texture_free(id) drops one such id; texture_array_free drops the array and every id naming it; texture_free_all drops both. A sink without these
+	 * entries gets one texture_create per frame. */
+	void (*texture_array_create)(void *user, int32_t array_id, int w, int h, int nlayers, int format, uint32_t texflags, const uint8_t *pixels);
+	void (*texture_layer)(void *user, int32_t id, int32_t array_id, int layer);
+	void (*texture_array_free)(void *user, int32_t array_id);
 } fs2_render_sink;
 
 #ifdef __cplusplus

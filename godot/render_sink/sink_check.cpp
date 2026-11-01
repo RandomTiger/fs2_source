@@ -414,6 +414,39 @@ static void test_mesh_api()
 	s->frame_end(s->user);
 }
 
+static void test_texture_arrays()
+{
+	fs2sink::FakeSink fake;
+	const fs2_render_sink *s = fake.sink();
+	CHECK(s->texture_array_create != nullptr && s->texture_layer != nullptr && s->texture_array_free != nullptr);
+	const uint8_t px[2 * 2 * 4 * 3] = {};
+	s->texture_array_create(s->user, 5, 2, 2, 3, FS2_SINK_TEX_RGBA8, 0, px);	// at mission load: no frame open
+	s->texture_layer(s->user, 100, 5, 0);
+	s->texture_layer(s->user, 101, 5, 2);
+	CHECK(fake.errors.empty() && fake.count(Cmd::ArrayCreate) == 1 && fake.count(Cmd::ArrayLayer) == 2);
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	fs2_sink_draw d = {};
+	d.texture = 101;
+	d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
+	fs2_sink_vertex v[3] = {};
+	const uint16_t idx[3] = { 0, 1, 2 };
+	s->draw_tris(s->user, &d, v, 3, idx, 3);	// a layer id draws like a texture
+	CHECK(fake.errors.empty());
+	s->texture_layer(s->user, 101, 5, 1);	// id in use
+	s->texture_layer(s->user, 102, 5, 3);	// layer out of range
+	s->texture_layer(s->user, 103, 6, 0);	// unknown array
+	CHECK(fake.errors.size() == 3);
+	fake.errors.clear();
+	s->texture_array_free(s->user, 5);
+	d.texture = 100;
+	s->draw_tris(s->user, &d, v, 3, idx, 3);	// its ids went with it
+	CHECK(fake.errors.size() == 1);
+	fake.errors.clear();
+	s->texture_array_free(s->user, 5);	// already freed
+	CHECK(fake.errors.size() == 1);
+	s->frame_end(s->user);
+}
+
 static void test_view_and_depth()
 {
 	fs2sink::FakeSink fake;
@@ -462,6 +495,7 @@ int main()
 	test_view_and_depth();
 	test_opaque_reorder();
 	test_mesh_api();
+	test_texture_arrays();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);
 		return 1;

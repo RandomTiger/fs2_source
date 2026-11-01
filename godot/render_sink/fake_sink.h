@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -16,7 +17,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip, ArrayCreate, ArrayLayer, ArrayFree };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -61,6 +62,9 @@ public:
 		table.mesh_state = &FakeSink::s_mesh_state;
 		table.mesh_draw_lit = &FakeSink::s_mesh_draw_lit;
 		table.mesh_clip = &FakeSink::s_mesh_clip;
+		table.texture_array_create = &FakeSink::s_texture_array_create;
+		table.texture_layer = &FakeSink::s_texture_layer;
+		table.texture_array_free = &FakeSink::s_texture_array_free;
 	}
 
 	int count(Cmd::Kind k) const
@@ -86,6 +90,8 @@ private:
 	bool in_frame = false;
 	bool in_depth = false;
 	std::set<int32_t> textures;
+	std::map<int32_t, int> arrays;	// array id -> layers
+	std::map<int32_t, int32_t> alias;	// texture id -> array id
 
 	void err(const char *what) { errors.push_back(what); }
 	void need_frame(const char *what) { if (!in_frame) err(what); }
@@ -146,7 +152,40 @@ private:
 		FakeSink *s = me(u);
 		s->need_frame("texture_free_all outside a frame");
 		s->textures.clear();
+		s->arrays.clear();
+		s->alias.clear();
 		s->add(Cmd::TexFreeAll);
+	}
+	// array entries are allowed outside a frame (mission load)
+	static void s_texture_array_create(void *u, int32_t array_id, int w, int h, int nlayers, int, uint32_t, const uint8_t *pixels)
+	{
+		FakeSink *s = me(u);
+		if (array_id == 0 || w <= 0 || h <= 0 || nlayers <= 0 || pixels == nullptr) { s->err("texture_array_create with bad arguments"); return; }
+		if (s->arrays.count(array_id) != 0) { s->err("texture_array_create of an existing array"); return; }
+		s->arrays[array_id] = nlayers;
+		Cmd &c = s->add(Cmd::ArrayCreate);
+		c.a = array_id; c.b = w; c.c = h; c.d = nlayers;
+	}
+	static void s_texture_layer(void *u, int32_t id, int32_t array_id, int layer)
+	{
+		FakeSink *s = me(u);
+		auto it = s->arrays.find(array_id);
+		if (id == 0 || s->textures.count(id) != 0) { s->err("texture_layer with a bad or used texture id"); return; }
+		if (it == s->arrays.end()) { s->err("texture_layer of an unknown array"); return; }
+		if (layer < 0 || layer >= it->second) { s->err("texture_layer with a layer out of range"); return; }
+		s->textures.insert(id);
+		s->alias[id] = array_id;
+		Cmd &c = s->add(Cmd::ArrayLayer);
+		c.a = id; c.b = array_id; c.c = layer;
+	}
+	static void s_texture_array_free(void *u, int32_t array_id)
+	{
+		FakeSink *s = me(u);
+		if (s->arrays.erase(array_id) == 0) { s->err("texture_array_free of an unknown array"); return; }
+		for (auto it = s->alias.begin(); it != s->alias.end();) {
+			if (it->second == array_id) { s->textures.erase(it->first); it = s->alias.erase(it); } else { ++it; }
+		}
+		s->add(Cmd::ArrayFree).a = array_id;
 	}
 	static void s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
 	{
