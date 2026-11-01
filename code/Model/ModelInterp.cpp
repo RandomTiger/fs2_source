@@ -1562,6 +1562,37 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	if (m.state == 0) { interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures); }
 	if (m.state != 1) { return 0; }
 
+	// model to eye: where the instance stack puts the origin and the three axes
+	vector zero = { 0.0f, 0.0f, 0.0f }, ax = { 1.0f, 0.0f, 0.0f }, ay = { 0.0f, 1.0f, 0.0f }, az = { 0.0f, 0.0f, 1.0f };
+	vertex o, ex, ey, ez;
+	g3_rotate_vertex(&o, &zero); g3_rotate_vertex(&ex, &ax); g3_rotate_vertex(&ey, &ay); g3_rotate_vertex(&ez, &az);
+	float xf[12];
+	xf[0] = ex.x - o.x; xf[1] = ey.x - o.x; xf[2]  = ez.x - o.x; xf[3]  = o.x;
+	xf[4] = ex.y - o.y; xf[5] = ey.y - o.y; xf[6]  = ez.y - o.y; xf[7]  = o.y;
+	xf[8] = ex.z - o.z; xf[9] = ey.z - o.z; xf[10] = ez.z - o.z; xf[11] = o.z;
+
+	// a host that lights per vertex takes the lighting inputs as they are (not when the object's lighting is being saved: the saved arrays
+	// are filled by the CPU path below)
+	if (Interp_lighting == &Interp_lighting_temp) {
+		gr_host_mesh_light hl;
+		if (Interp_flags & MR_NO_LIGHTING) {
+			memset(&hl, 0, sizeof(hl));
+			hl.flat = 191;
+		} else if (!light_get_mesh_lighting(&hl, Interp_light)) {
+			hl.flat = -2;
+		}
+		if (hl.flat != -2) {
+			const int rl = gr_host_mesh_draw_lit(m.key, xf, &hl, (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
+			if (rl < 0) {
+				gr_host_mesh_free(m.key);
+				m.created = 0;
+				m.state = 0;
+				return 0;
+			}
+			if (rl == 1) { return 1; }
+		}
+	}
+
 	// lighting, per normal, as model_interp_tmappoly
 	const size_t ns = m.slot_norm.size();
 	m.rgb.resize(m.v_slot.size() * 3);
@@ -1579,15 +1610,6 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 		const int s = m.v_slot[i];
 		m.rgb[i*3] = slot_rgb[s*3]; m.rgb[i*3+1] = slot_rgb[s*3+1]; m.rgb[i*3+2] = slot_rgb[s*3+2];
 	}
-
-	// model to eye: where the instance stack puts the origin and the three axes
-	vector zero = { 0.0f, 0.0f, 0.0f }, ax = { 1.0f, 0.0f, 0.0f }, ay = { 0.0f, 1.0f, 0.0f }, az = { 0.0f, 0.0f, 1.0f };
-	vertex o, ex, ey, ez;
-	g3_rotate_vertex(&o, &zero); g3_rotate_vertex(&ex, &ax); g3_rotate_vertex(&ey, &ay); g3_rotate_vertex(&ez, &az);
-	float xf[12];
-	xf[0] = ex.x - o.x; xf[1] = ey.x - o.x; xf[2]  = ez.x - o.x; xf[3]  = o.x;
-	xf[4] = ex.y - o.y; xf[5] = ey.y - o.y; xf[6]  = ez.y - o.y; xf[7]  = o.y;
-	xf[8] = ex.z - o.z; xf[9] = ey.z - o.z; xf[10] = ez.z - o.z; xf[11] = o.z;
 
 	const int r = gr_host_mesh_draw(m.key, xf, &m.rgb[0], (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
 	if (r < 0) {

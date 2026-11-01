@@ -162,6 +162,7 @@
 #include "vecmat.h"
 #include "3d.h"
 #include "Fvi.h"
+#include "2d.h"
 #include "Key.h"
 #include "Lighting.h"
 #include "Timer.h"
@@ -991,6 +992,61 @@ void light_apply_rgb( ubyte *param_r, ubyte *param_g, ubyte *param_b, vector *po
 	*param_r = ubyte(fl2i(rval*255.0f));
 	*param_g = ubyte(fl2i(gval*255.0f));
 	*param_b = ubyte(fl2i(bval*255.0f));
+}
+
+// Claude: P3b, the inputs of light_apply_rgb for the object being drawn, for a host that lights per vertex.  0 when they do not fit the
+// host's struct (the caller then lights on the CPU).
+int light_get_mesh_lighting( gr_host_mesh_light *out, float static_light_level )
+{
+	int idx, i;
+	memset(out, 0, sizeof(*out));
+	out->flat = -1;
+	if (Detail.lighting==0) {
+		out->flat = (int)ubyte(fl2i(static_light_level*255.0f));
+		return 1;
+	}
+	if ( Lighting_off ) {
+		out->flat = 255;
+		return 1;
+	}
+	int n = Num_light_levels-1;
+	if ( n < 0 || Num_relevent_lights[n] > GR_HOST_MAX_POINT ) {
+		return 0;
+	}
+	out->ambient = Ambient_light;
+	out->reflective = Reflective_light;
+	out->level = static_light_level;
+	out->darken = (Lighting_mode == LM_DARKEN) ? 1 : 0;
+	if ( !Light_in_shadow ) {
+		for (idx=0; idx<Static_light_count; idx++) {
+			if (Static_light[idx] == NULL) {
+				continue;
+			}
+			if (out->nsun >= GR_HOST_MAX_SUN) {
+				return 0;
+			}
+			light *l = Static_light[idx];
+			i = out->nsun++;
+			out->sun_dir[i][0] = l->local_vec.x; out->sun_dir[i][1] = l->local_vec.y; out->sun_dir[i][2] = l->local_vec.z;
+			out->sun_intensity[i] = l->intensity;
+			out->sun_rgb[i][0] = l->r; out->sun_rgb[i][1] = l->g; out->sun_rgb[i][2] = l->b;
+		}
+	}
+	for (idx=0; idx<Num_relevent_lights[n]; idx++) {
+		light *l = Relevent_lights[idx][n];
+		if (l->type != LT_POINT && l->type != LT_TUBE) {
+			return 0;
+		}
+		i = out->npoint++;
+		out->point_tube[i] = (l->type == LT_TUBE) ? 1 : 0;
+		out->point_pos[i][0] = l->local_vec.x; out->point_pos[i][1] = l->local_vec.y; out->point_pos[i][2] = l->local_vec.z;
+		out->point_pos2[i][0] = l->local_vec2.x; out->point_pos2[i][1] = l->local_vec2.y; out->point_pos2[i][2] = l->local_vec2.z;
+		out->point_rad1_sq[i] = l->rad1_squared;
+		out->point_rad2_sq[i] = l->rad2_squared;
+		out->point_intensity[i] = l->intensity;
+		out->point_rgb[i][0] = l->r; out->point_rgb[i][1] = l->g; out->point_rgb[i][2] = l->b;
+	}
+	return 1;
 }
 
 

@@ -249,6 +249,8 @@ private:
 		int epoch = 0;
 		int cw = 0, ch = 0, ox = 0, oy = 0;	// the canvas and its screen origin when drawn
 		std::vector<uint8_t> col;	// RGBA8 per mesh vertex
+		bool lit = false;			// lit on the GPU from `light` (mesh_draw_lit); col is empty
+		fs2_sink_mesh_light light = {};
 	};
 	std::vector<godot::RID> mesh_mat_pool;
 	std::map<int, std::vector<godot::RID>> mesh_col_pool;	// by rows
@@ -256,8 +258,8 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull);
-	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
 	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
 	void free_mesh_data(MeshData &md);
@@ -266,6 +268,7 @@ private:
 		const uint32_t *idx, int ni);
 	static void s_mesh_free(void *u, int32_t id);
 	static void s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *colours, int ncolours);
+	static void s_mesh_draw_lit(void *u, int32_t id, const float *xform, const fs2_sink_mesh_light *light);
 	bool have_view = false;
 };
 

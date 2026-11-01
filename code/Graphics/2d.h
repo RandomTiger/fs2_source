@@ -598,6 +598,26 @@ typedef struct gr_host_mesh_group {	// Claude: P3b, one texture's triangles of a
 	int first_index;
 	int index_count;
 } gr_host_mesh_group;
+// Claude: P3b, the game's lighting of one mesh draw (light_apply_rgb's inputs) for a host that lights per vertex; same layout as fs2_sink_mesh_light
+#define GR_HOST_MAX_SUN 4
+#define GR_HOST_MAX_POINT 16
+typedef struct gr_host_mesh_light {
+	int flat;						// >= 0: every vertex this grey byte, nothing else applies
+	float ambient, reflective, level;
+	int darken;
+	float inv_gamma;				// filled by the host
+	int nsun;
+	float sun_dir[GR_HOST_MAX_SUN][3];
+	float sun_intensity[GR_HOST_MAX_SUN];
+	float sun_rgb[GR_HOST_MAX_SUN][3];
+	int npoint;
+	int point_tube[GR_HOST_MAX_POINT];
+	float point_pos[GR_HOST_MAX_POINT][3];
+	float point_pos2[GR_HOST_MAX_POINT][3];
+	float point_rad1_sq[GR_HOST_MAX_POINT], point_rad2_sq[GR_HOST_MAX_POINT];
+	float point_intensity[GR_HOST_MAX_POINT];
+	float point_rgb[GR_HOST_MAX_POINT][3];
+} gr_host_mesh_light;
 typedef struct gr_host_backend {
 	void (*init)();
 	void (*cleanup)();
@@ -612,10 +632,12 @@ typedef struct gr_host_backend {
 	int (*mesh_create)(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
 	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 	void (*mesh_free)(int key);
+	int (*mesh_draw_lit)(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);	// as mesh_draw, the host lights per vertex; 0 = use mesh_draw
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
 extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
+extern int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);
 extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST

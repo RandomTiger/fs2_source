@@ -112,6 +112,7 @@ struct Host {
 	std::vector<int> capture_pending;	// save_screen ids asked for in a skipped frame: captured at the start of the next accepted frame
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
+	float inv_gamma = 1.0f;			// the exponent the table was built with
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
@@ -1051,7 +1052,8 @@ void h_mesh_free(int key)
 	H.meshes.erase(it);
 }
 
-int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
+// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid
+static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 {
 	auto it = H.meshes.find(key);
 	if (it == H.meshes.end()) { return -1; }
@@ -1118,6 +1120,13 @@ int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, i
 	glow_flush();
 	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
 	send_view();
+	return 1;
+}
+
+int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
+{
+	const int p = mesh_prepare(key, xform, nv, tiled);
+	if (p != 1) { return p; }
 	H.mesh_rgba.resize((size_t)nv * 4);
 	for (int i = 0; i < nv; i++) {
 		H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
@@ -1129,6 +1138,19 @@ int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, i
 	return 1;
 }
 
+// the sink lights per vertex (step 4); the same inputs as the CPU path, the gamma table's exponent added
+int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled)
+{
+	if (H.sink->mesh_draw_lit == nullptr) { return 0; }
+	static_assert(sizeof(gr_host_mesh_light) == sizeof(fs2_sink_mesh_light), "mesh light layouts differ");
+	const int p = mesh_prepare(key, xform, nv, tiled);
+	if (p != 1) { return p; }
+	fs2_sink_mesh_light sl;
+	memcpy(&sl, light, sizeof(sl));
+	sl.inv_gamma = H.inv_gamma;
+	H.sink->mesh_draw_lit(H.sink->user, key, xform, &sl);
+	return 1;
+}
 #define SCALE_UV(x, x0, x1, y0, y1) (((((x) - (x0)) * ((y1) - (y0))) / ((x1) - (x0))) + (y0))
 
 // gr_d3d_scaler: clip the two corner vertices to the clip rectangle, moving the uvs with them, then a textured quad
@@ -1257,6 +1279,7 @@ void h_dump_frame_stop() { }
 void build_gamma(float gamma)
 {
 	if (gamma < 0.01f) { gamma = 1.0f; }
+	H.inv_gamma = 1.0f / gamma;
 	for (int i = 0; i < 256; i++) {
 		int v = (int)(std::pow((float)i / 255.0f, 1.0f / gamma) * 255.0f);
 		H.gamma_lookup[i] = v > 255 ? 255 : (v < 0 ? 0 : v);
@@ -1491,6 +1514,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_ready = h_mesh_ready;
 	Backend.mesh_create = h_mesh_create;
 	Backend.mesh_draw = h_mesh_draw;
+	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_free = h_mesh_free;
 	gr_host_backend_register(&Backend);
 	return 1;

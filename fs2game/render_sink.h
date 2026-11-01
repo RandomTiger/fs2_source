@@ -52,6 +52,29 @@ typedef struct fs2_sink_mesh_vertex {
 	float u, v;
 } fs2_sink_mesh_vertex;
 
+/* The game's lighting of one draw (lighting.cpp, light_apply_rgb): sun lights, ambient, point and tube lights in the mesh's model space.
+ * flat >= 0: every vertex is that grey byte and nothing else applies. All colours are 0..1, the result goes through the game's byte
+ * quantisation and then the gamma table (pow(byte / 255, inv_gamma)). */
+#define FS2_SINK_MAX_SUN 4
+#define FS2_SINK_MAX_POINT 16
+typedef struct fs2_sink_mesh_light {
+	int32_t flat;
+	float ambient, reflective, level;	/* level: the static light level of the object */
+	int32_t darken;				/* 1: sun lights darken (LM_DARKEN) instead of brighten */
+	float inv_gamma;
+	int32_t nsun;
+	float sun_dir[FS2_SINK_MAX_SUN][3];	/* model space */
+	float sun_intensity[FS2_SINK_MAX_SUN];
+	float sun_rgb[FS2_SINK_MAX_SUN][3];
+	int32_t npoint;
+	int32_t point_tube[FS2_SINK_MAX_POINT];	/* 1: a tube between pos and pos2, 0: a point at pos */
+	float point_pos[FS2_SINK_MAX_POINT][3];
+	float point_pos2[FS2_SINK_MAX_POINT][3];
+	float point_rad1_sq[FS2_SINK_MAX_POINT], point_rad2_sq[FS2_SINK_MAX_POINT];
+	float point_intensity[FS2_SINK_MAX_POINT];
+	float point_rgb[FS2_SINK_MAX_POINT][3];
+} fs2_sink_mesh_light;
+
 typedef struct fs2_sink_mesh_group {
 	int32_t texture;	/* texture id as texture_create(); 0 = none */
 	int32_t blend;		/* FS2_SINK_BLEND_* */
@@ -157,6 +180,9 @@ typedef struct fs2_render_sink {
 	/* v4, optional: the draw state of a mesh (per group: texture, blend, flags, zbias; first_index and index_count are ignored) for the mesh_draw
 	 * calls that follow, without touching its geometry, which mesh_create makes once. A sink without it has the host recreate the mesh. */
 	void (*mesh_state)(void *user, int32_t id, const fs2_sink_mesh_group *groups, int ngroups);
+	/* v4, optional: mesh_draw with the game's lighting done by the sink per vertex (from the mesh's vertex positions and normals) instead of
+	 * host-made colours. Same rules as mesh_draw otherwise. A sink without it gets mesh_draw with host-made colours. */
+	void (*mesh_draw_lit)(void *user, int32_t id, const float xform[12], const fs2_sink_mesh_light *light);
 } fs2_render_sink;
 
 #ifdef __cplusplus

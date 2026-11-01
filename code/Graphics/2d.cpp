@@ -509,6 +509,12 @@ int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int
 	return Gr_host_backend->mesh_draw(key, xform, rgb, nv, tiled);
 }
 
+int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_draw_lit) { return 0; }
+	return Gr_host_backend->mesh_draw_lit(key, xform, light, nv, tiled);
+}
+
 void gr_host_mesh_free(int key)
 {
 	if (Gr_host_backend && Gr_host_backend->mesh_free) { Gr_host_backend->mesh_free(key); }

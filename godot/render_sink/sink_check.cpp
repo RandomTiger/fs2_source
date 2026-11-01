@@ -386,8 +386,12 @@ static void test_mesh_api()
 	const float xf[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 10 };
 	s->depth_begin(s->user);
 	s->mesh_draw(s->user, 1, xf, nullptr, 0);
-	s->depth_end(s->user);
+	fs2_sink_mesh_light lt = {};
+	CHECK(s->mesh_draw_lit != nullptr);
+	s->mesh_draw_lit(s->user, 1, xf, &lt);
 	CHECK(fake.errors.empty() && fake.count(Cmd::MeshDraw) == 1);
+	s->depth_end(s->user);
+	CHECK(fake.count(Cmd::MeshDrawLit) == 1);
 	CHECK(s->mesh_state != nullptr);
 	g.zbias = 2;
 	s->mesh_state(s->user, 1, &g, 1);	// the state of the draws that follow: no new geometry
