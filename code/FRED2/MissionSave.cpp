@@ -1317,7 +1317,7 @@ int CFred_mission_save::save_common_object_data(object *objp, ship *shipp)
 
 		fout(" ( ");
 		for (j=0; j<wp->num_primary_banks; j++)
-			fout("\"%s\" ", Weapon_info[wp->primary_bank_weapons[j]].name);
+			fout("\"%s\" ", (wp->primary_bank_weapons[j] >= 0) ? Weapon_info[wp->primary_bank_weapons[j]].name : "");	// Claude: an empty bank wrote Weapon_info[-1].name (#21)
 
 		fout(")");
 	}
@@ -1336,7 +1336,7 @@ int CFred_mission_save::save_common_object_data(object *objp, ship *shipp)
 
 		fout(" ( ");
 		for (j=0; j<wp->num_secondary_banks; j++)
-			fout("\"%s\" ", Weapon_info[wp->secondary_bank_weapons[j]].name);
+			fout("\"%s\" ", (wp->secondary_bank_weapons[j] >= 0) ? Weapon_info[wp->secondary_bank_weapons[j]].name : "");	// Claude: an empty bank wrote Weapon_info[-1].name (#21)
 
 		fout(")");
 	}
@@ -2486,7 +2486,7 @@ void CFred_mission_save::save_turret_info(ship_subsys *ptr, int ship)
 
 		fout(" ( ");
 		for (i=0; i<wp->num_primary_banks; i++)
-			fout("\"%s\" ", Weapon_info[wp->primary_bank_weapons[i]].name);
+			fout("\"%s\" ", (wp->primary_bank_weapons[i] >= 0) ? Weapon_info[wp->primary_bank_weapons[i]].name : "");	// Claude: an empty bank wrote Weapon_info[-1].name (#21)
 
 		fout(")");
 	}
@@ -2505,7 +2505,7 @@ void CFred_mission_save::save_turret_info(ship_subsys *ptr, int ship)
 
 		fout(" ( ");
 		for (i=0; i<wp->num_secondary_banks; i++)
-			fout("\"%s\" ", Weapon_info[wp->secondary_bank_weapons[i]].name);
+			fout("\"%s\" ", (wp->secondary_bank_weapons[i] >= 0) ? Weapon_info[wp->secondary_bank_weapons[i]].name : "");	// Claude: an empty bank wrote Weapon_info[-1].name (#21)
 
 		fout(")");
 	}

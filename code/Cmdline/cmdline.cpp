@@ -238,6 +238,7 @@ cmdline_parm record_arg("-record", NULL);
 cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
 cmdline_parm fulltrace_arg("-fulltrace", NULL);
+cmdline_parm replay_pace_arg("-replay_pace", NULL);		// Claude: replay at the recorded speed, see Replay.h
 cmdline_parm autorecord_arg("-autorecord", NULL);		// Claude: record every mission played, see Replay.h
 cmdline_parm autotest_arg("-autotest", NULL);			// Claude: autotest, see Autotest.h
 cmdline_parm autotest_mission_arg("-at_mission", NULL);
@@ -245,6 +246,8 @@ cmdline_parm autotest_time_arg("-at_time", NULL);
 cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
+cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
+cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 
@@ -337,7 +340,7 @@ void parm_stuff_args(cmdline_parm *parm, char *cmdline)
 	// the old arguments
 //	Assert(parm->args == NULL);
 	if ( parm->args != NULL ) {
-		delete( parm->args );
+		delete [] parm->args;	// Claude: allocated with new[]; was scalar delete (#7)
 		parm->args = NULL;
 	}
 
@@ -633,6 +636,9 @@ int parse_cmdline(char *cmdline)
 		replay_set_cmdline(record_arg.found() ? record_arg.str() : NULL, replay_arg.found() ? replay_arg.str() : NULL,
 			trace_arg.found() ? trace_arg.str() : NULL, fulltrace_arg.found());
 	}
+	if(replay_pace_arg.found()){	// Claude
+		replay_set_pace(1);
+	}
 
 	// Claude: -autorecord.  -record and -replay take precedence.
 	if(autorecord_arg.found() && !record_arg.found() && !replay_arg.found()){
@@ -649,6 +655,12 @@ int parse_cmdline(char *cmdline)
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
 			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
+		if(autotest_menus_arg.found()){	// Claude: -at_menus
+			autotest_set_menus();
+		}
+		if(autotest_shots_arg.found()){	// Claude: -at_shots
+			autotest_set_shots(autotest_shots_arg.str());
+		}
 	}
 
 	return 1;

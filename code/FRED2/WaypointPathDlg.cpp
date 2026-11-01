@@ -183,7 +183,7 @@ void waypoint_path_dlg::initialize_data(int full_update)
 	if (cur_waypoint_list >= 0) {
 		m_name = _T(Waypoint_lists[cur_waypoint_list].name);
 
-	} else if (Objects[cur_object_index].type == OBJ_JUMP_NODE) {
+	} else if ((cur_object_index >= 0) && (Objects[cur_object_index].type == OBJ_JUMP_NODE)) {	// Claude: nothing selected reads no object; was Objects[-1] (#20)
 		m_name = _T(Jump_nodes[Objects[cur_object_index].instance].name);
 
 	} else {
@@ -307,7 +307,7 @@ int waypoint_path_dlg::update_data(int redraw)
 			ai_update_goal_references(REF_TYPE_WAYPOINT, old_name, str);
 		}
 
-	} else if (Objects[cur_object_index].type == OBJ_JUMP_NODE) {
+	} else if ((cur_object_index >= 0) && (Objects[cur_object_index].type == OBJ_JUMP_NODE)) {	// Claude: nothing selected reads no object; was Objects[-1] (#20)
 		inst = Objects[cur_object_index].instance;
 		if (!strnicmp(m_name, "player ", 7)) {
 			if (bypass_errors)

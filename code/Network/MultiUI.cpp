@@ -5449,7 +5449,7 @@ int multi_create_ok_to_commit()
 			if(Net_players[idx].player != NULL){
 				sprintf(err_string, "%s %s", Net_players[idx].player->callsign, XSTR("has hacked tables/data", 1271)); 
 			} else {
-				sprintf(err_string, "%s", Net_players[idx].player->callsign, XSTR("has hacked tables/data", 1271)); 
+				sprintf(err_string, "%s", XSTR("has hacked tables/data", 1271));	// Claude: this is the player == NULL branch; it read player->callsign (#71)
 			}
 			send_game_chat_packet(Net_player, err_string, MULTI_MSG_ALL, NULL, NULL, 1);
 		}

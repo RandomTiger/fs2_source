@@ -8,12 +8,14 @@ Usage (PowerShell, from anywhere):
   tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>]
 
 -Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
-The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
+The game directory defaults to $env:PATH_FS2, where the build puts FS2_<Layer>_r.exe / _d.exe (tools\layer.ps1).
 Results go to <Out>\summary.txt, one line per recording; <Out> defaults to replays\check_<date-time>.
 Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
 both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
-A line passes when every run says "REPLAY OK" and "MATCH". Build both configs first, and don't
+With $env:FS2_PROCDUMP set to Sysinternals procdump.exe (downloaded per machine, never committed), each run is watched
+and a crash leaves a dump in <Out>; dumps stay local (they hold game data).
+A line passes when every run says "REPLAY OK" and "MATCH", and every autotest run exits 0 (no Assert, Int3 or Warning). Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
 param(
@@ -25,6 +27,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\check_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
@@ -46,7 +49,7 @@ if (-not $recs) { throw "No recordings match: $Missions" }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 }
 
 Set-Location $GameDir
@@ -54,31 +57,54 @@ $pass = 0; $fail = 0
 foreach ($r in $recs) {
 	$rec = $r.File.FullName
 	$name = $r.File.BaseName
-	$line = $name
+	# the autotest sm1-07 and the hand-played SM1-07 differ only in case, so output names carry the folder (D-033)
+	$folder = if ($r.Autotest) { 'autotest' } else { 'played' }
+	$line = if ($r.Autotest) { $name } else { "$name (played)" }
 	$ok = $true
 	$cfgs = $Configs
 	if ($r.Autotest -and ($CrossCheck -contains $name)) { $cfgs = @('r', 'd') }
 	foreach ($e in $cfgs) {
-		$trace = Join-Path $Out "${name}_$e.trace"
-		$log = Join-Path $Out "${name}_$e.replay.log"
+		$trace = Join-Path $Out "${folder}_${name}_$e.trace"
+		$log = Join-Path $Out "${folder}_${name}_$e.replay.log"
 		Remove-Item $trace, "$rec.replay.log" -ErrorAction SilentlyContinue
 		$flags = "-window -replay `"$rec`" -trace `"$trace`""
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
 		Wait-NoGame
-		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+		$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $flags -PassThru
+		# FS2_PROCDUMP (path to Sysinternals procdump.exe): a crash leaves a full dump in <Out> (#74). Dumps hold game
+		# data from memory, so they stay local: never commit or post one, only the stack read from it.
+		$pd = $null
+		if ($env:FS2_PROCDUMP -and (Test-Path $env:FS2_PROCDUMP)) {
+			$dumps = @(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count
+			$pd = Start-Process $env:FS2_PROCDUMP -ArgumentList "-accepteula -e -ma -o $($p.Id) `"$Out`"" -PassThru -WindowStyle Hidden
+		}
 		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += " | $e TIMEOUT"; $ok = $false; continue }
+		if ($pd) {
+			if (-not $pd.WaitForExit(120000)) { Stop-Process $pd -Force }
+			if (@(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count -gt $dumps) { $line += " | $e CRASH DUMP in $Out"; $ok = $false }
+		}
 		$res = 'NO LOG'
 		if (Test-Path "$rec.replay.log") {
 			Copy-Item "$rec.replay.log" $log
 			$res = (Select-String $log -Pattern 'REPLAY OK|DESYNC|ERROR' | Select-Object -First 1).Line
 		}
+		# the game's autotest.log, which says where a stuck run hung (D-053)
+		if (Test-Path '.\autotest.log') { Copy-Item '.\autotest.log' (Join-Path $Out "${folder}_${name}_$e.autotest.log") }
 		$diff = 'NO TRACE'
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
+		# TraceDiff exits 2 when it cannot read either trace (missing, not a trace, other version): a FAIL, never a pass (D-20261021-125813)
+		if ((Test-Path $trace) -and ($LASTEXITCODE -eq 2)) { $diff = 'TRACE UNREADABLE (TraceDiff exit 2: missing recorded trace, or another trace version)' }
 		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
+		# an autotest replay exits 0 only with no Assert, Int3 or Warning (D-029, D-077); a hand-played one exits 1 on success (D-033)
+		if ($r.Autotest) {
+			$counts = Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
+			if ($counts) { $line += " ($($counts.Matches[0].Value))" }
+			if ($p.ExitCode -ne 0) { $ok = $false }
+		}
 	}
 	if ($cfgs.Count -gt 1) {
-		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
+		$hashes = $cfgs | ForEach-Object { $tf = Join-Path $Out "${folder}_${name}_$_.trace"; if (Test-Path $tf) { (Get-FileHash $tf).Hash } else { 'none' } }
 		if (($hashes | Select-Object -Unique).Count -eq 1) { $line += ' | builds identical' } else { $line += ' | builds DIFFER'; $ok = $false }
 	}
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }

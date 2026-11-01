@@ -493,6 +493,12 @@ void shockwave_move(object *shockwave_objp, float frametime)
 
 		// If this shockwave hit the player, play shockwave impact sound
 		if ( objp == Player_obj ) {
+			// Claude: a shockwave not made by a weapon (a ship exploding) divided by Weapon_info[-1].damage, which is 0, so
+			// the volume was infinite and snd_play clamped it to full whatever the sound settings. That is kept, without
+			// the read: a scale large enough to clamp to full (#17, D-20261018-043124).
+			if ( sw->weapon_info_index < 0 )
+				snd_play( &Snds[SND_SHOCKWAVE_IMPACT], 0.0f, 1.0e30f );
+			else
 			snd_play( &Snds[SND_SHOCKWAVE_IMPACT], 0.0f, max(0.4f, damage/Weapon_info[sw->weapon_info_index].damage) );
 		}
 

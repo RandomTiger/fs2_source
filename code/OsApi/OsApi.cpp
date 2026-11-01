@@ -694,6 +694,7 @@ void os_poll()
 #endif
 
 	replay_os_poll();
+	autotest_poll_done();	// Claude: for the autotest stuck dump (D-053)
 }
 
 void debug_int3()

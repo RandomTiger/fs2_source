@@ -31,6 +31,7 @@
 #include "RedAlert.h"
 #include "Autotest.h"
 #include "Popup.h"
+#include "OsApi.h"
 
 #define REPLAY_FILE_VERSION		3	// Claude: 2 adds the autotest settings, 3 the view position
 #define REPLAY_PILOT_DIR			"Data\\Players\\Replay"
@@ -42,6 +43,12 @@ int Replay_mode = REPLAY_OFF;
 static char Replay_file[REPLAY_PATH_LEN];
 static char Replay_trace_file[REPLAY_PATH_LEN];
 static int Replay_trace_full = 0;
+
+// -replay_pace
+static int Replay_pace = 0;
+static int Replay_pace_frames = 0;
+static LARGE_INTEGER Replay_pace_freq, Replay_pace_start;
+static double Replay_pace_target = 0.0;	// seconds of real time the recorded frames so far took
 
 // -autorecord
 #define REPLAY_RESTART_ENV			"FS2_AUTORECORD_RESTART_PID"
@@ -385,14 +392,20 @@ static int replay_hook_live()
 	return Replay_active && (Replay_depth == 0) && (GetCurrentThreadId() == Replay_main_thread);
 }
 
+// Only the main thread's own nesting counts.  Other threads (the music streamer's timer reads the clock)
+// never touch the stream, and counting their calls made the main thread skip a recorded read (#27)
 void replay_push()
 {
-	Replay_depth++;
+	if (GetCurrentThreadId() == Replay_main_thread) {
+		Replay_depth++;
+	}
 }
 
 void replay_pop()
 {
-	Replay_depth--;
+	if (GetCurrentThreadId() == Replay_main_thread) {
+		Replay_depth--;
+	}
 }
 
 int replay_should_read()
@@ -501,6 +514,33 @@ int replay_input_device(int *vals, int count, int max)
 		vals[i] = r_varint();
 	}
 	return n;
+}
+
+// The same, for a device that shares the entry with others: in replay, the entry here is
+// this device's only when its first value is magic; otherwise it is left for the next reader
+// and 0 is returned.  The device must put magic in vals[0] of every entry it records.
+int replay_input_device_tagged(int magic, int *vals, int count, int max)
+{
+	int pos, n;
+
+	if (!replay_should_read()) {
+		return replay_input_device(vals, count, max);
+	}
+
+	replay_drain_events();
+	if ((Rpos >= Rsize) || (Rdata[Rpos] != RT_INPUT_DEVICE)) {
+		return 0;
+	}
+
+	// peek: the tag, the count and the first value; no entry is consumed unless it matches
+	pos = Rpos++;		// past the tag byte (r_tag would count the entry)
+	n = r_varint();
+	if ((n < 1) || (r_varint() != magic)) {
+		Rpos = pos;
+		return 0;
+	}
+	Rpos = pos;
+	return replay_input_device(vals, count, max);
 }
 
 int replay_snd_handle(int tag, int live_handle)
@@ -624,9 +664,21 @@ static void replay_drain_events()
 	}
 }
 
+// A poll that only a fullscreen game away from the front makes (the flip waiting for its surface).
+// A windowed replay never makes it, so it leaves no os_poll entry; the events it dispatches are still
+// recorded with their own reads and replay at the next read (#108)
+static int Replay_poll_unrecorded = 0;
+
+void replay_unrecorded_os_poll()
+{
+	Replay_poll_unrecorded = 1;
+	os_poll();
+	Replay_poll_unrecorded = 0;
+}
+
 void replay_os_poll()
 {
-	if (!replay_hook_live()) {
+	if (!replay_hook_live() || Replay_poll_unrecorded) {
 		return;
 	}
 
@@ -1153,10 +1205,6 @@ void replay_load_end()
 			Hdr.campaign_size = replay_read_player_file(filename, &Hdr_campaign);
 		}
 	} else {
-		if (red_alert_mission()) {
-			replay_fatal("Red alert missions are not supported by replay yet");
-		}
-
 		// the loadout the player committed in the recorded run.  The briefing restores it
 		// through the same path as a player re-flying a mission.
 		Player_loadout = Hdr_loadout;
@@ -1372,6 +1420,45 @@ void replay_drive_state(int state)
 				commit_pressed();
 			}
 			break;
+
+		case GS_STATE_RED_ALERT:
+			// a red alert mission has no briefing; its screen's continue button enters the game
+			if (!Replay_committed) {
+				Replay_committed = 1;
+				gameseq_post_event(GS_EVENT_ENTER_GAME);
+			}
+			break;
+	}
+}
+
+void replay_set_pace(int on)
+{
+	Replay_pace = on;
+}
+
+// -replay_pace: flFrametime is the game frame time after time compression, so a frame took flFrametime divided by
+// the compression in real time.  The performance counter is read directly, not through the hooked timers, so the
+// game sees nothing of the waiting.
+static void replay_pace_wait()
+{
+	LARGE_INTEGER now;
+	float compression = f2fl(Game_time_compression);
+
+	if (Replay_pace_frames++ == 0) {
+		QueryPerformanceFrequency(&Replay_pace_freq);
+		QueryPerformanceCounter(&Replay_pace_start);
+		Replay_pace_target = 0.0;
+		return;
+	}
+
+	Replay_pace_target += (compression > 0.0f) ? (flFrametime / compression) : flFrametime;
+	for (;;) {
+		QueryPerformanceCounter(&now);
+		double left = Replay_pace_target - (double)(now.QuadPart - Replay_pace_start.QuadPart) / (double)Replay_pace_freq.QuadPart;
+		if (left <= 0.0) {
+			break;
+		}
+		Sleep((left > 0.002) ? (DWORD)((left - 0.001) * 1000.0) : 0);
 	}
 }
 
@@ -1383,4 +1470,8 @@ void replay_sim_frame_end()
 
 	trace_frame(Replay_frame);
 	Replay_frame++;
+
+	if (Replay_pace && (Replay_mode == REPLAY_PLAY)) {
+		replay_pace_wait();
+	}
 }

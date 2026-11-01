@@ -60,3 +60,9 @@ CFileArchiverRelease/
 CryptstringRelease/
 ScrambleRelease/
 HelpEdRelease/
+
+# crash dumps hold game data from memory (tools/replay_check.ps1, FS2_PROCDUMP)
+*.dmp
+
+# Claude: per-user Visual Studio settings, kept on disk, not in the repo (Tom, steward review 2026-10-20)
+*.vcxproj.user

@@ -1611,7 +1611,7 @@ int set_target_objnum(ai_info *aip, int objnum)
 
 		aip->target_objnum = objnum;
 		aip->target_time = 0.0f;
-		aip->target_signature = Objects[objnum].signature;
+		aip->target_signature = (objnum >= 0) ? Objects[objnum].signature : -1;	// Claude: no target reads no object; was Objects[-1] (#2, D-080)
 		// clear targeted subsystem
 		set_targeted_subsys(aip, NULL, -1);
 	}
@@ -1933,7 +1933,7 @@ void get_tangent_point(vector *goal_point, object *objp, vector *point, float ra
 	vm_vec_normalized_dir(&vec_to_point, point, &objp->pos);
 	vm_vec_crossprod(&up_vec, &vec_to_point, &objp->orient.fvec);
 	vm_vec_crossprod(&perp_vec, &vec_to_point, &up_vec);
-	vm_vec_normalize(&perp_vec);
+	vm_vec_normalize_safe(&perp_vec);	// Claude: zero when objp faces *point; same (1,0,0) result as vm_vec_normalize, without its Debug Warning (#78)
 
 	vm_vec_scale_add(&perp_point, point, &vec_to_point, -radius);
 
@@ -5497,7 +5497,7 @@ void set_primary_weapon_linkage(object *objp)
 	shipp->flags &= ~SF_PRIMARY_LINKED;
 
 	// AL: ensure target is a ship!
-	if ( Objects[aip->target_objnum].type == OBJ_SHIP ) {
+	if ( (aip->target_objnum >= 0) && (Objects[aip->target_objnum].type == OBJ_SHIP) ) {	// Claude: no target is not a ship; read Objects[-1] (#3, D-080)
 		// If trying to destroy a big ship (i.e., not disable/disarm), always unleash all weapons
 		if ( ship_get_SIF(&Ships[Objects[aip->target_objnum].instance]) & SIF_BIG_SHIP) {
 			if ( aip->targeted_subsys == NULL ) {
@@ -12747,7 +12747,7 @@ void ai_bay_depart()
 	}
 
 	// check if parent ship still exists, if not abort depart 
-	if ( aip->goal_signature != Objects[aip->goal_objnum].signature ) {
+	if ( (aip->goal_objnum < 0) || (aip->goal_signature != Objects[aip->goal_objnum].signature) ) {	// Claude: no parent means it is gone; read Objects[-1] (#4, D-080)
 		aip->mode = AIM_NONE;
 		return;
 	}
@@ -14475,7 +14475,7 @@ int firing_aspect_seeking_bomb(object *objp)
 
 	bank_index = swp->current_secondary_bank;
 
-	if (bank_index != -1)
+	if ((bank_index != -1) && (bank_index < swp->num_secondary_banks))	// Claude: a ship with no secondary banks still has bank 0 selected, with stale ammo and weapon (#16)
 		if (swp->secondary_bank_ammo[bank_index] > 0) {
 			if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_BOMB) {
 				if (Weapon_info[swp->secondary_bank_weapons[bank_index]].wi_flags & WIF_HOMING_ASPECT) {

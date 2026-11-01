@@ -66,6 +66,10 @@ extern int Replay_mode;
 // command line (called from parse_cmdline)
 void replay_set_cmdline(char *record_file, char *replay_file, char *trace_file, int trace_full);
 void replay_set_autorecord(char *dir);
+// -replay_pace: a replay waits each mission frame until real time catches up with the recorded frame time, so it
+// plays at the speed it was recorded instead of as fast as the PC can draw.  Only real time is spent; nothing the
+// game reads changes, so the trace is the same as without it.
+void replay_set_pace(int on);
 
 // -autorecord restart, called from WinMainSub
 void replay_wait_for_restart();		// first thing: wait for the instance that started this one to close
@@ -104,6 +108,8 @@ void  replay_write_ints(int tag, int *vals, int count);
 // records vals[0..count-1] and returns count.  Pack the live state into vals only when
 // replay_should_read() is 0.
 int   replay_input_device(int *vals, int count, int max);
+// The same for a device sharing the entry: in replay it takes the entry only when vals[0] there is magic.
+int   replay_input_device_tagged(int magic, int *vals, int count, int max);
 
 // sound handles: the live handle is kept unless the recorded call failed or succeeded differently
 int replay_snd_handle(int tag, int live_handle);
@@ -114,6 +120,7 @@ int  replay_event_mouse(unsigned int flags, int set);
 int  replay_event_focus(int got_focus);
 int  replay_live_focus();		// 0 while a replay is feeding the mission: live focus changes must not change game state
 void replay_os_poll();
+void replay_unrecorded_os_poll();	// os_poll() with no os_poll entry, for a poll a windowed replay never makes (#108)
 
 // wrap a function returning int / float.  The live expression is evaluated only when the
 // value is not coming from the recording.

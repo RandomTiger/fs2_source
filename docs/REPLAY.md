@@ -5,7 +5,7 @@ This build of FreeSpace 2 can record one mission played by a person and replay i
 ## Recording
 
 ```
-FS2vs2022d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.trace
 ```
 
 1. Start the game, pick the pilot and the mission (campaign ready room, or the tech room simulator), and play it.
@@ -15,7 +15,7 @@ FS2vs2022d.exe -window -record recordings\NAME.fs2rec -trace recordings\NAME.tra
 
 To make a recording with nobody playing, use the autotest (`docs/AUTOTEST.md`):
 ```
-FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
 ```
 
 Put a file name in double quotes if it contains a space.
@@ -23,7 +23,7 @@ Put a file name in double quotes if it contains a space.
 ### Recording every mission you play
 
 ```
-FS2vs2022d.exe -window -autorecord DIRECTORY
+FS2_RecordPlayback_d.exe -window -autorecord DIRECTORY
 ```
 
 - Each mission is recorded to `DIRECTORY\MISSION.fs2rec`, with `MISSION.trace` and `MISSION.fs2rec.record.log` next to it. With no directory, it is `Recordings` in the game directory.
@@ -34,7 +34,7 @@ FS2vs2022d.exe -window -autorecord DIRECTORY
 ## Replaying
 
 ```
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_RecordPlayback_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 TraceDiff recordings\NAME.trace replays\NAME.trace
 ```
 
@@ -42,7 +42,9 @@ TraceDiff recordings\NAME.trace replays\NAME.trace
 - `NAME.fs2rec.replay.log` reports `REPLAY OK`, `DESYNC ...` or `ERROR ...`.
   - A **desync** means this run asked the OS for something the recording does not have at that point, so the game had already done something different. The process exits with code 3.
   - An **error** is a setup mismatch: a different mission file, skill level, screen size or sound settings. The process exits with code 4.
+  - After `REPLAY OK` the game quits normally. Without `-autotest` that is the original game's exit code, 1; only under `-autotest` does 0 mean a pass. Judge a replay by `REPLAY OK` and a TraceDiff `MATCH`, not by the exit code (D-033).
 - Add `-fulltrace` to write the full state every frame instead of every 60 frames. Use it to pin down the exact frame and field once TraceDiff has found a divergence.
+- Add `-replay_pace` to watch or listen to a replay at the speed it was recorded. Without it a replay runs as fast as the PC can draw. Pacing only waits in real time after each mission frame; the trace is the same either way.
 
 ## What is recorded
 
@@ -112,8 +114,31 @@ TraceDiff A.trace B.trace -curve           CSV: the largest difference of each k
 
 The tolerance file has one `kind value` per line. The kinds are `pos`, `orient`, `vel`, `rotvel`, `health`, `energy` and `control`. See `docs/tolerances.txt`. The exit code is 0 for a match, 1 for a divergence and 2 for a usage or file error.
 
+## Drift report
+
+```
+tools\drift_report.ps1 -A RUN_A -B RUN_B [-Out report.txt]
+tools\drift_report.ps1 -SelfTest NAME.trace [-Out folder]
+```
+
+**Diagnostic, not a gate result (#96, D-20261031-065902).** Every report starts with that line. A drift report is never quoted as a pass: strict replay (`REPLAY OK`) and TraceDiff exit 0 stay the only pass, and the strict verdicts are unchanged. The tool reads existing recordings and traces only; it runs no game.
+
+A run is a `.fs2rec` (its `.trace` beside it) or a `.trace` alone. The report gives:
+1. the strict TraceDiff verdict, quoted unchanged with its exit code, and the first diverging frame. Exit 2 (for example a trace version this layer does not read) is reported as not comparable, never as zero drift;
+2. with two recordings, entries per tag in each stream, the classes whose counts differ, and the first entry where the tag sequences differ once the ignore list is taken out;
+3. per kind (`TraceDiff -curve`), the first frame that drifts, the largest drift and the drift at the last common full frame.
+
+The ignore list, each item by a logged decision; nothing else is ignored:
+- `RT_SND_*` (tags 18-24), sound-device answers: device-dependent, no logic reads them (D-035 item 2; left the stream in format 4).
+- `RT_STREAM_*` (tags 25-27, 30), music-stream answers: same reason (D-035 item 2).
+- The flip cursor: an `RT_MOUSE_POS` straight after another one, gr_flip's cursor read after mouse_eval_deltas' own (D-035 item 3).
+
+Named but not ignored: the clock read that times a music or voice stream starting (D-035 (a)) is an `RT_TIMER_MS` like any other, so it shows only as a `RT_TIMER_MS` count difference; `RT_INPUT_DEVICE` and `RT_JOY_PRESENT` answers.
+
+`-SelfTest` compares the trace with itself (must be zero drift) and with a copy carrying one injected drift (pos.x of the first object +0.5 m at the middle full frame, and its hash changed), which must be reported at that frame as `pos`.
+
 ## Known limits
 
-- Red alert missions are not supported yet; replay stops with an error.
+- Red alert missions replay from the simulator (where there is no carry-over). In a campaign their carry-over (wingmen, hull, ammo from the previous mission) is read from the recorded pilot file, but no recording tests that yet. A red alert mission entered straight from the one before it is not the first mission since the game started, so it cannot be recorded; restart and use Continue Campaign.
 - If the window loses focus during recording, `Mouse_hidden` is cleared and that is not recorded. This only matters when flying with the mouse.
 - Replay must use the same screen size, detail settings and sound settings as the recording. Rendering consumes the same `rand()` stream as gameplay.

@@ -508,7 +508,7 @@ $Formula: ( when
    ( true )
    ( transfer-cargo "Container" "Poseidon" )
    ( exchange-cargo "Poseidon" "Container" )
-   ( cargo-no-deplete "Container" )
+   ( cargo-no-deplete "Poseidon" )
 )
 +Name: Cargo
 +Repeat Count: 1
