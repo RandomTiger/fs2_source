@@ -33,3 +33,7 @@ Retail draws thruster glow after the whole model: a camera-facing additive quad 
 - Lighting is per normal index (`Interp_lighting->r/g/b[norm]`, filled lazily in `model_interp_tmappoly`), so a mesh vertex keeps (vertnum, normnum, u, v) and the host builds the per-vertex colours from the normal-indexed table at draw time.
 - Textures are chosen per poly (`pm->textures[w(p+40)]`, forced/xparent/subspace variants), so those variants stay on the polygon path at first; only the plain textured case is meshed.
 - Sortnorm traversal order is view dependent but irrelevant for opaque depth-written polys; alpha polys keep the polygon path.
+
+## Status (2026-11-01)
+- Clip plane done: sink entry `mesh_clip` (v4), eye-space plane (nx, ny, nz, w), kept where `dot + w > 0`. The host takes the plane from `G3_user_clip_normal/point` in `model_interp_mesh_try`; a sink without the entry sends the submodel to the CPU path. The shader variant interpolates `cz = (dot(n, e) + w) / z` and discards at `cz <= 0`. Counted: 61 clipped draws in `sm1-01`, `sm1-02`, `sm2-01`, replays unchanged. Eye check of the cut edge still to do.
+- Mesh creation is still lazy (at the first draw): the sink only accepts it inside an open frame. The end state (Tom 2026-11-01) is all geometry built at load, which needs the sink to accept creation outside a frame or a host preload pass.
