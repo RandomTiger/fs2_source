@@ -151,7 +151,9 @@
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- Claude: ddraw.dll is loaded from the Windows folder by GrD3D.cpp, not from the game folder -->
+      <DelayLoadDLLs>ddraw.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
@@ -253,7 +255,9 @@
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;wsock32.lib;winmm.lib;vfw32.lib;msacm32.lib;comctl32.lib;code.lib;xiph.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- Claude: ddraw.dll is loaded from the Windows folder by GrD3D.cpp, not from the game folder -->
+      <DelayLoadDLLs>ddraw.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
