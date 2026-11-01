@@ -16,7 +16,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -58,6 +58,7 @@ public:
 		table.mesh_create = &FakeSink::s_mesh_create;
 		table.mesh_free = &FakeSink::s_mesh_free;
 		table.mesh_draw = &FakeSink::s_mesh_draw;
+		table.mesh_state = &FakeSink::s_mesh_state;
 	}
 
 	int count(Cmd::Kind k) const
@@ -231,6 +232,16 @@ private:
 		s->meshes.insert(id);
 		Cmd &c = s->add(Cmd::MeshCreate);
 		c.a = id; c.b = nv; c.c = ng; c.d = ni / 3;
+	}
+	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("mesh_state outside a frame");
+		if (g == nullptr || ng <= 0 || s->meshes.count(id) == 0) { s->err("mesh_state of an unknown mesh"); return; }
+		for (int i = 0; i < ng; i++) {
+			if (g[i].texture != 0 && s->textures.count(g[i].texture) == 0) { s->err("mesh_state with an unknown texture"); return; }
+		}
+		s->add(Cmd::MeshState).a = id;
 	}
 	static void s_mesh_free(void *u, int32_t id)
 	{

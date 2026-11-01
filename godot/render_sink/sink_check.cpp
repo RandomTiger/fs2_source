@@ -388,6 +388,13 @@ static void test_mesh_api()
 	s->mesh_draw(s->user, 1, xf, nullptr, 0);
 	s->depth_end(s->user);
 	CHECK(fake.errors.empty() && fake.count(Cmd::MeshDraw) == 1);
+	CHECK(s->mesh_state != nullptr);
+	g.zbias = 2;
+	s->mesh_state(s->user, 1, &g, 1);	// the state of the draws that follow: no new geometry
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshState) == 1 && fake.count(Cmd::MeshCreate) == 1);
+	s->mesh_state(s->user, 9, &g, 1);	// unknown mesh
+	CHECK(fake.errors.size() == 1);
+	fake.errors.clear();
 	s->mesh_draw(s->user, 1, xf, nullptr, 0);	// outside a run
 	CHECK(fake.errors.size() == 1);
 	s->mesh_free(s->user, 1);

@@ -154,6 +154,9 @@ typedef struct fs2_render_sink {
 		const fs2_sink_mesh_group *groups, int ngroups, const uint32_t *indices, int nindices);
 	void (*mesh_free)(void *user, int32_t id);
 	void (*mesh_draw)(void *user, int32_t id, const float xform[12], const uint8_t *colours, int ncolours);
+	/* v4, optional: the draw state of a mesh (per group: texture, blend, flags, zbias; first_index and index_count are ignored) for the mesh_draw
+	 * calls that follow, without touching its geometry, which mesh_create makes once. A sink without it has the host recreate the mesh. */
+	void (*mesh_state)(void *user, int32_t id, const fs2_sink_mesh_group *groups, int ngroups);
 } fs2_render_sink;
 
 #ifdef __cplusplus

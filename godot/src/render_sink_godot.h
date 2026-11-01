@@ -231,15 +231,20 @@ private:
 	// v4 meshes (P3b): model-space geometry kept by id; a draw inside a run leaves a placeholder batch (key.texture = -(draw index + 1))
 	// so it keeps its place among the run's batches, and add_to_layer turns it into mesh instances with the mesh shader.
 	struct MeshGroup {
+		godot::RID mesh_rid;		// a mesh with one surface, made once with the geometry and kept across frames
+	};
+	struct MeshGroupState {			// how a group is drawn: set per draw (mesh_state), not part of the geometry
 		fs2_sink_mesh_group g;
-		godot::RID mesh_rid;		// a mesh with one surface, kept across frames
 		int zmode = 2;
 	};
 	struct MeshData {
 		std::vector<MeshGroup> groups;
+		std::vector<std::vector<MeshGroupState>> states;	// every distinct state the game has set; a draw keeps the index it was made with
+		int cur = 0;
 	};
 	struct MeshDraw {
 		int32_t id = 0;
+		int state = 0;	// index into the mesh's states
 		float xf[12] = {};
 		int epoch = 0;
 		int cw = 0, ch = 0, ox = 0, oy = 0;	// the canvas and its screen origin when drawn
@@ -252,7 +257,9 @@ private:
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
 	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull);
-	godot::RID mesh_group_material(MeshGroup &mg, const godot::RID &cols);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols);
+	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
+	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
 	void free_mesh_data(MeshData &md);
 	void add_mesh_to_layer(Layer &l, const MeshDraw &d, int order);
 	static void s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,

@@ -1105,7 +1105,11 @@ int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, i
 			sg[i].first_index = m.g[i].first_index;
 			sg[i].index_count = m.g[i].index_count;
 		}
-		H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		if (m.sink_made && H.sink->mesh_state) {
+			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
+		} else {
+			H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		}
 		m.sink_made = true;
 		m.zmode = zmode; m.zbias = H.zbias; m.cull = H.cull; m.tiled = tiled;
 		m.tex = tex; m.blend = blend;

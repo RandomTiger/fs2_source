@@ -66,6 +66,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_create = &GodotSink::s_mesh_create;
 	sink.mesh_free = &GodotSink::s_mesh_free;
 	sink.mesh_draw = &GodotSink::s_mesh_draw;
+	sink.mesh_state = &GodotSink::s_mesh_state;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -1636,10 +1637,41 @@ void GodotSink::free_mesh_data(MeshData &md)
 		if (mg.mesh_rid.is_valid()) { rs->free_rid(mg.mesh_rid); }
 	}
 	md.groups.clear();
+	md.states.clear();
+}
+
+GodotSink::MeshGroupState GodotSink::mesh_group_state(const fs2_sink_mesh_group &g)
+{
+	MeshGroupState st;
+	st.g = g;
+	const bool zr = (g.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (g.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+	st.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
+	return st;
+}
+
+// The state of the draws that follow. The geometry stays; a state seen before is reused, so the list stays as short as the game's variety.
+void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto it = s->mesh_data.find(id);
+	if (!s->in_frame || it == s->mesh_data.end() || g == nullptr || ng != (int)it->second.groups.size()) { return; }
+	MeshData &md = it->second;
+	std::vector<MeshGroupState> st((size_t)ng);
+	for (int i = 0; i < ng; i++) { st[(size_t)i] = mesh_group_state(g[i]); }
+	for (size_t k = 0; k < md.states.size(); k++) {
+		bool same = true;
+		for (int i = 0; i < ng && same; i++) {
+			const fs2_sink_mesh_group &a = md.states[k][(size_t)i].g, &b = st[(size_t)i].g;
+			same = a.texture == b.texture && a.blend == b.blend && a.flags == b.flags && a.zbias == b.zbias;
+		}
+		if (same) { md.cur = (int)k; return; }
+	}
+	md.states.push_back(std::move(st));
+	md.cur = (int)md.states.size() - 1;
 }
 
 // A material for one group of one draw: the group's shader and texture, and the draw's colour table.
-RID GodotSink::mesh_group_material(MeshGroup &mg, const RID &cols)
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1683,9 +1715,6 @@ void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v
 	MeshData md;
 	for (int gi = 0; gi < ng; gi++) {
 		MeshGroup mg;
-		mg.g = g[gi];
-		const bool zr = (g[gi].flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (g[gi].flags & FS2_SINK_DRAWF_ZWRITE) != 0;
-		mg.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
 		// the vertices of this group only, renumbered
 		std::map<uint32_t, int> remap;
 		std::vector<uint32_t> used;
@@ -1722,6 +1751,9 @@ void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v
 		rs->mesh_set_custom_aabb(mg.mesh_rid, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
 		md.groups.push_back(mg);
 	}
+	std::vector<MeshGroupState> st((size_t)ng);
+	for (int gi = 0; gi < ng; gi++) { st[(size_t)gi] = mesh_group_state(g[gi]); }
+	md.states.push_back(std::move(st));
 	s->mesh_data[id] = std::move(md);
 }
 
@@ -1737,10 +1769,12 @@ void GodotSink::s_mesh_free(void *u, int32_t id)
 void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *colours, int ncolours)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
-	if (!s->in_frame || !s->in_run || xform == nullptr || s->mesh_data.find(id) == s->mesh_data.end()) { return; }
+	auto md = s->mesh_data.find(id);
+	if (!s->in_frame || !s->in_run || xform == nullptr || md == s->mesh_data.end()) { return; }
 	s->batcher.flush();
 	MeshDraw d;
 	d.id = id;
+	d.state = md->second.cur;
 	std::memcpy(d.xf, xform, sizeof(d.xf));
 	if (colours != nullptr && ncolours > 0) { d.col.assign(colours, colours + (size_t)ncolours * 4); }
 	d.epoch = s->run_epoch;
@@ -1755,7 +1789,8 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 {
 	auto it = mesh_data.find(d.id);
-	if (it == mesh_data.end()) { return; }
+	if (it == mesh_data.end() || d.state < 0 || d.state >= (int)it->second.states.size()) { return; }
+	const std::vector<MeshGroupState> &states = it->second.states[(size_t)d.state];
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
 	fs2perf::count(fs2perf::C_MESH_DRAWS);
 	stat_mesh_draws++;
@@ -1783,8 +1818,9 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		}
 		l.mesh_coltex.push_back(std::make_pair(rows, cols));
 	}
-	for (MeshGroup &mg : it->second.groups) {
-		const RID mat = mesh_group_material(mg, cols);
+	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
+		MeshGroup &mg = it->second.groups[gi];
+		const RID mat = mesh_group_material(states[gi], cols);
 		l.mesh_materials.push_back(mat);
 		RID inst;
 		if (kInstancePool && !spare_instances.empty()) {
