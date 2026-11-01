@@ -1947,4 +1947,10 @@ void hudtargetbox_page_in()
 	bm_page_in_aabitmap( Target_view_integrity_gauge.first_frame, Target_view_integrity_gauge.num_frames );
 
 	bm_page_in_aabitmap( Target_view_extra.first_frame, Target_view_extra.num_frames );
+
+	// Claude: the target box static was loaded and read from disk on its first draw; load and page it with the level (W11)
+	if ( Target_static.num_frames <= 0 ) {	// Claude
+		hud_anim_load( &Target_static );	// Claude
+	}	// Claude
+	bm_page_in_aabitmap( Target_static.first_frame, Target_static.num_frames );	// Claude
 }

@@ -90,6 +90,17 @@ void flak_level_init()
 	}
 }
 
+// Claude: page in the flak muzzle flash with the level; it was read from disk on the first flak shot (W11)
+void flak_page_in()
+{
+	int nframes;
+
+	if(Flak_muzzle_flash_ani >= 0){
+		bm_get_info(Flak_muzzle_flash_ani, NULL, NULL, NULL, &nframes);
+		bm_page_in_texture(Flak_muzzle_flash_ani, nframes);
+	}
+}
+
 // close down flak stuff
 void flak_level_close()
 {
