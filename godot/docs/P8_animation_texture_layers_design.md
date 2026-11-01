@@ -29,7 +29,7 @@ Every animation (.ani: particle fire and smoke, fireballs, shockwaves, explosion
 ## Decisions (Tom 2026-11-01)
 1. Scope: effects only (particles, fireballs, shockwaves, explosions, muzzle flash, beams, debris, shield, thrusters). UI, briefing and icon animations stay as they are.
 2. Load time: mission load (animations the mission uses), via a hook after mission parse.
-3. Frame dropping: `can_drop_frames` is the retail low-memory option (`bm_set_low_mem`, LowMem setting): mode 0 all frames (our reference, D-046), mode 1 every other frame at half size and half fps, mode 2 first frame only (debug). It saves RAM on small machines, not frame rate. The layers load whatever frame count BmpMan reports, so the setting keeps working and nothing changes for the game or trace. (Tom asked what it is; answer given, default kept.)
+3. Frame dropping: Tom 2026-11-01: remove the whole `can_drop_frames` / low-memory path (`bm_set_low_mem`, `Bm_low_mem`, `Use_low_mem`, the `can_drop_frames` argument of `bm_load_animation`). Memory is not a concern. It is original source in BmpMan/FreeSpace, below this branch: it goes as a brief to the lower layer, not an edit here. Until it lands the layers load whatever frame count BmpMan reports (mode 0 = all frames).
 4. Memory budget: open. All frames of the mission's effect animations stay resident; size to be measured on the largest missions before the budget is fixed.
 
 ## Order of work if approved
