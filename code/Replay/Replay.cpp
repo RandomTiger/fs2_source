@@ -51,6 +51,13 @@ static int Replay_pace_frames = 0;
 static LARGE_INTEGER Replay_pace_freq, Replay_pace_start;
 static double Replay_pace_target = 0.0;	// seconds of real time the recorded frames so far took
 
+// -shot_frames: mission frames whose picture a replay saves (FrameShots)
+#define REPLAY_MAX_SHOTS 64
+static int Replay_shot_frames[REPLAY_MAX_SHOTS];
+static int Replay_shot_done[REPLAY_MAX_SHOTS];
+static int Replay_shot_count = 0;
+static char Replay_shot_dir[REPLAY_PATH_LEN] = "";
+
 // -autorecord
 #define REPLAY_RESTART_ENV			"FS2_AUTORECORD_RESTART_PID"
 static int Replay_auto = 0;				// record each mission to its own name in Replay_auto_dir
@@ -217,6 +224,11 @@ static void replay_log_stats()
 	for (i = 1; i < RT_NUM_TAGS; i++) {
 		if (Replay_entries_by_tag[i]) {
 			replay_logf("  %-20s %d\n", Replay_tag_names[i], Replay_entries_by_tag[i]);
+		}
+	}
+	for (i = 0; i < Replay_shot_count; i++) {
+		if (!Replay_shot_done[i]) {
+			replay_logf("Shot of frame %d not saved: the replay never drew it (it has frames 0 to %d)\n", Replay_shot_frames[i], Replay_frame - 2);
 		}
 	}
 }
@@ -1734,12 +1746,65 @@ static void replay_pace_wait()
 	}
 }
 
+void replay_set_shots(char *frames, char *dir)
+{
+	char *p = frames, *end;
+	long f;
+
+	Replay_shot_count = 0;
+	while (p && *p) {
+		f = strtol(p, &end, 10);
+		if ((end == p) || (f < 0) || (Replay_shot_count >= REPLAY_MAX_SHOTS)) {
+			break;
+		}
+		Replay_shot_frames[Replay_shot_count] = (int)f;
+		Replay_shot_done[Replay_shot_count] = 0;
+		Replay_shot_count++;
+		p = end;
+		while ((*p == ',') || (*p == ' ')) {
+			p++;
+		}
+	}
+	if (dir && dir[0]) {
+		strncpy(Replay_shot_dir, dir, REPLAY_PATH_LEN - 1);
+	}
+}
+
+// -shot_frames: called at the end of mission frame Replay_frame's simulation, before it is drawn.  The back buffer (or
+// the host's viewport) still holds the picture of the frame before, drawn and shown last time round, so that is the
+// one saved.  Reading it back changes nothing the game reads: no hooked call is made.
+static void replay_take_shots()
+{
+	char name[32];
+	int i;
+
+	for (i = 0; i < Replay_shot_count; i++) {
+		if (Replay_shot_done[i] || (Replay_shot_frames[i] + 1 != Replay_frame)) {
+			continue;
+		}
+		if (!Replay_shot_dir[0]) {
+			_snprintf(Replay_shot_dir, REPLAY_PATH_LEN - 1, "%s.shots", Replay_file);
+		}
+		_mkdir(Replay_shot_dir);
+		sprintf(name, "frame_%06d", Replay_shot_frames[i]);
+		Replay_shot_done[i] = 1;
+		if (autotest_save_screen(Replay_shot_dir, name)) {
+			replay_logf("Shot of frame %d: %s\\%s.bmp (%dx%d)\n", Replay_shot_frames[i], Replay_shot_dir, name, gr_screen.max_w, gr_screen.max_h);
+		} else {
+			replay_logf("Shot of frame %d not saved\n", Replay_shot_frames[i]);
+		}
+	}
+}
+
 void replay_sim_frame_end()
 {
 	if (!Replay_in_game || !Replay_active) {
 		return;
 	}
 
+	if (Replay_shot_count && (Replay_mode == REPLAY_PLAY)) {
+		replay_take_shots();
+	}
 	trace_frame(Replay_frame);
 	Replay_frame++;
 
