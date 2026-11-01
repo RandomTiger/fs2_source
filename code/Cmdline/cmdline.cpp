@@ -249,6 +249,8 @@ cmdline_parm replay_arg("-replay", NULL);
 cmdline_parm trace_arg("-trace", NULL);
 cmdline_parm fulltrace_arg("-fulltrace", NULL);
 cmdline_parm replay_pace_arg("-replay_pace", NULL);		// Claude: replay at the recorded speed, see Replay.h
+cmdline_parm shot_frames_arg("-shot_frames", NULL);	// Claude: pictures of chosen frames during a replay, see Replay.h
+cmdline_parm shot_dir_arg("-shot_dir", NULL);
 cmdline_parm autorecord_arg("-autorecord", NULL);		// Claude: record every mission played, see Replay.h
 cmdline_parm mission_arg("-mission", NULL);		// Claude: start a mission from the main hall, see MainHallMenu.cpp
 cmdline_parm autotest_arg("-autotest", NULL);			// Claude: autotest, see Autotest.h
@@ -724,6 +726,9 @@ int parse_cmdline(char *cmdline)
 	}
 	if(replay_pace_arg.found()){	// Claude
 		replay_set_pace(1);
+	}
+	if(shot_frames_arg.found()){	// Claude: -shot_frames, -shot_dir
+		replay_set_shots(shot_frames_arg.str(), shot_dir_arg.found() ? shot_dir_arg.str() : NULL);
 	}
 
 	// Claude: -autorecord.  -record and -replay take precedence.
