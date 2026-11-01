@@ -85,5 +85,6 @@ void draw_brackets_square_quick(int x1, int y1, int x2, int y2, int thick=0);
 void draw_brackets_diamond_quick(int x1, int y1, int x2, int y2, int thick=0);
 void draw_brackets_dashed_square_quick(int x1, int y1, int x2, int y2);
 int hud_brackets_get_iff_color(int team);
+void hudbrackets_page_in();	// Claude: the "ships attacking" marker, paged with the level (W11)
 
 #endif
