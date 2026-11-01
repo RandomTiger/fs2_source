@@ -3496,7 +3496,7 @@ void ship_init_thrusters()
 
 	for ( i = 0; i < num_thrust_anims; i++ ) {
 		ta = &Thrust_anims[i];
-		ta->first_frame = bm_load_animation(Thrust_anim_names[i],  &ta->num_frames, &fps, 1);
+		ta->first_frame = bm_load_animation(Thrust_anim_names[i],  &ta->num_frames, &fps);	// Claude: no can_drop_frames (W13)
 		if ( ta->first_frame == -1 ) {
 			Error(LOCATION,"Error loading animation file: %s\n",Thrust_anim_names[i]);
 			return;
