@@ -515,6 +515,12 @@ int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light 
 	return Gr_host_backend->mesh_draw_lit(key, xform, light, nv, tiled);
 }
 
+int gr_host_mesh_clip(const float *plane)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_clip) { return plane == NULL; }
+	return Gr_host_backend->mesh_clip(plane);
+}
+
 void gr_host_mesh_free(int key)
 {
 	if (Gr_host_backend && Gr_host_backend->mesh_free) { Gr_host_backend->mesh_free(key); }

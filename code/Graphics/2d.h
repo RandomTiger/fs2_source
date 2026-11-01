@@ -633,11 +633,13 @@ typedef struct gr_host_backend {
 	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 	void (*mesh_free)(int key);
 	int (*mesh_draw_lit)(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);	// as mesh_draw, the host lights per vertex; 0 = use mesh_draw
+	int (*mesh_clip)(const float *plane);	// the user clip plane (eye space, nx ny nz w; kept where dot + w > 0) for the draws that follow, NULL = none; 0 = not supported
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni);
 extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 extern int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);
+extern int gr_host_mesh_clip(const float *plane);
 extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST

@@ -183,6 +183,9 @@ typedef struct fs2_render_sink {
 	/* v4, optional: mesh_draw with the game's lighting done by the sink per vertex (from the mesh's vertex positions and normals) instead of
 	 * host-made colours. Same rules as mesh_draw otherwise. A sink without it gets mesh_draw with host-made colours. */
 	void (*mesh_draw_lit)(void *user, int32_t id, const float xform[12], const fs2_sink_mesh_light *light);
+	/* v4, optional: the user clip plane for the mesh draws that follow (the game's g3_start_user_clip_plane): plane = nx, ny, nz, w in eye space; a point
+	 * is kept where nx*x + ny*y + nz*z + w > 0. NULL = no clip. A sink without it makes the host draw a clipped model on the CPU path. */
+	void (*mesh_clip)(void *user, const float plane[4]);
 } fs2_render_sink;
 
 #ifdef __cplusplus

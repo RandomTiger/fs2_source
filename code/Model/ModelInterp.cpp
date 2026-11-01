@@ -1541,7 +1541,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 static int model_interp_mesh_try(polymodel *pm, int mn)
 {
 	if (!gr_host_mesh_ready()) { return 0; }
-	if (Interp_thrust_scale_subobj || Interp_subspace || G3_user_clip || !gr_screen.hardware || Interp_use_saved_lighting) { return 0; }
+	if (Interp_thrust_scale_subobj || Interp_subspace || !gr_screen.hardware || Interp_use_saved_lighting) { return 0; }
 	if (Interp_flags & (MR_NO_POLYS | MR_FORCE_TEXTURE | MR_ALL_XPARENT | MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET
 		| MR_SHOW_INVISIBLE_FACES | MR_NO_CULL | MR_SHOW_PIVOTS)) { return 0; }
 	if ((Interp_tmap_flags & ~TMAP_FLAG_TILED) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
@@ -1570,6 +1570,17 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	xf[0] = ex.x - o.x; xf[1] = ey.x - o.x; xf[2]  = ez.x - o.x; xf[3]  = o.x;
 	xf[4] = ex.y - o.y; xf[5] = ey.y - o.y; xf[6]  = ez.y - o.y; xf[7]  = o.y;
 	xf[8] = ex.z - o.z; xf[9] = ey.z - o.z; xf[10] = ez.z - o.z; xf[11] = o.z;
+
+	// the warp clip plane (eye space, kept where dot(n, p) + w > 0); a host that cannot take it has the polygon path draw the submodel
+	static int s_was_clipping = 0;
+	if (G3_user_clip) {
+		const float plane[4] = { G3_user_clip_normal.x, G3_user_clip_normal.y, G3_user_clip_normal.z, -vm_vec_dot(&G3_user_clip_normal, &G3_user_clip_point) };
+		if (!gr_host_mesh_clip(plane)) { return 0; }
+		s_was_clipping = 1;
+	} else if (s_was_clipping) {
+		gr_host_mesh_clip(NULL);
+		s_was_clipping = 0;
+	}
 
 	// a host that lights per vertex takes the lighting inputs as they are (not when the object's lighting is being saved: the saved arrays
 	// are filled by the CPU path below)

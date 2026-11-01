@@ -1151,6 +1151,13 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 	H.sink->mesh_draw_lit(H.sink->user, key, xform, &sl);
 	return 1;
 }
+// the user clip plane of the draws that follow (a sink without the entry cannot clip: only "no clip" is accepted)
+int h_mesh_clip(const float *plane)
+{
+	if (H.sink->mesh_clip == nullptr) { return plane == nullptr; }
+	H.sink->mesh_clip(H.sink->user, plane);
+	return 1;
+}
 #define SCALE_UV(x, x0, x1, y0, y1) (((((x) - (x0)) * ((y1) - (y0))) / ((x1) - (x0))) + (y0))
 
 // gr_d3d_scaler: clip the two corner vertices to the clip rectangle, moving the uvs with them, then a textured quad
@@ -1515,6 +1522,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_create = h_mesh_create;
 	Backend.mesh_draw = h_mesh_draw;
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
+	Backend.mesh_clip = h_mesh_clip;
 	Backend.mesh_free = h_mesh_free;
 	gr_host_backend_register(&Backend);
 	return 1;

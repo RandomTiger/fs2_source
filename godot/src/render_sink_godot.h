@@ -253,15 +253,20 @@ private:
 		std::vector<uint8_t> col;	// RGBA8 per mesh vertex
 		bool lit = false;			// lit on the GPU from `light` (mesh_draw_lit); col is empty
 		fs2_sink_mesh_light light = {};
+		bool clip = false;			// the user clip plane (mesh_clip) in force when drawn
+		float plane[4] = {};
 	};
+	bool mesh_clip_on = false;
+	float mesh_clip_plane[4] = {};
+	static void s_mesh_clip(void *u, const float plane[4]);
 	std::vector<godot::RID> mesh_mat_pool;
 	std::map<int, std::vector<godot::RID>> mesh_col_pool;	// by rows
 	void release_mesh_res(Layer &l, bool free_them);
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit);
-	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
 	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
 	void free_mesh_data(MeshData &md);

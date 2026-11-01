@@ -392,6 +392,9 @@ static void test_mesh_api()
 	CHECK(fake.errors.empty() && fake.count(Cmd::MeshDraw) == 1);
 	s->depth_end(s->user);
 	CHECK(fake.count(Cmd::MeshDrawLit) == 1);
+	CHECK(s->mesh_clip != nullptr);
+	{ const float pl[4] = { 0, 0, 1, -5 }; s->mesh_clip(s->user, pl); s->mesh_clip(s->user, nullptr); }
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshClip) == 2);
 	CHECK(s->mesh_state != nullptr);
 	g.zbias = 2;
 	s->mesh_state(s->user, 1, &g, 1);	// the state of the draws that follow: no new geometry

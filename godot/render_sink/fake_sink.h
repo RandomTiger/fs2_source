@@ -16,7 +16,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -60,6 +60,7 @@ public:
 		table.mesh_draw = &FakeSink::s_mesh_draw;
 		table.mesh_state = &FakeSink::s_mesh_state;
 		table.mesh_draw_lit = &FakeSink::s_mesh_draw_lit;
+		table.mesh_clip = &FakeSink::s_mesh_clip;
 	}
 
 	int count(Cmd::Kind k) const
@@ -250,6 +251,12 @@ private:
 		s->need_frame("mesh_free outside a frame");
 		s->meshes.erase(id);
 		s->add(Cmd::MeshFree).a = id;
+	}
+	static void s_mesh_clip(void *u, const float plane[4])
+	{
+		FakeSink *s = static_cast<FakeSink *>(u);
+		s->need_frame("mesh_clip outside a frame");
+		s->add(Cmd::MeshClip).a = plane != nullptr ? 1 : 0;
 	}
 	static void s_mesh_draw_lit(void *u, int32_t id, const float *xform, const fs2_sink_mesh_light *light)
 	{

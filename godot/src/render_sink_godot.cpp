@@ -68,6 +68,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_draw = &GodotSink::s_mesh_draw;
 	sink.mesh_state = &GodotSink::s_mesh_state;
 	sink.mesh_draw_lit = &GodotSink::s_mesh_draw_lit;
+	sink.mesh_clip = &GodotSink::s_mesh_clip;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -1601,10 +1602,10 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
 // interpolates in screen space.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1617,6 +1618,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += lin ? "filter_linear, " : "filter_nearest, ";
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
+	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
 	if (lit) {
 		// light_apply_rgb (code/Lighting/Lighting.cpp) per vertex, then the host's gamma table; lt0 = ambient, reflective, level, darken;
 		// lt1 = suns, points, 1/gamma, flat byte (< 0: none)
@@ -1636,8 +1638,11 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += "void vertex() {\n\tvec3 p = VERTEX;\n\tvec3 e = vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x + cfg.x * e.x / z, org.y + cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n";
+	if (uclip) { code += "\tcz = (dot(clipp.xyz, e) + clipp.w) / z;\n"; }	// over z, so it interpolates linearly in screen space
 	code += lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz);\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
-	code += "void fragment() {\n\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+	code += "void fragment() {\n";
+	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
+	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
 	code += "\tvec4 c = t;\n\tc.rgb *= vcol;\n";
 	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
@@ -1689,7 +1694,7 @@ void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, 
 }
 
 // A material for one group of one draw: the group's shader and texture, and the draw's colour table.
-RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit)
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1706,7 +1711,7 @@ RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bo
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
-	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit));
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit, uclip));
 	rs->material_set_param(mat, "tex", tex);
 	rs->material_set_param(mat, "cols", cols);
 	rs->material_set_param(mat, "zbias", (float)mg.g.zbias);
@@ -1801,12 +1806,22 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 	std::memcpy(d.xf, xform, sizeof(d.xf));
 	if (colours != nullptr && ncolours > 0) { d.col.assign(colours, colours + (size_t)ncolours * 4); }
 	d.epoch = s->run_epoch;
+	d.clip = s->mesh_clip_on;
+	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
 	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
 	b.key.texture = -(int32_t)s->mesh_draws.size();
 	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
 	s->run_batches.push_back(b);
+}
+
+// the user clip plane for the draws that follow; NULL clears it
+void GodotSink::s_mesh_clip(void *u, const float plane[4])
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->mesh_clip_on = plane != nullptr;
+	if (plane != nullptr) { std::memcpy(s->mesh_clip_plane, plane, sizeof(s->mesh_clip_plane)); }
 }
 
 // as s_mesh_draw, but the vertex colours are worked out on the GPU from the lighting inputs
@@ -1823,6 +1838,8 @@ void GodotSink::s_mesh_draw_lit(void *u, int32_t id, const float *xform, const f
 	d.lit = true;
 	d.light = *light;
 	d.epoch = s->run_epoch;
+	d.clip = s->mesh_clip_on;
+	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
 	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
@@ -1865,7 +1882,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	}
 	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
 		MeshGroup &mg = it->second.groups[gi];
-		const RID mat = mesh_group_material(states[gi], cols, d.lit);
+		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip);
 		l.mesh_materials.push_back(mat);
 		RID inst;
 		if (kInstancePool && !spare_instances.empty()) {
@@ -1890,6 +1907,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
 		// canvas centre relative to the screen centre, y up
 		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
+		if (d.clip) { rs->material_set_param(mat, "clipp", Vector4(d.plane[0], d.plane[1], d.plane[2], d.plane[3])); }
 		if (d.lit) {
 			const fs2_sink_mesh_light &L = d.light;
 			rs->material_set_param(mat, "lt0", Vector4(L.ambient, L.reflective, L.level, (float)L.darken));
