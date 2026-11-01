@@ -27,13 +27,14 @@ $Missions = @($Missions | ForEach-Object { $_ -split ',' })
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 New-Item -ItemType Directory -Force $Out | Out-Null
 Set-Location $GameDir
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 
 $failed = @()
 foreach ($c in $Configs) {
-	$exe = ".\FS2vs2022$c.exe"
+	$exe = ".\$(Get-FS2Exe $c)"
 	if (-not (Test-Path $exe)) { "FAIL no $exe in $GameDir"; exit 1 }
 	foreach ($m in $Missions) {
-		while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+		while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 		Remove-Item autotest.log -ErrorAction SilentlyContinue
 		$p = Start-Process $exe -ArgumentList "-window -autotest -at_mission $m -at_pilot $Pilot -at_time $Time$(if ($Headless) { ' -headless' })" -PassThru
 		if (-not $p.WaitForExit(300000)) { Stop-Process $p -Force; "$m $c TIMEOUT"; $failed += "$m $c"; continue }

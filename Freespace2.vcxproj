@@ -78,32 +78,33 @@
     <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <Import Project="$(MSBuildThisFileDirectory)build\layer.props" /><!-- Claude: layer name for the exe names (D-20261101-064106) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\Debug\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2vs2022d</TargetName>
+    <TargetName>FS2_$(FS2Layer)_d</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(PATH_FS2)\</OutDir><!-- Claude: same as Win32, else MSB8012 (2026-10-20) -->
     <IntDir>.\x64\Debug\Freespace2\</IntDir><!-- Claude: own folder, code.lib used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2vs2022d64</TargetName>
+    <TargetName>FS2_$(FS2Layer)_d64</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\Release\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2vs2022r</TargetName>
+    <TargetName>FS2_$(FS2Layer)_r</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(PATH_FS2)\</OutDir><!-- Claude: same as Win32, else MSB8012 (2026-10-20) -->
     <IntDir>.\x64\Release\Freespace2\</IntDir><!-- Claude: own folder, code.lib used the same one (MSB8028) (2026-10-20) -->
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>FS2vs2022r64</TargetName>
+    <TargetName>FS2_$(FS2Layer)_r64</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

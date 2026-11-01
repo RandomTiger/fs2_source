@@ -7,7 +7,7 @@ random, plays the same backend twice as a check on the listening; the listener i
   tools\audio_assessment.ps1 [-Dsoal <folder with the Win32 dsound.dll, dsoal-aldrv.dll, alsoft.ini>]
                              [-Scenes AudioA,...] [-GameDir <dir>] [-Out <dir>]
 
-Build the listening exe first (FS2vs2022r.exe in the game folder). Every replay uses FS2_REPLAY_SOUND_MODEL=1, so
+Build the listening exe first (FS2_<Layer>_r.exe in the game folder, tools\layer.ps1). Every replay uses FS2_REPLAY_SOUND_MODEL=1, so
 gameplay does not depend on the sound device and both runs of a scene show the same events, and -replay_pace, so
 it plays at the speed it was recorded. Master volume comes from the recording (replay refuses another) and the
 music volume with the recording's pilot, so both are the same for both runs; the order file says so.
@@ -25,8 +25,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
-$exe = Join-Path $GameDir 'FS2vs2022r.exe'
+$exe = Join-Path $GameDir (Get-FS2Exe r)
 if (-not (Test-Path $exe)) { throw "No $exe; build Release first" }
 if (-not $Out) { $Out = Join-Path $repo ('replays\audio_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
