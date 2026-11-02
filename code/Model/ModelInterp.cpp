@@ -1544,7 +1544,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	if (Interp_thrust_scale_subobj || Interp_subspace || !gr_screen.hardware || Interp_use_saved_lighting) { return 0; }
 	if (Interp_flags & (MR_NO_POLYS | MR_FORCE_TEXTURE | MR_ALL_XPARENT | MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET
 		| MR_SHOW_INVISIBLE_FACES | MR_NO_CULL | MR_SHOW_PIVOTS)) { return 0; }
-	if ((Interp_tmap_flags & ~TMAP_FLAG_TILED) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
+	if ((Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
 	bsp_info *sm = &pm->submodel[mn];
 	if (sm->bsp_data == NULL) { return 0; }
 

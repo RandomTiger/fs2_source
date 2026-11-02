@@ -69,6 +69,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_state = &GodotSink::s_mesh_state;
 	sink.mesh_draw_lit = &GodotSink::s_mesh_draw_lit;
 	sink.mesh_clip = &GodotSink::s_mesh_clip;
+	sink.mesh_fog = &GodotSink::s_mesh_fog;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -1602,10 +1603,10 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
 // interpolates in screen space.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1619,6 +1620,27 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
 	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
+	const bool fgpu = fog && g_nebfog == kNebFogGpu;
+	if (fog) {
+		// fogp = near, far, 32 / screen width, 32 / screen height; fogc = the fixed fog colour (not used by fog gpu)
+		code += "uniform vec4 fogp;\nuniform vec4 fogc;\nvarying vec3 fgc;\nvarying float fgf;\n";
+		if (fgpu) {
+			// neb2_get_pixel (Neb.cpp 1229-1343) for the vertex's projected screen cell, on the 32x32 pre-render `bg`: the same integer average
+			// over the cell and its neighbours as the poly path's fog gpu takes per poly vertex
+			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\n";
+			code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
+			code += "ivec3 nbget(int xs, int ys) {\n\tivec3 s = nbpx(xs, ys);\n\tint n = 1;\n";
+			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys); n++; }\n";
+			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys); n++; }\n";
+			code += "\tif (ys > 0) { s += nbpx(xs, ys - 1); n++; }\n";
+			code += "\tif (ys < 30) { s += nbpx(xs, ys + 1); n++; }\n";
+			code += "\tif (xs > 0 && ys > 0) { s += nbpx(xs - 1, ys - 1); n++; }\n";
+			code += "\tif (xs < 31 && ys < 31) { s += nbpx(xs + 1, ys + 1); n++; }\n";
+			code += "\tif (ys > 0 && xs < 31) { s += nbpx(xs + 1, ys - 1); n++; }\n";
+			code += "\tif (ys < 31 && xs > 0) { s += nbpx(xs - 1, ys + 1); n++; }\n";
+			code += "\treturn ivec3(s.x / n, s.y / n, s.z / n);\n}\n";
+		}
+	}
 	if (lit) {
 		// light_apply_rgb (code/Lighting/Lighting.cpp) per vertex, then the host's gamma table; lt0 = ambient, reflective, level, darken;
 		// lt1 = suns, points, 1/gamma, flat byte (< 0: none)
@@ -1639,6 +1661,17 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x + cfg.x * e.x / z, org.y + cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n";
 	if (uclip) { code += "\tcz = (dot(clipp.xyz, e) + clipp.w) / z;\n"; }	// over z, so it interpolates linearly in screen space
+	if (fog) {
+		// linear in the eye depth, as the poly path (gr_d3d_stuff_fog_value): depth = the capped vertex z * 30000
+		code += "\tfgf = clamp((fogp.y - min(z / 30000.0, 0.98) * 30000.0) / (fogp.y - fogp.x), 0.0, 1.0);\n";
+		if (fgpu) {
+			// the game-screen pixel of the vertex, truncated as the host passes (int)x, (int)y, then the start cell as Neb.cpp 1252-1273
+			code += "\tint xs = int(fogp.z * float(int(cfg.x * (1.0 + e.x / z))));\n\tint ys = int(fogp.w * float(int(cfg.y * (1.0 - e.y / z))));\n";
+			code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0;\n";
+		} else {
+			code += "\tfgc = fogc.rgb;\n";
+		}
+	}
 	code += lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz);\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
 	code += "void fragment() {\n";
 	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
@@ -1646,6 +1679,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
 	code += "\tvec4 c = t;\n\tc.rgb *= vcol;\n";
 	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
+	if (fog) { code += "\tc.rgb = mix(fgc, c.rgb, fgf);\n"; }	// D3D: f * colour + (1 - f) * fog colour, rgb only
 	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 	RID sh = rs->shader_create();
 	rs->shader_set_code(sh, code);
@@ -1694,7 +1728,7 @@ void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, 
 }
 
 // A material for one group of one draw: the group's shader and texture, and the draw's colour table.
-RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip)
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1711,7 +1745,7 @@ RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bo
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
-	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit, uclip));
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit, uclip, fog));
 	rs->material_set_param(mat, "tex", tex);
 	rs->material_set_param(mat, "cols", cols);
 	rs->material_set_param(mat, "zbias", (float)mg.g.zbias);
@@ -1808,12 +1842,28 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 	d.epoch = s->run_epoch;
 	d.clip = s->mesh_clip_on;
 	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
+	d.fog = s->mesh_fog_state.mode == FS2_SINK_FOG_LINEAR;
+	d.fogv = s->mesh_fog_state;
 	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
 	b.key.texture = -(int32_t)s->mesh_draws.size();
 	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
 	s->run_batches.push_back(b);
+}
+
+// the fog of the mesh draws that follow; NULL clears it
+int GodotSink::s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (fog != nullptr && fog->mode == FS2_SINK_FOG_LINEAR && fog->fog_far > fog->fog_near) {
+		// only the gpu nebula fog has the pixels behind the model to query; the other modes leave a fogged model on the CPU path
+		if (g_nebfog != kNebFogGpu) { s->mesh_fog_state = fs2_sink_mesh_fog(); return 0; }
+		s->mesh_fog_state = *fog;
+	} else {
+		s->mesh_fog_state = fs2_sink_mesh_fog();
+	}
+	return 1;
 }
 
 // the user clip plane for the draws that follow; NULL clears it
@@ -1840,6 +1890,8 @@ void GodotSink::s_mesh_draw_lit(void *u, int32_t id, const float *xform, const f
 	d.epoch = s->run_epoch;
 	d.clip = s->mesh_clip_on;
 	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
+	d.fog = s->mesh_fog_state.mode == FS2_SINK_FOG_LINEAR;
+	d.fogv = s->mesh_fog_state;
 	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
@@ -1882,7 +1934,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	}
 	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
 		MeshGroup &mg = it->second.groups[gi];
-		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip);
+		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog);
 		l.mesh_materials.push_back(mat);
 		RID inst;
 		if (kInstancePool && !spare_instances.empty()) {
@@ -1908,6 +1960,11 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		// canvas centre relative to the screen centre, y up
 		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
 		if (d.clip) { rs->material_set_param(mat, "clipp", Vector4(d.plane[0], d.plane[1], d.plane[2], d.plane[3])); }
+		if (d.fog) {
+			rs->material_set_param(mat, "fogp", Vector4(d.fogv.fog_near, d.fogv.fog_far, batcher.fog_cell_x(), batcher.fog_cell_y()));
+			rs->material_set_param(mat, "fogc", Vector4(d.fogv.rgb[0] / 255.0f, d.fogv.rgb[1] / 255.0f, d.fogv.rgb[2] / 255.0f, 0.0f));
+			if (g_nebfog == kNebFogGpu) { rs->material_set_param(mat, "bg", gpu_bg_texture((int)(committed & 1))); }	// this frame's pre-render, as the poly materials
+		}
 		if (d.lit) {
 			const fs2_sink_mesh_light &L = d.light;
 			rs->material_set_param(mat, "lt0", Vector4(L.ambient, L.reflective, L.level, (float)L.darken));

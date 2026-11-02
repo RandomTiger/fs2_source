@@ -116,6 +116,8 @@ struct Host {
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
+	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
+	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
 	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
@@ -1059,7 +1061,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 	if (it == H.meshes.end()) { return -1; }
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
-	if (m.cpu_only || H.zmode == GR_ZBUFF_NONE || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
+	if (m.cpu_only || H.zmode == GR_ZBUFF_NONE || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
 	{
 		// the nearest the box gets to the eye plane: the mesh path does not clip at the near plane
 		float nearest = 1e30f;
@@ -1120,6 +1122,21 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 	glow_flush();
 	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
 	send_view();
+	if (H.sink->mesh_fog != nullptr) {
+		// the fog state of the polys (plain_draw): on only with usable planes
+		fs2_sink_mesh_fog f = {};
+		if (H.fog_mode != GR_FOGMODE_NONE && H.fog_far > H.fog_near) {
+			f.mode = FS2_SINK_FOG_LINEAR;
+			f.rgb[0] = clamp8(H.fog_r); f.rgb[1] = clamp8(H.fog_g); f.rgb[2] = clamp8(H.fog_b);
+			f.fog_near = H.fog_near; f.fog_far = H.fog_far;
+		}
+		if (!H.mesh_fog_valid || std::memcmp(&f, &H.mesh_fog_sent, sizeof(f)) != 0) {
+			H.mesh_fog_ok = H.sink->mesh_fog(H.sink->user, &f) != 0;
+			H.mesh_fog_sent = f;
+			H.mesh_fog_valid = true;
+		}
+		if (f.mode != FS2_SINK_FOG_NONE && !H.mesh_fog_ok) { return 0; }
+	}
 	return 1;
 }
 

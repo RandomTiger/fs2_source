@@ -255,18 +255,22 @@ private:
 		fs2_sink_mesh_light light = {};
 		bool clip = false;			// the user clip plane (mesh_clip) in force when drawn
 		float plane[4] = {};
+		bool fog = false;			// the fog (mesh_fog) in force when drawn
+		fs2_sink_mesh_fog fogv = {};
 	};
 	bool mesh_clip_on = false;
 	float mesh_clip_plane[4] = {};
 	static void s_mesh_clip(void *u, const float plane[4]);
+	fs2_sink_mesh_fog mesh_fog_state = {};
+	static int s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog);
 	std::vector<godot::RID> mesh_mat_pool;
 	std::map<int, std::vector<godot::RID>> mesh_col_pool;	// by rows
 	void release_mesh_res(Layer &l, bool free_them);
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip);
-	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
 	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
 	void free_mesh_data(MeshData &md);

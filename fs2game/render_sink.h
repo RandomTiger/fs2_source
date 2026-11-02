@@ -133,6 +133,12 @@ typedef struct fs2_sink_draw {
 	float fog_near, fog_far;	/* fog distances in world units; vertex z is depth / 30000 (capped 0.98), so depth = z * 30000 */
 } fs2_sink_draw;
 
+typedef struct fs2_sink_mesh_fog {
+	int32_t mode;		/* FS2_SINK_FOG_* */
+	uint8_t rgb[4];		/* fog colour r g b (a unused) */
+	float fog_near, fog_far;	/* world units; depth = vertex z * 30000 with z capped at 0.98, as fs2_sink_draw */
+} fs2_sink_mesh_fog;
+
 typedef struct fs2_render_sink {
 	uint32_t size;		/* sizeof(fs2_render_sink) as the caller built it */
 	uint32_t version;	/* FS2_RENDER_SINK_VERSION */
@@ -196,6 +202,12 @@ typedef struct fs2_render_sink {
 	void (*texture_array_create)(void *user, int32_t array_id, int w, int h, int nlayers, int format, uint32_t texflags, const uint8_t *pixels);
 	void (*texture_layer)(void *user, int32_t id, int32_t array_id, int layer);
 	void (*texture_array_free)(void *user, int32_t array_id);
+
+	/* v4, optional: the fog of the mesh draws that follow, as fs2_sink_draw carries it for polys: linear in the eye depth, per vertex. Where the sink
+	 * takes the fog colour from the pixels behind the model (the nebula pre-render, as TMAP_FLAG_PIXEL_FOG does on the CPU) it queries it for each
+	 * vertex at its projected screen position and ignores rgb. NULL or mode NONE = no fog. A sink without it makes the host draw a fogged model on
+	 * the CPU path; so does a sink that returns 0 here (it cannot take this fog), until the next call. Returns 1 when it takes it. */
+	int (*mesh_fog)(void *user, const fs2_sink_mesh_fog *fog);
 } fs2_render_sink;
 
 #ifdef __cplusplus

@@ -395,6 +395,9 @@ static void test_mesh_api()
 	CHECK(s->mesh_clip != nullptr);
 	{ const float pl[4] = { 0, 0, 1, -5 }; s->mesh_clip(s->user, pl); s->mesh_clip(s->user, nullptr); }
 	CHECK(fake.errors.empty() && fake.count(Cmd::MeshClip) == 2);
+	CHECK(s->mesh_fog != nullptr);
+	{ const fs2_sink_mesh_fog fg = { FS2_SINK_FOG_LINEAR, { 10, 20, 30, 0 }, 100.0f, 5000.0f }; s->mesh_fog(s->user, &fg); s->mesh_fog(s->user, nullptr); }
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshFog) == 2);
 	CHECK(s->mesh_state != nullptr);
 	g.zbias = 2;
 	s->mesh_state(s->user, 1, &g, 1);	// the state of the draws that follow: no new geometry
