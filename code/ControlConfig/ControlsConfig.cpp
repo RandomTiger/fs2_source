@@ -316,6 +316,7 @@
 #include "Replay.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "../Pad/PadGame.h"	// Claude: control pad
+#include "GameOptions.h"	// Claude: the FlightControl choice (D-20261102-200107)
 
 #define NUM_SYSTEM_KEYS			14
 #define NUM_BUTTONS				19
@@ -2416,7 +2417,7 @@ int check_control(int id, int key)
 			return 1;
 		}
 
-		if (joy_down(Control_config[id].joy_id) || joy_down_count(Control_config[id].joy_id)) {
+		if (game_options_joystick_flies() && (joy_down(Control_config[id].joy_id) || joy_down_count(Control_config[id].joy_id))) {	// Claude: unless another flight reader was chosen (D-20261102-200107)
 			control_used(id);
 			return 1;
 		}
@@ -2456,7 +2457,7 @@ int check_control(int id, int key)
 		return 0;
 	}
 
-	if ((Control_config[id].key_id == key) || joy_down_count(Control_config[id].joy_id) || mouse_down_count(1 << Control_config[id].joy_id)) {
+	if ((Control_config[id].key_id == key) || (game_options_joystick_flies() && joy_down_count(Control_config[id].joy_id)) || mouse_down_count(1 << Control_config[id].joy_id)) {	// Claude: the joystick unless another flight reader was chosen (D-20261102-200107)
 		control_used(id);
 		return 1;
 	}
@@ -2470,6 +2471,12 @@ static void control_get_axes_readings_live(int *h, int *p, int *b, int *ta, int 
 	int axes_values[JOY_NUM_AXES];
 
 	joystick_read_raw_axis(JOY_NUM_AXES, axes_values);
+	if (!game_options_joystick_flies()) {	// Claude: another flight reader was chosen: the stick reads centred, as with none (D-20261102-200107)
+		int i;
+		for (i = 0; i < JOY_NUM_AXES; i++) {
+			axes_values[i] = 32768;
+		}
+	}
 
 	//	joy_get_scaled_reading will return a value represents the joystick pos from -1 to +1 (fixed point)
 	*h = 0;

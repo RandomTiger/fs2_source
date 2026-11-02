@@ -215,6 +215,7 @@
 #include "Replay.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
 #include "DataSetProfile.h"	// Claude
+#include "GameOptions.h"	// Claude: the FlightControl choice (D-20261102-200107)
 
 #define PRECALIBRATED 1
 
@@ -562,7 +563,7 @@ int joy_init()
 	memset(&ji, 0, sizeof(ji));
 
 	// Claude: control pad. An XInput pad also shows up here as a joystick; leave it to the pad module
-	if (pad_owns_joystick()) {
+	if (game_options_joystick_yields_to_pad() && pad_owns_joystick()) {	// Claude: unless Joystick was chosen (D-20261102-200107)
 		mprintf(("Joystick: XInput pad found, legacy joystick off\n"));
 		Cur_joystick = -1;
 	}

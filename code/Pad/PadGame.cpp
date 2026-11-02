@@ -19,6 +19,7 @@
 #include "Ship.h"
 #include "ai.h"
 #include "AiGoals.h"
+#include "GameOptions.h"	// the FlightControl choice (D-20261102-200107)
 
 extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is reading a device
 
@@ -348,7 +349,8 @@ static void pad_game_update(int from_frame)
 		replay_push();
 
 		// a legacy joystick took input at startup (no pad then): the pad stays off, never both
-		if (joy_num_sticks > 0) {
+		// (with Joystick chosen the stick is kept beside a pad, which then still works outside flight, D-20261102-200107)
+		if ((joy_num_sticks > 0) && game_options_joystick_yields_to_pad()) {
 			memset(&st, 0, sizeof(st));
 		} else {
 			pad_backend_poll(&st);
@@ -399,6 +401,9 @@ const pad_output *pad_game_output()
 
 int pad_control_held(int id)
 {
+	if (!game_options_pad_flies()) {	// another flight reader was chosen (D-20261102-200107)
+		return 0;
+	}
 	return pad_output_is_held(&Pad_game_out, id);
 }
 
@@ -409,7 +414,7 @@ int pad_voice_talk_held()
 
 void pad_read_flight(control_info *ci, float frame_time)
 {
-	if (!Pad_game_out.connected) {
+	if (!Pad_game_out.connected || !game_options_pad_flies()) {	// or another flight reader was chosen (D-20261102-200107)
 		return;
 	}
 
