@@ -1278,6 +1278,13 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 				code += "\tc.rgb = mix(fg.rgb, c.rgb, fg.a);\n";	// D3D: f * colour + (1 - f) * fog colour, rgb only
 			}
 		}
+		// #133, measured against PrePort32 frame captures after the half-pixel shift (gr_host.cpp tmapper_internal): nebula frames
+		// are ~27% exactly equal and ~98% within 1 shade; the rest of the frame-wide speckle is 1 shade either way. Tried and not kept:
+		// rounding to whole 8-bit shades here in fogged shaders only (no change); in every shader (nebula ~69% exact but still 98%
+		// within 1 shade, and space fell 99.8% -> 99.2%); floor instead of round (1-2 shades too dark); truncating the per-vertex
+		// fog factor as D3DRGBA stores it (no change); nearest filtering in both renderers (no change). Cause of what is left,
+		// confirmed by skipping the nebula poofs in both renderers (27% -> 96.7% exact): D3D quantises each additive poof blend to
+		// the 8-bit frame, Godot's HDR 2D viewport accumulates in float. Line drawn there.
 		code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 		sh = rs->shader_create();
 		rs->shader_set_code(sh, code);

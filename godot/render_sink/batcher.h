@@ -233,7 +233,7 @@ private:
 				tab_nv = (float)nv;
 				if (!overlay) { fog_last.clear(); }
 				for (int i = 0; i < nv; i++) {
-					const float fx = v[i].x, fy = v[i].y;
+					const float fx = v[i].x - FS2_SINK_D3D_PIXEL_CENTRE, fy = v[i].y - FS2_SINK_D3D_PIXEL_CENTRE;	// the game's pixel: the host moved the vertex by +0.5 after its own lookup (gr_host.cpp tmapper_internal, #133)
 					const int ix = (fx > -1e9f && fx < 1e9f) ? (int)fx : 0, iy = (fy > -1e9f && fy < 1e9f) ? (int)fy : 0;
 					int xs = (int)(fog_ex * (float)ix), ys = (int)(fog_ey * (float)iy);
 					if (ys >= 31) { ys--; }
