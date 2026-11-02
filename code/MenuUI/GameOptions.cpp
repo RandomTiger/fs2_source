@@ -24,6 +24,7 @@
 #include "Autotest.h"
 #include "../Pad/PadGame.h"
 #include "GrVirtual.h"
+#include "LoadTimes.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -479,7 +480,7 @@ static int Go_tour_flight_was = -1, Go_tour_mouse_was = 0, Go_tour_res_was = -1;
 int game_options_tour_step(int step)
 {
 	go_item *it;
-	int gr, next;
+	int gr, next, i;
 
 	switch (step) {
 	case GAME_OPTIONS_TOUR_GR_640:
@@ -491,6 +492,10 @@ int game_options_tour_step(int step)
 		}
 		game_options_pick(it);
 		autotest_check(gr_screen.res == gr, (gr == GR_640) ? "Game options: live GR switch to 640" : "Game options: live GR switch to 1024");
+		for (next = 0, i = 0; i < LT_LATE_NUM; i++) {
+			next += Loadtime_late_count[i];
+		}
+		autotest_check(next == 0, "Game options: GR switch, late-load counters 0");
 		return 1;
 
 	case GAME_OPTIONS_TOUR_DEVICE:

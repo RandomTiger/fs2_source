@@ -1,3 +1,33 @@
+# GodotOptions status
+
+Branch `GodotOptions` (WIP, no gates; never merged into `Godot`, Tom's order). Game Options screen, live switching per
+D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own status follows below this section.
+
+## Done
+- Merge of GodotResolution: conflict in FreeSpace.cpp's host init kept both (`gr_virtual_read_config` + GraphicsMode key).
+- Resolution row: Classic (4:3) / Desktop / up to 3 common sizes that fit the monitor / the monitor's size (and the size in
+  force if none of those). Writes `DisplayResolution`; live where `gr_live_mode_change()` (Godot host: the window follows
+  `fs2_display_request`); else "Takes effect next time the game starts" (native D3D).
+- GR row (FS2 retail): live via `game_switch_gr_mode` where the backend says live; the next-start notice only where not.
+  The screen lays itself out again in the new mode; reopening it lights the switched mode (9cf65dc).
+- Flight row: `joy_reassign()` (Joy.cpp) re-runs `joy_init` on a changed choice, no restart. On native backends it
+  releases and re-opens the WinMM stick; on the Godot host joy_init opens nothing (host reader), but the re-run is still
+  needed: with Pad chosen at start `Cur_joystick` is -1 and Joystick must take it back.
+- Menu tour (D-20261102-204807): the Game options Back stop has six live views (GR 640, device, device back, resolution,
+  resolution back, GR 1024) with checks: mode reached, device reached, late-load counters 0. No key is written (compared
+  run). GR views SKIP on native D3D and other data sets. Godot host r, FS2: 70/70 PASS.
+- Builds: Win32 r/d, x64 r/d, fs2game x64 r/d, GDExtension: 0 warnings.
+
+## For GodotResolution (flag, not done there)
+- `godot/src/fs2_node.cpp` (d773c72): the host now acts on `fs2_display_request` at start and on each step (a size
+  request resizes the window). That is Resolution-side behaviour; GodotResolution should take it or say no.
+
+## Open
+- InputTest's six device transitions (204804) need a device switch between injected inputs inside one run; not small,
+  not done.
+- Native Win32 tour (`tools\menu_tour_all.ps1`) not run this round (no gates on WIP).
+- At GR_640 the Resolution sizes row is tight (step w/8 at 640 wide); readable, no overlap.
+
 # GodotResolution status
 
 Branch `GodotResolution` (off `Godot` 8703e2d). Never merged into `Godot` (Tom's order). Rulings D-20261102-200801..809
