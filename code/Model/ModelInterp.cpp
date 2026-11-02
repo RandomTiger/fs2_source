@@ -1409,6 +1409,8 @@ struct InterpMeshBuild {
 	InterpMeshBuild() : ok(true), tris(0), tris_agree(0) {}
 };
 
+static int Interp_mesh_unmeshed_flat = 0, Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
+
 static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int depth)
 {
 	if (depth > 64) { b.ok = false; return; }
@@ -1435,12 +1437,21 @@ static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int de
 			}
 			break;
 		}
+		case OP_FLATPOLY:
 		case OP_TMAPPOLY: {
-			const int tex = w(p+40);
+			const bool flat = (chunk_type == OP_FLATPOLY);		// flat: group -1, white, lit per vertex, no uv
+			const int tex = flat ? -1 : w(p+40);
 			const int nv = w(p+36);
-			if (tex < 0 || tex >= pm->n_textures) { b.ok = false; return; }
-			if (pm->textures[tex] < 0 || nv < 3) { break; }		// invisible (or degenerate) polys are never drawn
+			if (!flat && (tex < 0 || tex >= pm->n_textures)) { b.ok = false; return; }
+			if (nv < 3 || (!flat && pm->textures[tex] < 0)) { break; }		// invisible (or degenerate) polys are never drawn
+			model_tmap_vert tvflat[TMAP_MAX_VERTS];
 			model_tmap_vert *tv = (model_tmap_vert *)(p+44);
+			if (flat) {
+				if (nv > TMAP_MAX_VERTS) { b.ok = false; return; }
+				const short *sv = (const short *)(p+44);
+				for (int i = 0; i < nv; i++) { tvflat[i].vertnum = sv[i*2]; tvflat[i].normnum = sv[i*2+1]; tvflat[i].u = 0.0f; tvflat[i].v = 0.0f; }
+				tv = tvflat;
+			}
 			int gi = -1;
 			for (size_t g = 0; g < b.gtex.size(); g++) { if (b.gtex[g] == tex) { gi = (int)g; break; } }
 			if (gi < 0) { gi = (int)b.gtex.size(); b.gtex.push_back(tex); b.gidx.push_back(std::vector<unsigned>()); }
@@ -1483,6 +1494,7 @@ static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int de
 		case OP_BOUNDBOX:
 			break;
 		default:		// flat polys and anything else: not meshed
+		Interp_mesh_unmeshed_other++;
 			b.ok = false;
 			return;
 		}
@@ -1503,7 +1515,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	std::vector<unsigned> idx;
 	for (size_t g = 0; g < b.gtex.size(); g++) {
 		gr_host_mesh_group hg;
-		hg.bitmap = pm->textures[b.gtex[g]];
+		hg.bitmap = (b.gtex[g] < 0) ? -1 : pm->textures[b.gtex[g]];
 		hg.first_index = (int)idx.size();
 		hg.index_count = (int)b.gidx[g].size();
 		idx.insert(idx.end(), b.gidx[g].begin(), b.gidx[g].end());
@@ -1531,6 +1543,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	if (!gr_host_mesh_create(m.key, &b.vtx[0], (int)b.v_vertnum.size(), &groups[0], (int)groups.size(), &idx[0], (int)idx.size())) { return; }
 	m.created = 1;
 	m.state = 1;
+	Interp_mesh_meshed++;
 	m.bsp = sm->bsp_data;
 	m.bsp_size = sm->bsp_data_size;
 	m.model_id = pm->id;
@@ -1565,7 +1578,7 @@ void model_interp_mesh_preload_all()
 	}
 }
 
-int model_interp_mesh_late() { fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+int model_interp_mesh_late() { fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
 
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)

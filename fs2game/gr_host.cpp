@@ -1117,6 +1117,7 @@ void h_level_loaded()
 		bool ok = true;
 		for (size_t i = 0; i < m.g.size() && ok; i++) {
 			const int bmp = m.g[i].bitmap;
+			if (bmp < 0) { tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE; continue; }		// flat polys: the sink's white texture
 			if (glow_tex_get(bmp) != 0) { m.cpu_only = true; ok = false; break; }
 			tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, false);
 			if (tex[i] == 0) { ok = false; break; }
@@ -1168,6 +1169,11 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 	std::vector<int> blend(m.g.size());
 	for (size_t i = 0; i < m.g.size(); i++) {
 		const int bmp = m.g[i].bitmap;
+		if (bmp < 0) {
+			tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE;
+			if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
+			continue;
+		}
 		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
 		if (tex[i] == 0) { return 0; }
 		if (glow_tex_get(bmp) != 0) { m.cpu_only = true; return 0; }
