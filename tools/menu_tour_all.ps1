@@ -14,6 +14,8 @@ Prints one line per screen per build, "<set> <config> Screen '<category>/<screen
 one line per build, and DONE pass=N fail=N (builds). Results and each autotest.log go to <Out>\<set> (default
 %LOCALAPPDATA%\menu_tour_all). -Shots saves each screen as <Shots>\<set>\<config>\<category>\<screen>.bmp; keep it
 outside the repo, the screenshots show game data. Build or run nothing else meanwhile.
+The tour includes the Game Options screen (main_hall_pilot/game_options, left by Back, and game_options_esc, left by
+Esc) on all four sets; its graphics mode row shows on FS2 retail only (D-20261102-200105).
 #>
 param(
 	[string[]]$Sets = @('fs2', 'fs2demo', 'fs1', 'fs1demo'),
