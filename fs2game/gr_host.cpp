@@ -503,6 +503,7 @@ void depth_run_end()
 } // namespace
 extern void model_interp_mesh_preload(int modelnum);	// ModelInterp.cpp
 extern int model_interp_mesh_late();
+extern void model_interp_mesh_preload_all();
 extern float View_zoom;
 extern vector Matrix_scale;
 extern matrix Eye_matrix;
@@ -1106,6 +1107,7 @@ void h_model_page_in(int modelnum)
 void h_level_loaded()
 {
 	if (!h_mesh_ready()) { return; }
+	model_interp_mesh_preload_all();
 	ensure_frame();
 	if (!drawing()) { return; }
 	for (auto &e : H.meshes) {

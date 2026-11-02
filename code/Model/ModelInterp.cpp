@@ -1537,11 +1537,12 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
 }
 
-static int Interp_mesh_late = 0;	// meshes built at the first draw instead of at page-in; read 0 in play
+static int Interp_mesh_late = 0, Interp_mesh_late_stale = 0, Interp_mesh_preloaded = 0, Interp_mesh_preload_calls = 0;	// meshes built at the first draw instead of at page-in; read 0 in play
 
 // Claude: load hook (gr_host model_page_in): the host's fixed data for every submodel of the model, built at load, not at the first draw
 void model_interp_mesh_preload(int modelnum)
 {
+	Interp_mesh_preload_calls++;
 	if (!gr_host_mesh_ready()) { return; }
 	polymodel *pm = model_get(modelnum);
 	if (pm == NULL) { return; }
@@ -1550,11 +1551,21 @@ void model_interp_mesh_preload(int modelnum)
 		if (sm->bsp_data == NULL) { continue; }
 		InterpMesh &m = Interp_meshes[sm];
 		if (m.state != 0) { continue; }
+		Interp_mesh_preloaded++;
 		interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
 	}
 }
 
-int model_interp_mesh_late() { return Interp_mesh_late; }
+// Claude: load hook (gr_host level_loaded): every model loaded for the level, ship classes page in without model_page_in_textures
+extern polymodel *Polygon_models[MAX_POLYGON_MODELS];
+void model_interp_mesh_preload_all()
+{
+	for (int i = 0; i < MAX_POLYGON_MODELS; i++) {
+		if (Polygon_models[i] != NULL) { model_interp_mesh_preload(i); }
+	}
+}
+
+int model_interp_mesh_late() { fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
 
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)
@@ -1573,6 +1584,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 			|| ((int)m.tex_snapshot.size() != pm->n_textures);
 		for (int i = 0; !stale && i < pm->n_textures; i++) { if (m.tex_snapshot[i] != pm->textures[i]) { stale = true; } }
 		if (stale) {
+			Interp_mesh_late_stale++;
 			if (m.created) { gr_host_mesh_free(m.key); }
 			m.created = 0;
 			m.state = 0;
