@@ -17,6 +17,17 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
   resolution back, GR 1024) with checks: mode reached, device reached, late-load counters 0. No key is written (compared
   run). GR views SKIP on native D3D and other data sets. Godot host r, FS2: 70/70 PASS.
 - Builds: Win32 r/d, x64 r/d, fs2game x64 r/d, GDExtension: 0 warnings.
+- Resolution drop-down (Tom): fs2_api v9 adds the optional `fs2_set_dropdown_hooks` (show at a base-pixel rect with labels
+  and the selected index, hide) and `fs2_input_dropdown` (the pick, from inside poll_events); `host_hooks` gains
+  `dropdown_show/hide` (null on Windows and headless) and `Host_dropdown_chosen`. GameOptions.cpp uses it only when the
+  hooks are set and `game_options_keys_active()` (no replay, no autotest): the drawn sizes row is then left out, the
+  drop-down is shown on screen init, hidden on close, hidden/re-shown around a live GR switch; a pick goes through
+  `game_options_res_choose` (same apply + ini key as the drawn row). The tour's RES steps call `game_options_res_choose`
+  directly, so the tour and replays see no change. Godot host (host_hooks_godot.cpp): an `OptionButton` child of the
+  Fs2Screen, themed in code (near-black, green edge, grey/white text), placed every poll through the canvas + keep-aspect
+  fit; a click on it (or anything but motion while its list is open) is not forwarded to the game; the OS cursor shows
+  over it. Checked at 2560x1080: closed/open at 1024, after a live switch to 640, and a pick of 1920x1080 (ini written,
+  window resized, button followed). Godot host r menu tour, FS2: 70/70 PASS.
 
 ## For GodotResolution (flag, not done there)
 - `godot/src/fs2_node.cpp` (d773c72): the host now acts on `fs2_display_request` at start and on each step (a size
@@ -26,7 +37,7 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
 - InputTest's six device transitions (204804) need a device switch between injected inputs inside one run; not small,
   not done.
 - Native Win32 tour (`tools\menu_tour_all.ps1`) not run this round (no gates on WIP).
-- At GR_640 the Resolution sizes row is tight (step w/8 at 640 wide); readable, no overlap.
+- At GR_640 the drawn Resolution sizes row (native D3D and compared runs; the Godot host now has the drop-down) is tight (step w/8 at 640 wide); readable, no overlap.
 
 # GodotResolution status
 
