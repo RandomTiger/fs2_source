@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 8
+#define FS2_API_VERSION 9
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -150,6 +150,19 @@ FS2_API int fs2_display_request(int *w, int *h);
 // The GR art mode switch (0 GR_640, 1 GR_1024), outside a mission only, between frames; for test hooks. Returns 1 when
 // the game is now in that mode, 0 when refused (in a mission, or the backend cannot change mode live: headless).
 FS2_API int fs2_switch_gr_mode(int res);
+
+// v9 (GodotOptions), optional: the host's own drop-down list widget. Without a call (native D3D, headless, fs2run) the game
+// draws its own choices. show puts one drop-down at x, y, w, h in the base screen's pixels (fs2_screen_size, the game's mouse
+// coordinates; the host maps them as it maps the picture), with count labels (valid only during the call) and the selected
+// one lit; a second show moves or refills it. hide takes it away (the screen closed, the GR mode is about to switch). Both
+// are called on the game's thread. Call before fs2_init; NULL, or a table with an empty entry, clears it and returns 0.
+typedef struct fs2_dropdown_hooks {
+	void	(*show)(int x, int y, int w, int h, const char *const *labels, int count, int selected);
+	void	(*hide)(void);
+} fs2_dropdown_hooks;
+FS2_API int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks);
+// The player chose item index in the shown drop-down. Call only from inside the poll_events hook, like the other input sinks.
+FS2_API void fs2_input_dropdown(int index);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

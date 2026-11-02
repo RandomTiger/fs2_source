@@ -25,6 +25,7 @@
 #include "../Pad/PadGame.h"
 #include "GrVirtual.h"
 #include "LoadTimes.h"
+#include "HostHooks.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -293,6 +294,42 @@ static void game_options_res_list()
 	}
 }
 
+// The Resolution row as the host's own drop-down (Tom, GodotOptions; HostHooks.h dropdown_show, the Godot host's OptionButton).
+// Only for live play: a backend without the hook (native D3D, headless) and a compared run (autotest, record, replay) keep the
+// drawn row, so the menu tour and the replays see the screen they always did.
+static int Go_dropdown_on = 0;
+
+static int game_options_dropdown_ok()
+{
+	return (Host_hooks.dropdown_show != NULL) && (Host_hooks.dropdown_hide != NULL) && game_options_keys_active();
+}
+
+static int game_options_res_y();
+
+// shows (or moves, or refreshes) the drop-down on the Resolution row, in this art mode's base pixels
+static void game_options_dropdown_show()
+{
+	const char *labels[GO_MAX_RES];
+	int i, h;
+
+	if (!Go_dropdown_on) {
+		return;
+	}
+	for (i = 0; i < Go_num_res; i++) {
+		labels[i] = Go_res[i].text;
+	}
+	gr_set_font(FONT1);
+	h = gr_get_font_height() + 8;
+	Host_hooks.dropdown_show(gr_screen.max_w / 2, game_options_res_y() - 4, gr_screen.max_w * 30 / 100, h, labels, Go_num_res, Go_res_shown);
+}
+
+static void game_options_dropdown_hide()
+{
+	if (Go_dropdown_on) {
+		Host_hooks.dropdown_hide();
+	}
+}
+
 // the Resolution row's choice: the key, then, where the backend changes mode live, the canvas at once (GrVirtual: the host
 // follows fs2_display_request); otherwise at the next start. A compared run (the tour) neither writes nor applies it.
 static void game_options_apply_res(int i)
@@ -315,6 +352,17 @@ static void game_options_apply_res(int i)
 	if (gr_live_mode_change()) {
 		gr_virtual_read_config();
 	}
+}
+
+// a Resolution choice, from a click on the drawn row, the drop-down or the menu tour
+static void game_options_res_choose(int i)
+{
+	if ((i < 0) || (i >= Go_num_res)) {
+		return;
+	}
+	gamesnd_play_iface(SND_USER_SELECT);
+	game_options_apply_res(i);
+	game_options_dropdown_show();	// the drop-down lights the entry in force
 }
 
 static color *game_options_text_color()
@@ -382,9 +430,9 @@ static void game_options_layout()
 		game_options_add(GO_ITEM_GR, GR_1024, cx, h * 42 / 100, "1024 x 768");
 		game_options_add(GO_ITEM_GR, GR_640, cx + step * 3 / 2, h * 42 / 100, "640 x 480");
 	}
-	// Resolution: Classic and Desktop on the first line, the sizes on the second
+	// Resolution: Classic and Desktop on the first line, the sizes on the second; or the host's drop-down instead
 	yr = game_options_res_y();
-	for (i = 0; i < Go_num_res; i++) {
+	for (i = 0; !Go_dropdown_on && (i < Go_num_res); i++) {
 		if (i < 2) {
 			game_options_add(GO_ITEM_RES, i, cx + i * step * 3 / 2, yr, Go_res[i].text);
 		} else {
@@ -447,9 +495,13 @@ static void game_options_pick(go_item *it)
 		}
 		// live where the backend can (D-20261102-204802, 204806); the screen is never in a mission. The screen is laid out again
 		// in the new mode: its coordinates are fractions of gr_screen, its font is FONT1 in both modes. 'it' is stale after this.
-		if (gr_live_mode_change() && (gr != gr_screen.res) && game_switch_gr_mode(gr)) {
-			game_options_layout();
-			Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+		if (gr_live_mode_change() && (gr != gr_screen.res)) {
+			game_options_dropdown_hide();	// the host's drop-down goes while the mode switches, and comes back on the new layout
+			if (game_switch_gr_mode(gr)) {
+				game_options_layout();
+				Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+			}
+			game_options_dropdown_show();
 		}
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
@@ -528,24 +580,18 @@ int game_options_tour_step(int step)
 		if (Go_num_res < 2) {
 			return 0;
 		}
+		// the game-side choice, not a click: the same with the drawn row and with the host's drop-down
 		Go_tour_res_was = Go_res_shown;
-		it = game_options_find(GO_ITEM_RES, (Go_res_shown + 1) % Go_num_res);
-		if (!it) {
-			return 0;
-		}
-		game_options_pick(it);
+		game_options_res_choose((Go_res_shown + 1) % Go_num_res);
 		return 1;
 
 	case GAME_OPTIONS_TOUR_RES_BACK:
-		if (Go_tour_res_was < 0) {
+		if ((Go_tour_res_was < 0) || (Go_tour_res_was >= Go_num_res)) {
 			return 0;
 		}
-		it = game_options_find(GO_ITEM_RES, Go_tour_res_was);
+		next = Go_tour_res_was;
 		Go_tour_res_was = -1;
-		if (!it) {
-			return 0;
-		}
-		game_options_pick(it);
+		game_options_res_choose(next);
 		return 1;
 	}
 	return 0;
@@ -558,11 +604,17 @@ void game_options_screen_init()
 	Go_gr_shown = (gr >= 0) ? gr : gr_screen.res;
 	Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
 	game_options_res_list();
+	Go_dropdown_on = game_options_dropdown_ok();
+	Host_dropdown_chosen = -1;
 	game_options_layout();
+	game_options_dropdown_show();
 }
 
 void game_options_screen_close()
 {
+	game_options_dropdown_hide();
+	Go_dropdown_on = 0;
+	Host_dropdown_chosen = -1;
 	Go_num_items = 0;
 }
 
@@ -575,6 +627,15 @@ void game_options_screen_do_frame(float /*frametime*/)
 	k = game_check_key();
 	if (k == KEY_ESC) {
 		game_options_screen_back();
+	}
+
+	// the host's drop-down: the player's pick, handed over from the host's events
+	if (Host_dropdown_chosen >= 0) {
+		i = Host_dropdown_chosen;
+		Host_dropdown_chosen = -1;
+		if (Go_dropdown_on && (i != Go_res_shown)) {
+			game_options_res_choose(i);
+		}
 	}
 
 	mouse_get_pos(&mx, &my);

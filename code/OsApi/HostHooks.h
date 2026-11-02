@@ -51,6 +51,13 @@ typedef struct host_hooks {
 	// none. The entry itself is optional and null by default; null (or 0) leaves the game's own window in use. The host
 	// owns the window: the game only hands the value to DirectSound and never subclasses, pumps, resizes or destroys it.
 	uintptr_t	(*sound_window)();
+
+	// GodotOptions (fs2_api v9): the host's own drop-down list widget, optional and null by default; null keeps the
+	// game's own drawn choices. dropdown_show puts it at x, y, w, h in base screen pixels (the mouse's coordinates) with
+	// count labels (valid only during the call) and the selected one lit; dropdown_hide takes it away. The host hands
+	// the player's choice back through Host_dropdown_chosen from inside poll_events.
+	void		(*dropdown_show)(int x, int y, int w, int h, const char *const *labels, int count, int selected);
+	void		(*dropdown_hide)();
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -58,6 +65,10 @@ extern host_hooks Host_hooks;
 
 // Fill the table before game_host_init. A null entry is an Error.
 void host_hooks_set(const host_hooks *h);
+
+// GodotOptions: the drop-down item the player chose (the host's dropdown_show), or -1. The host sets it from inside
+// poll_events; the screen that showed the drop-down takes it and sets it back to -1.
+extern int Host_dropdown_chosen;
 
 // The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
 // events, always in the foreground, the mouse at rest at (0, 0), a joystick driver with no stick attached, and no pad
