@@ -1537,6 +1537,25 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
 }
 
+static int Interp_mesh_late = 0;	// meshes built at the first draw instead of at page-in; read 0 in play
+
+// Claude: load hook (gr_host model_page_in): the host's fixed data for every submodel of the model, built at load, not at the first draw
+void model_interp_mesh_preload(int modelnum)
+{
+	if (!gr_host_mesh_ready()) { return; }
+	polymodel *pm = model_get(modelnum);
+	if (pm == NULL) { return; }
+	for (int i = 0; i < pm->n_models; i++) {
+		bsp_info *sm = &pm->submodel[i];
+		if (sm->bsp_data == NULL) { continue; }
+		InterpMesh &m = Interp_meshes[sm];
+		if (m.state != 0) { continue; }
+		interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
+	}
+}
+
+int model_interp_mesh_late() { return Interp_mesh_late; }
+
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)
 {
@@ -1559,7 +1578,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 			m.state = 0;
 		}
 	}
-	if (m.state == 0) { interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures); }
+	if (m.state == 0) { Interp_mesh_late++; interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures); }
 	if (m.state != 1) { return 0; }
 
 	// model to eye: where the instance stack puts the origin and the three axes

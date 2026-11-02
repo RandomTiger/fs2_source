@@ -1045,6 +1045,9 @@ bool mesh_switch()
 	return on == 1;
 }
 
+extern void model_interp_mesh_preload(int modelnum);	// ModelInterp.cpp
+extern int model_interp_mesh_late();
+
 int h_mesh_ready()
 {
 	return H.sink != nullptr && H.sink->mesh_create && H.sink->mesh_draw && H.sink->mesh_free && mesh_switch();
@@ -1082,6 +1085,49 @@ void h_mesh_free(int key)
 	if (it == H.meshes.end()) { return; }
 	if (it->second.sink_made && H.sink != nullptr) { H.sink->mesh_free(H.sink->user, key); }
 	H.meshes.erase(it);
+}
+
+// load hooks: a model was paged in (its meshes are built on the host now), and level paging is done (the sink copies are made now,
+// in a frame, so the first draw of a ship does not stall on texture uploads). The copies are made for the usual state; a draw in
+// another z mode, zbias or cull remakes only the group state (mesh_state), never the geometry.
+void h_model_page_in(int modelnum)
+{
+	if (mesh_switch()) { model_interp_mesh_preload(modelnum); }
+}
+
+void h_level_loaded()
+{
+	if (!h_mesh_ready()) { return; }
+	ensure_frame();
+	if (!drawing()) { return; }
+	for (auto &e : H.meshes) {
+		Host::HostMesh &m = e.second;
+		if (m.sink_made || m.cpu_only) { continue; }
+		std::vector<int> tex(m.g.size()), blend(m.g.size());
+		bool ok = true;
+		for (size_t i = 0; i < m.g.size() && ok; i++) {
+			const int bmp = m.g[i].bitmap;
+			if (glow_tex_get(bmp) != 0) { m.cpu_only = true; ok = false; break; }
+			tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, false);
+			if (tex[i] == 0) { ok = false; break; }
+			bool opaque = false;
+			const TexKey k = { bmp, bm_get_signature(bmp), TK_NORMAL };
+			auto f = H.tex.find(k);
+			if (f != H.tex.end()) { opaque = f->second.opaque; }
+			blend[i] = opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA;
+		}
+		if (!ok) { continue; }
+		std::vector<fs2_sink_mesh_group> sg(m.g.size());
+		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE | FS2_SINK_DRAWF_CULL;
+		for (size_t i = 0; i < m.g.size(); i++) {
+			sg[i].texture = tex[i]; sg[i].blend = blend[i]; sg[i].flags = fl; sg[i].zbias = 0;
+			sg[i].first_index = m.g[i].first_index; sg[i].index_count = m.g[i].index_count;
+		}
+		H.sink->mesh_create(H.sink->user, e.first, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		m.sink_made = true;
+		m.zmode = GR_ZBUFF_FULL; m.zbias = 0; m.cull = 1; m.tiled = 0;
+		m.tex = tex; m.blend = blend;
+	}
 }
 
 // common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid
@@ -1520,6 +1566,8 @@ void host_init()
 
 void host_cleanup()
 {
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d
+", model_interp_mesh_late()); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
@@ -1571,6 +1619,8 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_clip = h_mesh_clip;
 	Backend.mesh_free = h_mesh_free;
+	Backend.model_page_in = h_model_page_in;
+	Backend.level_loaded = h_level_loaded;
 	gr_host_backend_register(&Backend);
 	return 1;
 }
