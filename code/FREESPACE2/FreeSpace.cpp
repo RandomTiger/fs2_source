@@ -426,6 +426,7 @@
 #include "key.h"
 #include "vecmat.h"
 #include "2d.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 #include "3d.h"
 #include "StarField.h"
 #include "Lighting.h"
@@ -2170,6 +2171,7 @@ void game_init()
 	
 	// Claude: P7-8, a backend registered with gr_host_backend_register takes the choice; with none, the chain below is as before
 	if (gr_host_backend_registered()) {
+		gr_virtual_read_config();	// Claude: GodotResolution, the DisplayResolution key (GrVirtual.h)
 		gr_init(Game_profile->headless_gr_mode, GR_HOST);	// the data set's UI art mode, like the null renderer
 	} else
 	if (Cmdline_nographics) {
