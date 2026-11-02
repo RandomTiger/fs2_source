@@ -37,5 +37,20 @@ foreach ($b in $Branches) {
 		"$b x64 $e`: $l"
 		if ($l -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
 	}
+	# FS1 and the FS1 demo headless too (D-20261021-125812, #102): this build's x64 exes go into each install, then
+	# recordings\fs1 replays (FS1 at GR_640, #101) and the FS1 demo missions run. A missing install is a FAIL, never a skip.
+	foreach ($v in 'PATH_FS1', 'FS1DEMO_PATH') {
+		$d = [Environment]::GetEnvironmentVariable($v)
+		if (-not $d -or -not (Test-Path $d)) { "FAIL set $v to its install"; exit 1 }
+		foreach ($e in 'r64', 'd64') { Copy-Item "$env:PATH_FS2\$(Get-FS2Exe $e $repo)" $d -Force }
+	}
+	$fs1 = (Get-ChildItem "$repo\recordings\fs1\*.fs2rec" | ForEach-Object BaseName) -join ','
+	# -CrossCheck none: the default sm1-01 is also an FS1 name and would run the x86 exes
+	$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\replay_check.ps1" -Headless -Configs r64,d64 -CrossCheck none -Missions $fs1 -Out "$o\fs1" | Select-Object -Last 1
+	"$b x64 fs1: $l"
+	if ($l -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
+	$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\fs1demo_run.ps1" -Headless -Configs r64,d64 -Out "$o\fs1demo" | Select-Object -Last 1
+	"$b x64 fs1demo: $l"
+	if ($l -ne 'PASS') { "$b x64 FAIL"; exit 1 }
 }
 'x64 PASS'
