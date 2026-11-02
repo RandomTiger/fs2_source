@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 7
+#define FS2_API_VERSION 8
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -136,6 +136,20 @@ FS2_API void fs2_input_focus(int got);
 FS2_API void fs2_input_close(void);
 // The size of the game's screen in pixels, for mapping the host window's cursor onto it. 0 and 0 before fs2_init.
 FS2_API void fs2_screen_size(int *w, int *h);
+
+// v8, the virtual canvas (code/Graphics/GrVirtual.h). The host's window client size in pixels; call it before the
+// first frame and again on every resize. 0, 0 means none: the game draws its base 4:3 screen, letterboxed by the host.
+FS2_API void fs2_set_window_size(int w, int h);
+// The canvas the game draws into: vw x vh, with the base screen (fs2_screen_size) at (cx, cy) in it. The game's mouse
+// is in base coordinates: base = canvas - (cx, cy). vw x vh is the base size unless the window and the display mode
+// make it wider or taller.
+FS2_API void fs2_canvas_info(int *vw, int *vh, int *cx, int *cy);
+// The display mode from fs2.ini DisplayResolution: 0 classic (letterbox), 1 desktop (fill the window), 2 a window of
+// *w x *h (0, 0 for the other modes). Valid after fs2_init. Compared runs (-autotest, -record, -replay) report 0.
+FS2_API int fs2_display_request(int *w, int *h);
+// The GR art mode switch (0 GR_640, 1 GR_1024), outside a mission only, between frames; for test hooks. Returns 1 when
+// the game is now in that mode, 0 when refused (in a mission, or the backend cannot change mode live: headless).
+FS2_API int fs2_switch_gr_mode(int res);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

@@ -501,6 +501,12 @@ void gr_host_level_loaded()
 	if ( Gr_host_backend && Gr_host_backend->level_loaded ) Gr_host_backend->level_loaded();
 }
 
+// Claude: GodotResolution, see 2d.h
+int gr_live_mode_change()
+{
+	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->live_mode_change && !Gr_host_backend->no_device;
+}
+
 int gr_host_no_device()
 {
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->no_device;

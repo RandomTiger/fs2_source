@@ -298,6 +298,7 @@
 #include "SystemVars.h"
 #include "Hud.h"
 #include "HUDtarget.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 #include "HUDreticle.h"
 #include "HUDmessage.h"
 #include "Sound.h"
@@ -1417,6 +1418,7 @@ void hud_maybe_blit_head_border()
 // Black out area behind head animation
 void hud_maybe_clear_head_area()
 {
+	gr_virtual_hud_gauge(HUD_TALKING_HEAD);	// Claude: GodotResolution, also for the head anim anim_render_all draws next
 	if ( Head_frame_gauge.first_frame == -1 ) {
 		return;
 	}
@@ -1650,6 +1652,7 @@ void HUD_render_2d(float frametime)
 		}
 
 		// show subspace notify gauge
+		gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
 		hud_maybe_display_subspace_notify();
 
 		// show objective status gauge
@@ -1681,6 +1684,7 @@ void HUD_render_2d(float frametime)
 		}
 
 		// show the directives popup and/or training popup
+		gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
 		message_training_display();
 
 		// if this is a multiplayer game, blit any icons/bitmaps indicating voice recording or playback
@@ -1692,15 +1696,18 @@ void HUD_render_2d(float frametime)
 	hud_show_messages();
 
 	// maybe render any necessary multiplayer text messaging strings being entered
+	gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
 	hud_maybe_render_multi_text();
 
 	// show red alert notify gauge when moving to red alert
+	gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
 	hud_maybe_display_red_alert();	
 
 	// display supernova warning
 	hud_maybe_display_supernova();
 
 	// Claude: control pad tree options
+	gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
 	pad_hud_render();
 
 	// check to see if we are in messaging mode.  If so, send the key to the code
@@ -2651,6 +2658,7 @@ static int Vm_other_ship_gauges[NUM_VM_OTHER_SHIP_GAUGES] =
 int hud_gauge_active(int gauge_index)
 {
 	Assert(gauge_index >=0 && gauge_index < NUM_HUD_GAUGES);
+	gr_virtual_hud_gauge(gauge_index);	// Claude: GodotResolution, the gauge's anchor (draw only; off outside mission drawing)
 
 	// AL: Special code: Only show two gauges when not viewing from own ship
 	if ( Viewer_mode & VM_OTHER_SHIP ) {
@@ -2711,6 +2719,7 @@ void hud_gauge_start_flash(int gauge_index)
 void hud_set_gauge_color(int gauge_index, int bright_index)
 {
 	color use_color;
+	gr_virtual_hud_gauge(gauge_index);	// Claude: GodotResolution, the gauge's anchor
 	int flash_status = hud_gauge_maybe_flash(gauge_index);
 	use_color = HUD_config.clr[gauge_index];
 	hud_config_fs1_gauge_color(&use_color);	// Claude: FS1 data: FS1's one HUD colour

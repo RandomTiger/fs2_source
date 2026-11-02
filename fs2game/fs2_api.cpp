@@ -19,6 +19,7 @@
 #include "Key.h"
 #include "Mouse.h"
 #include "2d.h"
+#include "GrVirtual.h"	// v8
 #include "fs2_api.h"
 #include "InputTest.h"
 #include "OsApi.h"
@@ -302,6 +303,31 @@ void fs2_screen_size(int *w, int *h)
 {
 	*w = gr_screen.max_w;
 	*h = gr_screen.max_h;
+}
+
+void fs2_set_window_size(int w, int h)
+{
+	gr_virtual_set_window(w, h);
+}
+
+void fs2_canvas_info(int *vw, int *vh, int *cx, int *cy)
+{
+	*vw = gr_virtual_w();
+	*vh = gr_virtual_h();
+	*cx = gr_virtual_centre_x();
+	*cy = gr_virtual_centre_y();
+}
+
+int fs2_display_request(int *w, int *h)
+{
+	return gr_virtual_display_request(w, h);
+}
+
+extern "C++" int game_switch_gr_mode(int res);	// FreeSpace.cpp, GodotResolution
+
+int fs2_switch_gr_mode(int res)
+{
+	return game_switch_gr_mode(res);
 }
 
 void fs2_set_window_handle(unsigned long long handle)

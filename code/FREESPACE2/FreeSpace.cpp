@@ -426,6 +426,7 @@
 #include "key.h"
 #include "vecmat.h"
 #include "2d.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 #include "3d.h"
 #include "StarField.h"
 #include "Lighting.h"
@@ -1962,6 +1963,35 @@ int	Framerate_delay = 0;
 
 float Freespace_gamma = 1.0f;
 
+// Claude: GodotResolution, switch the GR art mode (GR_640, GR_1024) while the game runs, outside a mission only: in a
+// mission it is an Assert in Debug and ignored in Release. Only when the backend says it can (gr_live_mode_change:
+// GR_HOST with a device; not native D3D, not headless). Re-runs gr_init on the same backend and the radar art; fonts
+// and colours live on. The screen being entered loads its own art for the new mode. Returns 1 when the mode is res.
+int game_switch_gr_mode(int res)
+{
+	if (Game_mode & GM_IN_MISSION) {
+		Assert(!(Game_mode & GM_IN_MISSION));
+		return 0;
+	}
+	if ((res != GR_640) && (res != GR_1024)) {
+		return 0;
+	}
+	if (res == gr_screen.res) {
+		return 1;
+	}
+	if (!gr_live_mode_change()) {
+		return 0;
+	}
+	gr_init(res, gr_screen.mode);
+	gr_set_gamma(Freespace_gamma);
+	radar_init();
+	mouse_set_pos(gr_screen.max_w / 2, gr_screen.max_h / 2);
+	mprintf(("GR mode switch: res %d, %d x %d, late loads %d %d %d %d %d\n", gr_screen.res, gr_screen.max_w, gr_screen.max_h,
+		Loadtime_late_count[LT_LATE_TEXTURE], Loadtime_late_count[LT_LATE_ANI], Loadtime_late_count[LT_LATE_NEBULA],
+		Loadtime_late_count[LT_LATE_HEAD], Loadtime_late_count[LT_LATE_UI]));
+	return 1;
+}
+
 DCF(gamma,"Sets Gamma factor")
 {
 	if ( Dc_command )	{
@@ -2171,6 +2201,7 @@ void game_init()
 	
 	// Claude: P7-8, a backend registered with gr_host_backend_register takes the choice; with none, the chain below is as before
 	if (gr_host_backend_registered()) {
+		gr_virtual_read_config();	// Claude: GodotResolution, the DisplayResolution key (GrVirtual.h)
 		gr_init(game_options_gr_mode(Game_profile->headless_gr_mode), GR_HOST);	// the data set's UI art mode, like the null renderer; Claude: or the GraphicsMode key (D-20261102-200102)
 	} else
 	if (Cmdline_nographics) {
@@ -2713,6 +2744,7 @@ void game_set_view_clip()
 		// Set the clip region for normal view
 		if ( View_percent >= 100 )	{
 			gr_reset_clip();
+			gr_virtual_wide_clip();	// Claude: GodotResolution, the full view covers the whole canvas (no-op at the base size)
 		} else {
 			int xborder, yborder;
 
@@ -4013,12 +4045,14 @@ static void game_drawing_begin()
 {
 	Cosmetic_rand_drawing = 1;
 	model_instance_state_save();
+	gr_virtual_hud_begin();	// Claude: GodotResolution, HUD gauges go to their anchors (GrVirtual.h)
 }
 
 static void game_drawing_end()
 {
 	model_instance_state_restore();
 	Cosmetic_rand_drawing = 0;
+	gr_virtual_hud_end();	// Claude: GodotResolution
 }
 
 void game_frame()
@@ -5673,6 +5707,25 @@ void game_enter_state( int old_state, int new_state )
 
 			Game_time_compression = F1_0;
 	
+			// Claude: GodotResolution, -gr_switch_test: the GR mode switch's test hook, 640 and back, once
+			if (Cmdline_gr_switch_test) {
+				Cmdline_gr_switch_test = 0;
+				int old_res = gr_screen.res;
+				if (gr_live_mode_change()) {
+					int ok1 = game_switch_gr_mode((old_res == GR_1024) ? GR_640 : GR_1024);
+					int ok_w = (gr_screen.max_w == ((old_res == GR_1024) ? 640 : 1024));
+					int ok2 = game_switch_gr_mode(old_res);
+					autotest_check(ok1 && ok_w && ok2 && (gr_screen.res == old_res), "GR mode switch: other mode and back");
+					int late = 0;
+					for (int i = 0; i < LT_LATE_NUM; i++) {
+						late += Loadtime_late_count[i];
+					}
+					autotest_check(late == 0, "GR mode switch: late-load counters 0");
+				} else {
+					autotest_note("GR mode switch: skipped, the backend has no live mode change");
+				}
+			}
+
 			// determine which ship this guy is currently based on
 #if defined(PRESS_TOUR_BUILD) || defined(PD_BUILD)
 			mht_init();
