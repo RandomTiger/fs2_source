@@ -2717,7 +2717,8 @@ void debrief_do_frame(float frametime)
 		}
 
 		//  draw medal/badge/rank labels
-		debrief_draw_award_text();
+		if ( !Cfile_fs1_data )	// Claude: FS1's award pictures have the name drawn in, so a printed label doubles it (#135)
+			debrief_draw_award_text();
 
 /*		if (Rank_text_bitmap >= 0) {
 			gr_set_bitmap(Rank_text_bitmap);
