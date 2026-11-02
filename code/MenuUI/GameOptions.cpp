@@ -15,6 +15,7 @@
 #include "AlphaColors.h"
 #include "Key.h"
 #include "Mouse.h"
+#include "Joy.h"
 #include "GameSnd.h"
 #include "OsRegistry.h"
 #include "cfile.h"
@@ -94,8 +95,13 @@ void game_options_set_flight_device(int device)
 	if ((device < GAME_OPTIONS_FLIGHT_AUTO) || (device > GAME_OPTIONS_FLIGHT_MOUSE)) {
 		return;
 	}
+	int was = Game_options_flight;
+
 	Game_options_flight = device;
 	game_options_apply_flight();
+	if (device != was) {
+		joy_reassign();	// live: the pad/joystick ownership follows the choice at once (D-20261102-204804)
+	}
 }
 
 int game_options_pad_flies()
@@ -419,10 +425,16 @@ static void game_options_pick(go_item *it)
 {
 	gamesnd_play_iface(SND_USER_SELECT);
 	if (it->kind == GO_ITEM_FLIGHT) {
+		int was;
+
 		game_options_load();
+		was = Game_options_flight;
 		Game_options_flight = it->value;
 		game_options_apply_flight();
 		game_options_write_flight();
+		if (it->value != was) {
+			joy_reassign();	// live, no restart: the pad/joystick ownership is taken again (D-20261102-204804)
+		}
 	} else if (it->kind == GO_ITEM_GR) {
 		int gr = it->value;
 
