@@ -326,7 +326,7 @@ char *GS_event_text[] =
 	"GS_EVENT_INITIAL_PLAYER_SELECT",				// 60
 	"GS_EVENT_GAME_INIT",								
 	"GS_EVENT_MULTI_MISSION_SYNC",
-	"GS_EVENT_MULTI_CAMPAIGN_SELECT",
+	"GS_EVENT_GAME_OPTIONS",	// Claude: index 63 (GS_EVENT_GAME_OPTIONS); this table is out of step with the #defines (original), so the name goes at its index, not the end
 	"GS_EVENT_MULTI_SERVER_TRANSFER",
 	"GS_EVENT_MULTI_START_GAME",						// 65
 	"GS_EVENT_MULTI_HOST_OPTIONS",					
@@ -394,7 +394,7 @@ char *GS_state_text[] =
 	"GS_STATE_EVENT_DEBUG",
 	"GS_STATE_STANDALONE_POSTGAME",
 	"GS_STATE_INITIAL_PLAYER_SELECT",
-	"GS_STATE_MULTI_MISSION_SYNC",					// 50
+	"GS_STATE_GAME_OPTIONS",					// 50	// Claude: index 50 (GS_STATE_GAME_OPTIONS); this table is out of step with the #defines (original), so the name goes at its index, not the end
 	"GS_STATE_MULTI_SERVER_TRANSFER",				
 	"GS_STATE_MULTI_START_GAME",
 	"GS_STATE_MULTI_HOST_OPTIONS",
