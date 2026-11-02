@@ -112,10 +112,8 @@ void level_page_in()
 	neb2_page_in();
 	loadtime_mark("neb2_page_in");	// Claude: -loadtimes
 
-	// preload mission messages if NOT running low-memory (greater than 48MB)
-	if (game_using_low_mem() == false) {
-		message_pagein_mission_messages();
-	}
+	// Claude: always preload mission messages (low-memory mode removed, W13)
+	message_pagein_mission_messages();
 	loadtime_mark("message_pagein_mission_messages");	// Claude: -loadtimes
 	if(!(Game_mode & GM_STANDALONE_SERVER)){	// Claude: list the talking heads for bm_get_level_bitmaps (W11)
 		message_page_in_heads();	// Claude
