@@ -122,6 +122,8 @@ void level_page_in()
 	}
 	loadtime_mark("bm_page_in_stop");	// Claude: -loadtimes
 
+	gr_host_level_loaded();	// Claude: load hook, paging is done; a host that builds fixed data at load finishes it now
+
 	mprintf(( "Ending level bitmap paging...\n" ));
 
 }

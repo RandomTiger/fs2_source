@@ -491,6 +491,16 @@ int gr_host_backend_registered()
 	return Gr_host_backend != NULL;	// Claude: P7-8
 }
 
+void gr_host_model_page_in(int modelnum)
+{
+	if ( Gr_host_backend && Gr_host_backend->model_page_in ) Gr_host_backend->model_page_in(modelnum);
+}
+
+void gr_host_level_loaded()
+{
+	if ( Gr_host_backend && Gr_host_backend->level_loaded ) Gr_host_backend->level_loaded();
+}
+
 int gr_host_no_device()
 {
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->no_device;

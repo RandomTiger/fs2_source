@@ -3268,6 +3268,8 @@ void model_page_in_textures(int modelnum, int ship_info_index)
 			bm_unlock(bitmap_num);
 		}
 	}
+
+	gr_host_model_page_in(modelnum);	// Claude: load hook, the textures are in; a host that builds fixed data at load does it now
 }
 
 // is the given model a pirate ship?
