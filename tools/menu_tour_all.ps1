@@ -28,11 +28,12 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 # powershell -File passes "a,b" as one string
 $Sets = @($Sets | ForEach-Object { $_ -split ',' })
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 $dirs = @{ fs2 = $Fs2Dir; fs2demo = $Fs2DemoDir; fs1 = $Fs1Dir; fs1demo = $Fs1DemoDir }
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
@@ -46,7 +47,7 @@ if (-not $NoBuild -and $keep -notcontains 'fs2' -and $Fs2Dir -and (Test-Path $Fs
 foreach ($s in $keep) {
 	$b = Join-Path $bak $s
 	New-Item -ItemType Directory -Force $b | Out-Null
-	Copy-Item (Join-Path $dirs[$s] 'FS2vs2022r.exe'), (Join-Path $dirs[$s] 'FS2vs2022d.exe') $b -ErrorAction SilentlyContinue
+	Copy-Item (Join-Path $dirs[$s] (Get-FS2Exe r)), (Join-Path $dirs[$s] (Get-FS2Exe d)) $b -ErrorAction SilentlyContinue
 }
 
 $pass = 0; $fail = 0
@@ -61,13 +62,13 @@ try {
 				$r = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') -GameDir $dir | Select-Object -Last 1
 				if ($r -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
 			} elseif ($built) {
-				Copy-Item (Join-Path $built 'FS2vs2022r.exe'), (Join-Path $built 'FS2vs2022d.exe') $dir -Force
+				Copy-Item (Join-Path $built (Get-FS2Exe r)), (Join-Path $built (Get-FS2Exe d)) $dir -Force
 			} else {
 				$env:PATH_FS1 = $dir
 				$env:PATH_FS2 = $Fs2Dir
 				# every worktree links into the same game folders: delete first so no other branch's exe survives a no-op link
 				$targets = @($run | Where-Object { $_ -ne 'fs2demo' } | ForEach-Object { $dirs[$_] })
-				foreach ($d in @($Fs2Dir) + $targets) { Remove-Item (Join-Path $d 'FS2vs2022r.exe'), (Join-Path $d 'FS2vs2022d.exe') -ErrorAction SilentlyContinue }
+				foreach ($d in @($Fs2Dir) + $targets) { Remove-Item (Join-Path $d (Get-FS2Exe r)), (Join-Path $d (Get-FS2Exe d)) -ErrorAction SilentlyContinue }
 				$ok = $true
 				foreach ($c in 'Release', 'Debug') {
 					& $msb (Join-Path $repo 'Freespace2.vcxproj') "/p:Configuration=$c" /p:Platform=Win32 /m /v:m /nologo > (Join-Path $Out "build_$c.log") 2>&1
@@ -75,13 +76,13 @@ try {
 				}
 				if (-not $ok) { $fail++; break }
 				# take the exes from wherever the build linked them: the set's folder, else PATH_FS2
-				$built = @($dir, $Fs2Dir) | Where-Object { (Test-Path (Join-Path $_ 'FS2vs2022r.exe')) -and (Test-Path (Join-Path $_ 'FS2vs2022d.exe')) } | Select-Object -First 1
-				if (-not $built) { "FAIL $s build: no fresh FS2vs2022r/d.exe in $dir or $Fs2Dir"; $fail++; break }
-				foreach ($d in $targets) { if ($d -ne $built) { Copy-Item (Join-Path $built 'FS2vs2022r.exe'), (Join-Path $built 'FS2vs2022d.exe') $d -Force } }
+				$built = @($dir, $Fs2Dir) | Where-Object { (Test-Path (Join-Path $_ (Get-FS2Exe r))) -and (Test-Path (Join-Path $_ (Get-FS2Exe d))) } | Select-Object -First 1
+				if (-not $built) { "FAIL $s build: no fresh $(Get-FS2Exe r) / $(Get-FS2Exe d) in $dir or $Fs2Dir"; $fail++; break }
+				foreach ($d in $targets) { if ($d -ne $built) { Copy-Item (Join-Path $built (Get-FS2Exe r)), (Join-Path $built (Get-FS2Exe d)) $d -Force } }
 			}
 		}
 		foreach ($c in $Configs) {
-			$e = Join-Path $dir "FS2vs2022$c.exe"
+			$e = Join-Path $dir (Get-FS2Exe $c)
 			if (Test-Path $e) { "$s $c exe built $((Get-Item $e).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" } else { "$s $c exe missing: $e" }
 		}
 		$a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'menu_check.ps1'), '-Out', (Join-Path $Out $s), '-Configs', ($Configs -join ','), '-GameDir', $dir)

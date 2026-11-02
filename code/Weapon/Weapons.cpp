@@ -1203,7 +1203,7 @@ int parse_weapon()
 		stuff_string(fname, F_NAME, NULL);
 		if(!Fred_running){
 			int num_frames, fps;
-			wip->b_info.beam_particle_ani = bm_load_animation(fname, &num_frames, &fps, 1);
+			wip->b_info.beam_particle_ani = bm_load_animation(fname, &num_frames, &fps);	// Claude: no can_drop_frames (W13)
 		}
 
 		// magic miss #
@@ -3410,7 +3410,7 @@ void weapons_page_in()
 
 		for (j=0; j<Weapon_expl_info[i].lod_count; j++) {
 			//load ani
-			bitmap_handle = bm_load_animation(Weapon_expl_info[i].lod[j].filename, &nframes, &fps, 1);
+			bitmap_handle = bm_load_animation(Weapon_expl_info[i].lod[j].filename, &nframes, &fps);	// Claude: no can_drop_frames (W13)
 			Weapon_expl_info[i].lod[j].bitmap_id = bitmap_handle;
 			Weapon_expl_info[i].lod[j].fps = fps;
 			Weapon_expl_info[i].lod[j].num_frames = nframes;
@@ -3440,6 +3440,8 @@ void weapons_page_in()
 		Assert( cmeasurep->model_num > -1 );
 	}
 
+	mflash_page_in();	// Claude: muzzle flash blobs (W11)
+	flak_page_in();		// Claude: flak muzzle flash (W11)
 }
 
 // call to get the "color" of the laser at the given moment (since glowing lasers can cycle colors)

@@ -682,6 +682,18 @@ int hud_bracket_num_ships_attacking(int objnum)
 
 int	Ships_attacking_bitmap = -1;
 
+// Claude: load and page the "ships attacking" marker with the level; it was read from disk on its first draw (W11)
+void hudbrackets_page_in()
+{
+	if ( !Game_profile->attackers ) {	// the FS1 demo has no attacker.pcx (docs/FS1_DEMO.md)
+		return;
+	}
+	if ( Ships_attacking_bitmap == -1 ) {
+		Ships_attacking_bitmap = bm_load(Ships_attack_fname[gr_screen.res]);
+	}
+	bm_page_in_aabitmap( Ships_attacking_bitmap );
+}
+
 // draw_bounding_brackets() will draw the faded brackets that surround the current target
 void draw_bounding_brackets(int x1, int y1, int x2, int y2, int w_correction, int h_correction, float distance, int target_objnum)
 {

@@ -262,7 +262,7 @@ void load_shield_hit_bitmap()
 	Shield_bitmaps_loaded = 1;
 
 	for (i=0; i<MAX_SHIELD_ANIMS; i++ )	{
-		Sheild_ani[i].first_frame = bm_load_animation(Sheild_ani[i].filename, &Sheild_ani[i].nframes,NULL, 1);
+		Sheild_ani[i].first_frame = bm_load_animation(Sheild_ani[i].filename, &Sheild_ani[i].nframes,NULL);	// Claude: no can_drop_frames (W13)
 		if ( Sheild_ani[i].first_frame < 0 )
 			Int3();
 	}

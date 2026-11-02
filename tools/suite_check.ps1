@@ -48,6 +48,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 $set = if ($Full) { 'full' } else { 'quick' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\suite_${set}_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
@@ -113,7 +114,7 @@ $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe
 $env:PATH_FS2 = $GameDir
 foreach ($c in 'Release', 'Debug') {
 	$blog = Join-Path $Out "build_$c.log"
-	Remove-Item (Join-Path $GameDir ($(if ($c -eq 'Release') { 'FS2vs2022r.exe' } else { 'FS2vs2022d.exe' }))) -ErrorAction SilentlyContinue
+	Remove-Item (Join-Path $GameDir (Get-FS2Exe $c)) -ErrorAction SilentlyContinue
 	& $msb (Join-Path $repo 'Freespace2.vcxproj') "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$repo\" /m /v:m /nologo > $blog 2>&1
 	$rc = $LASTEXITCODE
 	$warn = @(Select-String $blog -Pattern ': warning [A-Z]+\d+' | ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique)
@@ -132,7 +133,7 @@ if ($env:FS2DEMO_TEST) {
 # left from another branch would otherwise be what is tested (D-20261021-125813)
 $fs1Ok = $Fs1Dir -and (Test-Path (Join-Path $Fs1Dir 'data')) -and -not $failed
 if ($fs1Ok) {
-	foreach ($x in 'FS2vs2022r.exe', 'FS2vs2022d.exe') { Copy-Item (Join-Path $GameDir $x) $Fs1Dir -Force }
+	foreach ($x in (Get-FS2Exe r), (Get-FS2Exe d)) { Copy-Item (Join-Path $GameDir $x) $Fs1Dir -Force }
 	"fs1: this build copied into $Fs1Dir" | Add-Content $summary
 } else {
 	$why = if (-not $Fs1Dir) { 'PATH_FS1 not set' } elseif ($failed) { 'the build failed' } else { "no FS1 data in $Fs1Dir" }

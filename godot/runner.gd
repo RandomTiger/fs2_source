@@ -1,6 +1,6 @@
 # Headless runner (G2): runs fs2game.dll inside Godot and quits with the game's exit code.
 # Input comes from the environment (no quoting trouble with paths that hold spaces):
-#   FS2_DLL   path of FS2game64r.dll or FS2game64d.dll
+#   FS2_DLL   path of FS2game_<Layer>_64r.dll or _64d.dll
 #   FS2_ROOT  the game folder (cfile root, current directory)
 #   FS2_CMD   the game's command line
 #   FS2_CMD2  optional: a second run in the same process after the first passed (the restart check)

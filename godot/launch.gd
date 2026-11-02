@@ -2,7 +2,8 @@
 #
 # Packaged exe, no arguments and no environment variables: the data folder is the exe's folder, else the current folder, the
 # first valid one wins (valid = it holds .vp files, or Data\*.vp as the FS1 demo does). `--fs2-root <dir>` (or --fs2-root=<dir>)
-# names the folder instead, and then only that one is tried. Game DLL: fs2game64r.dll beside the exe. With no valid folder it
+# names the folder instead, and then only that one is tried. Game DLL: FS2game_<Layer>_64<r|d>.dll beside the exe, named by
+# res://fs2_layer.txt (written by tools\godot_package.ps1; never a glob, D-20261101-105802). With no valid folder it
 # shows a message naming the folders tried and exits with code 3 (4: the game DLL is missing). Nothing here crashes.
 #
 # The gate harness and developers keep the environment of runner.gd: FS2_CMD, FS2_DLL, FS2_ROOT. FS2_CMD set means a scripted
@@ -19,6 +20,15 @@ extends Node
 const EXIT_NO_DATA := 3
 const EXIT_NO_DLL := 4
 const TITLE := "FreeSpace 2"
+const LAYER_FILE := "res://fs2_layer.txt"	# line 1 the layer, line 2 r or d (tools\godot_package.ps1)
+
+# the game DLL of the layer that was packaged, from LAYER_FILE; "" when the file is missing (then the DLL check fails and names it)
+func _dll_name() -> String:
+	if not FileAccess.file_exists(LAYER_FILE):
+		return ""
+	var lines := FileAccess.get_file_as_string(LAYER_FILE).strip_edges().split("\n")
+	var cfg := lines[1].strip_edges() if lines.size() > 1 else "r"
+	return "FS2game_%s_64%s.dll" % [lines[0].strip_edges(), cfg]
 
 func _ready() -> void:
 	var exe_dir := OS.get_executable_path().get_base_dir()
@@ -43,13 +53,14 @@ func _ready() -> void:
 		return
 	var dll := OS.get_environment("FS2_DLL")
 	if dll == "":
-		dll = exe_dir.path_join("fs2game64r.dll")
+		dll = exe_dir.path_join(_dll_name())
 	if not FileAccess.file_exists(dll):
-		_fail(EXIT_NO_DLL, "The game library is missing:\n  " + dll + "\n\nKeep fs2game64r.dll next to the program.")
+		_fail(EXIT_NO_DLL, "The game library is missing:\n  " + dll + "\n\nIts name comes from " + LAYER_FILE + " in the package. Keep that DLL next to the program.")
 		return
 	# the game's cfile splits paths at backslashes only (cfile_in_root_dir), so it must be given a native Windows path
 	OS.set_environment("FS2_ROOT", root.replace("/", "\\").rstrip("\\"))
 	OS.set_environment("FS2_DLL", dll.replace("/", "\\"))
+	print("fs2 DLL: " + dll)
 	if OS.get_environment("FS2_CMD") == "":
 		OS.set_environment("FS2_CMD", "-window")	# the game's flag; the host renderer ignores it, the window mode is set below
 		OS.set_environment("FS2_GR_HOST", "1")
@@ -103,8 +114,15 @@ func _arg_root() -> String:
 			return a.substr("--fs2-root=".length())
 	return ""
 
+# A data-set folder (DataSetInstall.cpp) counts too: fs2demo or fs1demo beside the exe, or its installer from which the game makes it.
 func _has_data(dir: String) -> bool:
-	return _has_vp(dir) or _has_vp(dir.path_join("Data"))
+	if _has_vp(dir) or _has_vp(dir.path_join("Data")):
+		return true
+	for s in [["fs2demo", "fs2demo10.exe"], ["fs1demo", "fsdemo10.exe"]]:
+		var sub: String = dir.path_join(s[0])
+		if _has_vp(sub) or _has_vp(sub.path_join("Data")) or FileAccess.file_exists(dir.path_join(s[1])):
+			return true
+	return false
 
 func _has_vp(dir: String) -> bool:
 	var d := DirAccess.open(dir)

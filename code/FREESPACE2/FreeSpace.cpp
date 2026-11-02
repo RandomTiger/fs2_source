@@ -556,6 +556,7 @@
 #include "Replay.h"
 #include "DataSetInstall.h"	// Claude
 #include "DataSetProfile.h"	// Claude
+#include "../Voice/VoiceGame.h"	// Claude: voice control
 #include "Autotest.h"
 #include "version.h"
 #include "MainHalltemp.h"
@@ -1398,6 +1399,7 @@ void game_level_close()
 	ct_level_close();
 	beam_level_close();
 	mflash_level_close();
+	loadtime_level_close();	// Claude: writes the late texture load totals, see LoadTimes.h
 
 	audiostream_unpause_all();
 	Game_paused = 0;
@@ -1936,21 +1938,7 @@ DCF(palette_flash,"Toggles palette flash effect on/off")
 	if ( Dc_status )	dc_printf( "palette_flash is %s\n", (Use_palette_flash?"TRUE":"FALSE") );	
 }
 
-int Use_low_mem = 0;
-
-DCF(low_mem,"Uses low memory settings regardless of RAM")
-{
-	if ( Dc_command )	{	
-		dc_get_arg(ARG_TRUE|ARG_FALSE|ARG_NONE);		
-		if ( Dc_arg_type & ARG_TRUE )	Use_low_mem = 1;	
-		else if ( Dc_arg_type & ARG_FALSE ) Use_low_mem = 0;	
-		else if ( Dc_arg_type & ARG_NONE ) Use_low_mem ^= 1;	
-	}	
-	if ( Dc_help )	dc_printf( "Usage: low_mem [bool]\nSets low_mem to true or false.  If nothing passed, then toggles it.\n" );	
-	if ( Dc_status )	dc_printf( "low_mem is %s\n", (Use_low_mem?"TRUE":"FALSE") );	
-
-	os_config_write_uint( NULL, NOX("LowMem"), Use_low_mem );
-}
+// Claude: low-memory mode removed (W13)
 
 
 #ifndef NDEBUG
@@ -2115,7 +2103,7 @@ void game_init()
 
 	Use_joy_mouse = 0;		//os_config_read_uint( NULL, NOX("JoystickMovesCursor"), 1 );
 	//Use_palette_flash = os_config_read_uint( NULL, NOX("PaletteFlash"), 0 );
-	Use_low_mem = replay_low_mem( os_config_read_uint( NULL, NOX("LowMem"), 0 ) );	// Claude: a replay uses the recording's (D-056)
+	// Claude: low-memory mode removed (W13)
 
 #ifndef NDEBUG
 	Use_fullscreen_at_startup = os_config_read_uint( NULL, NOX("ForceFullscreen"), 1 );
@@ -2142,6 +2130,7 @@ void game_init()
 
 	if (!Is_standalone) {
 		snd_init(use_eax);
+		voice_game_init();	// Claude: voice control
 	}
 /////////////////////////////
 // SOUND INIT END
@@ -2296,15 +2285,7 @@ void game_init()
 		strcpy(Multi_tracker_squad_name, ptr);
 	}
 
-	// If less than 48MB of RAM, use low memory model.
-	// Claude: the machine's RAM no longer picks it; the reference is high memory (D-046). Only the LowMem setting does.
-	if ( Use_low_mem )	{
-		mprintf(( "Using normal memory settings...\n" ));
-		bm_set_low_mem(1);		// Use every other frame of bitmaps
-	} else {
-		mprintf(( "Using high memory settings...\n" ));
-		bm_set_low_mem(0);		// Use all frames of bitmaps
-	}
+	// Claude: low-memory mode removed (W13): every frame of every animation, the reference since D-046
 
 	// load non-darkening pixel defs
 	palman_load_pixels();
@@ -6567,6 +6548,7 @@ DCF(pofspew, "")
 void game_shutdown(void)
 {
 	replay_shutdown();
+	voice_game_close();	// Claude: voice control
 
 	os_timer_precise(0);
 
@@ -7905,15 +7887,7 @@ void title_screen_hold()
 	Title_screen_bitmap = -1;
 }
 
-// return true if the game is running with "low memory", which is less than 48MB
-bool game_using_low_mem()
-{
-	if (Use_low_mem == 0) {
-		return false;
-	} else {
-		return true;
-	}
-}
+// Claude: low-memory mode removed (W13)
 
 // Claude: the host's three calls (D-050), moved verbatim from WinMainSub. A host calls game_host_init once and,
 // if it returns 1, game_host_frame until that returns 0, then game_host_shutdown for the exit code. One

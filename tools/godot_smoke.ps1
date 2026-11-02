@@ -9,6 +9,7 @@ param([string]$Config = 'r', [string]$Mission = 'sm1-01', [int]$Seconds = 90, [s
 	[string]$GameDir = $env:PATH_FS2, [string]$Godot)
 if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64.exe' }
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not $Out) { $Out = Join-Path $repo ('replays\godot_smoke_' + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
@@ -23,7 +24,7 @@ public static class W32 {
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 "@
-$env:FS2_DLL = Join-Path $GameDir "FS2game64$Config.dll"; $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'; $env:FS2_SMOKE = '1'
+$env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'; $env:FS2_SMOKE = '1'
 $env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot Tom -at_time $Seconds"
 Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
 Set-Location $GameDir

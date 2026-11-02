@@ -323,7 +323,7 @@ void stars_load_debris()
 	}
 
 	for (i=0; i<MAX_DEBRIS_VCLIPS; i++ )	{
-		debris_vclips[i].bm = bm_load_animation( debris_vclips[i].name, &debris_vclips[i].nframes, NULL, 1 );
+		debris_vclips[i].bm = bm_load_animation( debris_vclips[i].name, &debris_vclips[i].nframes, NULL );	// Claude: no can_drop_frames (W13)
 		if ( debris_vclips[i].bm < 0 ) {
 			// try loading it as a single bitmap
 			debris_vclips[i].bm = bm_load(debris_vclips[i].name);
@@ -1282,7 +1282,9 @@ void stars_page_in()
 
 	// Initialize the subspace stuff
 
-	if ( Game_subspace_effect )	{
+	// Claude: Game_subspace_effect is set on entering play, after this runs, so the first subspace mission loaded the
+	// Claude: models and their textures on the first frame drawn; the mission flag says it up front (W11)
+	if ( Game_subspace_effect || (The_mission.flags & MISSION_FLAG_SUBSPACE) )	{	// Claude
 
 		Subspace_model_inner = model_load( "subspace_small.pof", NULL, NULL );
 		Assert(Subspace_model_inner>-1);

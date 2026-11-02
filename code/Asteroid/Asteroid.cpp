@@ -2034,7 +2034,7 @@ void asteroid_parse_tbl()
 	stuff_string(impact_ani_file, F_NAME, NULL);
 	if ( stricmp(impact_ani_file,NOX("none")))	{
 		int num_frames;
-		Asteroid_impact_explosion_ani = bm_load_animation( impact_ani_file, &num_frames, NULL, 1);
+		Asteroid_impact_explosion_ani = bm_load_animation( impact_ani_file, &num_frames, NULL);	// Claude: no can_drop_frames (W13)
 	}
 
 	required_string("$Impact Explosion Radius:");
@@ -2254,5 +2254,12 @@ void asteroid_page_in()
 
 			}
 		} 
+
+		// Claude: the impact explosion was read from disk on the first hit; page it with the field (W11)
+		if ( Asteroid_impact_explosion_ani >= 0 ) {	// Claude
+			int nframes;	// Claude
+			bm_get_info( Asteroid_impact_explosion_ani, NULL, NULL, NULL, &nframes );	// Claude
+			bm_page_in_texture( Asteroid_impact_explosion_ani, nframes );	// Claude
+		}	// Claude
 	}
 }

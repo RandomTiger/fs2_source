@@ -9,7 +9,7 @@ The code is `code/Replay/Autotest.cpp`. With no `-autotest` flag, and no autotes
 ## Usage
 Run with the working directory set to the game directory.
 ```
-FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
+FS2_RecordPlayback_d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
 ```
 | Flag | Meaning | Default |
 |---|---|---|
@@ -23,6 +23,8 @@ Autotest never saves the pilot file, so the pilot's skill level, stats and setti
 
 No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
 
+Base-layer worktrees (`VS2022`, `OriginalSourceBugFixes`, `RecordPlayback`) and `Enhanced` must not share a players folder: Enhanced writes pilot version 141, which a base build refuses (not listed, not loaded, left as it is, #114).
+
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
 
 ## What happens
@@ -34,13 +36,16 @@ The `-at_` flags do nothing without `-autotest`. An invalid value stops the run 
 
 ## Menu tour
 ```
-FS2vs2022d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
+FS2_RecordPlayback_d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
 tools\menu_check.ps1 [-Configs r,d] [-Shots FOLDER] [-Mission FILE]
 ```
-Visits every single-player screen and quits: the main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
+Visits every single-player screen and quits: the main hall, the Vasudan (Bastion) main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
 - Each screen, tab, page and help overlay is a view. Main hall rooms are opened by clicking their region, other screens the way their button or key opens them. Each view is drawn for 30 frames (gameplay 120) and the screen is closed the way its Back button closes it.
 - The log has one line per view: `Screen '<category>/<screen>': PASS`, `FAIL <why>` or `SKIP <why>`. A view fails if its screen does not open, closes by itself or does not go back, if its help overlay does not show, or if an `Assert`, `Int3` or `Warning` fires while it is up. After a crash the views not reached are listed as `FAIL not reached`. The log ends with `Menu tour: N screens, N passed, N failed, N skipped`. Any failure gives exit code 2.
 - A screen that shows the "not in demo" popup (`game_feature_not_in_demo_popup`) is skipped: `SKIP not in demo`. The stops it hosts (below) are then skipped without being opened, naming the screen with the wall: `SKIP not in demo (host Tech room)` (D-20261022-090902).
+- The Vasudan (Bastion) main hall (`main_hall_pilot/main_hall_bastion` and `main_hall_pilot/main_hall_bastion_help`, its MH2 overlay) is main hall 1. The tour sets the pilot's `on_bastion`, enters the main hall again so `main_hall_init(1)` runs, shows both views, then sets `on_bastion` back and enters the main hall again. Nothing is written to the pilot file. If the loaded `mainhall.tbl` defines fewer than two halls, or the data lacks the second hall's background or mask (the FS2 and FS1 demos), both views are `SKIP no second hall` (D-20261031-084801, D-20261031-084802).
+- The fully populated medals screen (`main_hall_pilot/medals_all`, #124) is the medals screen opened with `-allmedals` set: every medal at its last version, every badge and the top rank, shown from a copy of the pilot's stats. The tour sets the switch before pressing the Barracks medals button and sets it back after the stop, so the Medals stop after it shows the pilot's own medals; the pilot's stats and file are not changed. On the demos it meets the same "not in demo" wall as the Medals stop and is `SKIP`.
+  `-allmedals` on its own command line does the same for a player, in Release and Debug.
 - **Rule:** a tour stop for a screen with a demo wall is opened through the player's entry, never by posting its state event, so the tour meets the wall the player meets (D-20261021-201402). HUD config (main menu and in-game) is the H key on the Options screen: the tour opens Options first and closes it again after.
   Medals is the Barracks medals button: the tour opens Barracks through its main hall region, presses the button, and closes Barracks to the main hall after (D-20261022-060501).
   Simulator room and Credits are the Tech room's Mission Simulator and Credits tabs: the tour opens the Tech room through its main hall region, presses the tab, and leaves to the main hall after (D-20261022-090902).
@@ -50,6 +55,12 @@ Visits every single-player screen and quits: the main hall, options (general, mu
 - `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
 - The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
 - `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build.
+
+## Debug camera test
+Shift+Pause in a single-player mission pauses with a free camera (W/S/A/D move, mouse looks, Shift faster, Shift+Pause or Esc leaves); plain Pause is unchanged (#125). `-at_debugcam` with `-at_mission` tests it: 5 s into the mission it presses Shift+Pause, holds W then D, moves the mouse, checks the view moved and turned, presses Shift+Pause again and lets the mission play on. It logs `Debug camera test: PASS` or `FAILED: debug camera test: <why>`. The keys and cursor go through the recorder, so add `-record`/`-trace` and the recording replays it. With `-at_shots` it saves `debugcam\before`, `start`, `moved` and `after`.
+```
+FS2_Enhanced_r.exe -window -autotest -at_mission sm1-01 -at_time 30 -at_pilot AutotestPilot -at_debugcam -at_shots FOLDER
+```
 
 ## Test missions
 Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy them to the game's `data\missions` folder to run them (`tools\replay_check.ps1` does this). Most are generated by the scripts in `tools/missions` (`MissionGen.ps1` and one script per mission): edit the script and rerun it, not the `.fs2` file.
@@ -69,7 +80,7 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestLeaks` | Where sound or drawing fed gameplay (D-031): a voiced message cut short by its speaker's death, looping sounds across a kill, EMP missiles hitting the player, nebula lightning in an active storm |
 | `AutotestTraining` | Training messages: voiced, unvoiced, delayed with a set duration, two queued at once (D-031) |
 | `AutotestJoy` | The joystick read: a scripted stick (`-at_input joy`, recording only) taps a button, holds and releases fire and moves the stick; each frame's reads and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input joy -at_pilot AutotestPilot' -NoPlayerNpc` |
-| `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps South and a shoulder, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
+| `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps D-pad Up and a shoulder, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
 
 In the Godot host the same two scripts run as `-at_input joyhost` / `padhost`: the script becomes synthetic Godot joypad events and is read back through Godot's Input (`tools/godot_input_check.ps1`, run by `godot_check.ps1` and `godot_pkg_check.ps1`).
 
@@ -123,8 +134,8 @@ While an autotest runs:
 
 ## Recordings
 ```
-FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_RecordPlayback_d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 ```
 - With `-record`, the game plays one mission and quits. Without `-at_mission`, that is the first campaign mission.

@@ -12,7 +12,11 @@ $f = if ($Full) { @('-Full') } else { @() }
 $out = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\suite_check.ps1" @f -Out "$env:TEMP\$Label"
 $out
 $bad = @()
-if (($out | Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1) -notmatch '^PASS') { $bad += 'suite' }
+# An empty pipeline in ( ) -notmatch is an empty array, which is false: a suite that never started used to PASS here.
+# Take the last line as a string, and fail when the suite wrote no replay summary.
+$last = [string]($out | Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+if ($last -notmatch '^PASS') { $bad += 'suite' }
+if (-not (Test-Path "$env:TEMP\$Label\replay\summary.txt")) { 'suite: no replay\summary.txt, the suite produced no result'; $bad += 'suite (no result)' }
 Select-String "$env:TEMP\$Label\replay\summary.txt" -Pattern '^FAIL' -ErrorAction SilentlyContinue | ForEach-Object { $_.Line.Substring(0, [Math]::Min(160, $_.Line.Length)) }
 if (-not $Full) {
 	$t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1

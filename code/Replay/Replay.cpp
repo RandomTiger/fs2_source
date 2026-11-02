@@ -52,6 +52,13 @@ static int Replay_pace_frames = 0;
 static LARGE_INTEGER Replay_pace_freq, Replay_pace_start;
 static double Replay_pace_target = 0.0;	// seconds of real time the recorded frames so far took
 
+// -shot_frames: mission frames whose picture a replay saves (FrameShots)
+#define REPLAY_MAX_SHOTS 64
+static int Replay_shot_frames[REPLAY_MAX_SHOTS];
+static int Replay_shot_done[REPLAY_MAX_SHOTS];
+static int Replay_shot_count = 0;
+static char Replay_shot_dir[REPLAY_PATH_LEN] = "";
+
 // -autorecord
 #define REPLAY_RESTART_ENV			"FS2_AUTORECORD_RESTART_PID"
 static int Replay_auto = 0;				// record each mission to its own name in Replay_auto_dir
@@ -223,6 +230,11 @@ static void replay_log_stats()
 	for (i = 1; i < RT_NUM_TAGS; i++) {
 		if (Replay_entries_by_tag[i]) {
 			replay_logf("  %-20s %d\n", Replay_tag_names[i], Replay_entries_by_tag[i]);
+		}
+	}
+	for (i = 0; i < Replay_shot_count; i++) {
+		if (!Replay_shot_done[i]) {
+			replay_logf("Shot of frame %d not saved: the replay never drew it (it has frames 0 to %d)\n", Replay_shot_frames[i], Replay_frame - 2);
 		}
 	}
 }
@@ -612,6 +624,33 @@ int replay_input_device(int *vals, int count, int max)
 		vals[i] = r_varint();
 	}
 	return n;
+}
+
+// The same, for a device that shares the entry with others: in replay, the entry here is
+// this device's only when its first value is magic; otherwise it is left for the next reader
+// and 0 is returned.  The device must put magic in vals[0] of every entry it records.
+int replay_input_device_tagged(int magic, int *vals, int count, int max)
+{
+	int pos, n;
+
+	if (!replay_should_read()) {
+		return replay_input_device(vals, count, max);
+	}
+
+	replay_drain_events();
+	if ((Rpos >= Rsize) || (Rdata[Rpos] != RT_INPUT_DEVICE)) {
+		return 0;
+	}
+
+	// peek: the tag, the count and the first value; no entry is consumed unless it matches
+	pos = Rpos++;		// past the tag byte (r_tag would count the entry)
+	n = r_varint();
+	if ((n < 1) || (r_varint() != magic)) {
+		Rpos = pos;
+		return 0;
+	}
+	Rpos = pos;
+	return replay_input_device(vals, count, max);
 }
 
 // the recorded frame clock, in ms; reading it makes no recorded read
@@ -1324,11 +1363,6 @@ int replay_language(int lang)
 	return (Replay_mode == REPLAY_PLAY) ? Hdr.language : lang;
 }
 
-int replay_low_mem(int low_mem)
-{
-	return (Replay_mode == REPLAY_PLAY) ? Hdr.low_mem : low_mem;
-}
-
 static uint replay_mission_checksum()
 {
 	char filename[MAX_FILENAME_LEN + 8], *ext;
@@ -1501,7 +1535,7 @@ void replay_enter_game()
 		Hdr.view_position[1] = View_position.y;
 		Hdr.view_position[2] = View_position.z;
 		Hdr.language = lcl_get_language();
-		Hdr.low_mem = game_using_low_mem() ? 1 : 0;
+		Hdr.low_mem = 0;	// Claude: low-memory mode removed (W13); the field stays in the header
 
 		// the file is only created once there is a mission to put in it
 		if (Replay_auto) {
@@ -1811,12 +1845,65 @@ static void replay_pace_wait()
 	}
 }
 
+void replay_set_shots(char *frames, char *dir)
+{
+	char *p = frames, *end;
+	long f;
+
+	Replay_shot_count = 0;
+	while (p && *p) {
+		f = strtol(p, &end, 10);
+		if ((end == p) || (f < 0) || (Replay_shot_count >= REPLAY_MAX_SHOTS)) {
+			break;
+		}
+		Replay_shot_frames[Replay_shot_count] = (int)f;
+		Replay_shot_done[Replay_shot_count] = 0;
+		Replay_shot_count++;
+		p = end;
+		while ((*p == ',') || (*p == ' ')) {
+			p++;
+		}
+	}
+	if (dir && dir[0]) {
+		strncpy(Replay_shot_dir, dir, REPLAY_PATH_LEN - 1);
+	}
+}
+
+// -shot_frames: called at the end of mission frame Replay_frame's simulation, before it is drawn.  The back buffer (or
+// the host's viewport) still holds the picture of the frame before, drawn and shown last time round, so that is the
+// one saved.  Reading it back changes nothing the game reads: no hooked call is made.
+static void replay_take_shots()
+{
+	char name[32];
+	int i;
+
+	for (i = 0; i < Replay_shot_count; i++) {
+		if (Replay_shot_done[i] || (Replay_shot_frames[i] + 1 != Replay_frame)) {
+			continue;
+		}
+		if (!Replay_shot_dir[0]) {
+			_snprintf(Replay_shot_dir, REPLAY_PATH_LEN - 1, "%s.shots", Replay_file);
+		}
+		_mkdir(Replay_shot_dir);
+		sprintf(name, "frame_%06d", Replay_shot_frames[i]);
+		Replay_shot_done[i] = 1;
+		if (autotest_save_screen(Replay_shot_dir, name)) {
+			replay_logf("Shot of frame %d: %s\\%s.bmp (%dx%d)\n", Replay_shot_frames[i], Replay_shot_dir, name, gr_screen.max_w, gr_screen.max_h);
+		} else {
+			replay_logf("Shot of frame %d not saved\n", Replay_shot_frames[i]);
+		}
+	}
+}
+
 void replay_sim_frame_end()
 {
 	if (!Replay_in_game || !Replay_active) {
 		return;
 	}
 
+	if (Replay_shot_count && (Replay_mode == REPLAY_PLAY)) {
+		replay_take_shots();
+	}
 	trace_frame(Replay_frame);
 	Replay_frame++;
 

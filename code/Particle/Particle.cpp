@@ -233,19 +233,19 @@ void particle_init()
 
 	if ( Anim_bitmap_id_fire == -1 )	{
 		int fps;
-		Anim_bitmap_id_fire = bm_load_animation( "particleexp01", &Anim_num_frames_fire, &fps, 0 );
+		Anim_bitmap_id_fire = bm_load_animation( "particleexp01", &Anim_num_frames_fire, &fps );	// Claude: no can_drop_frames (W13)
 	}
 		//Anim_bitmap_id = bm_load( "particleglow01" );
 		//Anim_num_frames = 1;
 
 	if ( Anim_bitmap_id_smoke == -1 )	{
 		int fps;
-		Anim_bitmap_id_smoke = bm_load_animation( "particlesmoke01", &Anim_num_frames_smoke, &fps, 0 );
+		Anim_bitmap_id_smoke = bm_load_animation( "particlesmoke01", &Anim_num_frames_smoke, &fps );	// Claude: no can_drop_frames (W13)
 	}
 
 	if ( Anim_bitmap_id_smoke2 == -1 )	{
 		int fps;
-		Anim_bitmap_id_smoke2 = bm_load_animation( "particlesmoke02", &Anim_num_frames_smoke2, &fps, 0 );
+		Anim_bitmap_id_smoke2 = bm_load_animation( "particlesmoke02", &Anim_num_frames_smoke2, &fps );	// Claude: no can_drop_frames (W13)
 	}
 
 }

@@ -9,7 +9,7 @@ Every replay uses FS2_REPLAY_SOUND_MODEL=1 (gameplay does not depend on the soun
 as tools\audio_assessment.ps1, and runs in a real Godot window with the host renderer, so the game takes the sound device. Each run's
 stderr has the "fs2api: sound" start line (the handle DirectSound used and what it made of it). The trace of each replay is compared
 with the recording's own; a TraceDiff other than MATCH is a fault. -Pause waits for Enter between scenes (a listener).
-Needs GODOT_ENGINE_4_7 (or -Godot), godot\bin\fs2godot.dll, FS2game64<c>.dll and FS2vs2022<c>64.exe in the game folder, and
+Needs GODOT_ENGINE_4_7 (or -Godot), godot\bin\fs2godot.dll, FS2game_<Layer>_64<c>.dll and FS2_<Layer>_<c>64.exe in the game folder, and
 nobody else running the game from it.
 #>
 param(
@@ -22,6 +22,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Godot) {
 	if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }
@@ -34,10 +35,10 @@ if (-not $Out) { $Out = Join-Path $repo ('replays\godot_audio_' + (Get-Date -For
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
-$dll = Join-Path $GameDir "FS2game64$Config.dll"
+$dll = Join-Path $GameDir (Get-FS2Dll $Config)
 $proj = Join-Path $repo 'godot'
 foreach ($f in $td, $Godot, $dll, (Join-Path $proj 'bin\fs2godot.dll')) { if (-not (Test-Path $f)) { throw "Missing $f" } }
-if (Get-Process FS2vs2022*, fs2run, Godot* -ErrorAction SilentlyContinue) { throw 'The game or Godot is already running' }
+if (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*') -ErrorAction SilentlyContinue) { throw 'The game or Godot is already running' }
 Copy-Item (Join-Path $repo 'data\missions\Audio*.fs2') (Join-Path $GameDir 'data\missions')
 if (-not (Test-Path (Join-Path $proj '.godot\extension_list.cfg'))) { & $Godot --headless --path $proj --import | Out-Null }
 
