@@ -122,6 +122,16 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		return false;
 	}
 	running = true;
+	// GodotResolution: DisplayResolution = WxH asks for a window of that size (live play; compared runs report classic)
+	{
+		int dw = 0, dh = 0;
+		DisplayServer *ds = DisplayServer::get_singleton();
+		if (api.display_request(&dw, &dh) == 2 && ds != nullptr && ds->get_name() != "headless" && screen != nullptr) {
+			ds->window_set_mode(DisplayServer::WINDOW_MODE_WINDOWED);
+			ds->window_set_size(Vector2i(dw, dh));
+			UtilityFunctions::print("Fs2Game: DisplayResolution window ", dw, "x", dh);
+		}
+	}
 	return true;
 }
 
@@ -146,6 +156,12 @@ bool Fs2Game::step()
 		if (n == 0) {
 			return true;
 		}
+	}
+	// GodotResolution: the window size, so the game's canvas follows a resize (fs2_set_window_size, v8)
+	if (screen != nullptr) {
+		Viewport *wvp = get_viewport();
+		const Vector2 ws = (wvp != NULL) ? wvp->get_visible_rect().size : Vector2(0, 0);
+		api.set_window_size((int)ws.x, (int)ws.y);
 	}
 	for (int i = 0; i < n; i++) {
 		if (screen != nullptr && skip_stale_draws) {

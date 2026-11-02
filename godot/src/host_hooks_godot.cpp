@@ -257,6 +257,21 @@ static void game_screen(int *w, int *h)
 	}
 }
 
+// GodotResolution: the canvas the game draws (fs2_canvas_info, v8) and the base screen's corner in it. The canvas is the base screen
+// unless the display mode widens it to the window's aspect.
+static void game_canvas(int *vw, int *vh, int *cx, int *cy)
+{
+	int gw, gh;
+	game_screen(&gw, &gh);
+	Api->canvas_info(vw, vh, cx, cy);
+	if (*vw < gw || *vh < gh) {
+		*vw = gw;
+		*vh = gh;
+		*cx = 0;
+		*cy = 0;
+	}
+}
+
 // The game's screen sits centred in the Godot viewport at its own aspect (Fs2Screen: TextureRect keep-aspect), so a viewport of another
 // aspect (a 16:9 fullscreen, a resized window) has bars. fit_rect gives the picture's rectangle in viewport pixels.
 static void fit_rect(int gw, int gh, float *ox, float *oy, float *scale)
@@ -277,6 +292,8 @@ static void h_poll_events(void)
 	uint64_t now = Time::get_singleton()->get_ticks_msec();
 	int gw, gh;
 	game_screen(&gw, &gh);
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
 	while (!Queue.empty()) {
 		Event e = Queue.front();
 		Queue.pop_front();
@@ -294,9 +311,10 @@ static void h_poll_events(void)
 		case EV_MOUSE_MOVE:
 		{
 			float ox, oy, sc;
-			fit_rect(gw, gh, &ox, &oy, &sc);
-			int mx = (int)((e.nx * View_w - ox) / sc);	// a position over a bar lands on the picture's edge
-			int my = (int)((e.ny * View_h - oy) / sc);
+			// GodotResolution: window -> canvas pixels -> base screen pixels (the game's mouse, also its flight deltas, stays in base pixels)
+			fit_rect(cw, ch, &ox, &oy, &sc);
+			int mx = (int)((e.nx * View_w - ox) / sc) - cx;	// a position over a bar lands on the picture's edge
+			int my = (int)((e.ny * View_h - oy) / sc) - cy;
 			Mouse_x = mx < 0 ? 0 : (mx > gw - 1 ? gw - 1 : mx);
 			Mouse_y = my < 0 ? 0 : (my > gh - 1 ? gh - 1 : my);
 			break;
@@ -327,8 +345,8 @@ static void h_mouse_get_pos(int *x, int *y)
 // still queued from before the move, which would pull the game's cursor back.
 static void h_mouse_set_pos(int x, int y)
 {
-	int gw, gh;
-	game_screen(&gw, &gh);
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
 	Mouse_x = x;
 	Mouse_y = y;
 	for (std::deque<Event>::iterator it = Queue.begin(); it != Queue.end();) {
@@ -336,8 +354,8 @@ static void h_mouse_set_pos(int x, int y)
 	}
 	if (!is_headless_display()) {
 		float ox, oy, sc;
-		fit_rect(gw, gh, &ox, &oy, &sc);
-		Input::get_singleton()->warp_mouse(Vector2(ox + (float)x * sc, oy + (float)y * sc));
+		fit_rect(cw, ch, &ox, &oy, &sc);
+		Input::get_singleton()->warp_mouse(Vector2(ox + (float)(x + cx) * sc, oy + (float)(y + cy) * sc));
 	}
 }
 
