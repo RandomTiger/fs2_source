@@ -487,6 +487,7 @@
 #include "HUDlock.h"
 #include "MissionCampaign.h"
 #include "Credits.h"
+#include "GameOptions.h"	// Claude: the Game Options screen (D-20261102-200101)
 #include "MissionHotKey.h"
 #include "ObjectSnd.h"
 #include "Cmeasure.h"
@@ -2170,10 +2171,10 @@ void game_init()
 	
 	// Claude: P7-8, a backend registered with gr_host_backend_register takes the choice; with none, the chain below is as before
 	if (gr_host_backend_registered()) {
-		gr_init(Game_profile->headless_gr_mode, GR_HOST);	// the data set's UI art mode, like the null renderer
+		gr_init(game_options_gr_mode(Game_profile->headless_gr_mode), GR_HOST);	// the data set's UI art mode, like the null renderer; Claude: or the GraphicsMode key (D-20261102-200102)
 	} else
 	if (Cmdline_nographics) {
-		gr_init(Game_profile->headless_gr_mode, GR_DUMMY);	// Claude: no graphics device; the data set's UI art mode (GR_640 on FS1, GR_1024 on FS2, #101)
+		gr_init(game_options_gr_mode(Game_profile->headless_gr_mode), GR_DUMMY);	// Claude: or the GraphicsMode key (D-20261102-200102); no graphics device; the data set's UI art mode (GR_640 on FS1, GR_1024 on FS2, #101)
 	} else if (!Is_standalone && ptr && (strstr(ptr, NOX("3DFX Glide")))) {
 #ifdef E3_BUILD
 		// always 640 for E3
@@ -2181,9 +2182,9 @@ void game_init()
 #else
 		// regular or hi-res ?
 #ifdef NDEBUG
-		if(has_sparky_hi && strstr(ptr, NOX("(1024x768)"))){
+		if(has_sparky_hi && game_options_gr_hi(strstr(ptr, NOX("(1024x768)")) != NULL)){	// Claude: GraphicsMode key (GameOptions.cpp, D-20261102-200102)
 #else
-		if(strstr(ptr, NOX("(1024x768)"))){
+		if(game_options_gr_hi(strstr(ptr, NOX("(1024x768)")) != NULL)){	// Claude: GraphicsMode key (GameOptions.cpp, D-20261102-200102)
 #endif
 			gr_init(GR_1024, GR_GLIDE);
 		} else {			
@@ -2198,9 +2199,9 @@ void game_init()
 #else
 		// regular or hi-res ?
 #ifdef NDEBUG
-		if(has_sparky_hi && strstr(ptr, NOX("(1024x768)"))){
+		if(has_sparky_hi && game_options_gr_hi(strstr(ptr, NOX("(1024x768)")) != NULL)){	// Claude: GraphicsMode key (GameOptions.cpp, D-20261102-200102)
 #else
-		if(strstr(ptr, NOX("(1024x768)"))){
+		if(game_options_gr_hi(strstr(ptr, NOX("(1024x768)")) != NULL)){	// Claude: GraphicsMode key (GameOptions.cpp, D-20261102-200102)
 #endif
 			// Direct 3D
 			trying_d3d = 1;
@@ -5082,6 +5083,10 @@ void game_process_event( int current_state, int event )
 			gameseq_set_state( GS_STATE_CREDITS );
 			break;
 
+		case GS_EVENT_GAME_OPTIONS:	// Claude: the Game Options screen (D-20261102-200101)
+			gameseq_set_state( GS_STATE_GAME_OPTIONS );
+			break;
+
 		case GS_EVENT_VIEW_MEDALS:
 			gameseq_push_state( GS_STATE_VIEW_MEDALS );
 			break;
@@ -5558,6 +5563,10 @@ void game_leave_state( int old_state, int new_state )
 			credits_close();
 			break;
 
+		case GS_STATE_GAME_OPTIONS:	// Claude: the Game Options screen (D-20261102-200101)
+			game_options_screen_close();
+			break;
+
 		case GS_STATE_VIEW_MEDALS:
 			medal_main_close();
 			break;
@@ -5996,6 +6005,10 @@ void mouse_force_pos(int x, int y);
 			credits_init();
 			break;
 
+		case GS_STATE_GAME_OPTIONS:	// Claude: the Game Options screen (D-20261102-200101)
+			game_options_screen_init();
+			break;
+
 		case GS_STATE_VIEW_MEDALS:
 			medal_main_init(Player);
 			break;
@@ -6289,6 +6302,11 @@ void game_do_state(int state)
 		case GS_STATE_CREDITS:
 			game_set_frametime(GS_STATE_CREDITS);
 			credits_do_frame(flFrametime);
+			break;
+
+		case GS_STATE_GAME_OPTIONS:	// Claude: the Game Options screen (D-20261102-200101)
+			game_set_frametime(GS_STATE_GAME_OPTIONS);
+			game_options_screen_do_frame(flFrametime);
 			break;
 
 		case GS_STATE_VIEW_MEDALS:

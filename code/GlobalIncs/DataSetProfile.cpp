@@ -167,7 +167,7 @@ static const data_set_profile Data_set_profiles[NUM_DATA_SETS] = {
 		FVS_ALL, 0, 0, 0, 0,
 		1, 1, 1, 1, 1,
 		1, 1, 2, 3, 18, 0, MAX_OBJECTS,
-		3, 1, 1, 1, 1, 1, 1, 1, 1, 1, { { 63, 316 }, { 101, 505 } }, { NULL, NULL }, { { 461, 23 }, { 782, 58 } }, 0, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, GR_1024, NULL },
+		3, 1, 1, 1, 1, 1, 1, 1, 1, 1, { { 63, 316 }, { 101, 505 } }, { NULL, NULL }, { { 461, 23 }, { 782, 58 } }, 0, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, GR_1024, NULL, 1 },	// Claude: gr_mode_choice 1 (D-20261102-200103); the other rows leave it 0
 	{	DATA_SET_FS2_DEMO, 1,
 		"FreeSpace2Demo", "Freespace 2 Demo",
 		1, 10, 0, " D", "http://www.pxo.net/files/fs2demo/version.nfo", "http://www.pxo.net/files/fs2demo/motd.txt",

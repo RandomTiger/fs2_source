@@ -426,6 +426,9 @@
     <ClCompile Include="MenuUI\Credits.cpp">
       <Filter>MenuUI</Filter>
     </ClCompile>
+    <ClCompile Include="MenuUI\GameOptions.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
     <ClCompile Include="MenuUI\fishtank.cpp">
       <Filter>MenuUI</Filter>
     </ClCompile>
@@ -1221,6 +1224,9 @@
       <Filter>MenuUI</Filter>
     </ClInclude>
     <ClInclude Include="MenuUI\Credits.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\GameOptions.h">
       <Filter>MenuUI</Filter>
     </ClInclude>
     <ClInclude Include="MenuUI\fishtank.h">

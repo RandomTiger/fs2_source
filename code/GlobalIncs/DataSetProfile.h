@@ -82,6 +82,7 @@ typedef struct data_set_profile {
 	// animation played there instead, at Ra_flash_coords.  FS1's FS.exe has no such text and calls
 	// hud_anim_init(&Flash_anim, 61, 108, "AlertFlash"), the call FS2 left commented out.
 	const char	*red_alert_flash;
+	int	gr_mode_choice;				// Claude: 1 = the Game Options screen offers GR_1024 / GR_640, read at next start (GameOptions.cpp, D-20261102-200103): FS2 retail only
 } data_set_profile;
 
 // full_version_screens bits (one field for every data set; FS1Compat's walls joined at the FS2Demo merge, D-20261021-142001)
