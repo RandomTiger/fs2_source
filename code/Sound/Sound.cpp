@@ -1479,6 +1479,8 @@ void snd_stop_any_sound()
 int snd_get_data(int handle, char *data)
 {
 	Assert(handle >= 0 && handle < MAX_SOUNDS);
+	if ( Snd_no_device )
+		return -1;	// Claude: no sound device, so no buffer (#127)
 	if ( ds_get_data(Sounds[handle].sid, data) ) {
 		return -1;
 	}
@@ -1490,6 +1492,8 @@ int snd_get_data(int handle, char *data)
 int snd_size(int handle, int *size)
 {
 	Assert(handle >= 0 && handle < MAX_SOUNDS);
+	if ( Snd_no_device )
+		return -1;	// Claude: no sound device, so no buffer (#127)
 	if ( ds_get_size(Sounds[handle].sid, size) ) {
 		return -1;
 	}
