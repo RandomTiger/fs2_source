@@ -595,6 +595,7 @@ static void autotest_main_menu()
 #define AUTOTEST_TOUR_LEAVE_BACK	-2		// leave by the screen's own Back button, as a click (the Game Options screen)
 #define AUTOTEST_TOUR_LEAVE_ESC		-3		// leave by pressing Esc
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
+#define AUTOTEST_TOUR_GO_STEP(n)	(-10 - (n))	// a view's key: a Game Options screen live step, GAME_OPTIONS_TOUR_* (D-20261102-204807)
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
 #define AUTOTEST_TOUR_PLAY_FRAMES	120		// frames of gameplay before the in-game screens
 #define AUTOTEST_TOUR_CLOSE_FRAMES	2		// frames for a help overlay to go
@@ -638,7 +639,12 @@ static autotest_stop Autotest_tour[] = {
 	{ "Options",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_OPTIONS,			GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE,
 		{ { "options/options_general", 0 }, { "options/options_multi", KEY_RIGHT }, { "options/options_detail", KEY_RIGHT } } },
 	{ "Game options",		AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_GAME_OPTIONS,		GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_BACK,
-		{ { "main_hall_pilot/game_options", 0 } } },
+		{ { "main_hall_pilot/game_options", 0 }, { "main_hall_pilot/game_options_gr640", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_GR_640) },
+		  { "main_hall_pilot/game_options_device", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_DEVICE) },
+		  { "main_hall_pilot/game_options_device_back", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_DEVICE_BACK) },
+		  { "main_hall_pilot/game_options_resolution", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_RES) },
+		  { "main_hall_pilot/game_options_resolution_back", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_RES_BACK) },
+		  { "main_hall_pilot/game_options_gr1024", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_GR_1024) } } },
 	{ "Game options (Esc)",	AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_GAME_OPTIONS,		GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_ESC,
 		{ { "main_hall_pilot/game_options_esc", 0 } } },
 	{ "Control config",		AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
@@ -721,6 +727,7 @@ static int Autotest_tour_tab_pressed;		// AUTOTEST_OPEN_SIM_ROOM_BUTTON: the Tec
 static int Autotest_tour_asserts, Autotest_tour_int3s, Autotest_tour_warnings;	// the counts when the view started
 static int Autotest_tour_help_seen;			// the view's help overlay showed
 static int Autotest_tour_not_in_demo;		// the "not in demo" popup showed during the view
+static int Autotest_tour_not_live;			// a Game Options live step that is not live here (no GR row, or no live mode change)
 static int Autotest_tour_logged;			// the view's line is in the log
 static char Autotest_tour_why[128];			// why the stop's last view failed, held until the stop has gone back, or ""
 static int Autotest_tour_screens = 0;		// views in the tour
@@ -1156,10 +1163,13 @@ static void autotest_tour_start_view(int key)
 	Autotest_tour_warnings = Autotest_warnings;
 	Autotest_tour_help_seen = 0;
 	Autotest_tour_not_in_demo = 0;
+	Autotest_tour_not_live = 0;
 	Autotest_tour_logged = 0;
 	Autotest_tour_frames = 0;
 	Autotest_tour_view_ms = Autotest_frame_ms;
-	if (key) {
+	if (key <= AUTOTEST_TOUR_GO_STEP(0)) {
+		Autotest_tour_not_live = !game_options_tour_step(AUTOTEST_TOUR_GO_STEP(0) - key);
+	} else if (key) {
 		autotest_press((key == AUTOTEST_TOUR_HELP) ? KEY_F1 : key);
 	}
 }
@@ -1471,6 +1481,13 @@ static void autotest_tour_frame(int state)
 			}
 			if (state != s->state) {
 				autotest_tour_end("its screen closed by itself");
+				return;
+			}
+			if (Autotest_tour_not_live) {
+				Autotest_tour_skipped++;
+				autotest_logf("Screen '%s': SKIP not live here\n", autotest_view_name(v));
+				Autotest_tour_logged = 1;
+				autotest_tour_view_done(NULL);
 				return;
 			}
 			if (Autotest_tour_not_in_demo) {

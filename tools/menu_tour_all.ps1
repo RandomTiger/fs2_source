@@ -15,7 +15,9 @@ one line per build, and DONE pass=N fail=N (builds). Results and each autotest.l
 %LOCALAPPDATA%\menu_tour_all). -Shots saves each screen as <Shots>\<set>\<config>\<category>\<screen>.bmp; keep it
 outside the repo, the screenshots show game data. Build or run nothing else meanwhile.
 The tour includes the Game Options screen (main_hall_pilot/game_options, left by Back, and game_options_esc, left by
-Esc) on all four sets; its graphics mode row shows on FS2 retail only (D-20261102-200105).
+Esc) on all four sets; its graphics mode row shows on FS2 retail only (D-20261102-200105). Its live steps (GR 640 and
+back, flight device, Resolution) are views of the Back stop; the GR ones are SKIP here (native D3D has no live mode
+change) and on the other sets (D-20261102-204807).
 #>
 param(
 	[string[]]$Sets = @('fs2', 'fs2demo', 'fs1', 'fs1demo'),

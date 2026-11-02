@@ -459,6 +459,91 @@ void game_options_screen_back()
 	gameseq_post_event(GS_EVENT_MAIN_MENU);
 }
 
+// the screen's item of this kind and value, or NULL
+static go_item *game_options_find(int kind, int value)
+{
+	int i;
+
+	for (i = 0; i < Go_num_items; i++) {
+		if ((Go_items[i].kind == kind) && (Go_items[i].value == value)) {
+			return &Go_items[i];
+		}
+	}
+	return NULL;
+}
+
+static int Go_tour_flight_was = -1, Go_tour_mouse_was = 0, Go_tour_res_was = -1;
+
+int game_options_tour_step(int step)
+{
+	go_item *it;
+	int gr, next;
+
+	switch (step) {
+	case GAME_OPTIONS_TOUR_GR_640:
+	case GAME_OPTIONS_TOUR_GR_1024:
+		gr = (step == GAME_OPTIONS_TOUR_GR_640) ? GR_640 : GR_1024;
+		it = game_options_find(GO_ITEM_GR, gr);
+		if (!it || !gr_live_mode_change()) {
+			return 0;
+		}
+		game_options_pick(it);
+		autotest_check(gr_screen.res == gr, (gr == GR_640) ? "Game options: live GR switch to 640" : "Game options: live GR switch to 1024");
+		return 1;
+
+	case GAME_OPTIONS_TOUR_DEVICE:
+		game_options_load();
+		Go_tour_flight_was = Game_options_flight;
+		Go_tour_mouse_was = Use_mouse_to_fly;
+		next = game_options_flight_shown() % 3 + 1;	// Pad, Joystick, Mouse, Pad
+		it = game_options_find(GO_ITEM_FLIGHT, next);
+		if (!it) {
+			return 0;
+		}
+		game_options_pick(it);
+		autotest_check(game_options_flight_shown() == next, "Game options: live flight device switch");
+		return 1;
+
+	case GAME_OPTIONS_TOUR_DEVICE_BACK:
+		if (Go_tour_flight_was < 0) {
+			return 0;
+		}
+		next = (Game_options_flight != Go_tour_flight_was);
+		Game_options_flight = Go_tour_flight_was;
+		Use_mouse_to_fly = Go_tour_mouse_was;
+		Go_tour_flight_was = -1;
+		if (next) {
+			joy_reassign();
+		}
+		return 1;
+
+	case GAME_OPTIONS_TOUR_RES:
+		if (Go_num_res < 2) {
+			return 0;
+		}
+		Go_tour_res_was = Go_res_shown;
+		it = game_options_find(GO_ITEM_RES, (Go_res_shown + 1) % Go_num_res);
+		if (!it) {
+			return 0;
+		}
+		game_options_pick(it);
+		return 1;
+
+	case GAME_OPTIONS_TOUR_RES_BACK:
+		if (Go_tour_res_was < 0) {
+			return 0;
+		}
+		it = game_options_find(GO_ITEM_RES, Go_tour_res_was);
+		Go_tour_res_was = -1;
+		if (!it) {
+			return 0;
+		}
+		game_options_pick(it);
+		return 1;
+	}
+	return 0;
+}
+
 void game_options_screen_init()
 {
 	int gr = game_options_gr_key();

@@ -55,6 +55,17 @@ void game_options_screen_close();
 // the screen's Back button, as a click on it; for the autotest menu tour
 void game_options_screen_back();
 
+// the menu tour's live steps on the screen (D-20261102-204807), as clicks on its rows; a compared run writes no key.
+// Returns 0 when the step is not live here (no GR row, or a backend without live mode change).
+#define GAME_OPTIONS_TOUR_GR_640		0	// the GR row: 640 x 480, live
+#define GAME_OPTIONS_TOUR_GR_1024		1	// the GR row: 1024 x 768, live
+#define GAME_OPTIONS_TOUR_DEVICE		2	// the flight row: the next device, ownership re-run
+#define GAME_OPTIONS_TOUR_DEVICE_BACK	3	// the flight choice before GAME_OPTIONS_TOUR_DEVICE back
+#define GAME_OPTIONS_TOUR_RES			4	// the Resolution row: the next entry
+#define GAME_OPTIONS_TOUR_RES_BACK		5	// the entry before GAME_OPTIONS_TOUR_RES back
+#define GAME_OPTIONS_TOUR_STEPS			6
+int game_options_tour_step(int step);
+
 // where the main hall draws its OPTIONS label; 1 if (x, y) is on it
 int game_options_hall_label_hit(int x, int y);
 
