@@ -8,6 +8,7 @@
 #define HOST_HOOKS_GODOT_H
 
 #include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/node.hpp>
 
 #include "fs2_loader.h"
 
@@ -22,6 +23,15 @@ void fill(fs2_hooks *hooks);
 void (*input_script_sink())(const fs2_input_script *);
 // Forget queued events and key states (a new run starts clean).
 void reset();
+
+// GodotOptions (fs2_api v9): the game's drop-down as Godot's OptionButton, a child of parent (the Fs2Screen, so drawn over the
+// picture). Call before fs2_init on a shown run; fill_dropdown gives the table for fs2_set_dropdown_hooks. A headless Godot gets
+// none. dropdown_takes is true for an event the drop-down owns (a click on the button, anything but motion while its list is
+// open): the game must not see it. hide_dropdown takes it away (the game ended).
+void attach_dropdown(godot::Node *parent);
+void fill_dropdown(fs2_dropdown_hooks *hooks);
+bool dropdown_takes(const godot::Ref<godot::InputEvent> &event);
+void hide_dropdown(void);
 
 // Queue one of Godot's input events (keys and mouse buttons and motion are used; the rest is ignored). The viewport size is
 // the size the event's position is relative to.

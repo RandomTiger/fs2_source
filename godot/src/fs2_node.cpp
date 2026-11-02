@@ -83,6 +83,18 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	} else {
 		api.set_render_sink(nullptr);
 	}
+	// GodotOptions (v9): a shown run gets Godot's own drop-down for the game's lists (the game uses it in live play only)
+	if (api.set_dropdown_hooks != nullptr) {
+		DisplayServer *dds = DisplayServer::get_singleton();
+		if (screen != nullptr && dds != nullptr && dds->get_name() != "headless") {
+			fs2_dropdown_hooks dd;
+			fs2host::attach_dropdown(screen);
+			fs2host::fill_dropdown(&dd);
+			api.set_dropdown_hooks(&dd);
+		} else {
+			api.set_dropdown_hooks(nullptr);
+		}
+	}
 	api.set_fatal_return(fatal_return ? 1 : 0);
 	api.set_fiber(fiber_mode);
 	if (api.set_host_pacing != nullptr) {
@@ -193,6 +205,9 @@ bool Fs2Game::step()
 		} else {
 			r = api.frame();
 		}
+		if (r <= 0) {
+			fs2host::hide_dropdown();
+		}
 		if (r < 0) {
 			running = false;
 			String message = String::utf8(api.last_error());
@@ -284,6 +299,9 @@ void Fs2Game::_ready()
 void Fs2Game::_input(const Ref<InputEvent> &event)
 {
 	if (!forward_input || !running) {
+		return;
+	}
+	if (fs2host::dropdown_takes(event)) {	// GodotOptions: a click on Godot's drop-down is not also the game's
 		return;
 	}
 	Viewport *vp = get_viewport();

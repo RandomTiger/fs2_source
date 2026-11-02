@@ -14,7 +14,11 @@
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/popup_menu.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/viewport.hpp>
 
 using namespace godot;
 
@@ -286,10 +290,188 @@ static void fit_rect(int gw, int gh, float *ox, float *oy, float *scale)
 	*oy = (View_h - gh * s) * 0.5f;
 }
 
+// ---- GodotOptions: the game's drop-down (fs2_set_dropdown_hooks, v9) as Godot's own OptionButton ----
+// The game gives the rect in its base screen pixels; it is mapped through the canvas and the keep-aspect fit the picture uses
+// (game_canvas, fit_rect), every poll, so the button sits on the game's row at any window size and in either GR mode.
+static OptionButton *Dd_button = NULL;
+static int Dd_x = 0, Dd_y = 0, Dd_w = 0, Dd_h = 0;
+static int Dd_selected = -1;		// the entry the game has lit; a different selection on the button is the player's pick
+static bool Dd_cursor_shown = false;	// the OS cursor is shown over the button and its list (the game's own is drawn under them)
+
+static Ref<StyleBoxFlat> dd_box(const Color &bg, const Color &border)
+{
+	Ref<StyleBoxFlat> b;
+	b.instantiate();
+	b->set_bg_color(bg);
+	b->set_border_color(border);
+	b->set_border_width_all(1);
+	b->set_content_margin_all(4);
+	return b;
+}
+
+// plain, in the game's colours: near-black boxes, a green edge, grey-white text that goes white (on dark green) under the cursor
+static void dd_style(OptionButton *b)
+{
+	const Color bg(0.02f, 0.03f, 0.02f), edge(0.18f, 0.45f, 0.18f), edge_lit(0.35f, 0.8f, 0.35f), lit(0.05f, 0.25f, 0.05f);
+	const Color text(0.78f, 0.78f, 0.78f), text_lit(1.0f, 1.0f, 1.0f);
+	b->add_theme_stylebox_override("normal", dd_box(bg, edge));
+	b->add_theme_stylebox_override("hover", dd_box(bg, edge_lit));
+	b->add_theme_stylebox_override("pressed", dd_box(lit, edge_lit));
+	b->add_theme_stylebox_override("hover_pressed", dd_box(lit, edge_lit));
+	b->add_theme_stylebox_override("focus", dd_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)));
+	b->add_theme_color_override("font_color", text);
+	b->add_theme_color_override("font_hover_color", text_lit);
+	b->add_theme_color_override("font_pressed_color", text_lit);
+	b->add_theme_color_override("font_hover_pressed_color", text_lit);
+	b->add_theme_color_override("font_focus_color", text);
+	PopupMenu *p = b->get_popup();
+	p->add_theme_stylebox_override("panel", dd_box(bg, edge));
+	p->add_theme_stylebox_override("hover", dd_box(lit, lit));
+	p->add_theme_color_override("font_color", text);
+	p->add_theme_color_override("font_hover_color", text_lit);
+}
+
+void attach_dropdown(Node *parent)
+{
+	if (parent == NULL || is_headless_display()) {
+		return;
+	}
+	if (Dd_button == NULL) {
+		Dd_button = memnew(OptionButton);
+		Dd_button->set_focus_mode(Control::FOCUS_NONE);	// the game's keys never drive it; the open list takes its own
+		dd_style(Dd_button);
+		parent->add_child(Dd_button);	// after the screen's picture, so drawn over it
+	}
+	Dd_button->set_visible(false);
+	Dd_selected = -1;
+}
+
+static bool dd_shown(void)
+{
+	return Dd_button != NULL && Dd_button->is_visible();
+}
+
+static bool dd_list_open(void)
+{
+	return dd_shown() && Dd_button->get_popup()->is_visible();
+}
+
+// the button on the game's row, its text sized with it
+static void dd_layout(void)
+{
+	if (!dd_shown()) {
+		return;
+	}
+	Viewport *vp = Dd_button->get_viewport();
+	if (vp == NULL) {
+		return;
+	}
+	const Vector2 vs = vp->get_visible_rect().size;
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
+	if (cw <= 0 || ch <= 0) {
+		return;
+	}
+	float s = vs.x / (float)cw;
+	if (vs.y / (float)ch < s) {
+		s = vs.y / (float)ch;
+	}
+	const float ox = (vs.x - (float)cw * s) * 0.5f, oy = (vs.y - (float)ch * s) * 0.5f;
+	Dd_button->set_position(Vector2(ox + (float)(Dd_x + cx) * s, oy + (float)(Dd_y + cy) * s));
+	Dd_button->set_size(Vector2((float)Dd_w * s, (float)Dd_h * s));
+	int fs = (int)((float)Dd_h * s * 0.55f);
+	if (fs < 8) {
+		fs = 8;
+	}
+	Dd_button->add_theme_font_size_override("font_size", fs);
+	Dd_button->get_popup()->add_theme_font_size_override("font_size", fs);
+}
+
+static void h_dd_show(int x, int y, int w, int h, const char *const *labels, int count, int selected)
+{
+	if (Dd_button == NULL) {
+		return;
+	}
+	Dd_x = x;
+	Dd_y = y;
+	Dd_w = w;
+	Dd_h = h;
+	Dd_button->clear();
+	for (int i = 0; i < count; i++) {
+		Dd_button->add_item(String::utf8(labels[i]), i);
+	}
+	Dd_selected = (selected >= 0 && selected < count) ? selected : -1;
+	Dd_button->select(Dd_selected);
+	Dd_button->set_visible(true);
+	dd_layout();
+}
+
+static void dd_cursor(bool shown)
+{
+	if (shown != Dd_cursor_shown && !is_headless_display()) {
+		Dd_cursor_shown = shown;
+		Input::get_singleton()->set_mouse_mode(shown ? Input::MOUSE_MODE_VISIBLE : Input::MOUSE_MODE_HIDDEN);
+	}
+}
+
+static void h_dd_hide(void)
+{
+	if (Dd_button != NULL) {
+		Dd_button->get_popup()->hide();
+		Dd_button->set_visible(false);
+	}
+	Dd_selected = -1;
+	dd_cursor(false);
+}
+
+// once per poll: follow the window, hand over the player's pick, show the OS cursor where the game's is covered
+static void dd_poll(void)
+{
+	if (!dd_shown()) {
+		dd_cursor(false);
+		return;
+	}
+	dd_layout();
+	const int sel = Dd_button->get_selected();
+	if (sel >= 0 && sel != Dd_selected) {
+		Dd_selected = sel;
+		Api->input_dropdown(sel);
+	}
+	Viewport *vp = Dd_button->get_viewport();
+	const bool over = vp != NULL && Dd_button->get_global_rect().has_point(vp->get_mouse_position());
+	dd_cursor(over || dd_list_open());
+}
+
+void fill_dropdown(fs2_dropdown_hooks *h)
+{
+	h->show = h_dd_show;
+	h->hide = h_dd_hide;
+}
+
+void hide_dropdown(void)
+{
+	h_dd_hide();
+}
+
+bool dropdown_takes(const Ref<InputEvent> &ev)
+{
+	if (!dd_shown()) {
+		return false;
+	}
+	if (dd_list_open()) {	// the open list owns every key and click (Godot hands most to it before this)
+		return Object::cast_to<InputEventMouseMotion>(ev.ptr()) == NULL;
+	}
+	InputEventMouseButton *mb = Object::cast_to<InputEventMouseButton>(ev.ptr());
+	return mb != NULL && Dd_button->get_global_rect().has_point(mb->get_position());
+}
+
 // the only place the game takes the host's events
 static void h_poll_events(void)
 {
 	uint64_t now = Time::get_singleton()->get_ticks_msec();
+	if (Api->input_dropdown != NULL) {
+		dd_poll();
+	}
 	int gw, gh;
 	game_screen(&gw, &gh);
 	int cw, ch, cx, cy;
