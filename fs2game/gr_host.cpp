@@ -52,6 +52,7 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include <cstring>
 
 #include "render_sink.h"
+#include "GrVirtual.h"
 #include "tex_convert.h"
 
 #include <vector>
@@ -128,7 +129,19 @@ struct Host {
 	std::vector<GlowPoly> glow_q;
 	std::vector<fs2_sink_vertex> glow_v;
 	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
+	// GodotResolution: the present offset (GrVirtual.h) the sink's clip and draws were sent with this frame
+	int pdx = 0, pdy = 0;
+	std::vector<fs2_sink_vertex> shift_v;
 } H;
+
+// GodotResolution: v moved by the present offset, in H.shift_v (v itself when the offset is 0)
+const fs2_sink_vertex *present(const fs2_sink_vertex *v, int nv)
+{
+	if (H.pdx == 0 && H.pdy == 0) { return v; }
+	H.shift_v.assign(v, v + nv);
+	for (fs2_sink_vertex &s : H.shift_v) { s.x += (float)H.pdx; s.y += (float)H.pdy; }
+	return H.shift_v.data();
+}
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
 
@@ -164,7 +177,7 @@ void glow_flush()
 			&& std::memcmp(a.fog_rgb, b.fog_rgb, 4) == 0 && a.fog_near == b.fog_near && a.fog_far == b.fog_far;
 	};
 	auto emit = [&]() {
-		if (head != nullptr && !bi.empty()) { H.sink->draw_tris(H.sink->user, &head->d, bv.data(), (int)bv.size(), bi.data(), (int)bi.size()); }
+		if (head != nullptr && !bi.empty()) { H.sink->draw_tris(H.sink->user, &head->d, present(bv.data(), (int)bv.size()), (int)bv.size(), bi.data(), (int)bi.size()); }
 		bv.clear(); bi.clear(); head = nullptr;
 	};
 	for (int oi : order) {
@@ -184,17 +197,29 @@ void glow_flush()
 
 void send_clip()
 {
-	glow_flush();		// queued glow polys belong to the clip they were drawn under
-	H.sink->set_clip(H.sink->user, gr_screen.offset_x + gr_screen.clip_left, gr_screen.offset_y + gr_screen.clip_top,
+	glow_flush();		// queued glow polys belong to the clip (and present offset) they were drawn under
+	gr_virtual_offset(&H.pdx, &H.pdy);
+	H.sink->set_clip(H.sink->user, H.pdx + gr_screen.offset_x + gr_screen.clip_left, H.pdy + gr_screen.offset_y + gr_screen.clip_top,
 		gr_screen.clip_width, gr_screen.clip_height);
 }
+
+// GodotResolution: a HUD gauge's anchor moved the present offset since the clip was sent; send it again
+void sync_offset()
+{
+	int dx, dy;
+	gr_virtual_offset(&dx, &dy);
+	if (dx != H.pdx || dy != H.pdy) { send_clip(); }
+}
+
+// GodotResolution: gr_virtual_wide_clip changed gr_screen's clip behind the gf_ table
+void on_virtual_clip() { if (drawing()) { send_clip(); } }
 
 // first call that needs the sink in a frame: ask whether this frame is drawn
 void ensure_frame()
 {
 	H.zget_pending = false;		// a draw (or a clear) between get() and set(): no save pair
 	if (H.frame != FRAME_NONE || H.sink == nullptr) { return; }
-	H.frame = H.sink->frame_begin(H.sink->user, gr_screen.max_w, gr_screen.max_h) ? FRAME_OPEN : FRAME_SKIPPED;
+	H.frame = H.sink->frame_begin(H.sink->user, gr_virtual_w(), gr_virtual_h()) ? FRAME_OPEN : FRAME_SKIPPED;	// GodotResolution: the virtual canvas
 	if (drawing()) {
 		if (H.flush_pending) {
 			// bitmap textures only: a screen saved with save_screen survives a flush, as in D3D
@@ -208,6 +233,19 @@ void ensure_frame()
 		// it was when the game asked. A failed capture leaves no texture; the id then restores nothing, as one that failed at once.
 		for (int id : H.capture_pending) { H.sink->capture_to_texture(H.sink->user, id); }
 		H.capture_pending.clear();
+		if (gr_virtual_active()) {
+			// GodotResolution: the canvas outside the base screen starts black (the bars beside a centred menu)
+			static const uint16_t idx[6] = { 0, 1, 2, 0, 2, 3 };
+			const float w = (float)gr_virtual_w(), h = (float)gr_virtual_h();
+			fs2_sink_draw d = {};
+			d.blend = FS2_SINK_BLEND_OPAQUE;
+			d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
+			fs2_sink_vertex v[4] = {};
+			v[1].x = w; v[2].x = w; v[2].y = h; v[3].y = h;
+			for (fs2_sink_vertex &s : v) { s.sw = 1.0f; s.a = 255; }
+			H.sink->set_clip(H.sink->user, 0, 0, (int)w, (int)h);
+			H.sink->draw_tris(H.sink->user, &d, v, 4, idx, 6);
+		}
 		send_clip();
 	}
 }
@@ -219,7 +257,8 @@ inline uint8_t clamp8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v))
 void draw(const fs2_sink_draw &d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni)
 {
 	if (!H.glow_hold) { glow_flush(); }		// anything but a ship poly's lit draw: the queued glow lands first
-	H.sink->draw_tris(H.sink->user, &d, v, nv, idx, ni);
+	sync_offset();
+	H.sink->draw_tris(H.sink->user, &d, present(v, nv), nv, idx, ni);
 }
 
 fs2_sink_draw plain_draw(int texture, int blend, unsigned flags = 0)
@@ -1053,7 +1092,8 @@ void h_zbuffer_clear(int mode)
 		if (drawing()) {
 			glow_flush();
 			if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
-			H.sink->depth_clear(H.sink->user, gr_screen.clip_left + gr_screen.offset_x, gr_screen.clip_top + gr_screen.offset_y,
+			sync_offset();	// GodotResolution: the clip rect in the canvas
+			H.sink->depth_clear(H.sink->user, H.pdx + gr_screen.clip_left + gr_screen.offset_x, H.pdy + gr_screen.clip_top + gr_screen.offset_y,
 				gr_screen.clip_width, gr_screen.clip_height);
 		}
 	} else {
@@ -1086,7 +1126,10 @@ void h_restore_screen(int id)
 	ensure_frame();
 	if (!drawing() || id <= 0) { return; }
 	const int c[4] = { 255, 255, 255, 255 };
-	quad(0, 0, (float)gr_screen.max_w, (float)gr_screen.max_h, 0, 0, 1, 1, id, FS2_SINK_BLEND_OPAQUE, c, c, c, c);
+	// GodotResolution: the capture is the whole virtual canvas; the base screen is its centre part
+	const float vw = (float)gr_virtual_w(), vh = (float)gr_virtual_h();
+	const float u0 = (float)gr_virtual_centre_x() / vw, v0 = (float)gr_virtual_centre_y() / vh;
+	quad(0, 0, (float)gr_screen.max_w, (float)gr_screen.max_h, u0, v0, u0 + (float)gr_screen.max_w / vw, v0 + (float)gr_screen.max_h / vh, id, FS2_SINK_BLEND_OPAQUE, c, c, c, c);
 }
 void h_free_screen(int id)
 {
@@ -1133,7 +1176,7 @@ void h_get_region(int, int w, int h, ubyte *data)
 	if (bytes != 2 && bytes != 4) { return; }
 	depth_run_end();	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
-	if (!H.sink->read_region(H.sink->user, 0, 0, w, h, px.data())) { return; }
+	if (!H.sink->read_region(H.sink->user, gr_virtual_centre_x(), gr_virtual_centre_y(), w, h, px.data())) { return; }	// GodotResolution: the base screen in the canvas
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
 		const uint8_t *s = &px[i * 4];		// r g b a
 		const uint32_t v = pack_gun(Gr_red, s[0]) | pack_gun(Gr_green, s[1]) | pack_gun(Gr_blue, s[2]) | pack_gun(Gr_alpha, s[3]);
@@ -1220,6 +1263,7 @@ void host_init()
 	// take the 32 bit path, as D3D init sets it for a 32 bit screen; at 0 they read the low 16 bits and lose red
 	Saved_d3d_32bit = D3D_32bit;
 	D3D_32bit = 1;
+	gr_virtual_set_clip_listener(on_virtual_clip);	// GodotResolution
 	// D7: a headless run counts as "no device" exactly as the null renderer does, so compared runs take the same branches
 	Backend.no_device = Cmdline_nographics ? 1 : 0;
 	gr_screen.bits_per_pixel = 32;
