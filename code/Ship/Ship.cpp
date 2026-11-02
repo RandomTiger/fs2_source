@@ -1745,7 +1745,7 @@ void ship_level_init()
 	for (i=0; i<MAX_SHIPS; i++ )	{
 		memset(&Ships[i], 0, sizeof(ship));	// Claude: D-055
 		Ships[i].objnum = -1;
-		Ships[i].next_swarm_path = 0;	// Claude: never initialised: a new process has 0 here, a game started again in the same process had the last mission's count (D-055)
+		Ships[i].next_swarm_path = 0;	// Claude: never set anywhere, so a later mission's first swarm volley started on the path the last mission left (fix review 65)
 	}
 
 	for ( i = 0; i < MAX_EXITED_SHIPS; i++ ) {
@@ -3496,7 +3496,7 @@ void ship_init_thrusters()
 
 	for ( i = 0; i < num_thrust_anims; i++ ) {
 		ta = &Thrust_anims[i];
-		ta->first_frame = bm_load_animation(Thrust_anim_names[i],  &ta->num_frames, &fps, 1);
+		ta->first_frame = bm_load_animation(Thrust_anim_names[i],  &ta->num_frames, &fps);	// Claude: no can_drop_frames (W13)
 		if ( ta->first_frame == -1 ) {
 			Error(LOCATION,"Error loading animation file: %s\n",Thrust_anim_names[i]);
 			return;
@@ -8896,6 +8896,13 @@ void ship_page_in()
 			} else {
 				nprintf(( "Paging", "Couldn't load model '%s'\n", si->pof_file ));
 			}
+
+			// Claude: the contrail bitmaps were read from disk when the first contrail was drawn; page them with the class (W11)
+			for (j=0; j<si->ct_count; j++ )	{	// Claude
+				if ( si->ct_info[j].bitmap > -1 )	{	// Claude
+					bm_page_in_texture( si->ct_info[j].bitmap );	// Claude
+				}	// Claude
+			}	// Claude
 		}
 	}
 

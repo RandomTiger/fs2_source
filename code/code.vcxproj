@@ -268,6 +268,10 @@
     <ClCompile Include="Replay\LoadTimes.cpp" />
     <ClCompile Include="Replay\Replay.cpp" />
     <ClCompile Include="Replay\StateTrace.cpp" />
+    <ClCompile Include="Voice\VoiceCapture.cpp" />
+    <ClCompile Include="Voice\VoiceCore.cpp" />
+    <ClCompile Include="Voice\VoiceEngine.cpp" />
+    <ClCompile Include="Voice\VoiceGame.cpp" />
     <ClCompile Include="ExceptionHandler\ExceptionHandler.cpp" />
     <ClCompile Include="Fireball\FireBalls.cpp" />
     <ClCompile Include="Fireball\WarpInEffect.cpp" />
@@ -527,6 +531,10 @@
     <ClInclude Include="Replay\Replay.h" />
     <ClInclude Include="Replay\StateTrace.h" />
     <ClInclude Include="Replay\TraceFormat.h" />
+    <ClInclude Include="Voice\VoiceCapture.h" />
+    <ClInclude Include="Voice\VoiceCore.h" />
+    <ClInclude Include="Voice\VoiceEngine.h" />
+    <ClInclude Include="Voice\VoiceGame.h" />
     <ClInclude Include="DirectX\vasync.h" />
     <ClInclude Include="DirectX\vD3d.h" />
     <ClInclude Include="DirectX\vD3dcaps.h" />

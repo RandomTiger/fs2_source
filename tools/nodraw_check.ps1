@@ -20,7 +20,7 @@ Usage (PowerShell, from anywhere):
 mouse and joystick come from the recording. Each replay's autotest.log must say there was no graphics device.
 
 -Missions defaults to every mission in recordings\autotest. Results go to <Out>\summary.txt, one line per mission;
-<Out> defaults to replays\nodraw_<date-time>. Build the config first (it runs FS2vs2022r.exe or FS2vs2022d.exe from
+<Out> defaults to replays\nodraw_<date-time>. Build the config first (it runs FS2_<Layer>_r.exe or _d.exe, tools\layer.ps1, from
 the game directory), and don't build or run the game from another session while this runs.
 About 45 seconds a mission, or about 2.5 minutes with -Fresh.
 #>
@@ -34,6 +34,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\nodraw_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
@@ -50,12 +51,12 @@ if (-not $Missions) { throw 'No missions' }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 }
 
 function Run-Game([string]$flags) {
 	Wait-NoGame
-	$p = Start-Process ".\FS2vs2022$Config.exe" -ArgumentList $flags -PassThru
+	$p = Start-Process ".\$(Get-FS2Exe $Config)" -ArgumentList $flags -PassThru
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; return 'TIMEOUT' }
 	return $p.ExitCode
 }

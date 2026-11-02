@@ -161,6 +161,7 @@ extern int Cmdline_multi_stream_chat_to_file;
 extern int Cmdline_freespace_no_sound;
 extern int Cmdline_freespace_no_music;
 extern int Cmdline_gimme_all_medals;
+extern int Cmdline_allmedals;	// Claude: -allmedals, the medals screen shows every medal, the top rank and every badge (#124)
 extern int Cmdline_use_last_pilot;
 extern int Cmdline_cd_check;
 extern int Cmdline_start_netgame;
@@ -190,6 +191,7 @@ extern int Cmdline_window;
 extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
 extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 extern int Cmdline_all_cutscenes;	// Claude: -allcutscenes
+extern int Cmdline_bastion;	// Claude: -bastion, the Vasudan (Bastion) main hall (D-20261031-084800)
 extern char *Cmdline_mission;	// Claude: -mission, see MainHallMenu.cpp
 
 #endif

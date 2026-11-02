@@ -39,6 +39,10 @@
 #include "SnazzyUI.h"
 #include "Popup.h"
 #include "InputTest.h"	// Claude: scripted input tests
+#include "MainHallMenu.h"
+#include "cmdline.h"
+#include "MissionPause.h"
+#include "3d.h"
 
 #ifdef _DEBUG
 #include <rtcapi.h>
@@ -126,6 +130,7 @@ static int Autotest_missions_failed = 0;
 static int Autotest_asserts = 0;
 static int Autotest_int3s = 0;
 static int Autotest_warnings = 0;
+static int Autotest_checks_failed = 0;	// autotest_check: a device test's known answers (#119)
 
 #define AUTOTEST_MAX_SITES		64
 #define AUTOTEST_LOG_PER_SITE	3
@@ -584,6 +589,7 @@ static void autotest_main_menu()
 #define AUTOTEST_OPEN_BARRACKS_BUTTON	7	// press a Barracks button, Barracks opened first and closed after (D-20261022-060501)
 #define AUTOTEST_OPEN_SIM_ROOM_BUTTON	8	// press a Simulator room button, the Simulator room opened first and closed after (D-20261022-065951)
 #define AUTOTEST_OPEN_TECH_ROOM_BUTTON	9	// press a Tech room button, the Tech room opened first by its main hall region and closed after (D-20261022-090902)
+#define AUTOTEST_OPEN_BASTION		10		// the Vasudan (Bastion) main hall, main hall 1: the main hall entered again with Player->on_bastion set, which is set back after; skipped if the main hall table has one hall (D-20261031-084801)
 #define AUTOTEST_TOUR_STAY			-1		// no leave event: the next stop moves on from here
 #define AUTOTEST_TOUR_HELP			-1		// a view's key: F1 shows the help overlay, which must appear, and F1 again hides it
 #define AUTOTEST_TOUR_FRAMES		30		// frames drawn for each view
@@ -618,10 +624,13 @@ typedef struct autotest_stop {
 	int open, arg;	// how its screen opens (AUTOTEST_OPEN_*), and the event, region or key
 	int state, leave;
 	autotest_view views[AUTOTEST_MAX_VIEWS];
+	int all_medals;	// 1: opened with -allmedals set, which is set back after the stop (#124)
 } autotest_stop;
 static autotest_stop Autotest_tour[] = {
 	{ "Main hall",			AUTOTEST_OPEN_NONE,		0,									GS_STATE_MAIN_MENU,					AUTOTEST_TOUR_STAY,
 		{ { "main_hall_pilot/main_hall", 0 }, { "main_hall_pilot/main_hall_help", AUTOTEST_TOUR_HELP } } },
+	{ "Bastion main hall",	AUTOTEST_OPEN_BASTION,	0,									GS_STATE_MAIN_MENU,					AUTOTEST_TOUR_STAY,
+		{ { "main_hall_pilot/main_hall_bastion", 0 }, { "main_hall_pilot/main_hall_bastion_help", AUTOTEST_TOUR_HELP } } },
 	{ "Options",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_OPTIONS,			GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE,
 		{ { "options/options_general", 0 }, { "options/options_multi", KEY_RIGHT }, { "options/options_detail", KEY_RIGHT } } },
 	{ "Control config",		AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
@@ -629,6 +638,8 @@ static autotest_stop Autotest_tour[] = {
 		  { "controls/controls_weapons", KEY_TAB }, { "controls/controls_misc", KEY_TAB } } },
 	{ "HUD config",			AUTOTEST_OPEN_OPTIONS_KEY,	KEY_H,						GS_STATE_HUD_CONFIG,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/hud_config", 0 } } },
+	{ "Medals (all)",		AUTOTEST_OPEN_BARRACKS_BUTTON,	AUTOTEST_BARRACKS_MEDALS_BUTTON,	GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
+		{ { "main_hall_pilot/medals_all", 0 } }, 1 },
 	{ "Medals",				AUTOTEST_OPEN_BARRACKS_BUTTON,	AUTOTEST_BARRACKS_MEDALS_BUTTON,	GS_STATE_VIEW_MEDALS,				GS_EVENT_PREVIOUS_STATE,
 		{ { "main_hall_pilot/medals", 0 } } },
 	{ "Barracks",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_BARRACKS,			GS_STATE_BARRACKS_MENU,				GS_EVENT_MAIN_MENU,
@@ -708,6 +719,9 @@ static int Autotest_tour_screens = 0;		// views in the tour
 static int Autotest_tour_passed = 0;
 static int Autotest_tour_skipped = 0;
 static int Autotest_tour_failed = 0;
+extern int Main_hall_count;				// MainHallMenu.cpp: the main halls the loaded mainhall.tbl defines
+static int Autotest_tour_all_medals_was = -1;	// a stop with all_medals: Cmdline_allmedals before the stop set it, or -1 (#124)
+static int Autotest_tour_bastion_was = -1;	// AUTOTEST_OPEN_BASTION: Player->on_bastion before the stop set it, or -1
 
 void autotest_set_menus()
 {
@@ -772,8 +786,15 @@ void autotest_not_in_demo()
 }
 
 // with -at_shots the game's cursor stays in the top left corner, so a person's real mouse cannot light a button in a shot
+static int Autotest_debugcam_look = 0;	// -at_debugcam: the cursor is moved off the window centre each frame (#125)
+
 void autotest_cursor_pos(long *x, long *y)
 {
+	if (Autotest_debugcam_look) {	// the debug camera test turns the view (#125)
+		*x = gr_screen.max_w / 2 + 8;
+		*y = gr_screen.max_h / 2 + 3;
+		return;
+	}
 	if (Autotest_shots[0]) {
 		*x = 0;
 		*y = 0;
@@ -786,12 +807,14 @@ static void autotest_press(int key)
 	key_mark(key, 0, 0);
 }
 
-// the last frame drawn, from the back buffer, as a 24-bit BMP: <-at_shots>\<category>\<screen>.bmp.  The back buffer
-// still holds it at the start of a frame: in a window the frame is copied to the screen, and in full screen the buffers swap.
-static void autotest_shot(char *name)
+// the last frame drawn, from the back buffer, as a 24-bit BMP: <dir>\<name>.bmp, a '/' in name making a subfolder.  The
+// back buffer still holds it at the start of a frame: in a window the frame is copied to the screen, and in full screen
+// the buffers swap.  Under the Godot host the render sink reads back the last frame the viewport rendered.
+// Returns 1 when the file was written.  Used by -at_shots and by -shot_frames (Replay.cpp).
+int autotest_save_screen(char *dir, char *name)
 {
 	char path[MAX_PATH], *p;
-	int w, h, bpp, row, x, y;
+	int w, h, bpp, row, x, y, ok = 0;
 	ubyte *data, *line;
 	uint pixel;
 	color_gun *guns[3] = { &Gr_blue, &Gr_green, &Gr_red };
@@ -799,19 +822,16 @@ static void autotest_shot(char *name)
 	BITMAPINFOHEADER ih;
 	FILE *fp;
 
-	if (!Autotest_shots[0]) {
-		return;
-	}
 	w = gr_screen.max_w;
 	h = gr_screen.max_h;
 	bpp = gr_screen.bytes_per_pixel;
 	if ((bpp != 2) && (bpp != 4)) {
 		autotest_logf("Screenshot of '%s' not saved: %d bytes per pixel\n", name, bpp);
-		return;
+		return 0;
 	}
 
-	sprintf(path, "%s\\%s.bmp", Autotest_shots, name);
-	for (p = path + strlen(Autotest_shots) + 1; *p; p++) {
+	sprintf(path, "%s\\%s.bmp", dir, name);
+	for (p = path + strlen(dir) + 1; *p; p++) {
 		if (*p == '/') {
 			*p = 0;
 			CreateDirectory(path, NULL);
@@ -854,12 +874,181 @@ static void autotest_shot(char *name)
 			fwrite(line, row, 1, fp);
 		}
 		autotest_logf("Shot: %s %s\n", name, path);
+		ok = 1;
 	}
 	if (fp) {
 		fclose(fp);
 	}
 	free(data);
 	free(line);
+	return ok;
+}
+
+// -at_shots: <-at_shots>\<category>\<screen>.bmp
+static void autotest_shot(char *name)
+{
+	if (!Autotest_shots[0]) {
+		return;
+	}
+	autotest_save_screen(Autotest_shots, name);
+}
+
+// -at_debugcam: the debug camera test (#125).  AUTOTEST_DEBUGCAM_TIME seconds into the mission, Shift+Pause is
+// pressed; in the camera W is held, then D, then the mouse moves right and down, and Shift+Pause leaves; the
+// mission then plays on to its time limit.  The keys and the cursor go through the recorder, so a recording of
+// the test replays it.  With -at_shots: debugcam/before, debugcam/start, debugcam/moved and debugcam/after.
+#define AUTOTEST_DEBUGCAM_TIME	5.0f
+#define AUTOTEST_DEBUGCAM_WAIT		1
+#define AUTOTEST_DEBUGCAM_IN			2
+#define AUTOTEST_DEBUGCAM_LEFT		3
+#define AUTOTEST_DEBUGCAM_DONE		4
+static int Autotest_debugcam = 0;			// -at_debugcam
+static int Autotest_debugcam_phase = 0;
+static int Autotest_debugcam_frames = 0;
+static int Autotest_debugcam_step = 0;		// in the camera: the next action
+static DWORD Autotest_debugcam_ms;			// when the camera started
+static vector Autotest_debugcam_from_pos;
+static matrix Autotest_debugcam_from_orient;
+
+void autotest_set_debugcam()
+{
+	Autotest_debugcam = 1;
+}
+
+static void autotest_debugcam_fail(char *why)
+{
+	autotest_logf("FAILED: debug camera test: %s\n", why);
+	Autotest_missions_failed++;
+	Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_DONE;
+	Autotest_debugcam_look = 0;
+}
+
+static void autotest_shift_pause()
+{
+	key_mark(KEY_LSHIFT, 1, 0);
+	key_mark(KEY_PAUSE, 1, 0);
+	key_mark(KEY_PAUSE, 0, 0);
+	key_mark(KEY_LSHIFT, 0, 0);
+}
+
+// each gameplay frame, from autotest_frame
+static void autotest_debugcam_play()
+{
+	if (!Autotest_debugcam || (Replay_mode == REPLAY_PLAY)) {
+		return;
+	}
+	if (Autotest_debugcam_phase == 0) {
+		if (f2fl(Missiontime - Autotest_mission_start) >= AUTOTEST_DEBUGCAM_TIME) {
+			autotest_shot("debugcam/before");
+			autotest_shift_pause();
+			autotest_logf("Debug camera test: Shift+Pause pressed at mission time %.2f\n", f2fl(Missiontime));
+			Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_WAIT;
+			Autotest_debugcam_frames = 0;
+		}
+	} else if (Autotest_debugcam_phase == AUTOTEST_DEBUGCAM_WAIT) {
+		if (++Autotest_debugcam_frames > 5) {
+			autotest_debugcam_fail("Shift+Pause did not pause the game");
+		}
+	} else if (Autotest_debugcam_phase == AUTOTEST_DEBUGCAM_LEFT) {
+		if (++Autotest_debugcam_frames == 20) {
+			autotest_shot("debugcam/after");
+			autotest_logf("Debug camera test: PASS, back in gameplay at mission time %.2f\n", f2fl(Missiontime));
+			Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_DONE;
+		}
+	}
+}
+
+// each frame, from autotest_drive_state
+static void autotest_debugcam_paused(int state)
+{
+	float moved, turned;
+	DWORD ms;
+
+	if (!Autotest_debugcam || (Replay_mode == REPLAY_PLAY) || (state != GS_STATE_GAME_PAUSED)) {
+		return;
+	}
+	if (Autotest_debugcam_phase == AUTOTEST_DEBUGCAM_WAIT) {
+		if (!Pause_debug_camera) {
+			autotest_debugcam_fail("Shift+Pause gave the plain pause screen");
+			gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
+			return;
+		}
+		Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_IN;
+		Autotest_debugcam_frames = 0;
+		Autotest_debugcam_step = 0;
+		Autotest_debugcam_ms = Autotest_frame_ms;
+		Autotest_debugcam_from_pos = Eye_position;
+		Autotest_debugcam_from_orient = Eye_matrix;
+		autotest_logf("Debug camera test: in the debug camera at mission time %.2f\n", f2fl(Missiontime));
+	}
+	if (Autotest_debugcam_phase == AUTOTEST_DEBUGCAM_LEFT) {
+		if (++Autotest_debugcam_frames > 30) {
+			autotest_debugcam_fail("Shift+Pause did not leave the debug camera");
+			gameseq_post_event(GS_EVENT_PREVIOUS_STATE);
+		}
+		return;
+	}
+	if (Autotest_debugcam_phase != AUTOTEST_DEBUGCAM_IN) {
+		return;
+	}
+
+	// W for 0.8 s, then D for 0.5 s (the camera moves by real time), then 40 frames of mouse (it turns per frame)
+	Autotest_debugcam_frames++;
+	ms = Autotest_frame_ms - Autotest_debugcam_ms;
+	switch (Autotest_debugcam_step) {
+		case 0:
+			if (Autotest_debugcam_frames >= 2) {
+				autotest_shot("debugcam/start");
+				key_mark(KEY_W, 1, 0);
+				Autotest_debugcam_step++;
+			}
+			break;
+		case 1:
+			if (ms >= 1000) {
+				key_mark(KEY_W, 0, 0);
+				key_mark(KEY_D, 1, 0);
+				Autotest_debugcam_step++;
+			}
+			break;
+		case 2:
+			if (ms >= 1500) {
+				key_mark(KEY_D, 0, 0);
+				Autotest_debugcam_look = 1;
+				Autotest_debugcam_frames = 0;
+				Autotest_debugcam_step++;
+			}
+			break;
+		case 3:
+			if (Autotest_debugcam_frames >= 40) {
+				Autotest_debugcam_look = 0;
+				Autotest_debugcam_frames = 0;
+				Autotest_debugcam_step++;
+			}
+			break;
+		case 4:
+			if (Autotest_debugcam_frames < 5) {
+				break;
+			}
+			Autotest_debugcam_step++;
+			autotest_shot("debugcam/moved");
+			moved = vm_vec_dist(&Eye_position, &Autotest_debugcam_from_pos);
+			turned = vm_vec_dot(&Eye_matrix.fvec, &Autotest_debugcam_from_orient.fvec);
+			autotest_logf("Debug camera test: the view moved %.1f m, facing dot %.3f\n", moved, turned);
+			if (moved < 1.0f) {
+				autotest_debugcam_fail("W and D did not move the view");
+			} else if (turned > 0.99f) {
+				autotest_debugcam_fail("the mouse did not turn the view");
+			}
+			break;
+		case 5:
+			autotest_shift_pause();
+			autotest_logf("Debug camera test: Shift+Pause pressed to leave\n");
+			if (Autotest_debugcam_phase == AUTOTEST_DEBUGCAM_IN) {
+				Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_LEFT;
+			}
+			Autotest_debugcam_frames = 0;
+			break;
+	}
 }
 
 // the current view's line: PASS, or FAIL with why, or with the Asserts, Int3s and Warnings logged since it started
@@ -898,9 +1087,42 @@ static void autotest_tour_skip(char *why)
 	Autotest_tour_view = 0;
 }
 
+// the main hall entered again, as game_leave_state() and game_enter_state() do for GS_STATE_MAIN_MENU, so main_hall_init()
+// picks the hall from Player->on_bastion
+static void autotest_main_hall_enter()
+{
+	main_hall_close();
+	main_hall_init(Player->on_bastion ? 1 : 0);
+}
+
+// AUTOTEST_OPEN_BASTION's stop is over: Player->on_bastion set back, and the main hall it picks entered again
+static void autotest_tour_bastion_restore(int enter)
+{
+	if (Autotest_tour_bastion_was < 0) {
+		return;
+	}
+	Player->on_bastion = (ubyte)Autotest_tour_bastion_was;
+	Autotest_tour_bastion_was = -1;
+	if (enter && (gameseq_get_state() == GS_STATE_MAIN_MENU)) {
+		autotest_main_hall_enter();
+	}
+}
+
+// a stop with all_medals is over: -allmedals set back (#124)
+static void autotest_tour_all_medals_restore()
+{
+	if (Autotest_tour_all_medals_was >= 0) {
+		Cmdline_allmedals = Autotest_tour_all_medals_was;
+		Autotest_tour_all_medals_was = -1;
+	}
+}
+
 static void autotest_tour_end(char *why)
 {
 	int i, j;
+
+	autotest_tour_bastion_restore(0);
+	autotest_tour_all_medals_restore();
 
 	if (why) {
 		autotest_logf("FAILED: menu tour stopped at '%s': %s\n", Autotest_tour[Autotest_tour_stop].name, why);
@@ -936,6 +1158,8 @@ static void autotest_tour_start_view(int key)
 
 static void autotest_tour_next_stop()
 {
+	autotest_tour_bastion_restore(1);
+	autotest_tour_all_medals_restore();
 	Autotest_tour_phase = AUTOTEST_TOUR_GO;
 	Autotest_tour_view = 0;
 	if (++Autotest_tour_stop == AUTOTEST_TOUR_STOPS) {
@@ -1103,6 +1327,21 @@ static void autotest_tour_frame(int state)
 				}
 				return;
 			}
+			// the Vasudan (Bastion) main hall: main hall 1, entered from the main hall with Player->on_bastion set (D-20261031-084801)
+			if (s->open == AUTOTEST_OPEN_BASTION) {
+				if (Main_hall_count < 2) {
+					autotest_tour_skip("no second hall");
+					autotest_tour_next_stop();
+					return;
+				}
+				if (state != GS_STATE_MAIN_MENU) {
+					autotest_tour_end("the Bastion main hall opens only from the main hall");
+					return;
+				}
+				Autotest_tour_bastion_was = Player->on_bastion;
+				Player->on_bastion = 1;
+				autotest_main_hall_enter();
+			}
 			if (Autotest_tour_options == 1) {
 				Autotest_tour_options = 2;
 			}
@@ -1143,6 +1382,10 @@ static void autotest_tour_frame(int state)
 					break;
 
 				case AUTOTEST_OPEN_BARRACKS_BUTTON:
+					if (s->all_medals) {
+						Autotest_tour_all_medals_was = Cmdline_allmedals;
+						Cmdline_allmedals = 1;
+					}
 					barracks_button_pressed(s->arg);
 					break;
 
@@ -1274,6 +1517,7 @@ void autotest_drive_state(int state)
 
 	Autotest_frame_ms = GetTickCount();
 	Autotest_frames++;
+	autotest_debugcam_paused(state);
 	if (Autotest_menus && (Replay_mode != REPLAY_PLAY)) {
 		if (state != Autotest_state) {
 			Autotest_state_ms = Autotest_frame_ms;
@@ -1416,8 +1660,30 @@ void autotest_frame()
 		Autotest_squad_next++;
 	}
 
+	autotest_debugcam_play();
+
 	autotest_log_events();
 	input_test_frame();	// Claude: scripted input tests
+}
+
+// a device's own test script (the pad's squad menu test, #119) asks these from its frame code
+int autotest_mission_note(char *note)
+{
+	return Autotest_rules && Autotest_in_mission && (strstr(The_mission.notes, note) != NULL);
+}
+
+float autotest_mission_seconds()
+{
+	return Autotest_in_mission ? f2fl(Missiontime - Autotest_mission_start) : -1.0f;
+}
+
+// logs a known answer; a wrong one fails the run.  Runs in the recording and in its replays alike.
+void autotest_check(int ok, char *what)
+{
+	if (!ok) {
+		Autotest_checks_failed++;
+	}
+	autotest_logf("Check %s at mission time %.2f: %s\n", ok ? "passed" : "FAILED", f2fl(Missiontime), what);
 }
 
 int autotest_popup(char *text)
@@ -1507,7 +1773,10 @@ int autotest_exit_code(int code)
 	}
 
 	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)
-	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings;
+	failed = Autotest_missions_failed || Autotest_tour_failed || Autotest_asserts || Autotest_int3s || Autotest_warnings || Autotest_checks_failed;
+	if (Autotest_checks_failed) {
+		autotest_logf("Checks failed %d\n", Autotest_checks_failed);
+	}
 	failed = input_test_failed() || failed;	// Claude: scripted input tests
 	for (i = 0; i < Autotest_num_sites; i++) {
 		autotest_logf("%6d x %s %s line %d\n", Autotest_sites[i].count, Autotest_sites[i].kind, Autotest_sites[i].file ? Autotest_sites[i].file : "", Autotest_sites[i].line);

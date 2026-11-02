@@ -19,6 +19,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\restart_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
@@ -31,7 +32,7 @@ $recA = Join-Path $repo "recordings\autotest\$First.fs2rec"
 $recB = Join-Path $repo "recordings\autotest\$Second.fs2rec"
 
 function Wait-NoGame {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 }
 
 Set-Location $GameDir
@@ -43,7 +44,7 @@ foreach ($e in $Configs) {
 	Remove-Item $ta, $tb, "$recA.replay.log", "$recB.replay.log" -ErrorAction SilentlyContinue
 	Wait-NoGame
 	$flags = "-window -autotest -replay `"$recA`" -trace `"$ta`" -replay_next `"$recB`" -trace_next `"$tb`""
-	$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+	$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $flags -PassThru
 	$line = "$e"
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += ' TIMEOUT' }
 	$line += " exit=$($p.ExitCode)"

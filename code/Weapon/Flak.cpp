@@ -80,13 +80,24 @@ void flak_level_init()
 
 	// if the muzzle flash ani is not loaded, do so
 	if(Flak_muzzle_flash_ani == -1){
-		Flak_muzzle_flash_ani = bm_load_animation(MUZZLE_FLASH_FILE, &num_frames, &fps, 1);
+		Flak_muzzle_flash_ani = bm_load_animation(MUZZLE_FLASH_FILE, &num_frames, &fps);	// Claude: no can_drop_frames (W13)
 	}
 
 	// zero out flak info
 	memset(Flak, 0, sizeof(flak_info) * MAX_FLAK_INFO);
 	for(idx=0; idx<MAX_FLAK_INFO; idx++){
 		Flak[idx].range = -1.0f;
+	}
+}
+
+// Claude: page in the flak muzzle flash with the level; it was read from disk on the first flak shot (W11)
+void flak_page_in()
+{
+	int nframes;
+
+	if(Flak_muzzle_flash_ani >= 0){
+		bm_get_info(Flak_muzzle_flash_ani, NULL, NULL, NULL, &nframes);
+		bm_page_in_texture(Flak_muzzle_flash_ani, nframes);
 	}
 }
 

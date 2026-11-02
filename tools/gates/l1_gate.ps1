@@ -34,7 +34,7 @@ Require-Env PATH_FS2, PATH_FS1
 Initialize-Fs2DemoScratch; Initialize-Fs1DemoScratch
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $fs1 = $env:PATH_FS1; $fs1d = $env:FS1DEMO_PATH
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'L1 FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'L1 FAIL the game is running'; exit 1 }
 if (-not $Out) { $Out = Join-Path $OutRoot ("${Label}_" + $start.ToString('yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $td = Join-Path $Repo 'tools\bin\TraceDiff.exe'
@@ -68,7 +68,7 @@ function Finish {
 # 1. build (L0)
 if (-not $NoBuild) {
 	"build $((Get-Date).ToString('HH:mm'))"
-	foreach ($d in $env:PATH_FS2, $fs1, $fs1d) { Remove-Item "$d\FS2vs2022r.exe", "$d\FS2vs2022d.exe" -ErrorAction SilentlyContinue }
+	foreach ($d in $env:PATH_FS2, $fs1, $fs1d) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 	Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 	$b = RunPs "$sp\build.ps1" @('-Repo', $Repo, '-TraceDiff')
 	foreach ($c in 'Release', 'Debug') {
@@ -82,7 +82,7 @@ if (-not $NoBuild) {
 	Step 'demo build' ($d[-1] -match '^PASS') "$($d[-1])"
 	if ($fails) { Finish }
 }
-foreach ($x in 'FS2vs2022r.exe', 'FS2vs2022d.exe') {
+foreach ($x in (Get-FS2Exe r $Repo), (Get-FS2Exe d $Repo)) {
 	foreach ($d in $fs1, $fs1d) { if ((Test-Path $d) -and (Test-Path "$env:PATH_FS2\$x")) { Copy-Item "$env:PATH_FS2\$x" $d -Force } }
 }
 
@@ -121,6 +121,17 @@ function Replay($label, $missions, $fs1Dir) {
 			$frame = $d.Frame; $txt += "`n      " + $d.Text
 		}
 		Fail $f.Name $set $f.Config $frame $txt
+	}
+	# no texture made inside a frame (W11, D-20261101-064802): the game writes its late loads into autotest.log at level
+	# close; textures, animations and nebula must be 0 (heads and ui are reported only, D-20261101-064804/065735)
+	foreach ($al in @(Get-ChildItem $o -Filter '*.autotest.log' -ErrorAction SilentlyContinue)) {
+		foreach ($m in @(Select-String $al.FullName -Pattern 'after load: textures (\d+) .*?animations (\d+) .*?nebula (\d+)')) {
+			$g = $m.Matches[0].Groups
+			if (([int]$g[1].Value + [int]$g[2].Value + [int]$g[3].Value) -gt 0) {
+				$names = @(Select-String $al.FullName -Pattern '\] late (textures|animations|nebula) (\S+)' | ForEach-Object { $_.Matches[0].Groups[2].Value } | Select-Object -Unique) -join ' '
+				Fail ($al.Name -replace '\.autotest\.log$', '') '-' '-' '' "late texture load after level paging: $($m.Line -replace '^\[[^\]]*\] ', '') ($names)"
+			}
+		}
 	}
 	$done = $r | Where-Object { $_ -match '^DONE ' } | Select-Object -Last 1
 	if (-not $done) { Fail "replay $label" '-' '-' '' "replay_check did not finish: $(($r | Select-Object -Last 3) -join ' / ')" }

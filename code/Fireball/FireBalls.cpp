@@ -491,7 +491,7 @@ void fireball_load_data()
 		fd = &Fireball_info[i];
 
 		for(idx=0; idx<fd->lod_count; idx++){
-			fd->lod[idx].bitmap_id	= bm_load_animation( fd->lod[idx].filename, &fd->lod[idx].num_frames, &fd->lod[idx].fps, 1 );
+			fd->lod[idx].bitmap_id	= bm_load_animation( fd->lod[idx].filename, &fd->lod[idx].num_frames, &fd->lod[idx].fps );	// Claude: no can_drop_frames (W13)
 			if ( fd->lod[idx].bitmap_id < 0 ) {
 				Error(LOCATION, "Could not load %s anim file\n", fd->lod[idx].filename);
 			}

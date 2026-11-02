@@ -556,7 +556,7 @@ void shockwave_level_init()
 	// load in shockwaves
 	for ( i=0; i<MAX_SHOCKWAVE_TYPES; i++ ) {
 		si = &Shockwave_info[i];
-		si->bitmap_id	= bm_load_animation( Shockwave_filenames[i], &si->num_frames, &si->fps, 1 );
+		si->bitmap_id	= bm_load_animation( Shockwave_filenames[i], &si->num_frames, &si->fps );	// Claude: no can_drop_frames (W13)
 		if ( si->bitmap_id < 0 ) {
 			Error(LOCATION, "Could not load %s anim file\n", Shockwave_filenames[i]);
 		}
