@@ -6,6 +6,8 @@
  *                                     No key: the automatic rule (a pad takes the joystick's place, joy_init).
  *   GraphicsMode=GR_1024|GR_640       the art mode gr_init picks at the next start; FS2 retail only
  *                                     (data set profile gr_mode_choice).  No key: as before.
+ *   DisplayResolution=classic|desktop|WxH  the Resolution row (GrVirtual.h, GodotResolution); every data set.
+ *   Where the backend changes mode live (gr_live_mode_change: the Godot host) a choice applies at once; otherwise at the next start.
  * Both live in fs2.ini's [Settings] (os_config_*).  A replay, a recording and autotest ignore both keys: they
  * neither read nor write them.  Tests set the flight choice in-process (game_options_set_flight_device).
  */

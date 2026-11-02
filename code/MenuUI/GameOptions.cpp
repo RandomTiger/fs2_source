@@ -2,6 +2,8 @@
  * Claude: the Game Options screen and its two fs2.ini keys.  See GameOptions.h.
  */
 
+#include <windows.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "pstypes.h"
@@ -20,9 +22,11 @@
 #include "Replay.h"
 #include "Autotest.h"
 #include "../Pad/PadGame.h"
+#include "GrVirtual.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
+#define GAME_OPTIONS_KEY_DISPLAY	"DisplayResolution"	// GrVirtual.cpp reads it (GodotResolution, D-20261102-200805)
 
 static char *Game_options_flight_names[] = { "", "Pad", "Joystick", "Mouse" };
 
@@ -173,7 +177,8 @@ int game_options_gr_mode(int mode)
 #define GO_ITEM_FLIGHT		0
 #define GO_ITEM_GR			1
 #define GO_ITEM_BACK		2
-#define GO_MAX_ITEMS		8
+#define GO_ITEM_RES			3		// value: an index in Go_res
+#define GO_MAX_ITEMS		16
 
 typedef struct go_item {
 	int kind, value;
@@ -187,6 +192,121 @@ static int Go_mouse_was_down = 0;
 static int Go_gr_shown = GR_1024;		// the GR row's lit choice: the key's, else the mode running now
 static color Go_fs1_text;				// FS1's main hall grey
 static int Go_fs1_text_inited = 0;
+
+// the Resolution row (DisplayResolution, D-20261102-200805 / 204803): Classic, Desktop, then window sizes that fit the monitor
+typedef struct go_res {
+	int mode, w, h;		// GR_DISPLAY_*; w x h for GR_DISPLAY_SIZE
+	char text[24];
+} go_res;
+
+#define GO_MAX_RES			7
+#define GO_MAX_SIZES		3		// common sizes below the monitor's own
+
+static go_res Go_res[GO_MAX_RES];
+static int Go_num_res = 0;
+static int Go_res_shown = 0;			// the lit entry: the one in force
+static const int Go_common_sizes[][2] = {
+	{ 1280, 720 }, { 1366, 768 }, { 1600, 900 }, { 1920, 1080 }, { 2560, 1080 }, { 2560, 1440 }, { 3440, 1440 }, { 3840, 2160 },
+};
+
+// the size of the monitor the game's window is on (the primary one if that cannot be told)
+static void game_options_monitor_size(int *w, int *h)
+{
+	MONITORINFO mi;
+	HMONITOR mon = MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTOPRIMARY);
+
+	mi.cbSize = sizeof(mi);
+	if (mon && GetMonitorInfo(mon, &mi)) {
+		*w = mi.rcMonitor.right - mi.rcMonitor.left;
+		*h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+		return;
+	}
+	*w = GetSystemMetrics(SM_CXSCREEN);
+	*h = GetSystemMetrics(SM_CYSCREEN);
+}
+
+static void game_options_res_add(int mode, int w, int h, char *text)
+{
+	go_res *r;
+
+	if (Go_num_res >= GO_MAX_RES) {
+		return;
+	}
+	r = &Go_res[Go_num_res++];
+	r->mode = mode;
+	r->w = w;
+	r->h = h;
+	if (text) {
+		strcpy(r->text, text);
+	} else {
+		sprintf(r->text, "%dx%d", w, h);
+	}
+}
+
+// Classic, Desktop, up to GO_MAX_SIZES common sizes that fit the monitor (the largest, in ascending order), the monitor's own
+// size, and the size in force if it is none of those
+static void game_options_res_list()
+{
+	int mw, mh, cw, ch, cur, i, first, n;
+	int num_common = (int)(sizeof(Go_common_sizes) / sizeof(Go_common_sizes[0]));
+
+	Go_num_res = 0;
+	game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, "Classic (4:3)");
+	game_options_res_add(GR_DISPLAY_DESKTOP, 0, 0, "Desktop");
+	game_options_monitor_size(&mw, &mh);
+	n = 0;
+	first = num_common;
+	for (i = num_common - 1; (i >= 0) && (n < GO_MAX_SIZES); i--) {
+		if ((Go_common_sizes[i][0] <= mw) && (Go_common_sizes[i][1] <= mh) && ((Go_common_sizes[i][0] != mw) || (Go_common_sizes[i][1] != mh))) {
+			first = i;
+			n++;
+		}
+	}
+	for (i = first; i < num_common; i++) {
+		if ((Go_common_sizes[i][0] <= mw) && (Go_common_sizes[i][1] <= mh) && ((Go_common_sizes[i][0] != mw) || (Go_common_sizes[i][1] != mh))) {
+			game_options_res_add(GR_DISPLAY_SIZE, Go_common_sizes[i][0], Go_common_sizes[i][1], NULL);
+		}
+	}
+	if ((mw >= 320) && (mh >= 240)) {
+		game_options_res_add(GR_DISPLAY_SIZE, mw, mh, NULL);
+	}
+
+	cur = gr_virtual_display_request(&cw, &ch);
+	Go_res_shown = -1;
+	for (i = 0; i < Go_num_res; i++) {
+		if ((Go_res[i].mode == cur) && ((cur != GR_DISPLAY_SIZE) || ((Go_res[i].w == cw) && (Go_res[i].h == ch)))) {
+			Go_res_shown = i;
+		}
+	}
+	if (Go_res_shown < 0) {
+		game_options_res_add(GR_DISPLAY_SIZE, cw, ch, NULL);
+		Go_res_shown = Go_num_res - 1;
+	}
+}
+
+// the Resolution row's choice: the key, then, where the backend changes mode live, the canvas at once (GrVirtual: the host
+// follows fs2_display_request); otherwise at the next start. A compared run (the tour) neither writes nor applies it.
+static void game_options_apply_res(int i)
+{
+	go_res *r = &Go_res[i];
+	char text[24];
+
+	Go_res_shown = i;
+	if (!game_options_keys_active()) {
+		return;
+	}
+	if (r->mode == GR_DISPLAY_CLASSIC) {
+		strcpy(text, "classic");
+	} else if (r->mode == GR_DISPLAY_DESKTOP) {
+		strcpy(text, "desktop");
+	} else {
+		sprintf(text, "%dx%d", r->w, r->h);
+	}
+	os_config_write_string(NULL, GAME_OPTIONS_KEY_DISPLAY, text);
+	if (gr_live_mode_change()) {
+		gr_virtual_read_config();
+	}
+}
 
 static color *game_options_text_color()
 {
@@ -230,13 +350,21 @@ static int game_options_flight_shown()
 	return pad_owns_joystick() ? GAME_OPTIONS_FLIGHT_PAD : GAME_OPTIONS_FLIGHT_JOYSTICK;
 }
 
+// the Resolution row's line: below the graphics mode row where there is one
+static int game_options_res_y()
+{
+	return gr_screen.max_h * (Game_profile->gr_mode_choice ? 56 : 42) / 100;
+}
+
 // lays the screen out for this art mode: fractions of the screen, so GR_640 and GR_1024 match
 static void game_options_layout()
 {
 	int w = gr_screen.max_w, h = gr_screen.max_h;
 	int cx = w / 2, step = w / 8;
+	int i, yr, lh;
 
 	gr_set_font(FONT1);
+	lh = gr_get_font_height() + 6;
 	Go_num_items = 0;
 	game_options_add(GO_ITEM_FLIGHT, GAME_OPTIONS_FLIGHT_PAD, cx, h * 30 / 100, "Pad");
 	game_options_add(GO_ITEM_FLIGHT, GAME_OPTIONS_FLIGHT_JOYSTICK, cx + step, h * 30 / 100, "Joystick");
@@ -244,6 +372,15 @@ static void game_options_layout()
 	if (Game_profile->gr_mode_choice) {
 		game_options_add(GO_ITEM_GR, GR_1024, cx, h * 42 / 100, "1024 x 768");
 		game_options_add(GO_ITEM_GR, GR_640, cx + step * 3 / 2, h * 42 / 100, "640 x 480");
+	}
+	// Resolution: Classic and Desktop on the first line, the sizes on the second
+	yr = game_options_res_y();
+	for (i = 0; i < Go_num_res; i++) {
+		if (i < 2) {
+			game_options_add(GO_ITEM_RES, i, cx + i * step * 3 / 2, yr, Go_res[i].text);
+		} else {
+			game_options_add(GO_ITEM_RES, i, cx + (i - 2) * step, yr + lh, Go_res[i].text);
+		}
 	}
 	game_options_add(GO_ITEM_BACK, 0, w * 8 / 100, h * 90 / 100, "Back");
 }
@@ -270,6 +407,9 @@ static int game_options_item_current(go_item *it)
 	if (it->kind == GO_ITEM_GR) {
 		return it->value == Go_gr_shown;
 	}
+	if (it->kind == GO_ITEM_RES) {
+		return it->value == Go_res_shown;
+	}
 	return 0;
 }
 
@@ -286,6 +426,8 @@ static void game_options_pick(go_item *it)
 		if (game_options_keys_active()) {
 			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (it->value == GR_1024) ? "GR_1024" : "GR_640");
 		}
+	} else if (it->kind == GO_ITEM_RES) {
+		game_options_apply_res(it->value);
 	}
 }
 
@@ -301,6 +443,7 @@ void game_options_screen_init()
 
 	Go_gr_shown = (gr >= 0) ? gr : gr_screen.res;
 	Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+	game_options_res_list();
 	game_options_layout();
 }
 
@@ -345,6 +488,10 @@ void game_options_screen_do_frame(float /*frametime*/)
 	if (Game_profile->gr_mode_choice) {
 		gr_string(gr_screen.max_w * 12 / 100, gr_screen.max_h * 42 / 100, "Graphics mode");
 		gr_string(gr_screen.max_w / 2, gr_screen.max_h * 42 / 100 + gr_get_font_height() + 6, "Takes effect next time the game starts");
+	}
+	gr_string(gr_screen.max_w * 12 / 100, game_options_res_y(), "Resolution");
+	if (!gr_live_mode_change()) {
+		gr_string(gr_screen.max_w / 2, game_options_res_y() + (gr_get_font_height() + 6) * 2, "Takes effect next time the game starts");
 	}
 
 	for (i = 0; i < Go_num_items; i++) {
