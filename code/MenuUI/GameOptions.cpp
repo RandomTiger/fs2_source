@@ -28,6 +28,8 @@
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
 #define GAME_OPTIONS_KEY_DISPLAY	"DisplayResolution"	// GrVirtual.cpp reads it (GodotResolution, D-20261102-200805)
 
+int game_switch_gr_mode(int res);	// FreeSpace.cpp (GodotResolution): the live GR mode switch, outside a mission
+
 static char *Game_options_flight_names[] = { "", "Pad", "Joystick", "Mouse" };
 
 static int Game_options_loaded = 0;
@@ -422,9 +424,17 @@ static void game_options_pick(go_item *it)
 		game_options_apply_flight();
 		game_options_write_flight();
 	} else if (it->kind == GO_ITEM_GR) {
-		Go_gr_shown = it->value;
+		int gr = it->value;
+
+		Go_gr_shown = gr;
 		if (game_options_keys_active()) {
-			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (it->value == GR_1024) ? "GR_1024" : "GR_640");
+			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (gr == GR_1024) ? "GR_1024" : "GR_640");
+		}
+		// live where the backend can (D-20261102-204802, 204806); the screen is never in a mission. The screen is laid out again
+		// in the new mode: its coordinates are fractions of gr_screen, its font is FONT1 in both modes. 'it' is stale after this.
+		if (gr_live_mode_change() && (gr != gr_screen.res) && game_switch_gr_mode(gr)) {
+			game_options_layout();
+			Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
 		}
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
@@ -487,7 +497,9 @@ void game_options_screen_do_frame(float /*frametime*/)
 	gr_string(gr_screen.max_w * 12 / 100, gr_screen.max_h * 30 / 100, "In-game flight control");
 	if (Game_profile->gr_mode_choice) {
 		gr_string(gr_screen.max_w * 12 / 100, gr_screen.max_h * 42 / 100, "Graphics mode");
-		gr_string(gr_screen.max_w / 2, gr_screen.max_h * 42 / 100 + gr_get_font_height() + 6, "Takes effect next time the game starts");
+		if (!gr_live_mode_change()) {	// native D3D and headless: at the next start (D-20261102-204806)
+			gr_string(gr_screen.max_w / 2, gr_screen.max_h * 42 / 100 + gr_get_font_height() + 6, "Takes effect next time the game starts");
+		}
 	}
 	gr_string(gr_screen.max_w * 12 / 100, game_options_res_y(), "Resolution");
 	if (!gr_live_mode_change()) {
