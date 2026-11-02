@@ -78,7 +78,8 @@ and 204801..808. Goal: any window size, full screen on an ultrawide, 4:3 menus c
 
 ## Untagged draws (default top-left)
 Drawn with no gauge check, so they get `HUD_ANCHOR_TOP_LEFT` set explicitly in `HUD_render_2d`:
-subspace notify, training messages, multiplayer text, red alert text, pad HUD. The scoring debug text (debug
+multiplayer text. Tom, 2026-11-02: training messages and red alert text top-centre, pad HUD top-right (pad is WIP).
+Subspace notify takes the objectives-notify gauge's top-centre anchor. The scoring debug text (debug
 builds) is drawn after the HUD resets, also top-left. Supernova text follows the threat gauge (centre).
 
 ## GR mode switch

@@ -1684,7 +1684,7 @@ void HUD_render_2d(float frametime)
 		}
 
 		// show the directives popup and/or training popup
-		gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
+		gr_virtual_set_anchor(HUD_ANCHOR_TOP_CENTRE);	// Claude: GodotResolution, centred (Tom, 2026-11-02)
 		message_training_display();
 
 		// if this is a multiplayer game, blit any icons/bitmaps indicating voice recording or playback
@@ -1700,14 +1700,14 @@ void HUD_render_2d(float frametime)
 	hud_maybe_render_multi_text();
 
 	// show red alert notify gauge when moving to red alert
-	gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
+	gr_virtual_set_anchor(HUD_ANCHOR_TOP_CENTRE);	// Claude: GodotResolution, centred (Tom, 2026-11-02)
 	hud_maybe_display_red_alert();	
 
 	// display supernova warning
 	hud_maybe_display_supernova();
 
 	// Claude: control pad tree options
-	gr_virtual_set_anchor(HUD_ANCHOR_TOP_LEFT);	// Claude: GodotResolution, untagged: top-left (docs/STATUS.md)
+	gr_virtual_set_anchor(HUD_ANCHOR_TOP_RIGHT);	// Claude: GodotResolution, right-aligned (Tom, 2026-11-02)
 	pad_hud_render();
 
 	// check to see if we are in messaging mode.  If so, send the key to the code
