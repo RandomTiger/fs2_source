@@ -20,6 +20,8 @@
 #include "../Pad/PadCore.h"
 #include "../Pad/PadXInput.h"
 #include "../Pad/PadGame.h"
+#include "Replay.h"
+#include "GameOptions.h"
 
 extern int joy_num_sticks;	// Joy.cpp
 
@@ -58,6 +60,10 @@ static input_test_joy_state Input_test_joy;	// the scripted stick's state for th
 static pad_state Input_test_pad;			// the scripted pad's state for this frame's poll
 static int Input_test_host_kind = 0;		// -at_input joyhost (1) or padhost (2): the host feeds the script into its own input
 static void (*Input_test_sink)(const input_test_script *script) = NULL;	// the host's sink for that
+static int Input_test_both = 0;				// -at_input both: the joystick and the pad, and both scripts
+static int Input_test_flight = -1;			// -at_flight: a GAME_OPTIONS_FLIGHT_* choice, -1 for none
+static int Input_test_joy_ignored = 0;		// the flight choice turns the joystick's flight reads off
+static int Input_test_pad_ignored = 0;		// the flight choice turns the pad's flight reads off
 
 static void input_test_logf(char *format, ...)
 {
@@ -92,6 +98,13 @@ void input_test_set_cmdline(char *what)
 		input_test_install_host();
 		Input_test_pad.connected = 1;		// from game start, so joy_init leaves the stick to the pad
 		input_test_logf("Input test: the scripted pad stands in for the real one (-at_input pad)\n");
+	} else if (what && !stricmp(what, "both")) {
+		Input_test_joy_inject = 1;
+		Input_test_pad_inject = 1;
+		Input_test_both = 1;
+		input_test_install_host();
+		Input_test_pad.connected = 1;
+		input_test_logf("Input test: the scripted joystick and pad stand in for the real ones (-at_input both)\n");
 	} else if (what && (!stricmp(what, "joyhost") || !stricmp(what, "padhost"))) {
 		Input_test_host_kind = !stricmp(what, "joyhost") ? 1 : 2;
 		if (Input_test_host_kind == 1) {
@@ -110,9 +123,29 @@ void input_test_set_cmdline(char *what)
 			input_test_push_host();		// from game start, so joy_init finds the device
 		}
 	} else {
-		input_test_logf("FATAL: -at_input needs 'joy', 'pad', 'joyhost' or 'padhost', got '%s'\n", what ? what : "");
+		input_test_logf("FATAL: -at_input needs 'joy', 'pad', 'both', 'joyhost' or 'padhost', got '%s'\n", what ? what : "");
 		Input_test_failures++;
 	}
+}
+
+void input_test_set_flight(char *what)
+{
+	if (what && !stricmp(what, "pad")) {
+		Input_test_flight = GAME_OPTIONS_FLIGHT_PAD;
+	} else if (what && !stricmp(what, "joystick")) {
+		Input_test_flight = GAME_OPTIONS_FLIGHT_JOYSTICK;
+	} else if (what && !stricmp(what, "mouse")) {
+		Input_test_flight = GAME_OPTIONS_FLIGHT_MOUSE;
+	} else {
+		input_test_logf("FATAL: -at_flight needs 'pad', 'joystick' or 'mouse', got '%s'\n", what ? what : "");
+		Input_test_failures++;
+		return;
+	}
+	Input_test_joy_ignored = (Input_test_flight != GAME_OPTIONS_FLIGHT_JOYSTICK);
+	Input_test_pad_ignored = (Input_test_flight != GAME_OPTIONS_FLIGHT_PAD);
+	game_options_set_flight_device(Input_test_flight);		// in-process, before joy_init (D-20261102-200107)
+	input_test_logf("Input test: flight choice %s (-at_flight): in flight the joystick is %s, the pad is %s\n", what,
+		Input_test_joy_ignored ? "ignored" : "read", Input_test_pad_ignored ? "ignored" : "read");
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -222,11 +255,45 @@ static void check_axes(int h, int p, int b)
 	int vals[5];
 
 	control_get_axes_readings(&vals[0], &vals[1], &vals[2], &vals[3], &vals[4]);
+	if (Input_test_joy_ignored) {
+		h = p = b = 0;		// the stick reads centred
+	}
 	check_int("heading axis", vals[0], h);
 	check_int("pitch axis", vals[1], p);
 	check_int("bank axis", vals[2], b);
 	check_int("absolute throttle axis", vals[3], 0);
 	check_int("relative throttle axis", vals[4], 0);
+}
+
+// joy_down and the like read the stick itself, which a flight choice leaves alone; skipped when joy_init left no stick (a pad took its place)
+static void check_raw(char *what, int got, int want)
+{
+	if (Input_test_joy_ignored && (joy_num_sticks != 1)) {
+		return;
+	}
+	check_int(what, got, want);
+}
+
+static void check_raw_float(char *what, float got, float want)
+{
+	if (Input_test_joy_ignored && (joy_num_sticks != 1)) {
+		return;
+	}
+	check_float(what, got, want);
+}
+
+static void check_raw_float_above(char *what, float got, float lo, float hi)
+{
+	if (Input_test_joy_ignored && (joy_num_sticks != 1)) {
+		return;
+	}
+	check_float_above(what, got, lo, hi);
+}
+
+// a fire count the stick makes: 0 when the flight choice ignores the stick
+static void check_joy_fire(char *what, int got, int want)
+{
+	check_int(what, got, Input_test_joy_ignored ? 0 : want);
 }
 
 static float clamp_ci(float v)
@@ -238,6 +305,12 @@ static float clamp_ci(float v)
 // then limited to -1..1 by physics_read_flying_controls
 static void check_ci(int h, int p, int b)
 {
+	if (Input_test_flight == GAME_OPTIONS_FLIGHT_MOUSE) {
+		return;		// the mouse flies: the real mouse may move the ship
+	}
+	if (Input_test_joy_ignored) {
+		h = p = b = 0;
+	}
 	check_float("ci.heading", Player->ci.heading, clamp_ci(f2fl(h)));
 	check_float("ci.pitch", Player->ci.pitch, clamp_ci(-f2fl(p)));
 	check_float("ci.bank", Player->ci.bank, clamp_ci(-f2fl(b) * 1.5f));
@@ -250,7 +323,7 @@ static void joy_test_check_pilot()
 
 	check_int("joystick sensitivity", Joy_sensitivity, 9);
 	check_int("dead zone", Dead_zone_size, 10);
-	check_int("mouse flies the ship", Use_mouse_to_fly, 0);
+	check_int("mouse flies the ship", Use_mouse_to_fly, (Input_test_flight == GAME_OPTIONS_FLIGHT_MOUSE) ? 1 : 0);
 	check_int("heading axis map", Axis_map_to[0], JOY_X_AXIS);
 	check_int("pitch axis map", Axis_map_to[1], JOY_Y_AXIS);
 	check_int("bank axis map", Axis_map_to[2], JOY_RX_AXIS);
@@ -266,7 +339,9 @@ static void joy_test_check_pilot()
 			check_int("a control bound to the test button", i, -1);
 		}
 	}
-	check_int("joysticks found", joy_num_sticks, 1);
+	if (Input_test_flight < 0) {
+		check_int("joysticks found", joy_num_sticks, 1);
+	}
 }
 
 // what the game read from the stick in frame 'step', checked at the start of frame 'step' after that frame's poll,
@@ -277,60 +352,60 @@ static void joy_test_check(int step)
 
 	// a one-frame tap
 	if (step == JOY_TEST_TAP - 1) {
-		check_int("joy_down(10)", joy_down(b), 0);
-		check_int("joy_down_count(10)", joy_down_count(b), 0);
-		check_int("joy_up_count(10)", joy_up_count(b), 0);
+		check_raw("joy_down(10)", joy_down(b), 0);
+		check_raw("joy_down_count(10)", joy_down_count(b), 0);
+		check_raw("joy_up_count(10)", joy_up_count(b), 0);
 	}
 	if (step == JOY_TEST_TAP) {
-		check_int("joy_down(10)", joy_down(b), 1);
-		check_int("joy_down_count(10)", joy_down_count(b), 1);
-		check_int("joy_up_count(10)", joy_up_count(b), 0);
-		check_int("ci.fire_secondary_count", Player->ci.fire_secondary_count, 0);
+		check_raw("joy_down(10)", joy_down(b), 1);
+		check_raw("joy_down_count(10)", joy_down_count(b), 1);
+		check_raw("joy_up_count(10)", joy_up_count(b), 0);
+		check_joy_fire("ci.fire_secondary_count", Player->ci.fire_secondary_count, 0);
 	}
 	if (step == JOY_TEST_TAP + 1) {
-		check_int("joy_down(10)", joy_down(b), 0);
-		check_int("joy_down_count(10)", joy_down_count(b), 0);
-		check_int("joy_up_count(10)", joy_up_count(b), 1);
-		check_int("ci.fire_secondary_count", Player->ci.fire_secondary_count, 1);	// joy_down(1)
+		check_raw("joy_down(10)", joy_down(b), 0);
+		check_raw("joy_down_count(10)", joy_down_count(b), 0);
+		check_raw("joy_up_count(10)", joy_up_count(b), 1);
+		check_joy_fire("ci.fire_secondary_count", Player->ci.fire_secondary_count, 1);	// joy_down(1)
 	}
 	if (step == JOY_TEST_TAP + 2) {
-		check_int("joy_up_count(10)", joy_up_count(b), 0);
-		check_int("ci.fire_secondary_count", Player->ci.fire_secondary_count, 1);	// joy_down_count(1): a continuous control reads the count only when the button is up
+		check_raw("joy_up_count(10)", joy_up_count(b), 0);
+		check_joy_fire("ci.fire_secondary_count", Player->ci.fire_secondary_count, 1);	// joy_down_count(1): a continuous control reads the count only when the button is up
 	}
 	if (step == JOY_TEST_TAP + 3) {
-		check_int("ci.fire_secondary_count", Player->ci.fire_secondary_count, 0);
+		check_joy_fire("ci.fire_secondary_count", Player->ci.fire_secondary_count, 0);
 	}
 
 	// a held button and its release
 	if ((step >= JOY_TEST_HOLD_START - 5) && (step < JOY_TEST_HOLD_START)) {
-		check_float("joy_down_time(10)", joy_down_time(b), 0.0f);
+		check_raw_float("joy_down_time(10)", joy_down_time(b), 0.0f);
 	}
 	if (step == JOY_TEST_HOLD_START) {
-		check_int("ci.fire_primary_count", Player->ci.fire_primary_count, 0);
-		check_int("joy_down(10)", joy_down(b), 1);
-		check_int("joy_down_count(10)", joy_down_count(b), 1);
-		check_float_above("joy_down_time(10)", joy_down_time(b), 0.5f, 1.0f);
+		check_joy_fire("ci.fire_primary_count", Player->ci.fire_primary_count, 0);
+		check_raw("joy_down(10)", joy_down(b), 1);
+		check_raw("joy_down_count(10)", joy_down_count(b), 1);
+		check_raw_float_above("joy_down_time(10)", joy_down_time(b), 0.5f, 1.0f);
 	}
 	if ((step > JOY_TEST_HOLD_START) && (step < JOY_TEST_HOLD_END)) {
-		check_int("ci.fire_primary_count", Player->ci.fire_primary_count, 1);
-		check_int("joy_down(10)", joy_down(b), 1);
-		check_int("joy_down_count(10)", joy_down_count(b), 0);
-		check_float_above("joy_down_time(10)", joy_down_time(b), 0.5f, 1.0f);
+		check_joy_fire("ci.fire_primary_count", Player->ci.fire_primary_count, 1);
+		check_raw("joy_down(10)", joy_down(b), 1);
+		check_raw("joy_down_count(10)", joy_down_count(b), 0);
+		check_raw_float_above("joy_down_time(10)", joy_down_time(b), 0.5f, 1.0f);
 	}
 	if (step == JOY_TEST_HOLD_END) {
-		check_int("ci.fire_primary_count", Player->ci.fire_primary_count, 1);
-		check_int("joy_down(10)", joy_down(b), 0);
-		check_int("joy_down_count(10)", joy_down_count(b), 0);
-		check_int("joy_up_count(10)", joy_up_count(b), 1);
-		check_float("joy_down_time(10)", joy_down_time(b), 0.0f);
+		check_joy_fire("ci.fire_primary_count", Player->ci.fire_primary_count, 1);
+		check_raw("joy_down(10)", joy_down(b), 0);
+		check_raw("joy_down_count(10)", joy_down_count(b), 0);
+		check_raw("joy_up_count(10)", joy_up_count(b), 1);
+		check_raw_float("joy_down_time(10)", joy_down_time(b), 0.0f);
 	}
 	if (step == JOY_TEST_HOLD_END + 1) {
-		check_int("ci.fire_primary_count", Player->ci.fire_primary_count, 1);	// joy_down_count(0): the press, unread while the button was down, is read on release
-		check_int("joy_up_count(10)", joy_up_count(b), 0);
-		check_float("joy_down_time(10)", joy_down_time(b), 0.0f);
+		check_joy_fire("ci.fire_primary_count", Player->ci.fire_primary_count, 1);	// joy_down_count(0): the press, unread while the button was down, is read on release
+		check_raw("joy_up_count(10)", joy_up_count(b), 0);
+		check_raw_float("joy_down_time(10)", joy_down_time(b), 0.0f);
 	}
 	if (step == JOY_TEST_HOLD_END + 2) {
-		check_int("ci.fire_primary_count", Player->ci.fire_primary_count, 0);
+		check_joy_fire("ci.fire_primary_count", Player->ci.fire_primary_count, 0);
 	}
 
 	// the stick
@@ -470,10 +545,28 @@ static void check_pad(int fired, int held, float yaw, float pitch, float roll, f
 	check_float_near("pad roll", out->roll, roll);
 	check_float_near("pad throttle rate", out->throttle_rate, throttle);
 
+	if (Input_test_pad_ignored) {
+		// the flight choice leaves the pad's output alone, but none of it reaches the controls
+		control_info ci;
+
+		memset(&ci, 0, sizeof(ci));
+		pad_read_flight(&ci, 0.1f);
+		check_float("pad_read_flight heading", ci.heading, 0.0f);
+		check_float("pad_read_flight pitch", ci.pitch, 0.0f);
+		check_float("pad_read_flight bank", ci.bank, 0.0f);
+		check_float("pad_read_flight throttle", ci.forward_cruise_percent, 0.0f);
+		check_int("pad_control_held(Fire primary)", pad_control_held(FIRE_PRIMARY), 0);
+		check_int("pad_control_held(Fire secondary)", pad_control_held(FIRE_SECONDARY), 0);
+		yaw = pitch = roll = 0.0f;
+		held = -1;
+	}
+
 	// pad_read_flight: heading += yaw, pitch -= pitch, bank -= roll; then limited to -1..1
-	check_float_near("ci.heading", Player->ci.heading, clamp_ci(yaw));
-	check_float_near("ci.pitch", Player->ci.pitch, clamp_ci(-pitch));
-	check_float_near("ci.bank", Player->ci.bank, clamp_ci(-roll));
+	if (Input_test_flight != GAME_OPTIONS_FLIGHT_MOUSE) {	// with the mouse flying, the real mouse may move the ship
+		check_float_near("ci.heading", Player->ci.heading, clamp_ci(yaw));
+		check_float_near("ci.pitch", Player->ci.pitch, clamp_ci(-pitch));
+		check_float_near("ci.bank", Player->ci.bank, clamp_ci(-roll));
+	}
 	check_int("ci.fire_primary_count", Player->ci.fire_primary_count, (held == FIRE_PRIMARY) ? 1 : 0);
 	check_int("ci.fire_secondary_count", Player->ci.fire_secondary_count, (held == FIRE_SECONDARY) ? 1 : 0);
 }
@@ -487,8 +580,10 @@ static void pad_test_check_setup()
 	if (fp) {
 		fclose(fp);
 	}
-	check_int("mouse flies the ship", Use_mouse_to_fly, 0);
-	check_int("joysticks found", joy_num_sticks, 0);	// joy_init leaves the stick to a pad
+	check_int("mouse flies the ship", Use_mouse_to_fly, (Input_test_flight == GAME_OPTIONS_FLIGHT_MOUSE) ? 1 : 0);
+	if (Input_test_flight < 0) {
+		check_int("joysticks found", joy_num_sticks, 0);	// joy_init leaves the stick to a pad
+	}
 }
 
 // stick shaping (PadCore.cpp, default settings): radial dead zone 0.15 rescaled to 0..1, then squared
@@ -535,6 +630,16 @@ void input_test_mission_start()
 	Input_test_step = 0;
 	Input_test_joy_script = (strstr(The_mission.notes, INPUT_TEST_JOY_NOTE) != NULL);
 	Input_test_pad_script = (strstr(The_mission.notes, INPUT_TEST_PAD_NOTE) != NULL);
+	if (Input_test_both && (Input_test_joy_script || Input_test_pad_script)) {
+		Input_test_joy_script = Input_test_pad_script = 1;		// -at_input both: both scripts (D-20261102-200107)
+	}
+	if (Input_test_flight >= 0) {
+		if (Replay_mode != REPLAY_OFF) {
+			input_test_logf("FATAL: -at_flight runs live only, not in a recording or a replay\n");
+			Input_test_failures++;
+		}
+		game_options_set_flight_device(Input_test_flight);		// again, after the pilot load
+	}
 	joy_test_idle(&Input_test_joy);
 	pad_test_idle(&Input_test_pad);
 	input_test_push_host();

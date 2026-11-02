@@ -36,6 +36,16 @@
  * The script's stick state has the shape of the host layer's joystick read (axes 0..65535, centre 32768,
  * a button bit mask, the POV in hundredths of a degree or 65535 centred), and its pad state is a pad_state,
  * so a host on any layer can return them from its own table.
+ *
+ * -at_flight pad|joystick|mouse sets the Game Options flight choice in-process (GameOptions.h, D-20261102-200107) and
+ * checks the readers it turns off are ignored: with Pad or Mouse the joystick script's stick and buttons move no
+ * control (the axes read centred, ci and the fire counts stay 0; joy_down and the like still see the stick), with
+ * Joystick or Mouse the pad script's pad still makes its output but moves no control.  -at_input both injects the
+ * scripted joystick and pad together (the pad connected from start), and a mission with either note then runs both
+ * scripts.  Run live only: -at_flight in a recording or replay is a FATAL failure.
+ *   -autotest -at_mission AutotestJoy -at_input joy -at_flight pad ...
+ *   -autotest -at_mission AutotestPad -at_input pad -at_flight joystick ...
+ *   -autotest -at_mission AutotestJoy -at_input both -at_flight mouse ...
  */
 
 #ifndef _FS2_INPUT_TEST_H
@@ -58,6 +68,7 @@ typedef struct input_test_script {
 void input_test_set_host_sink(void (*sink)(const input_test_script *script));	// the host's sink, before the game starts
 
 void input_test_set_cmdline(char *what);	// -at_input (called from parse_cmdline, with -autotest)
+void input_test_set_flight(char *what);		// -at_flight (called from parse_cmdline, with -autotest)
 void input_test_joy_read(input_test_joy_state *st);	// the scripted stick's state now
 
 void input_test_mission_start();			// first gameplay frame under autotest rules (autotest_frame)
