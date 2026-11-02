@@ -26,6 +26,8 @@ class Fs2Game : public Node {
 	int fiber_mode = 0;
 	bool forward_input = true;
 	Node *screen = nullptr;	// an Fs2Screen: when set, the game draws through it (fs2_set_render_sink)
+	int display_mode = 0, display_w = 0, display_h = 0;	// GodotOptions: the DisplayResolution request last applied (apply_display_request)
+	void apply_display_request();
 	bool skip_stale_draws = true;	// R1-feel: with several game frames per Godot frame only the last is drawn (GodotSink::set_frames_left)
 	bool pace_realtime = false;	// R1-feel: step by the wall clock, pace_hz game frames per second, no sleeping inside the game (fs2_set_host_pacing)
 	int pace_hz = 120;
