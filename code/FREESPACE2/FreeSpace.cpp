@@ -2714,6 +2714,7 @@ void game_set_view_clip()
 		// Set the clip region for normal view
 		if ( View_percent >= 100 )	{
 			gr_reset_clip();
+			gr_virtual_wide_clip();	// Claude: GodotResolution, the full view covers the whole canvas (no-op at the base size)
 		} else {
 			int xborder, yborder;
 
@@ -4014,12 +4015,14 @@ static void game_drawing_begin()
 {
 	Cosmetic_rand_drawing = 1;
 	model_instance_state_save();
+	gr_virtual_hud_begin();	// Claude: GodotResolution, HUD gauges go to their anchors (GrVirtual.h)
 }
 
 static void game_drawing_end()
 {
 	model_instance_state_restore();
 	Cosmetic_rand_drawing = 0;
+	gr_virtual_hud_end();	// Claude: GodotResolution
 }
 
 void game_frame()
