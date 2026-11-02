@@ -441,6 +441,8 @@ static void game_options_pick(go_item *it)
 		Go_gr_shown = gr;
 		if (game_options_keys_active()) {
 			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (gr == GR_1024) ? "GR_1024" : "GR_640");
+			game_options_load();
+			Game_options_gr = gr;	// the key as read: the screen opened again lights the new choice
 		}
 		// live where the backend can (D-20261102-204802, 204806); the screen is never in a mission. The screen is laid out again
 		// in the new mode: its coordinates are fractions of gr_screen, its font is FONT1 in both modes. 'it' is stale after this.
