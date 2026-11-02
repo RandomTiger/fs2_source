@@ -932,6 +932,14 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		}
 		gr_fog_set(GR_FOGMODE_FOG, ra / nv, ga / nv, ba / nv);
 	}
+	// D3D7 pixel centres are at integer coordinates, Godot's at +0.5 (#133). The game's screen positions are D3D's, so without this
+	// every textured poly samples its texture half a pixel off: a fine grain over the whole frame against retail. Measured against
+	// PrePort32 (frame captures, share of pixels exactly equal): VisualSpace 73% -> 99.8%; nebula 18% -> 27% exact, ~98% within
+	// 1 shade (what is left and what was tried: the sink's spatial_shader, render_sink_godot.cpp). -0.5 was worse; nearest filtering in both renderers changed nothing.
+	// Done after the PIXEL_FOG lookup above, which must read the game's own pixel: shifting first moved some polys' fog colour to
+	// the next cell of the 32x32 pre-render (whole polys 1 shade off). The sink's GPU fog cell lookup takes it off again (batcher.h).
+	// A correct translation of D3D, not a legacy quirk: GodotEnhanced keeps it.
+	for (int i = 0; i < nv; i++) { out[i].x += FS2_SINK_D3D_PIXEL_CENTRE; out[i].y += FS2_SINK_D3D_PIXEL_CENTRE; }
 
 	const unsigned dflags = ((flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0) | zflags | (H.cull ? FS2_SINK_DRAWF_CULL : 0);
 	fs2_sink_draw d = plain_draw(tex, blend, dflags);
