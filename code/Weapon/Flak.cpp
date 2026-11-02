@@ -80,7 +80,7 @@ void flak_level_init()
 
 	// if the muzzle flash ani is not loaded, do so
 	if(Flak_muzzle_flash_ani == -1){
-		Flak_muzzle_flash_ani = bm_load_animation(MUZZLE_FLASH_FILE, &num_frames, &fps, 1);
+		Flak_muzzle_flash_ani = bm_load_animation(MUZZLE_FLASH_FILE, &num_frames, &fps);	// Claude: no can_drop_frames (W13)
 	}
 
 	// zero out flak info

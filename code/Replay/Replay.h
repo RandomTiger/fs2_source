@@ -70,6 +70,11 @@ void replay_set_autorecord(char *dir);
 // plays at the speed it was recorded instead of as fast as the PC can draw.  Only real time is spent; nothing the
 // game reads changes, so the trace is the same as without it.
 void replay_set_pace(int on);
+// -shot_frames F1,F2,... [-shot_dir DIR]: during a replay, the picture of each listed mission frame (the trace's frame
+// number) is saved as DIR\frame_<F>.bmp, 24-bit, at the game's screen size.  DIR defaults to <recording>.shots.  The
+// picture is read back after the frame was drawn and shown, so nothing the game reads changes and the trace is the same
+// as without it (docs/VISUAL_COMPARE.md).
+void replay_set_shots(char *frames, char *dir);
 
 // -autorecord restart, called from WinMainSub
 void replay_wait_for_restart();		// first thing: wait for the instance that started this one to close
@@ -79,7 +84,6 @@ void replay_restart();					// after game_shutdown: start a new instance if one i
 void replay_startup();					// after parse_cmdline, before game_init
 void replay_game_init_done();			// end of game_init
 int  replay_language(int lang);			// lcl_init: the recording's language (D-056)
-int  replay_low_mem(int low_mem);		// game_init: the recording's low-memory mode (D-056)
 int  replay_level_seed(int seed);	// game_level_init: returns the seed to use
 void replay_load_begin();				// start of game_start_mission
 void replay_load_end();					// end of game_start_mission

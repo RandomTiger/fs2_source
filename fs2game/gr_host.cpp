@@ -313,6 +313,25 @@ void aa_to_a8(const uint8_t *src, int w, int h, int src_pitch, uint8_t *dst)
 	}
 }
 
+// LEGACY PIXEL COMPATIBILITY (#133): copies a bug in the original D3D texture upload so pictures match retail.
+// d3d_create_texture_sub (and GrD3DGlow) resample TCACHE_TYPE_NORMAL textures with a fixed-point step of (w-1)/w, so
+// at full size texel i holds source texel i-1: every normal texture moves one texel down-right and loses its last
+// column and row. It only shows where texels are big on screen (the nebula poofs, about 6 px).
+// GodotEnhanced removes this (issue #134): there the textures go up as they are.
+void legacy_d3d_texel_shift(std::vector<uint8_t> &px, int w, int h)
+{
+	if (w < 2 || h < 2) { return; }
+	std::vector<uint8_t> out(px.size());
+	const int du = ((w - 1) << 16) / w, dv = ((h - 1) << 16) / h;	// fix, as D3D: ((bmap_w-1)*F1_0) / tex_w
+	for (int y = 0; y < h; y++) {
+		const int sy = (y * dv) >> 16;
+		for (int x = 0; x < w; x++) {
+			memcpy(&out[((size_t)y * w + x) * 4], &px[((size_t)sy * w + ((x * du) >> 16)) * 4], 4);
+		}
+	}
+	px.swap(out);
+}
+
 // Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
 // type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
 int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
@@ -353,6 +372,7 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 		px.resize(fs2host::rgba8_bytes(w, h));
 		fs2host::to_rgba8(src, w, h, pitch, l, px.data());
 		format = FS2_SINK_TEX_RGBA8;
+		if (type == TCACHE_TYPE_NORMAL && !bitmap_2d) { legacy_d3d_texel_shift(px, w, h); }	// LEGACY PIXEL COMPATIBILITY (#133)
 	}
 	bm_unlock(bitmap_id);
 
@@ -460,6 +480,7 @@ int glow_tex_get(int bitmap_id)
 		o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
 		o[3] = glows[idx[i]] ? 255 : 0;
 	}
+	legacy_d3d_texel_shift(px, pw, ph);	// LEGACY PIXEL COMPATIBILITY (#133): keeps the glow on its shifted ship texture
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = TCACHE_TYPE_NORMAL; t.w = pw; t.h = ph;
@@ -942,6 +963,15 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		const float sy = (float)(int)(va->sy * 16.0f) / 16.0f + (float)gr_screen.offset_y;
 		float u = 0.0f, v = 0.0f;
 		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
+		// LEGACY PIXEL COMPATIBILITY (#133): D3D's rendition uvs clamp untiled, non-2D uvs to [2/w, 1-2/w]
+		// (gr_d3d_tmapper_internal, flCAP). GodotEnhanced removes this (issue #134).
+		if ((flags & TMAP_FLAG_TEXTURED) && !(flags & (TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D))) {
+			int bw, bh;
+			bm_get_info(gr_screen.current_bitmap, &bw, &bh);
+			const float mu = 2.0f / (float)bw, mv = 2.0f / (float)bh;
+			u = u < mu ? mu : (u > 1.0f - mu ? 1.0f - mu : u);
+			v = v < mv ? mv : (v > 1.0f - mv ? 1.0f - mv : v);
+		}
 		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
 		if (zbuffering || (flags & TMAP_FLAG_NEBULA) || H.fog_mode != GR_FOGMODE_NONE) {

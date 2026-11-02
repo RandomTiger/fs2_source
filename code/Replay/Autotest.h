@@ -66,5 +66,6 @@ void autotest_poll_done();				// end of os_poll, for the stuck dump
 int  autotest_mission_note(char *note);	// 1 under autotest rules, in gameplay, if the mission notes have note
 float autotest_mission_seconds();		// mission seconds since gameplay started, -1 before
 void autotest_check(int ok, char *what);	// logs a known answer; a wrong one fails the run
+int  autotest_save_screen(char *dir, char *name);	// the last frame drawn as <dir>\<name>.bmp (24-bit); 1 if written
 
 #endif

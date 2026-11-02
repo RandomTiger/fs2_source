@@ -205,7 +205,7 @@ extern void (*Bm_release_hook)(int handle);
 // It returns a negative number if it couldn't load
 // the bitmap.   On success, it returns the bitmap
 // number of the first frame and nframes is set.
-extern int bm_load_animation( char * filename, int * nframes, int *fps = NULL, int can_drop_frames = 0 );
+extern int bm_load_animation( char * filename, int * nframes, int *fps = NULL );	// Claude: no can_drop_frames (W13)
 
 // This locks down a bitmap and returns a pointer to a bitmap
 // that can be accessed until you call bm_unlock.   Only lock
@@ -336,10 +336,7 @@ int bm_get_level_bitmaps( bm_level_bitmap *list, int max );
 void bm_page_in_listed( char *filename );
 
 // 
-// Mode: 0 = High memory
-//       1 = Low memory ( every other frame of ani's)
-//       2 = Debug low memory ( only use first frame of each ani )
-void bm_set_low_mem( int mode );
+// Claude: low-memory mode removed (W13)
 
 char *bm_get_filename(int handle);
 
