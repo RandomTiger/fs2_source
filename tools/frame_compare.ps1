@@ -10,6 +10,7 @@ Capture: replays each case of tools\frame_cases.json with -shot_frames and saves
 Compare: grades every frame of A against the same frame of B and writes <Out>\report.md and diff PNGs.
   tools\frame_compare.ps1 -A <dir> -B <dir> -Out <dir> [-NameA native] [-NameB godot]
   identical: every pixel the same.  within: pixels over the threshold <= pct_over % and PSNR >= min_psnr.  changed: otherwise.
+  other recording: the two captures' replay.log headers name different recordings, so the case is not graded.
 
 Captures and diffs hold game pictures: keep them under replays\ (ignored) or the private reference repo, never commit them.
 One copy of the game at a time.
@@ -77,11 +78,23 @@ if ($Capture) {
 if (-not ($A -and $B -and $Out)) { throw 'Give -Capture <dir>, or -A <dir> -B <dir> -Out <dir>' }
 Add-Type -Path (Join-Path $PSScriptRoot 'frame_compare.cs') -ReferencedAssemblies System.Drawing
 New-Item -ItemType Directory -Force $Out | Out-Null
-$rows = @(); $counts = @{ identical = 0; within = 0; changed = 0; missing = 0 }
+$rows = @(); $counts = @{ identical = 0; within = 0; changed = 0; missing = 0; mismatch = 0 }
+# The recording a capture replayed, from the header of its replay.log: build that recorded it, mission and seed.
+function Get-RecordingId($dir) {
+	$log = Join-Path $dir 'replay.log'
+	if (-not (Test-Path $log)) { return $null }
+	$id = @(Get-Content $log -TotalCount 10 | Where-Object { $_ -match '^(Recorded by|Mission) ' }) -join ', '
+	if ($id) { $id } else { $null }
+}
 foreach ($c in $list) {
 	$th = [int](Get-Setting $c 'threshold'); $po = [double](Get-Setting $c 'pct_over'); $mp = [double](Get-Setting $c 'min_psnr')
 	$masks = $null
 	if ($c.masks) { $masks = [int[]]@($c.masks | ForEach-Object { $_.rect } | ForEach-Object { $_ }) }
+	# Both sides must have replayed the same recording, or the shots show different moments (#133).
+	$ra = Get-RecordingId (Join-Path $A $c.name); $rb = Get-RecordingId (Join-Path $B $c.name)
+	if ($ra -and $rb -and ($ra -ne $rb)) {
+		$counts.mismatch++; $rows += "| $($c.name) | other recording | | | | | | $NameA $ra; $NameB $rb |"; continue
+	}
 	foreach ($f in $c.frames) {
 		$file = 'frame_{0:D6}.bmp' -f $f
 		$fa = Join-Path (Join-Path $A $c.name) $file; $fb = Join-Path (Join-Path $B $c.name) $file
@@ -108,7 +121,7 @@ $report = @(
 	"$NameB = $B  ",
 	"Default threshold $($lib.threshold) (channel difference), within = over-threshold pixels <= $($lib.pct_over) % and PSNR >= $($lib.min_psnr) dB.",
 	'',
-	"**identical $($counts.identical), within $($counts.within), changed $($counts.changed), missing $($counts.missing)**",
+	"**identical $($counts.identical), within $($counts.within), changed $($counts.changed), missing $($counts.missing), other recording $($counts.mismatch) cases**",
 	'',
 	'| case frame | grade | max delta | % differing | % over threshold | PSNR dB | SSIM | diff (A, B, difference) |',
 	'|---|---|---|---|---|---|---|---|'

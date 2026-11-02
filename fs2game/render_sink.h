@@ -53,6 +53,11 @@ extern "C" {
 					   up from marked polys (fog_rgb[3] == 1) it must not make this draw the poly later unmarked draws take their colour from.
 					   New bit: no other bit moved. Only gr_host (Shivan ship glow) sets it; a sink, the dummy and the headless sink may ignore it */
 
+/* D3D7 puts pixel centres at integer coordinates, Godot at +0.5: the host moves every tmapper vertex by this (#133). A sink that
+   maps a vertex back to the game's pixel (the fog cell of a marked poly) takes it off first. Why and what it measured: gr_host.cpp
+   tmapper_internal */
+#define FS2_SINK_D3D_PIXEL_CENTRE	0.5f
+
 /* fog modes (R2) */
 #define FS2_SINK_FOG_NONE	0
 #define FS2_SINK_FOG_LINEAR	1
