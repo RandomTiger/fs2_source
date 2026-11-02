@@ -501,6 +501,8 @@ void depth_run_end()
 // v3: the 3D camera, read from the g3 globals (g3_set_view_matrix runs after g3_start_frame has opened the run), sent when it differs
 // from the one the sink has. Reads game state only.
 } // namespace
+extern void model_interp_mesh_preload(int modelnum);	// ModelInterp.cpp
+extern int model_interp_mesh_late();
 extern float View_zoom;
 extern vector Matrix_scale;
 extern matrix Eye_matrix;
@@ -1053,8 +1055,6 @@ bool mesh_switch()
 	return on == 1;
 }
 
-extern void model_interp_mesh_preload(int modelnum);	// ModelInterp.cpp
-extern int model_interp_mesh_late();
 
 int h_mesh_ready()
 {
@@ -1574,8 +1574,7 @@ void host_init()
 
 void host_cleanup()
 {
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d
-", model_interp_mesh_late()); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
