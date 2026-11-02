@@ -147,6 +147,9 @@ FS2_API void fs2_canvas_info(int *vw, int *vh, int *cx, int *cy);
 // The display mode from fs2.ini DisplayResolution: 0 classic (letterbox), 1 desktop (fill the window), 2 a window of
 // *w x *h (0, 0 for the other modes). Valid after fs2_init. Compared runs (-autotest, -record, -replay) report 0.
 FS2_API int fs2_display_request(int *w, int *h);
+// The GR art mode switch (0 GR_640, 1 GR_1024), outside a mission only, between frames; for test hooks. Returns 1 when
+// the game is now in that mode, 0 when refused (in a mission, or the backend cannot change mode live: headless).
+FS2_API int fs2_switch_gr_mode(int res);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

@@ -1266,6 +1266,7 @@ void host_init()
 	gr_virtual_set_clip_listener(on_virtual_clip);	// GodotResolution
 	// D7: a headless run counts as "no device" exactly as the null renderer does, so compared runs take the same branches
 	Backend.no_device = Cmdline_nographics ? 1 : 0;
+	Backend.live_mode_change = Cmdline_nographics ? 0 : 1;	// GodotResolution: the sink resizes per frame; headless has no device
 	gr_screen.bits_per_pixel = 32;
 	gr_screen.bytes_per_pixel = 4;
 	gr_screen.hardware = 1;
@@ -1380,6 +1381,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.bitmap = h_bitmap;
 	Backend.bitmap_ex = h_bitmap_ex;
 	Backend.no_device = 0;
+	Backend.live_mode_change = 0;	// GodotResolution: set in host_init
 	gr_host_backend_register(&Backend);
 	return 1;
 }

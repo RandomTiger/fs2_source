@@ -323,6 +323,13 @@ int fs2_display_request(int *w, int *h)
 	return gr_virtual_display_request(w, h);
 }
 
+extern "C++" int game_switch_gr_mode(int res);	// FreeSpace.cpp, GodotResolution
+
+int fs2_switch_gr_mode(int res)
+{
+	return game_switch_gr_mode(res);
+}
+
 void fs2_set_window_handle(unsigned long long handle)
 {
 	Api_sound_window = handle;

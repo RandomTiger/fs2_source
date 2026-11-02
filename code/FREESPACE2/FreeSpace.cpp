@@ -1962,6 +1962,35 @@ int	Framerate_delay = 0;
 
 float Freespace_gamma = 1.0f;
 
+// Claude: GodotResolution, switch the GR art mode (GR_640, GR_1024) while the game runs, outside a mission only: in a
+// mission it is an Assert in Debug and ignored in Release. Only when the backend says it can (gr_live_mode_change:
+// GR_HOST with a device; not native D3D, not headless). Re-runs gr_init on the same backend and the radar art; fonts
+// and colours live on. The screen being entered loads its own art for the new mode. Returns 1 when the mode is res.
+int game_switch_gr_mode(int res)
+{
+	if (Game_mode & GM_IN_MISSION) {
+		Assert(!(Game_mode & GM_IN_MISSION));
+		return 0;
+	}
+	if ((res != GR_640) && (res != GR_1024)) {
+		return 0;
+	}
+	if (res == gr_screen.res) {
+		return 1;
+	}
+	if (!gr_live_mode_change()) {
+		return 0;
+	}
+	gr_init(res, gr_screen.mode);
+	gr_set_gamma(Freespace_gamma);
+	radar_init();
+	mouse_set_pos(gr_screen.max_w / 2, gr_screen.max_h / 2);
+	mprintf(("GR mode switch: res %d, %d x %d, late loads %d %d %d %d %d\n", gr_screen.res, gr_screen.max_w, gr_screen.max_h,
+		Loadtime_late_count[LT_LATE_TEXTURE], Loadtime_late_count[LT_LATE_ANI], Loadtime_late_count[LT_LATE_NEBULA],
+		Loadtime_late_count[LT_LATE_HEAD], Loadtime_late_count[LT_LATE_UI]));
+	return 1;
+}
+
 DCF(gamma,"Sets Gamma factor")
 {
 	if ( Dc_command )	{
@@ -5669,6 +5698,15 @@ void game_enter_state( int old_state, int new_state )
 
 			Game_time_compression = F1_0;
 	
+			// Claude: GodotResolution, -gr_switch_test: the GR mode switch's test hook, 640 and back, once
+			if (Cmdline_gr_switch_test) {
+				Cmdline_gr_switch_test = 0;
+				int old_res = gr_screen.res;
+				int ok1 = game_switch_gr_mode((old_res == GR_1024) ? GR_640 : GR_1024);
+				int ok2 = game_switch_gr_mode(old_res);
+				mprintf(("GR mode switch test: %s (live %d)\n", (ok1 && ok2 && (gr_screen.res == old_res)) ? "OK" : "SKIPPED", gr_live_mode_change()));
+			}
+
 			// determine which ship this guy is currently based on
 #if defined(PRESS_TOUR_BUILD) || defined(PD_BUILD)
 			mht_init();
