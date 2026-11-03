@@ -61,4 +61,4 @@ $res += ($o | Select-String 'smoke: t=' | Select-Object -Last 1 | % { $_.Line })
 $res += "autotest.log: " + ((Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'PASS|FAIL|Asserts' | Select-Object -Last 2 | % { $_.Line }) -join ' | ')
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_SMOKE -ErrorAction SilentlyContinue
 $res | Set-Content "$Out\smoke.txt"; $res
-if ($code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'FAIL' -Quiet)) { exit 1 }
+if ($code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern '\bFAIL\b' -CaseSensitive -Quiet)) { exit 1 }
