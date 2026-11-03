@@ -42,8 +42,8 @@ and 204801..808. Goal: any window size, full screen on an ultrawide, 4:3 menus c
 | middle-left | directives |
 | middle-right | escort list |
 | centre | lead indicator, orientation tee, hostile/target triangles, reticle circle (unused), throttle, centre reticle, threat, afterburner/weapon energy, weapon linking, target mini icon, offscreen indicator/range, missile warning arrow, attacking count, lag |
-| bottom-left | target monitor, its extra data, target shield icon |
-| bottom-centre | radar, player shield icon |
+| bottom-left | target monitor, its extra data |
+| bottom-centre | radar, player shield icon, target shield icon (Tom, 2026-11-03) |
 | bottom-right | mission time, auto target/speed, ETS, weapons, countermeasures, kills |
 
 ## Untagged draws (default top-left)
@@ -84,8 +84,9 @@ each gauge takes its anchor; `hud_render_triangle` and the lock indicator add `g
 base coordinates; the two in-reticle tests take it off the projected point. Compared runs pin the base canvas
 (shift 0), so no trace change. Checked live at 2560x1080: FS2 sm1-04 (capital, escort list), SM1-05 (nebula), FS1
 SM1-01; FS1 main hall at GR_640 centred, nothing cut off.
-- Design question: the target shield icon is BOTTOM_LEFT, so it floats between the target monitor and the radar;
-  the player shield (its mirror) is by the radar.
+- Target shield icon (Tom, 2026-11-03): bottom-centre, so it sits by the radar mirroring the player shield icon.
+  Checked live in the Godot host, SM1-05 with a target: at 2560x1080 both icons sit either side of the radar; classic
+  4:3 unchanged.
 
 ## Open
 - The canvas renders at the virtual size (height 768 or 480) and Godot scales it to the window; drawing at the
