@@ -8,7 +8,7 @@ Decisions this works under:
 - **D-20261017-223742**: FS1 is a feature branch off RecordPlayback, merged into Enhanced when green.
 - **D-20261018-134401**: the 37 FS1 demo code blocks are held under D-064, not cut.
 
-Data surveyed: GOG *Conflict: FreeSpace - The Great War* 1.06, with Silent Threat, at `PATH_FS1` (`U:\GOG Games\Freespace`). Nothing was copied into the repo. The data was read with throwaway scripts in a scratch folder.
+Data surveyed: GOG *Conflict: FreeSpace - The Great War* 1.06, with Silent Threat, at `PATH_FS1` (a copy of the clean install `PATH_FS1GOG_CLEAN`). Nothing was copied into the repo. The data was read with throwaway scripts in a scratch folder.
 
 ---
 
@@ -373,7 +373,7 @@ Above `Enhanced`, `recordings/fs1` cannot replay (format 3), so FS1 there is pro
 
 Run it from PowerShell once the build is in `PATH_FS1`, with no game running (it refuses to start if one is):
 ```
-tools\fs1_visual_check.ps1 -Reference U:\Projects\GitHub\fs2_reference
+tools\fs1_visual_check.ps1 -Reference <fs2_reference checkout>
 ```
 - `-Reference` defaults to `$env:FS2_REFERENCE`. `-GameDir` defaults to `$env:PATH_FS1`, `-Config` to `r`.
 - It runs the menu tour with screenshots (`-window -autotest -at_menus -at_shots <dir>`, docs/AUTOTEST.md) with `-Mission` (default: the first campaign mission) and, with `-TrainingMission <file>`, again for `briefing_training`. Leave that off for now: the tour does not handle a training mission yet (it logs that briefing as `briefing/briefing`).
