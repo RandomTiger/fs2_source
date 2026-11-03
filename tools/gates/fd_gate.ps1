@@ -3,8 +3,8 @@
 # the FS1 demo set r/d (menu_tour_all.ps1 -Sets fs1demo -NoBuild). Last line PASS or FAIL.
 . "$PSScriptRoot\common.ps1"
 Require-Env PATH_FS2, PATH_FS1
-Initialize-Fs1DemoScratch	# FS1DEMO_PATH = the scratch copy of the FS1 demo, never the install
-$Repo = $RepoRoot; $dd = $env:FS1DEMO_PATH; $fs2 = $env:PATH_FS2
+Initialize-Fs1DemoScratch	# PATH_FS1DEMO = the FS1 demo dev copy, never the clean install
+$Repo = $RepoRoot; $dd = $env:PATH_FS1DEMO; $fs2 = $env:PATH_FS2
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $out = Join-Path $env:TEMP 'fd_gate'; New-Item -ItemType Directory -Force $out | Out-Null
 $bad = @()
