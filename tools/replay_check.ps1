@@ -8,7 +8,7 @@ Usage (PowerShell, from anywhere):
   tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>]
 
 -Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
-The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
+The game directory defaults to $env:PATH_FS2, where the build puts FS2_<Layer>_r.exe / _d.exe (tools\layer.ps1).
 Results go to <Out>\summary.txt, one line per recording; <Out> defaults to replays\check_<date-time>.
 Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
@@ -27,6 +27,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\check_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
@@ -48,7 +49,7 @@ if (-not $recs) { throw "No recordings match: $Missions" }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 }
 
 Set-Location $GameDir
@@ -69,7 +70,7 @@ foreach ($r in $recs) {
 		$flags = "-window -replay `"$rec`" -trace `"$trace`""
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
 		Wait-NoGame
-		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+		$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $flags -PassThru
 		# FS2_PROCDUMP (path to Sysinternals procdump.exe): a crash leaves a full dump in <Out> (#74). Dumps hold game
 		# data from memory, so they stay local: never commit or post one, only the stack read from it.
 		$pd = $null

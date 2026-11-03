@@ -9,7 +9,7 @@ The code is `code/Replay/Autotest.cpp`. With no `-autotest` flag, and no autotes
 ## Usage
 Run with the working directory set to the game directory.
 ```
-FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
+FS2_RecordPlayback_d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
 ```
 | Flag | Meaning | Default |
 |---|---|---|
@@ -36,7 +36,7 @@ The `-at_` flags do nothing without `-autotest`. An invalid value stops the run 
 
 ## Menu tour
 ```
-FS2vs2022d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
+FS2_RecordPlayback_d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
 tools\menu_check.ps1 [-Configs r,d] [-Shots FOLDER] [-Mission FILE]
 ```
 Visits every single-player screen and quits: the main hall, the Vasudan (Bastion) main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
@@ -97,8 +97,8 @@ While an autotest runs:
 
 ## Recordings
 ```
-FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_RecordPlayback_d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 ```
 - With `-record`, the game plays one mission and quits. Without `-at_mission`, that is the first campaign mission.
