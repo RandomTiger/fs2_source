@@ -2,21 +2,22 @@
 # and where each one runs. Folders and flags follow tools\replay_check.ps1 (retail, fs1, demo) and tools\fs1demo_run.ps1.
 #
 #   autotest  recordings\autotest, the FS2 retail install ($env:PATH_FS2)
-#   fs1       recordings\fs1, the FS1 retail install ($env:PATH_FS1, default C:\GOG Games\Freespace)
-#   demo      recordings\demo, the FS2 demo test folder ($env:FS2DEMO_TEST, default C:\Games\FS2D_scratch), whose x64 exes and
+#   fs1       recordings\fs1, the FS1 retail install ($env:PATH_FS1)
+#   demo      recordings\demo, the FS2 demo dev copy ($env:PATH_FS2DEMO), whose x64 exes and
 #             DLLs are the FS2_DEMO build (tools\build_demo64.ps1)
-#   fs1demo   no recordings: the four FS1 demo missions run under -autotest in the FS1 demo test folder ($env:FS1DEMO_PATH,
-#             default C:\Games\FS1D_scratch); the only baseline is the native x64 trace of the same run
+#   fs1demo   no recordings: the four FS1 demo missions run under -autotest in the FS1 demo dev copy ($env:PATH_FS1DEMO);
+#             the only baseline is the native x64 trace of the same run
 #
 # Get-GateSet returns Dir, RecDir (null for fs1demo), Missions, Autotest-copy flag and a Flags scriptblock.
 function Get-GateSet([string]$Set, [string]$Repo, [string]$Retail) {
 	switch ($Set) {
 		'autotest' { $dir = $Retail }
-		'fs1' { $dir = if ($env:PATH_FS1) { $env:PATH_FS1 } else { 'C:\GOG Games\Freespace' } }
-		'demo' { $dir = if ($env:FS2DEMO_TEST) { $env:FS2DEMO_TEST } else { 'C:\Games\FS2D_scratch' } }
-		'fs1demo' { $dir = if ($env:FS1DEMO_PATH) { $env:FS1DEMO_PATH } else { 'C:\Games\FS1D_scratch' } }
+		'fs1' { $v = 'PATH_FS1' }
+		'demo' { $v = 'PATH_FS2DEMO' }
+		'fs1demo' { $v = 'PATH_FS1DEMO' }
 		default { throw "Unknown -Set '$Set' (autotest, fs1, demo, fs1demo)" }
 	}
+	if ($Set -ne 'autotest') { $dir = [Environment]::GetEnvironmentVariable($v); if (-not $dir) { throw "$v is not set (the folder of set $Set, see the machine profile)" } }
 	$s = @{ Name = $Set; Dir = $dir; CopyMissions = ($Set -eq 'autotest'); RecDir = $null; Missions = @() }
 	# fs1demo is a recording set from the format-4 recordings (D-20261031-064721, restore point of D-20261026-223829); the
 	# live-run clean-run rule stays only for a checkout without recordings\fs1demo

@@ -5,8 +5,8 @@ FS2 retail, the FS2 demo, FS1 retail and the FS1 demo (docs/FS1_DEMO.md, "Menu t
   tools\menu_tour_all.ps1 [-Sets fs2,fs2demo,fs1,fs1demo] [-Configs r,d] [-Shots <dir>] [-Out <dir>]
                           [-Fs2Dir <dir>] [-Fs2DemoDir <dir>] [-Fs1Dir <dir>] [-Fs1DemoDir <dir>] [-NoBuild]
 
-The folders default to $env:PATH_FS2 (FS2 retail), $env:FS2DEMO_TEST (the FS2 demo test folder,
-tools\make_demo_test.ps1), $env:PATH_FS1 (FS1 retail) and $env:FS1DEMO_PATH (the FS1 demo folder, fsdemo10.exe
+The folders default to $env:PATH_FS2 (FS2 retail), $env:PATH_FS2DEMO (the FS2 demo dev copy,
+tools\make_demo_test.ps1), $env:PATH_FS1 (FS1 retail) and $env:PATH_FS1DEMO (the FS1 demo dev copy, fsdemo10.exe
 beside the exes). The FS2 demo gets an FS2_DEMO build (tools\build_demo.ps1); the other three get the same build,
 which picks its data set from the folder. The exes already in the folders are saved first and put back at the end
 (other branches build into them too). A set whose folder is missing is SKIP.
@@ -25,9 +25,9 @@ param(
 	[string]$Shots,
 	[string]$Out = (Join-Path $env:LOCALAPPDATA 'menu_tour_all'),
 	[string]$Fs2Dir = $env:PATH_FS2,
-	[string]$Fs2DemoDir = $env:FS2DEMO_TEST,
+	[string]$Fs2DemoDir = $env:PATH_FS2DEMO,
 	[string]$Fs1Dir = $env:PATH_FS1,
-	[string]$Fs1DemoDir = $env:FS1DEMO_PATH,
+	[string]$Fs1DemoDir = $env:PATH_FS1DEMO,
 	[switch]$NoBuild
 )
 
