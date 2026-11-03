@@ -1171,10 +1171,11 @@ inline uint32_t pack_gun(const color_gun &g, int v8)
 void h_get_region(int, int w, int h, ubyte *data)
 {
 	ensure_frame();
-	if (!drawing() || data == nullptr || w <= 0 || h <= 0) { return; }
+	// a skipped frame (several game frames per Godot frame, only the last drawn) still reads the frame on show: -at_shots was black
+	if (H.sink == nullptr || H.frame == FRAME_NONE || data == nullptr || w <= 0 || h <= 0) { return; }
 	const int bytes = gr_screen.bytes_per_pixel;
 	if (bytes != 2 && bytes != 4) { return; }
-	depth_run_end();	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
+	if (drawing()) { depth_run_end(); }	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
 	if (!H.sink->read_region(H.sink->user, gr_virtual_centre_x(), gr_virtual_centre_y(), w, h, px.data())) { return; }	// GodotResolution: the base screen in the canvas
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
