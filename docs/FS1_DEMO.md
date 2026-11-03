@@ -247,7 +247,7 @@ own data; the allowance for the demo's ships.tbl PARSELO Warnings is withdrawn, 
 minutes. FS2 retail and FS2 demo replays are not run here: FS1Compat gates this branch's merge-in on
 `recordings/fs1`, and Enhanced gates FS1Compat's batches on the FS2 suites. `tools\fs1demo_gate.ps1` runs the FS1
 demo missions, `recordings/fs1` and the FS2 suites together (about an hour) and is the merge-in tool, not the
-per-change gate. Both need the FS1 demo folder (`FS1DEMO_PATH`): `fsdemo10.exe` from the original
+per-change gate. Both need the FS1 demo dev copy (`PATH_FS1DEMO`): `fsdemo10.exe` from the original
 download, with a pilot made by starting the game once by hand.
 
 ## 6. Not done
