@@ -1166,16 +1166,6 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
 	if (m.cpu_only || H.zmode == GR_ZBUFF_NONE || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
-	{
-		// the nearest the box gets to the eye plane: the mesh path does not clip at the near plane
-		float nearest = 1e30f;
-		for (int c = 0; c < 8; c++) {
-			const float px = (c & 1) ? m.bmax[0] : m.bmin[0], py = (c & 2) ? m.bmax[1] : m.bmin[1], pz = (c & 4) ? m.bmax[2] : m.bmin[2];
-			const float ez = xform[8] * px + xform[9] * py + xform[10] * pz + xform[11];
-			if (ez < nearest) { nearest = ez; }
-		}
-		if (nearest < 4.0f) { return 0; }
-	}
 	ensure_frame();
 	if (!drawing()) { return 0; }
 

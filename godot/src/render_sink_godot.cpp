@@ -1609,8 +1609,8 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // ---- v4 meshes (P3b) ----------------------------------------------------------------------------------------------------------------
 // The mesh shader reproduces the sink's depth contract (depth_contract.h) per vertex: eye = xform * model position; the screen
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
-// UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
-// interpolates in screen space.
+// position is output homogeneous (w = eye z), so the GPU clips at the near plane (z = 0, the game's MIN_Z) and interpolates the UVs
+// perspective-correct; colour and fog stay linear in screen space (the game's Gouraud), carried as value * z and divided by the interpolated z.
 RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
@@ -1626,7 +1626,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += ";\nuniform sampler2D tex : ";
 	code += lin ? "filter_linear, " : "filter_nearest, ";
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
-	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\n";
+	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\nvarying float wv;\n";
 	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
 	if (thr) { code += "uniform vec2 thr;\n"; }	// an engine thruster: z below thr.y is scaled by thr.x (model_interp_defpoints)
 	const bool fgpu = fog && g_nebfog == kNebFogGpu;
@@ -1670,27 +1670,31 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	if (thr) { code += "\tif (p.z < thr.y) { p.z *= thr.x; }\n"; }
 	code += "\tvec3 e =vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
-	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x + cfg.x * e.x / z, org.y + cfg.y * e.y / z, -d, 1.0);\n\tpc = vec3(UV / z, 1.0 / z);\n";
-	if (uclip) { code += "\tcz = (dot(clipp.xyz, e) + clipp.w) / z;\n"; }	// over z, so it interpolates linearly in screen space
+	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x * e.z + cfg.x * e.x, org.y * e.z + cfg.y * e.y, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
+	if (!rpt) {	// LEGACY PIXEL COMPATIBILITY (#133): D3D clamps untiled uvs per vertex to [2/w, 1-2/w] (gr_host.cpp tmapper_internal, flCAP)
+		code += "\tvec2 ts = vec2(textureSize(tex, 0));\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { pc.xy = clamp(UV, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	}
+	if (uclip) { code += "\tcz = dot(clipp.xyz, e) + clipp.w;\n"; }
 	if (fog) {
 		// linear in the eye depth, as the poly path (gr_d3d_stuff_fog_value): depth = the capped vertex z * 30000
-		code += "\tfgf = clamp((fogp.y - min(z / 30000.0, 0.98) * 30000.0) / (fogp.y - fogp.x), 0.0, 1.0);\n";
+		code += "\tfgf = clamp((fogp.y - min(z / 30000.0, 0.98) * 30000.0) / (fogp.y - fogp.x), 0.0, 1.0) * e.z;\n";
 		if (fgpu) {
 			// the game-screen pixel of the vertex, truncated as the host passes (int)x, (int)y, then the start cell as Neb.cpp 1252-1273
 			code += "\tint xs = int(fogp.z * float(int(cfg.x * (1.0 + e.x / z))));\n\tint ys = int(fogp.w * float(int(cfg.y * (1.0 - e.y / z))));\n";
-			code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0;\n";
+			code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0 * e.z;\n";
 		} else {
-			code += "\tfgc = fogc.rgb;\n";
+			code += "\tfgc = fogc.rgb * e.z;\n";
 		}
 	}
-	code += ovl ? "\tvcol = vec3(1.0);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz);\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
+	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb * e.z;\n}\n";
 	code += "void fragment() {\n";
+	code += "\tif (wv <= 0.0) { discard; }\n";	// behind the eye plane (the GPU keeps these when it does not clip them)
 	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
 	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
-	code += "\tvec4 c = t;\n\tc.rgb *= vcol;\n";
+	code += "\tvec4 c = t;\n\tc.rgb *= vcol / wv;\n";
 	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
-	if (fog) { code += "\tc.rgb = mix(fgc, c.rgb, fgf);\n"; }	// D3D: f * colour + (1 - f) * fog colour, rgb only
+	if (fog) { code += "\tc.rgb = mix(fgc / wv, c.rgb, fgf / wv);\n"; }	// D3D: f * colour + (1 - f) * fog colour, rgb only
 	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 	RID sh = rs->shader_create();
 	rs->shader_set_code(sh, code);
