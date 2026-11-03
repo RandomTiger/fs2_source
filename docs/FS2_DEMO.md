@@ -6,12 +6,12 @@ one source change so far is the compile fix in section 2.
 
 ## 1. Installing the demo without its installer
 
-The demo arrives as a 1999 InstallShield 5 setup image (Tom's copy: `C:\Games\Freespace 2 Demo setup`).
+The demo arrives as a 1999 InstallShield 5 setup image (each PC's copy is named in its machine profile).
 Its installer is not needed and must not be run. Everything it installs is a loose file on the image, and
 `data1.cab` is only the file table (4.7 KB, no file data).
 
 ```
-python -I tools\demo_install.py "<setup image>" "%FS2DEMO_PATH%"
+python -I tools\demo_install.py "<setup image>" "%PATH_FS2DEMO_CLEAN%"
 ```
 
 The script only reads the image. It parses the file table in `data1.cab`, copies each file to the same
@@ -413,9 +413,9 @@ The open questions from the first version of this brief, as Tom answered them.
    demo's `readme.txt` licence (lines 886-901) forbids copying or distributing it, so the VPs never go in
    the repo. Nothing downloads it either (Tom, 2026-10-19, D-20261019-204553, replacing the CI download of
    the first answer): each PC keeps a known local copy, named in its machine profile.
-   - `FS2DEMO_PATH`: the demo install, or the folder `tools/demo_install.py` made from the local
+   - `PATH_FS2DEMO_CLEAN`: the clean demo install, or the folder `tools/demo_install.py` made from the local
      installer. Only ever read.
-   - `FS2DEMO_TEST`: the test folder, a copy of its VPs made by `tools/make_demo_test.ps1`.
+   - `PATH_FS2DEMO`: the dev copy (its `fs2demo` folder), whose VPs `tools/make_demo_test.ps1` refreshes from the clean install.
      `tools/build_demo.ps1` builds the `FS2_DEMO` exe into it and `tools/replay_check.ps1` replays
      `recordings/demo` there (D-20261019-213450). Unset, the demo lines are SKIP, which no merge-up or
      branch-done claim may rest on.

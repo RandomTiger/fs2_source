@@ -4,7 +4,7 @@ Replays the checked-in recordings and compares each replay's trace with the reco
   recordings\autotest\*.fs2rec   replayed with -autotest
   recordings\played\*.fs2rec     hand-played recordings, replayed without it
   recordings\demo\*.fs2rec       the FreeSpace 2 demo set, replayed with -autotest in the demo folder (-DemoDir,
-                                 default $env:FS2DEMO_TEST) in Release and Debug, whose traces must be identical; with no
+                                 default $env:PATH_FS2DEMO) in Release and Debug, whose traces must be identical; with no
                                  demo folder they are skipped (SKIP), never failed (D-20261018-221705)
   recordings\fs1\*.fs2rec        FreeSpace 1 missions, replayed with -autotest in -Fs1Dir ($env:PATH_FS1; skipped when unset)
 
@@ -28,7 +28,7 @@ param(
 	[string[]]$Configs = @('r'),
 	[string[]]$CrossCheck = @('sm1-01'),
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$DemoDir = $env:FS2DEMO_TEST,
+	[string]$DemoDir = $env:PATH_FS2DEMO,
 	[string]$Fs1Dir = $env:PATH_FS1
 )
 
@@ -58,7 +58,7 @@ $Configs = $Configs | ForEach-Object { $_ -split ',' }
 $CrossCheck = $CrossCheck | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 if ($Missions) { $recs = $recs | Where-Object { $Missions -contains $_.File.BaseName }; $demoRecs = @($demoRecs | Where-Object { $Missions -contains $_.File.BaseName }) }
 if ($demoRecs -and -not $demoOk) {
-	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with $(Get-FS2Exe r) (-DemoDir or FS2DEMO_TEST)" | Tee-Object -FilePath $summary -Append }
+	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with $(Get-FS2Exe r) (-DemoDir or PATH_FS2DEMO)" | Tee-Object -FilePath $summary -Append }
 	$demoRecs = @()
 }
 $recs = @($recs) + $demoRecs
