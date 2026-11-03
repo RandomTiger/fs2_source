@@ -283,6 +283,7 @@
 #include "LinkList.h"
 #include "multi.h"
 #include "Emp.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 #include "GameView.h"	// Claude: the lock point is projected in the game view
 
 
@@ -433,13 +434,13 @@ void hud_show_lock_indicator(float frametime)
 //	nprintf(("Alan","lockx: %d, locky: %d TargetX: %d, TargetY: %d\n", Players[Player_num].lock_indicator_x, Players[Player_num].lock_indicator_y, Player->current_target_sx, Player->current_target_sy));
 
 	if (Player_ai->current_target_is_locked) {
-		sx = Player->current_target_sx;
-		sy = Player->current_target_sy;
+		sx = Player->current_target_sx + gr_virtual_wide_shift_x();	// Claude: GodotResolution, base to wide-clip coordinates
+		sy = Player->current_target_sy + gr_virtual_wide_shift_y();	// Claude: GodotResolution
 		// show the rotating triangles if target is locked
 		hud_draw_lock_triangles(sx, sy, frametime);
 	} else {
-		sx = Players[Player_num].lock_indicator_x;
-		sy = Players[Player_num].lock_indicator_y;
+		sx = Players[Player_num].lock_indicator_x + gr_virtual_wide_shift_x();	// Claude: GodotResolution
+		sy = Players[Player_num].lock_indicator_y + gr_virtual_wide_shift_y();	// Claude: GodotResolution
 	}
 
 	// show locked indicator

@@ -75,6 +75,18 @@ brackets its draws and read with `gr_virtual_fog_read_begin/end`; in between the
 reads at (0,0). Screenshots still read the base screen where it is shown. Checked 2026-11-03: sm1-05 live in the Godot
 host at 2560x1080, every read on the fog path (GPU), fog as in classic; menu tour fs2 r 62/62, 0 black.
 
+## 3D-phase HUD gauges (2026-11-03)
+`HUD_render_3d` draws inside the wide clip, where the anchor is ignored, so its base-coordinate draws landed left by
+the centring (398 px at 2560x1080): the target mini-icon hull number, the target triangle, the hostile and missile
+triangles, the orientation tee and the lock indicator. Fix: the in-cockpit block of `hud_show_targeting_gauges`
+(triangle, tee, target monitor, target shield icon, mini icon) runs between `gr_virtual_base_clip_begin/end`, so
+each gauge takes its anchor; `hud_render_triangle` and the lock indicator add `gr_virtual_wide_shift_x/y` to their
+base coordinates; the two in-reticle tests take it off the projected point. Compared runs pin the base canvas
+(shift 0), so no trace change. Checked live at 2560x1080: FS2 sm1-04 (capital, escort list), SM1-05 (nebula), FS1
+SM1-01; FS1 main hall at GR_640 centred, nothing cut off.
+- Design question: the target shield icon is BOTTOM_LEFT, so it floats between the target monitor and the radar;
+  the player shield (its mirror) is by the radar.
+
 ## Open
 - The canvas renders at the virtual size (height 768 or 480) and Godot scales it to the window; drawing at the
   window's native pixels is not done.
