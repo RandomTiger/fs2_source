@@ -269,7 +269,7 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl);
 	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
 	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);

@@ -1610,10 +1610,10 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // UVs are divided per pixel by the interpolated 1/z (the game's perspective-correct texturing), because the orthographic layer camera
 // interpolates in screen space.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1679,7 +1679,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 			code += "\tfgc = fogc.rgb;\n";
 		}
 	}
-	code += lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz);\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
+	code += ovl ? "\tvcol = vec3(1.0);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz);\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb;\n}\n";
 	code += "void fragment() {\n";
 	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
 	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
@@ -1752,10 +1752,12 @@ RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bo
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
-	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit, uclip, fog));
+	// a glow overlay (FS2_SINK_DRAWF_OVERLAY, the ship glow pass) is unlit and a hair nearer than the lit group it covers, as the poly path's overlay draws
+	const bool ovl = (mg.g.flags & FS2_SINK_DRAWF_OVERLAY) != 0;
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl));
 	rs->material_set_param(mat, "tex", tex);
 	rs->material_set_param(mat, "cols", cols);
-	rs->material_set_param(mat, "zbias", (float)mg.g.zbias);
+	rs->material_set_param(mat, "zbias", (float)mg.g.zbias + (ovl ? 1.0f : 0.0f));	// 0.05 depth units a step: the poly path's overlay shift
 	return mat;
 }
 
@@ -1943,16 +1945,17 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		MeshGroup &mg = it->second.groups[gi];
 		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog);
 		l.mesh_materials.push_back(mat);
+		const float gorigin = (states[gi].g.flags & FS2_SINK_DRAWF_OVERLAY) ? origin - 0.1f : origin;	// the overlay sorts after the lit group (back to front by origin)
 		RID inst;
 		if (kInstancePool && !spare_instances.empty()) {
 			inst = spare_instances.back();
 			spare_instances.pop_back();
 			rs->instance_set_base(inst, mg.mesh_rid);
 			rs->instance_set_scenario(inst, l.scenario);
-			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -gorigin)));
 		} else {
 			inst = rs->instance_create2(mg.mesh_rid, l.scenario);
-			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -gorigin)));
 			rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
 			rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
 		}
@@ -1965,7 +1968,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
 		rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
 		// canvas centre relative to the screen centre, y up
-		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width, -((float)d.oy + 0.5f * ch - 0.5f * (float)height), 0.0f, 0.0f));
+		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
 		if (d.clip) { rs->material_set_param(mat, "clipp", Vector4(d.plane[0], d.plane[1], d.plane[2], d.plane[3])); }
 		if (d.fog) {
 			rs->material_set_param(mat, "fogp", Vector4(d.fogv.fog_near, d.fogv.fog_far, batcher.fog_cell_x(), batcher.fog_cell_y()));

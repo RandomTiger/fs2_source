@@ -141,7 +141,7 @@ struct Host {
 		std::vector<uint32_t> idx;
 		bool sink_made = false;
 		float bmin[3] = {}, bmax[3] = {};	// model space bounds: a draw that reaches the near plane stays on the polygon path (it clips there)
-		bool cpu_only = false;				// a group has a glow texture: stays on the polygon path
+		bool cpu_only = false;				// the mesh cannot be drawn by the sink (a texture failed to upload): stays on the polygon path
 		int zmode = -1, zbias = 0, cull = 0, tiled = 0;	// the state the sink copy was made for
 		std::vector<int> tex;				// sink texture per group at creation
 		std::vector<int> blend;
@@ -1096,6 +1096,27 @@ void h_mesh_free(int key)
 	H.meshes.erase(it);
 }
 
+// The sink groups of a mesh: one per host group, then one glow overlay per group whose texture glows (the ship glow pass, "ship glow":
+// the same triangles unlit with the glow texture, alpha blended, z read only, FS2_SINK_DRAWF_OVERLAY). The set of glowing groups never
+// changes for a mesh (glow_tex_get answers once per bitmap), so the group count is fixed and mesh_state can follow.
+static void mesh_sink_groups(const Host::HostMesh &m, const std::vector<int> &tex, const std::vector<int> &blend, unsigned fl, int zbias,
+	std::vector<fs2_sink_mesh_group> &sg)
+{
+	sg.assign(m.g.size(), fs2_sink_mesh_group());
+	for (size_t i = 0; i < m.g.size(); i++) {
+		sg[i].texture = tex[i]; sg[i].blend = blend[i]; sg[i].flags = fl; sg[i].zbias = zbias;
+		sg[i].first_index = m.g[i].first_index; sg[i].index_count = m.g[i].index_count;
+	}
+	for (size_t i = 0; i < m.g.size(); i++) {
+		const int gtex = m.g[i].bitmap < 0 ? 0 : glow_tex_get(m.g[i].bitmap);
+		if (gtex == 0) { continue; }
+		fs2_sink_mesh_group og = sg[i];
+		og.texture = gtex; og.blend = FS2_SINK_BLEND_ALPHA;
+		og.flags = (fl & ~(unsigned)FS2_SINK_DRAWF_ZWRITE) | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_OVERLAY;
+		sg.push_back(og);
+	}
+}
+
 // load hooks: a model was paged in (its meshes are built on the host now), and level paging is done (the sink copies are made now,
 // in a frame, so the first draw of a ship does not stall on texture uploads). The copies are made for the usual state; a draw in
 // another z mode, zbias or cull remakes only the group state (mesh_state), never the geometry.
@@ -1118,7 +1139,6 @@ void h_level_loaded()
 		for (size_t i = 0; i < m.g.size() && ok; i++) {
 			const int bmp = m.g[i].bitmap;
 			if (bmp < 0) { tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE; continue; }		// flat polys: the sink's white texture
-			if (glow_tex_get(bmp) != 0) { m.cpu_only = true; ok = false; break; }
 			tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, false);
 			if (tex[i] == 0) { ok = false; break; }
 			bool opaque = false;
@@ -1128,12 +1148,8 @@ void h_level_loaded()
 			blend[i] = opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA;
 		}
 		if (!ok) { continue; }
-		std::vector<fs2_sink_mesh_group> sg(m.g.size());
-		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE | FS2_SINK_DRAWF_CULL;
-		for (size_t i = 0; i < m.g.size(); i++) {
-			sg[i].texture = tex[i]; sg[i].blend = blend[i]; sg[i].flags = fl; sg[i].zbias = 0;
-			sg[i].first_index = m.g[i].first_index; sg[i].index_count = m.g[i].index_count;
-		}
+		std::vector<fs2_sink_mesh_group> sg;
+		mesh_sink_groups(m, tex, blend, FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE | FS2_SINK_DRAWF_CULL, 0, sg);
 		H.sink->mesh_create(H.sink->user, e.first, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
 		m.sink_made = true;
 		m.zmode = GR_ZBUFF_FULL; m.zbias = 0; m.cull = 1; m.tiled = 0;
@@ -1176,7 +1192,6 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 		}
 		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
 		if (tex[i] == 0) { return 0; }
-		if (glow_tex_get(bmp) != 0) { m.cpu_only = true; return 0; }
 		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
 		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
 		auto f = H.tex.find(k);
@@ -1190,17 +1205,10 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 		if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
 	}
 	if (remake) {
-		std::vector<fs2_sink_mesh_group> sg(m.g.size());
+		std::vector<fs2_sink_mesh_group> sg;
 		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD
 			| ((zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE) ? FS2_SINK_DRAWF_ZWRITE : 0) | FS2_SINK_DRAWF_CULL;	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
-		for (size_t i = 0; i < m.g.size(); i++) {
-			sg[i].texture = tex[i];
-			sg[i].blend = blend[i];
-			sg[i].flags = fl;
-			sg[i].zbias = H.zbias;
-			sg[i].first_index = m.g[i].first_index;
-			sg[i].index_count = m.g[i].index_count;
-		}
+		mesh_sink_groups(m, tex, blend, fl, H.zbias, sg);
 		if (m.sink_made && H.sink->mesh_state) {
 			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
 		} else {
