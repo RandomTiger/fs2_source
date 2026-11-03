@@ -42,6 +42,10 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
 - `godot/src/fs2_node.cpp` (d773c72): the host now acts on `fs2_display_request` at start and on each step (a size
   request resizes the window). That is Resolution-side behaviour; GodotResolution should take it or say no.
 
+## Merge of GodotResolution 6369a61 (2026-11-03)
+- Target shield icon by the radar. Built x64 r/d + fs2game r/d, 0 warnings; Godot host r menu tour, FS2: 70/70 PASS,
+  0 black. Package re-exported into the FS2 install.
+
 ## Open
 - InputTest's six device transitions (204804) need a device switch between injected inputs inside one run; not small,
   not done.
