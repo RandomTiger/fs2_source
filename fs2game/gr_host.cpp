@@ -1157,8 +1157,9 @@ void h_level_loaded()
 	}
 }
 
-// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid
-static int mesh_prepare(int key, const float *xform, int nv, int tiled)
+// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid.
+// thr_bitmap >= 0: an engine thruster, every group drawn with that bitmap, additive, depth read only (the poly path's filter blend).
+static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_bitmap = -1)
 {
 	auto it = H.meshes.find(key);
 	if (it == H.meshes.end()) { return -1; }
@@ -1184,7 +1185,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 	std::vector<int> tex(m.g.size());
 	std::vector<int> blend(m.g.size());
 	for (size_t i = 0; i < m.g.size(); i++) {
-		const int bmp = m.g[i].bitmap;
+		const int bmp = thr_bitmap >= 0 ? thr_bitmap : m.g[i].bitmap;
 		if (bmp < 0) {
 			tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE;
 			if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
@@ -1201,13 +1202,13 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled)
 		} else {
 			opaque = f->second.opaque;
 		}
-		blend[i] = opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA;
+		blend[i] = thr_bitmap >= 0 ? FS2_SINK_BLEND_ADD : (opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA);
 		if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
 	}
 	if (remake) {
 		std::vector<fs2_sink_mesh_group> sg;
 		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD
-			| ((zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE) ? FS2_SINK_DRAWF_ZWRITE : 0) | FS2_SINK_DRAWF_CULL;	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
+			| ((thr_bitmap < 0 && (zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE)) ? FS2_SINK_DRAWF_ZWRITE : 0) | FS2_SINK_DRAWF_CULL;	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
 		mesh_sink_groups(m, tex, blend, fl, H.zbias, sg);
 		if (m.sink_made && H.sink->mesh_state) {
 			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
@@ -1268,6 +1269,21 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 	H.sink->mesh_draw_lit(H.sink->user, key, xform, &sl);
 	return 1;
 }
+// an engine thruster (model_interp_sub's thruster branch): unlit white, the thruster bitmap, additive, depth read only; the flame's length
+// is a z scale in the sink for the vertices in front of min_dist
+int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist)
+{
+	// fogged (nebula): a thruster poly has no PIXEL_FOG mark, so it takes the fog colour the last marked poly left (see fog_rgb[3]); not the mesh fog's
+	if (H.sink->mesh_thrust == nullptr || bitmap < 0 || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
+	const int p = mesh_prepare(key, xform, nv, 0, bitmap);
+	if (p != 1) { return p; }
+	const float t[2] = { scale, min_dist };
+	H.sink->mesh_thrust(H.sink->user, t);
+	H.sink->mesh_draw(H.sink->user, key, xform, nullptr, 0);
+	H.sink->mesh_thrust(H.sink->user, nullptr);
+	return 1;
+}
+
 // the user clip plane of the draws that follow (a sink without the entry cannot clip: only "no clip" is accepted)
 int h_mesh_clip(const float *plane)
 {
@@ -1641,6 +1657,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_draw = h_mesh_draw;
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_clip = h_mesh_clip;
+	Backend.mesh_thrust = h_mesh_thrust;
 	Backend.mesh_free = h_mesh_free;
 	Backend.model_page_in = h_model_page_in;
 	Backend.level_loaded = h_level_loaded;

@@ -634,6 +634,7 @@ typedef struct gr_host_backend {
 	void (*mesh_free)(int key);
 	int (*mesh_draw_lit)(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);	// as mesh_draw, the host lights per vertex; 0 = use mesh_draw
 	int (*mesh_clip)(const float *plane);	// the user clip plane (eye space, nx ny nz w; kept where dot + w > 0) for the draws that follow, NULL = none; 0 = not supported
+	int (*mesh_thrust)(int key, const float *xform, int nv, int bitmap, float scale, float min_dist);	// an engine thruster submodel (unlit, additive, bitmap as its texture, z < min_dist scaled by scale); same returns as mesh_draw
 	void (*model_page_in)(int modelnum);							// Claude: load hook, a ship model's textures were just paged in (model_page_in_textures); the host may build its fixed data for it now
 	void (*level_loaded)();											// Claude: load hook, level paging is done (level_page_in); the host may finish what needs its device
 } gr_host_backend;
@@ -642,6 +643,7 @@ extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_
 extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
 extern int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);
 extern int gr_host_mesh_clip(const float *plane);
+extern int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist);
 extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST

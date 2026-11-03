@@ -213,6 +213,11 @@ typedef struct fs2_render_sink {
 	 * vertex at its projected screen position and ignores rgb. NULL or mode NONE = no fog. A sink without it makes the host draw a fogged model on
 	 * the CPU path; so does a sink that returns 0 here (it cannot take this fog), until the next call. Returns 1 when it takes it. */
 	int (*mesh_fog)(void *user, const fs2_sink_mesh_fog *fog);
+
+	/* v4, optional: an engine thruster flame (the game's thruster submodel): for the mesh draws that follow, every vertex with z < t[1] (model space)
+	 * has its z multiplied by t[0] before the transform (the flame's length). NULL = no scaling. A sink without it makes the host draw thrusters on
+	 * the CPU path. */
+	void (*mesh_thrust)(void *user, const float t[2]);
 } fs2_render_sink;
 
 #ifdef __cplusplus

@@ -17,7 +17,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip, MeshFog, ArrayCreate, ArrayLayer, ArrayFree };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip, MeshFog, MeshThrust, ArrayCreate, ArrayLayer, ArrayFree };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -63,6 +63,7 @@ public:
 		table.mesh_draw_lit = &FakeSink::s_mesh_draw_lit;
 		table.mesh_clip = &FakeSink::s_mesh_clip;
 		table.mesh_fog = &FakeSink::s_mesh_fog;
+		table.mesh_thrust = &FakeSink::s_mesh_thrust;
 		table.texture_array_create = &FakeSink::s_texture_array_create;
 		table.texture_layer = &FakeSink::s_texture_layer;
 		table.texture_array_free = &FakeSink::s_texture_array_free;
@@ -297,6 +298,12 @@ private:
 		FakeSink *s = static_cast<FakeSink *>(u);
 		s->need_frame("mesh_clip outside a frame");
 		s->add(Cmd::MeshClip).a = plane != nullptr ? 1 : 0;
+	}
+	static void s_mesh_thrust(void *u, const float t[2])
+	{
+		FakeSink *s = static_cast<FakeSink *>(u);
+		s->need_frame("mesh_thrust outside a frame");
+		s->add(Cmd::MeshThrust).a = t != nullptr ? 1 : 0;
 	}
 	static int s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog)
 	{

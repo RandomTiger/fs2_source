@@ -521,6 +521,12 @@ int gr_host_mesh_clip(const float *plane)
 	return Gr_host_backend->mesh_clip(plane);
 }
 
+int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_thrust) { return 0; }
+	return Gr_host_backend->mesh_thrust(key, xform, nv, bitmap, scale, min_dist);
+}
+
 void gr_host_mesh_free(int key)
 {
 	if (Gr_host_backend && Gr_host_backend->mesh_free) { Gr_host_backend->mesh_free(key); }

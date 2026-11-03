@@ -257,7 +257,12 @@ private:
 		float plane[4] = {};
 		bool fog = false;			// the fog (mesh_fog) in force when drawn
 		fs2_sink_mesh_fog fogv = {};
+		bool thr = false;			// a thruster flame (mesh_thrust) in force when drawn: z scaled by thrv[0] below thrv[1]
+		float thrv[2] = {};
 	};
+	bool mesh_thr_on = false;
+	float mesh_thr[2] = {};
+	static void s_mesh_thrust(void *u, const float t[2]);
 	bool mesh_clip_on = false;
 	float mesh_clip_plane[4] = {};
 	static void s_mesh_clip(void *u, const float plane[4]);
@@ -269,8 +274,8 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
-	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl);
-	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog);
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog, bool thr);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
 	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
 	void free_mesh_data(MeshData &md);

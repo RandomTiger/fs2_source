@@ -1378,8 +1378,8 @@ void interp_render_lightning( polymodel *pm, bsp_info * sm )
 // ---- render 3D: static submodel meshes (P3b, GodotRender3D) -------------------------------------------------------------
 // With a host that draws meshes (gr_host_mesh_ready, FS2_RENDER3D=1) a submodel's plain textured polygons are handed to it once
 // as triangles in model space, and each frame only the model-to-eye matrix and the per-vertex lighting go over; the CPU does no
-// transform, back-face test or clip for it. Anything else (flat polys, thrusters, forced or tiled textures, subspace, nebula fog,
-// a user clip plane, saved lighting) leaves the submodel on the polygon path, unchanged. Lighting is the CPU's, per normal.
+// transform, back-face test or clip for it. Anything else (forced or tiled textures, subspace, fogged thrusters, other nebula fog,
+// saved lighting) leaves the submodel on the polygon path, unchanged. Lighting is the CPU's, per normal.
 struct InterpMesh {
 	int state;						// 0 = not built, 1 = built, 2 = stays on the polygon path
 	int key;
@@ -1398,6 +1398,7 @@ static int Interp_mesh_next_key = 1;
 
 struct InterpMeshBuild {
 	bool ok;
+	bool thruster;					// an engine thruster submodel: every textured poly is drawn with the thruster bitmap, whatever its own texture
 	std::vector<vector *> verts, norms;
 	std::vector<float> vtx;
 	std::map<std::pair<int, int>, int> vmap;		// (vertnum<<16|normnum, u bits) -> mesh vertex; v folded below
@@ -1406,7 +1407,7 @@ struct InterpMeshBuild {
 	std::vector<int> gtex;
 	std::vector< std::vector<unsigned> > gidx;
 	int tris, tris_agree;
-	InterpMeshBuild() : ok(true), tris(0), tris_agree(0) {}
+	InterpMeshBuild() : ok(true), thruster(false), tris(0), tris_agree(0) {}
 };
 
 static int Interp_mesh_unmeshed_flat = 0, Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
@@ -1440,10 +1441,11 @@ static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int de
 		case OP_FLATPOLY:
 		case OP_TMAPPOLY: {
 			const bool flat = (chunk_type == OP_FLATPOLY);		// flat: group -1, white, lit per vertex, no uv
-			const int tex = flat ? -1 : w(p+40);
+			if (flat && b.thruster) { b.ok = false; return; }
+			const int tex = (flat || b.thruster) ? -1 : w(p+40);		// a thruster's polys are one group (the host gives it the thruster bitmap)
 			const int nv = w(p+36);
-			if (!flat && (tex < 0 || tex >= pm->n_textures)) { b.ok = false; return; }
-			if (nv < 3 || (!flat && pm->textures[tex] < 0)) { break; }		// invisible (or degenerate) polys are never drawn
+			if (!flat && !b.thruster && (tex < 0 || tex >= pm->n_textures)) { b.ok = false; return; }
+			if (nv < 3 || (!flat && !b.thruster && pm->textures[tex] < 0)) { break; }		// invisible (or degenerate) polys are never drawn
 			model_tmap_vert tvflat[TMAP_MAX_VERTS];
 			model_tmap_vert *tv = (model_tmap_vert *)(p+44);
 			if (flat) {
@@ -1508,6 +1510,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 {
 	m.state = 2;
 	InterpMeshBuild b;
+	b.thruster = sm->is_thruster != 0;
 	interp_mesh_walk(b, pm, sm->bsp_data, 0);
 	if (!b.ok || b.v_vertnum.empty() || b.gtex.empty()) { return; }
 
@@ -1584,10 +1587,13 @@ int model_interp_mesh_late() { fprintf(stderr, "render3d: submodels meshed %d, n
 static int model_interp_mesh_try(polymodel *pm, int mn)
 {
 	if (!gr_host_mesh_ready()) { return 0; }
-	if (Interp_thrust_scale_subobj || Interp_subspace || !gr_screen.hardware || Interp_use_saved_lighting) { return 0; }
+	// a thruster is drawn unlit with fixed poly flags (see model_interp_tmappoly), so the tmap flags and the saved lighting do not matter to it;
+	// without a thruster bitmap (or in pofview) it is a flat colour poly: polygon path
+	const bool thr = Interp_thrust_scale_subobj != 0;
+	if (Interp_subspace || !gr_screen.hardware || (!thr && Interp_use_saved_lighting) || (thr && (Interp_thrust_bitmap < 0 || Pofview_running))) { return 0; }
 	if (Interp_flags & (MR_NO_POLYS | MR_FORCE_TEXTURE | MR_ALL_XPARENT | MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET
 		| MR_SHOW_INVISIBLE_FACES | MR_NO_CULL | MR_SHOW_PIVOTS)) { return 0; }
-	if ((Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
+	if (!thr && (Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
 	bsp_info *sm = &pm->submodel[mn];
 	if (sm->bsp_data == NULL) { return 0; }
 
@@ -1624,6 +1630,18 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	} else if (s_was_clipping) {
 		gr_host_mesh_clip(NULL);
 		s_was_clipping = 0;
+	}
+
+	if (thr) {
+		const float min_dist = (Interp_flags & MR_IS_MISSILE) ? 0.5f : -1.5f;		// the base of the flame is not scaled (model_interp_defpoints)
+		const int rt = gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), Interp_thrust_bitmap, Interp_thrust_scale, min_dist);
+		if (rt < 0) {
+			gr_host_mesh_free(m.key);
+			m.created = 0;
+			m.state = 0;
+			return 0;
+		}
+		return rt == 1;
 	}
 
 	// a host that lights per vertex takes the lighting inputs as they are (not when the object's lighting is being saved: the saved arrays
