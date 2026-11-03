@@ -127,6 +127,8 @@ static std::deque<Event> Queue;
 static bool Foreground = true;
 static int Mouse_x = 0, Mouse_y = 0;	// the cursor in the game's screen, as of the events the game has taken
 static float View_w = 1.0f, View_h = 1.0f;	// the Godot viewport the last mouse event was relative to
+static int Map_last[8];			// GodotOptions: the mapping the mouse was last mapped with (remap_mouse_on_change)
+static bool Map_last_set = false;
 
 static bool is_headless_display()
 {
@@ -144,6 +146,7 @@ void reset()
 {
 	Queue.clear();
 	Mouse_x = Mouse_y = 0;
+	Map_last_set = false;
 	// a headless Godot has no window to be in front, and the game must see itself in front as it did with the headless hooks
 	Foreground = true;
 	if (!is_headless_display()) {
@@ -290,6 +293,41 @@ static void fit_rect(int gw, int gh, float *ox, float *oy, float *scale)
 	*oy = (View_h - gh * s) * 0.5f;
 }
 
+// GodotResolution: window -> canvas pixels -> base screen pixels (the game's mouse, also its flight deltas, stays in base pixels).
+// px, py: viewport pixels. A position over a bar lands on the picture's edge.
+static void map_mouse(float px, float py, int gw, int gh, int cw, int ch, int cx, int cy)
+{
+	float ox, oy, sc;
+	fit_rect(cw, ch, &ox, &oy, &sc);
+	const int mx = (int)((px - ox) / sc) - cx;
+	const int my = (int)((py - oy) / sc) - cy;
+	Mouse_x = mx < 0 ? 0 : (mx > gw - 1 ? gw - 1 : mx);
+	Mouse_y = my < 0 ? 0 : (my > gh - 1 ? gh - 1 : my);
+}
+
+// GodotOptions: the window -> base pixel mapping changes under a still mouse when the GR mode switches live (another base screen and
+// canvas) or the window is resized (a Resolution pick). No mouse event follows, so the game's cursor stayed in the old mapping's
+// pixels, drawn away from the pointer until the mouse moved. On a change, read the pointer again and map it the new way.
+static void remap_mouse_on_change(int gw, int gh, int cw, int ch, int cx, int cy)
+{
+	if (is_headless_display()) {
+		return;
+	}
+	DisplayServer *ds = DisplayServer::get_singleton();
+	const Vector2i ws = ds->window_get_size(0);
+	const int now[8] = { gw, gh, cw, ch, cx, cy, ws.x, ws.y };
+	const bool changed = Map_last_set && (memcmp(now, Map_last, sizeof(now)) != 0);
+	memcpy(Map_last, now, sizeof(now));
+	Map_last_set = true;
+	if (!changed || ws.x <= 0 || ws.y <= 0) {
+		return;
+	}
+	View_w = (float)ws.x;
+	View_h = (float)ws.y;
+	const Vector2i p = ds->mouse_get_position() - ds->window_get_position(0);
+	map_mouse((float)p.x, (float)p.y, gw, gh, cw, ch, cx, cy);
+}
+
 // ---- GodotOptions: the game's drop-down (fs2_set_dropdown_hooks, v9) as Godot's own OptionButton ----
 // The game gives the rect in its base screen pixels; it is mapped through the canvas and the keep-aspect fit the picture uses
 // (game_canvas, fit_rect), every poll, so the button sits on the game's row at any window size and in either GR mode.
@@ -377,12 +415,21 @@ static void dd_layout(void)
 		s = vs.y / (float)ch;
 	}
 	const float ox = (vs.x - (float)cw * s) * 0.5f, oy = (vs.y - (float)ch * s) * 0.5f;
-	Dd_button->set_position(Vector2(ox + (float)(Dd_x + cx) * s, oy + (float)(Dd_y + cy) * s));
-	Dd_button->set_size(Vector2((float)Dd_w * s, (float)Dd_h * s));
-	int fs = (int)((float)Dd_h * s * 0.55f);
-	if (fs < 8) {
-		fs = 8;
+	// the text follows the picture's height, not the art mode: the menu art fills the same height at 1024 and 640, while the row
+	// (FONT1, the same pixel font in both modes) is a third shorter at 1024. 2% of the height reads like the menu labels; the box
+	// grows round it where the row is shorter, centred on the row.
+	int fs = (int)((float)ch * s * 0.02f + 0.5f);
+	if (fs < 12) {
+		fs = 12;
 	}
+	float bh = (float)Dd_h * s;
+	const float need = (float)fs * 1.5f;
+	const float by = oy + (float)(Dd_y + cy) * s - (bh < need ? (need - bh) * 0.5f : 0.0f);
+	if (bh < need) {
+		bh = need;
+	}
+	Dd_button->set_position(Vector2(ox + (float)(Dd_x + cx) * s, by));
+	Dd_button->set_size(Vector2((float)Dd_w * s, bh));
 	Dd_button->add_theme_font_size_override("font_size", fs);
 	Dd_button->get_popup()->add_theme_font_size_override("font_size", fs);
 }
@@ -476,6 +523,7 @@ static void h_poll_events(void)
 	game_screen(&gw, &gh);
 	int cw, ch, cx, cy;
 	game_canvas(&cw, &ch, &cx, &cy);
+	remap_mouse_on_change(gw, gh, cw, ch, cx, cy);
 	while (!Queue.empty()) {
 		Event e = Queue.front();
 		Queue.pop_front();
@@ -491,16 +539,8 @@ static void h_poll_events(void)
 			Api->input_mouse_button(e.a, e.b);
 			break;
 		case EV_MOUSE_MOVE:
-		{
-			float ox, oy, sc;
-			// GodotResolution: window -> canvas pixels -> base screen pixels (the game's mouse, also its flight deltas, stays in base pixels)
-			fit_rect(cw, ch, &ox, &oy, &sc);
-			int mx = (int)((e.nx * View_w - ox) / sc) - cx;	// a position over a bar lands on the picture's edge
-			int my = (int)((e.ny * View_h - oy) / sc) - cy;
-			Mouse_x = mx < 0 ? 0 : (mx > gw - 1 ? gw - 1 : mx);
-			Mouse_y = my < 0 ? 0 : (my > gh - 1 ? gh - 1 : my);
+			map_mouse(e.nx * View_w, e.ny * View_h, gw, gh, cw, ch, cx, cy);
 			break;
-		}
 		case EV_FOCUS:
 			Foreground = (e.b != 0);
 			Api->input_focus(e.b);

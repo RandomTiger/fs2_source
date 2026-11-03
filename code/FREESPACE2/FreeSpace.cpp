@@ -1985,7 +1985,9 @@ int game_switch_gr_mode(int res)
 	gr_init(res, gr_screen.mode);
 	gr_set_gamma(Freespace_gamma);
 	radar_init();
-	mouse_set_pos(gr_screen.max_w / 2, gr_screen.max_h / 2);
+	// Claude: GodotOptions, no centring warp: the pointer stays where it is and the host maps it into the new mode at its next poll
+	// (host_hooks_godot remap_mouse_on_change); a warp moved the player's pointer and, where it did not reach the real pointer, left
+	// the drawn cursor away from it until the mouse moved.
 	mprintf(("GR mode switch: res %d, %d x %d, late loads %d %d %d %d %d\n", gr_screen.res, gr_screen.max_w, gr_screen.max_h,
 		Loadtime_late_count[LT_LATE_TEXTURE], Loadtime_late_count[LT_LATE_ANI], Loadtime_late_count[LT_LATE_NEBULA],
 		Loadtime_late_count[LT_LATE_HEAD], Loadtime_late_count[LT_LATE_UI]));

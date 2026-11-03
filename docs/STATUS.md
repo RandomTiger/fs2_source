@@ -28,6 +28,15 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
   fit; a click on it (or anything but motion while its list is open) is not forwarded to the game; the OS cursor shows
   over it. Checked at 2560x1080: closed/open at 1024, after a live switch to 640, and a pick of 1920x1080 (ini written,
   window resized, button followed). Godot host r menu tour, FS2: 70/70 PASS.
+- Cursor after a live GR switch (Tom): `game_switch_gr_mode` no longer warps the pointer to the centre (`// Claude:` in
+  FreeSpace.cpp). The host keeps the game mouse in base pixels and only remapped it on a mouse event, so after the mode
+  changed (or a warp that did not reach the real pointer) the drawn cursor sat away from the pointer until the mouse moved.
+  host_hooks_godot.cpp now remaps the real pointer through the new canvas/fit whenever the mapping or window size changes
+  (`remap_mouse_on_change`, once per poll). Checked with real OS clicks, 1024->640 and 640->1024, fullscreen classic and a
+  2560x1080 window: drawn cursor on the pointer in the first frame after the switch.
+- Drop-down font (Tom): was 55% of the box height in base pixels (about 14px at 1024); now 2% of the picture height in
+  window pixels (22px at 1080, 29px at 1440), same in both modes, box grown and centred on the row when the font needs more.
+  Godot host r/d menu tour, FS2: 68 PASS, 2 SKIP, 0 FAIL.
 
 ## For GodotResolution (flag, not done there)
 - `godot/src/fs2_node.cpp` (d773c72): the host now acts on `fs2_display_request` at start and on each step (a size
