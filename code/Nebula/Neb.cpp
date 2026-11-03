@@ -88,6 +88,7 @@
 #include "Sound.h"
 #include "Gamesnd.h"
 #include "grinternal.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 
 #include "Alphacolors.h"
 
@@ -1190,6 +1191,9 @@ void neb2_pre_render(vector *eye_pos, matrix *eye_orient)
 		return;
 	}
 
+	// Claude: GodotResolution, the pre-render and its read are the fog read: drawn at the canvas origin (GrVirtual.h)
+	gr_virtual_fog_read_begin();
+
 	// set the view clip
 	gr_screen.clip_width = this_esize;
 	gr_screen.clip_height = this_esize;
@@ -1231,6 +1235,7 @@ void neb2_pre_render(vector *eye_pos, matrix *eye_orient)
 
 	// HACK - flush d3d here so everything is properly cleared
 	gr_flush();
+	gr_virtual_fog_read_end();	// Claude: GodotResolution
 
 	// if the size has changed between frames, make a new bitmap
 	if(this_esize != last_esize){

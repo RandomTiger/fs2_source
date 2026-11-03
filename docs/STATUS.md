@@ -67,6 +67,14 @@ main hall entry and logs two checks to autotest.log (switch done; late-load coun
 - sm1-01 replayed in the Godot host with DisplayResolution=2560x1080, Release and Debug: REPLAY OK, TraceDiff MATCH
   (3544 frames); the replay pins the base canvas.
 
+## Nebula fog read (#138)
+The Godot sink tells the fog read (neb2_pre_render's 32x32 read) from a screenshot by origin (0,0), and its fog paths
+render the canvas origin. With the base screen centred, the pre-render landed at the centring and the read came in at
+(398,0) in a 2560x1080 window: every live nebula frame took the full-frame screenshot path. Fix: `neb2_pre_render`
+brackets its draws and read with `gr_virtual_fog_read_begin/end`; in between the present offset is 0, and `h_get_region`
+reads at (0,0). Screenshots still read the base screen where it is shown. Checked 2026-11-03: sm1-05 live in the Godot
+host at 2560x1080, every read on the fog path (GPU), fog as in classic; menu tour fs2 r 62/62, 0 black.
+
 ## Open
 - The canvas renders at the virtual size (height 768 or 480) and Godot scales it to the window; drawing at the
   window's native pixels is not done.

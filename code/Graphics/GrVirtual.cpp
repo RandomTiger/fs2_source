@@ -62,6 +62,26 @@ static int Window_w = 0, Window_h = 0;		// from the host; 0 = none
 static int Hud_on = 0;
 static int Anchor = HUD_ANCHOR_CENTRE;
 static void (*Clip_listener)() = NULL;
+static int Fog_read = 0;
+
+// neb2_pre_render's draws and read: at the canvas origin, where the backend's fog read path expects them (#138)
+void gr_virtual_fog_read_begin()
+{
+	Fog_read = 1;
+	if (Clip_listener != NULL) {
+		Clip_listener();
+	}
+}
+
+void gr_virtual_fog_read_end()
+{
+	Fog_read = 0;
+	if (Clip_listener != NULL) {
+		Clip_listener();
+	}
+}
+
+int gr_virtual_fog_read() { return Fog_read; }
 
 void gr_virtual_set_clip_listener(void (*fn)())
 {
@@ -140,6 +160,10 @@ int gr_virtual_in_wide_clip()
 
 void gr_virtual_offset(int *dx, int *dy)
 {
+	if (Fog_read) {
+		*dx = *dy = 0;
+		return;
+	}
 	int vw, vh;
 	virtual_size(&vw, &vh);
 	int ex = vw - gr_screen.max_w, ey = vh - gr_screen.max_h;
