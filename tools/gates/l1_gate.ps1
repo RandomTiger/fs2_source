@@ -33,7 +33,7 @@ $OutRoot = if ($env:FS2_GATE_OUT) { $env:FS2_GATE_OUT } else { Join-Path $env:TE
 Require-Env PATH_FS2, PATH_FS1
 Initialize-Fs2DemoScratch; Initialize-Fs1DemoScratch
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
-$fs1 = $env:PATH_FS1; $fs1d = $env:FS1DEMO_PATH
+$fs1 = $env:PATH_FS1; $fs1d = $env:PATH_FS1DEMO
 if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'L1 FAIL the game is running'; exit 1 }
 if (-not $Out) { $Out = Join-Path $OutRoot ("${Label}_" + $start.ToString('yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -108,7 +108,7 @@ function Replay($label, $missions, $fs1Dir) {
 	"replay $label ($($missions.Count) missions) $((Get-Date).ToString('HH:mm'))"
 	$o = "$Out\replay_$label"
 	$env:PATH_FS1 = $fs1Dir
-	$a = @('-Configs', 'r,d', '-CrossCheck', 'sm1-01', '-Missions', ($missions -join ','), '-Out', $o, '-GameDir', $env:PATH_FS2, '-DemoDir', $env:FS2DEMO_TEST)
+	$a = @('-Configs', 'r,d', '-CrossCheck', 'sm1-01', '-Missions', ($missions -join ','), '-Out', $o, '-GameDir', $env:PATH_FS2, '-DemoDir', $env:PATH_FS2DEMO)
 	if ($fs1Dir) { $a += '-Fs1Dir', $fs1Dir }	# none for the FS2 run: its same-named FS1 recordings stay out
 	$r = RunPs "$($Repo)\tools\replay_check.ps1" $a
 	$env:PATH_FS1 = $fs1

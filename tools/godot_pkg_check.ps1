@@ -9,7 +9,7 @@ trace). -Config r|d picks the game DLL (FS2game_<Layer>_64r.dll / _64d.dll). Exi
 
 Usage: tools\godot_pkg_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative]
          [-Pkg dir] [-Level L1|L2] [-Seed n] [-Only a,b] [-NoHostChecks]
-Folders as godot_check.ps1 (-GameDir / PATH_FS2, PATH_FS1, FS2DEMO_TEST, FS1DEMO_PATH); they must be folders the game may own.
+Folders as godot_check.ps1 (-GameDir / PATH_FS2, PATH_FS1, PATH_FS2DEMO, PATH_FS1DEMO); they must be folders the game may own.
 #>
 param(
 	[string]$Config = 'r',
@@ -21,14 +21,14 @@ param(
 	[switch]$Quick,
 	[switch]$NoNative,
 	[string]$Fiber,	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
-	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see fs2_tools\l1_lib.ps1
+	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see tools\gates\l1_lib.ps1
 	[int]$Seed,	# L1: seed of the 3 random missions (logged; same seed, same picks)
 	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
 	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
 )
 $repo = Split-Path $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
-if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { Join-Path $env:USERPROFILE 'fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
+if ($Level -eq 'L1') { $ft = Join-Path $PSScriptRoot 'gates'; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 . (Join-Path $PSScriptRoot 'gate_sets.ps1')

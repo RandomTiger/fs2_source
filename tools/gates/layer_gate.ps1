@@ -7,7 +7,7 @@ Initialize-Fs2DemoScratch; Initialize-Fs1DemoScratch	# FS2_PROCDUMP (optional) =
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; "$Tag GATE DONE"; exit 1 }
 git -C $Repo log --oneline -1
-foreach ($d in $env:PATH_FS2, $env:PATH_FS1, $env:FS1DEMO_PATH) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
+foreach ($d in $env:PATH_FS2, $env:PATH_FS1, $env:PATH_FS1DEMO) { Remove-Item "$d\$(Get-FS2Exe r $Repo)", "$d\$(Get-FS2Exe d $Repo)" -ErrorAction SilentlyContinue }
 Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 $o = Join-Path $OutRoot "${Tag}_suite_full"; Remove-Item -Recurse -Force $o -ErrorAction SilentlyContinue
 '--- suite_check -Full ' + (Get-Date -Format HH:mm)
