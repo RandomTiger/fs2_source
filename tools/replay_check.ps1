@@ -4,7 +4,7 @@ Replays the checked-in recordings and compares each replay's trace with the reco
   recordings\autotest\*.fs2rec   replayed with -autotest
   recordings\played\*.fs2rec     hand-played recordings, replayed without it
   recordings\demo\*.fs2rec       the FreeSpace 2 demo set, replayed with -autotest in the demo folder (-DemoDir,
-                                 default $env:FS2DEMO_TEST) in Release and Debug, whose traces must be identical; with no
+                                 default $env:PATH_FS2DEMO) in Release and Debug, whose traces must be identical; with no
                                  demo folder they are skipped (SKIP), never failed (D-20261018-221705)
   recordings\fs1\*.fs2rec        FreeSpace 1 missions, replayed with -autotest in -Fs1Dir ($env:PATH_FS1; skipped when unset)
 
@@ -12,7 +12,7 @@ Usage (PowerShell, from anywhere):
   tools\replay_check.ps1 [-Out <dir>] [-Missions sm1-01,SM1-04,...] [-Configs r] [-CrossCheck sm1-01] [-GameDir <dir>] [-Fs1Dir <dir>]
 
 -Missions names are matched without case against both folders, so sm1-06 runs the autotest and the played SM1-06.
-The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
+The game directory defaults to $env:PATH_FS2, where the build puts FS2_<Layer>_r.exe / _d.exe (tools\layer.ps1).
 Results go to <Out>\summary.txt, one line per recording; <Out> defaults to replays\check_<date-time>.
 Every recording replays in Release (-Configs). The -CrossCheck missions (default sm1-01) also replay in Debug,
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
@@ -28,18 +28,19 @@ param(
 	[string[]]$Configs = @('r'),
 	[string[]]$CrossCheck = @('sm1-01'),
 	[string]$GameDir = $env:PATH_FS2,
-	[string]$DemoDir = $env:FS2DEMO_TEST,
+	[string]$DemoDir = $env:PATH_FS2DEMO,
 	[string]$Fs1Dir = $env:PATH_FS1
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\check_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $Out | Out-Null
 # the test missions the autotest recordings play
 Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
-$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir 'FS2vs2022r.exe'))
+$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir (Get-FS2Exe r)))
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
@@ -57,7 +58,7 @@ $Configs = $Configs | ForEach-Object { $_ -split ',' }
 $CrossCheck = $CrossCheck | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 if ($Missions) { $recs = $recs | Where-Object { $Missions -contains $_.File.BaseName }; $demoRecs = @($demoRecs | Where-Object { $Missions -contains $_.File.BaseName }) }
 if ($demoRecs -and -not $demoOk) {
-	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with FS2vs2022r.exe (-DemoDir or FS2DEMO_TEST)" | Tee-Object -FilePath $summary -Append }
+	foreach ($r in $demoRecs) { "SKIP $($r.File.BaseName) (demo): no demo test folder with $(Get-FS2Exe r) (-DemoDir or PATH_FS2DEMO)" | Tee-Object -FilePath $summary -Append }
 	$demoRecs = @()
 }
 $recs = @($recs) + $demoRecs
@@ -65,7 +66,7 @@ if (-not $recs) { throw "No recordings match: $Missions" }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 }
 
 $pass = 0; $fail = 0
@@ -87,7 +88,7 @@ foreach ($r in $recs) {
 		$flags = "-window -replay `"$rec`" -trace `"$trace`""
 		if ($r.Autotest) { $flags = "-window -autotest -replay `"$rec`" -trace `"$trace`"" }
 		Wait-NoGame
-		$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $flags -PassThru
+		$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $flags -PassThru
 		# FS2_PROCDUMP (path to Sysinternals procdump.exe): a crash leaves a full dump in <Out> (#74). Dumps hold game
 		# data from memory, so they stay local: never commit or post one, only the stack read from it.
 		$pd = $null
