@@ -7,10 +7,10 @@ if (-not $Repo) { $Repo = $RepoRoot }
 $sp=$PSScriptRoot
 $r=$Repo
 Get-ChildItem $r -Recurse -Filter code.lib | Remove-Item
-Remove-Item "$env:PATH_FS2\FS2vs2022d.exe", "$env:PATH_FS2\FS2vs2022r.exe" -ErrorAction SilentlyContinue
+Remove-Item "$env:PATH_FS2\$(Get-FS2Exe d $r)", "$env:PATH_FS2\$(Get-FS2Exe r $r)" -ErrorAction SilentlyContinue
 & "$sp\build.ps1" -Repo $r -TraceDiff 2>&1 | Select-String 'exit'
 foreach ($c in "Release","Debug") { "$c warnings: " + @(Select-String "$env:TEMP\fs2build\$c.log" -Pattern "warning [A-Z]+[0-9]+").Count }
-# the demo replays run the exe in FS2DEMO_TEST, which every branch builds into: build it here so no other branch's exe is tested
+# the demo replays run the exe in PATH_FS2DEMO, which every branch builds into: build it here so no other branch's exe is tested
 $d = & powershell -NoProfile -ExecutionPolicy Bypass -File "$r\tools\build_demo.ps1" | Select-Object -Last 3
 "demo build: $($d -join ' / ')"
 if ($Full) { $m = @() } else { $m = @(Get-ChildItem "$r\recordings\autotest" -Filter 'Autotest*.fs2rec' | ForEach-Object { $_.BaseName }) + @('sm1-01','sm3-06') }

@@ -522,6 +522,33 @@ int replay_input_device(int *vals, int count, int max)
 	return n;
 }
 
+// The same, for a device that shares the entry with others: in replay, the entry here is
+// this device's only when its first value is magic; otherwise it is left for the next reader
+// and 0 is returned.  The device must put magic in vals[0] of every entry it records.
+int replay_input_device_tagged(int magic, int *vals, int count, int max)
+{
+	int pos, n;
+
+	if (!replay_should_read()) {
+		return replay_input_device(vals, count, max);
+	}
+
+	replay_drain_events();
+	if ((Rpos >= Rsize) || (Rdata[Rpos] != RT_INPUT_DEVICE)) {
+		return 0;
+	}
+
+	// peek: the tag, the count and the first value; no entry is consumed unless it matches
+	pos = Rpos++;		// past the tag byte (r_tag would count the entry)
+	n = r_varint();
+	if ((n < 1) || (r_varint() != magic)) {
+		Rpos = pos;
+		return 0;
+	}
+	Rpos = pos;
+	return replay_input_device(vals, count, max);
+}
+
 int replay_snd_handle(int tag, int live_handle)
 {
 	int recorded;

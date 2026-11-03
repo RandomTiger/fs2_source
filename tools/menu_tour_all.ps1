@@ -28,11 +28,12 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 # powershell -File passes "a,b" as one string
 $Sets = @($Sets | ForEach-Object { $_ -split ',' })
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })
 $dirs = @{ fs2 = $Fs2Dir; fs2demo = $Fs2DemoDir; fs1 = $Fs1Dir; fs1demo = $Fs1DemoDir }
-if (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
+if (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { 'FAIL the game is running'; exit 1 }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
@@ -43,7 +44,7 @@ $bak = Join-Path $Out 'exe_backup'
 foreach ($s in $run) {
 	$b = Join-Path $bak $s
 	New-Item -ItemType Directory -Force $b | Out-Null
-	Copy-Item (Join-Path $dirs[$s] 'FS2vs2022r.exe'), (Join-Path $dirs[$s] 'FS2vs2022d.exe') $b -ErrorAction SilentlyContinue
+	Copy-Item (Join-Path $dirs[$s] (Get-FS2Exe r)), (Join-Path $dirs[$s] (Get-FS2Exe d)) $b -ErrorAction SilentlyContinue
 }
 
 $pass = 0; $fail = 0
@@ -58,7 +59,7 @@ try {
 				$r = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') -GameDir $dir | Select-Object -Last 1
 				if ($r -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
 			} elseif ($built) {
-				Copy-Item (Join-Path $built 'FS2vs2022r.exe'), (Join-Path $built 'FS2vs2022d.exe') $dir -Force
+				Copy-Item (Join-Path $built (Get-FS2Exe r)), (Join-Path $built (Get-FS2Exe d)) $dir -Force
 			} else {
 				$env:PATH_FS1 = $dir
 				$ok = $true
