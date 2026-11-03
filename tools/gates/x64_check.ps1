@@ -39,9 +39,9 @@ foreach ($b in $Branches) {
 	}
 	# FS1 and the FS1 demo headless too (D-20261021-125812, #102): this build's x64 exes go into each install, then
 	# recordings\fs1 replays (FS1 at GR_640, #101) and the FS1 demo missions run. A missing install is a FAIL, never a skip.
-	foreach ($v in 'PATH_FS1', 'FS1DEMO_PATH') {
+	foreach ($v in 'PATH_FS1', 'PATH_FS1DEMO') {
 		$d = [Environment]::GetEnvironmentVariable($v)
-		if (-not $d -or -not (Test-Path $d)) { "FAIL set $v to its install"; exit 1 }
+		if (-not $d -or -not (Test-Path $d)) { "FAIL set $v to its dev copy"; exit 1 }
 		foreach ($e in 'r64', 'd64') { Copy-Item "$env:PATH_FS2\$(Get-FS2Exe $e $repo)" $d -Force }
 	}
 	$fs1 = (Get-ChildItem "$repo\recordings\fs1\*.fs2rec" | ForEach-Object BaseName) -join ','
