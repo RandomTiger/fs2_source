@@ -293,6 +293,25 @@ void aa_to_a8(const uint8_t *src, int w, int h, int src_pitch, uint8_t *dst)
 	}
 }
 
+// LEGACY PIXEL COMPATIBILITY (#133): copies a bug in the original D3D texture upload so pictures match retail.
+// d3d_create_texture_sub (and GrD3DGlow) resample TCACHE_TYPE_NORMAL textures with a fixed-point step of (w-1)/w, so
+// at full size texel i holds source texel i-1: every normal texture moves one texel down-right and loses its last
+// column and row. It only shows where texels are big on screen (the nebula poofs, about 6 px).
+// GodotEnhanced removes this (issue #134): there the textures go up as they are.
+void legacy_d3d_texel_shift(std::vector<uint8_t> &px, int w, int h)
+{
+	if (w < 2 || h < 2) { return; }
+	std::vector<uint8_t> out(px.size());
+	const int du = ((w - 1) << 16) / w, dv = ((h - 1) << 16) / h;	// fix, as D3D: ((bmap_w-1)*F1_0) / tex_w
+	for (int y = 0; y < h; y++) {
+		const int sy = (y * dv) >> 16;
+		for (int x = 0; x < w; x++) {
+			memcpy(&out[((size_t)y * w + x) * 4], &px[((size_t)sy * w + ((x * du) >> 16)) * 4], 4);
+		}
+	}
+	px.swap(out);
+}
+
 // Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
 // type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
 int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
@@ -333,6 +352,7 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 		px.resize(fs2host::rgba8_bytes(w, h));
 		fs2host::to_rgba8(src, w, h, pitch, l, px.data());
 		format = FS2_SINK_TEX_RGBA8;
+		if (type == TCACHE_TYPE_NORMAL && !bitmap_2d) { legacy_d3d_texel_shift(px, w, h); }	// LEGACY PIXEL COMPATIBILITY (#133)
 	}
 	bm_unlock(bitmap_id);
 
@@ -436,6 +456,7 @@ int glow_tex_get(int bitmap_id)
 		o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
 		o[3] = glows[idx[i]] ? 255 : 0;
 	}
+	legacy_d3d_texel_shift(px, pw, ph);	// LEGACY PIXEL COMPATIBILITY (#133): keeps the glow on its shifted ship texture
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = TCACHE_TYPE_NORMAL; t.w = pw; t.h = ph;
@@ -888,6 +909,15 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		const float sy = (float)(int)(va->sy * 16.0f) / 16.0f + (float)gr_screen.offset_y;
 		float u = 0.0f, v = 0.0f;
 		if (flags & TMAP_FLAG_TEXTURED) { u = va->u; v = va->v; }
+		// LEGACY PIXEL COMPATIBILITY (#133): D3D's rendition uvs clamp untiled, non-2D uvs to [2/w, 1-2/w]
+		// (gr_d3d_tmapper_internal, flCAP). GodotEnhanced removes this (issue #134).
+		if ((flags & TMAP_FLAG_TEXTURED) && !(flags & (TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D))) {
+			int bw, bh;
+			bm_get_info(gr_screen.current_bitmap, &bw, &bh);
+			const float mu = 2.0f / (float)bw, mv = 2.0f / (float)bh;
+			u = u < mu ? mu : (u > 1.0f - mu ? 1.0f - mu : u);
+			v = v < mv ? mv : (v > 1.0f - mv ? 1.0f - mv : v);
+		}
 		out[i] = vtx(sx, sy, u, v, r, g, b, a);
 		out[i].sw = (flags & TMAP_FLAG_CORRECT) ? va->sw : 1.0f;
 		if (zbuffering || (flags & TMAP_FLAG_NEBULA) || H.fog_mode != GR_FOGMODE_NONE) {
@@ -908,6 +938,14 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 		}
 		gr_fog_set(GR_FOGMODE_FOG, ra / nv, ga / nv, ba / nv);
 	}
+	// D3D7 pixel centres are at integer coordinates, Godot's at +0.5 (#133). The game's screen positions are D3D's, so without this
+	// every textured poly samples its texture half a pixel off: a fine grain over the whole frame against retail. Measured against
+	// PrePort32 (frame captures, share of pixels exactly equal): VisualSpace 73% -> 99.8%; nebula 18% -> 27% exact, ~98% within
+	// 1 shade (what is left and what was tried: the sink's spatial_shader, render_sink_godot.cpp). -0.5 was worse; nearest filtering in both renderers changed nothing.
+	// Done after the PIXEL_FOG lookup above, which must read the game's own pixel: shifting first moved some polys' fog colour to
+	// the next cell of the 32x32 pre-render (whole polys 1 shade off). The sink's GPU fog cell lookup takes it off again (batcher.h).
+	// A correct translation of D3D, not a legacy quirk: GodotEnhanced keeps it.
+	for (int i = 0; i < nv; i++) { out[i].x += FS2_SINK_D3D_PIXEL_CENTRE; out[i].y += FS2_SINK_D3D_PIXEL_CENTRE; }
 
 	const unsigned dflags = ((flags & TMAP_FLAG_CORRECT) ? FS2_SINK_DRAWF_PERSPECTIVE : 0) | zflags | (H.cull ? FS2_SINK_DRAWF_CULL : 0);
 	fs2_sink_draw d = plain_draw(tex, blend, dflags);
@@ -1096,10 +1134,11 @@ inline uint32_t pack_gun(const color_gun &g, int v8)
 void h_get_region(int, int w, int h, ubyte *data)
 {
 	ensure_frame();
-	if (!drawing() || data == nullptr || w <= 0 || h <= 0) { return; }
+	// a skipped frame (several game frames per Godot frame, only the last drawn) still reads the frame on show: -at_shots was black
+	if (H.sink == nullptr || H.frame == FRAME_NONE || data == nullptr || w <= 0 || h <= 0) { return; }
 	const int bytes = gr_screen.bytes_per_pixel;
 	if (bytes != 2 && bytes != 4) { return; }
-	depth_run_end();	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
+	if (drawing()) { depth_run_end(); }	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
 	if (!H.sink->read_region(H.sink->user, 0, 0, w, h, px.data())) { return; }
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {

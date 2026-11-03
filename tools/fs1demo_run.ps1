@@ -4,7 +4,7 @@ Runs FS1 demo missions under -autotest (docs/FS1_DEMO.md, section 5) and prints 
   tools\fs1demo_run.ps1 [-Missions btmdemo,demo01,...] [-Configs r,d] [-Time 60] [-GameDir <dir>] [-Pilot <name>] [-Out <dir>]
 
 -GameDir is the FS1 demo folder: fsdemo10.exe (from the original demo download, never committed) with the exes
-beside it; the game extracts the demo into fs1demo\ there on first start. It defaults to $env:FS1DEMO_PATH.
+beside it; the game extracts the demo into fs1demo\ there on first start. It defaults to $env:PATH_FS1DEMO (the FS1 demo dev copy).
 Build into it with $env:PATH_FS1 set to that folder (FS1 branches link into PATH_FS1).
 -Pilot names an existing pilot in that folder (autotest picks it with -at_pilot); make one by starting the game
 once by hand. Each mission's autotest.log is copied to <Out>\<mission>_<config>.log (default
@@ -15,13 +15,13 @@ param(
 	[string[]]$Missions = @('btmdemo', 'demo01', 'demo02a', 'demo02b'),
 	[string[]]$Configs = @('r', 'd'),
 	[int]$Time = 60,
-	[string]$GameDir = $env:FS1DEMO_PATH,
+	[string]$GameDir = $env:PATH_FS1DEMO,
 	[string]$Pilot = 'Tom',
 	[string]$Out = (Join-Path $env:LOCALAPPDATA 'fs1demo_runs'),
 	[switch]$Headless	# -headless: null renderer at GR_640, no sound device (#101)
 )
 
-if (-not $GameDir -or -not (Test-Path $GameDir)) { 'FAIL no FS1 demo folder (-GameDir or FS1DEMO_PATH)'; exit 1 }
+if (-not $GameDir -or -not (Test-Path $GameDir)) { 'FAIL no FS1 demo folder (-GameDir or PATH_FS1DEMO)'; exit 1 }
 # powershell -File passes "a,b" as one string
 $Missions = @($Missions | ForEach-Object { $_ -split ',' })
 $Configs = @($Configs | ForEach-Object { $_ -split ',' })

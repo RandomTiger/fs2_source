@@ -1,13 +1,16 @@
-# The Godot wrapper extension (G1/G2). Build (from godot/):
-#   cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DGODOT_CPP_DIR=C:/dev/Tools/godot-cpp
+# The Godot wrapper extension (G1/G2). godot-cpp comes from $FS2_GODOT_CPP, or -DGODOT_CPP_DIR=<dir>. Build (from godot/):
+#   cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 #   cmake --build build --config Debug      (template_debug flavour; the stock editor binary loads this one)
-#   cmake -S . -B build/release -G "Visual Studio 17 2022" -A x64 -DGODOT_CPP_DIR=C:/dev/Tools/godot-cpp -DGODOTCPP_TARGET=template_release
+#   cmake -S . -B build/release -G "Visual Studio 17 2022" -A x64 -DGODOTCPP_TARGET=template_release
 #   cmake --build build/release --config Release   (template_release flavour: bin/fs2godot_rel.dll, loaded by the exported exe)
 # See godot/README.md for the pinned versions.
 cmake_minimum_required(VERSION 3.20)
 project(fs2godot CXX)
 
-set(GODOT_CPP_DIR "C:/dev/Tools/godot-cpp" CACHE PATH "godot-cpp checkout (pinned in README.md)")
+set(GODOT_CPP_DIR "$ENV{FS2_GODOT_CPP}" CACHE PATH "godot-cpp checkout (pinned in README.md)")
+if(NOT GODOT_CPP_DIR)
+  message(FATAL_ERROR "godot-cpp not found: set FS2_GODOT_CPP (machine profile) or pass -DGODOT_CPP_DIR=<dir>")
+endif()
 set(GODOTCPP_TARGET template_debug CACHE STRING "template_debug (the stock editor loads it) or template_release (the packaged exe, batch P)")
 set(GODOTCPP_API_VERSION 4.7 CACHE STRING "")
 add_subdirectory(${GODOT_CPP_DIR} godot-cpp)
