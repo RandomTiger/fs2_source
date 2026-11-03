@@ -1177,7 +1177,9 @@ void h_get_region(int, int w, int h, ubyte *data)
 	if (bytes != 2 && bytes != 4) { return; }
 	if (drawing()) { depth_run_end(); }	// the read shows what the run drew (neb2_pre_render reads inside its 3D frame); later 3D opens a new run
 	std::vector<uint8_t> px((size_t)w * (size_t)h * 4);
-	if (!H.sink->read_region(H.sink->user, gr_virtual_centre_x(), gr_virtual_centre_y(), w, h, px.data())) { return; }	// GodotResolution: the base screen in the canvas
+	// GodotResolution: the base screen in the canvas; the fog read at the canvas origin, where neb2_pre_render drew it (#138)
+	const bool fog = gr_virtual_fog_read() != 0;
+	if (!H.sink->read_region(H.sink->user, fog ? 0 : gr_virtual_centre_x(), fog ? 0 : gr_virtual_centre_y(), w, h, px.data())) { return; }
 	for (size_t i = 0; i < (size_t)w * (size_t)h; i++) {
 		const uint8_t *s = &px[i * 4];		// r g b a
 		const uint32_t v = pack_gun(Gr_red, s[0]) | pack_gun(Gr_green, s[1]) | pack_gun(Gr_blue, s[2]) | pack_gun(Gr_alpha, s[3]);

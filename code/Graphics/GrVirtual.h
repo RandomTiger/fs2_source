@@ -69,4 +69,12 @@ void gr_virtual_wide_clip();
 int gr_virtual_in_wide_clip();	// 1 while the clip is wider or taller than the base screen
 void gr_virtual_set_clip_listener(void (*fn)());	// the backend's "clip changed" call, made by gr_virtual_wide_clip
 
+// The nebula fog read (#138): neb2_pre_render draws its ESIZE square and reads it back between begin and end. In
+// between the present offset is 0, so the square sits at the canvas origin at any aspect, and the backend's
+// get_region reads it there (the Godot sink's fog paths render and read the canvas origin). Screenshots read the
+// base screen where it is presented, as before.
+void gr_virtual_fog_read_begin();
+void gr_virtual_fog_read_end();
+int gr_virtual_fog_read();	// 1 between begin and end
+
 #endif
