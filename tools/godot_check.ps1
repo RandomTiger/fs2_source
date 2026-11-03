@@ -19,7 +19,7 @@ param(
 	[switch]$Quick,
 	[switch]$NoNative,
 	[string]$Fiber,	# '1' or 'stress': the game runs on a fiber in the Godot run (G3); the native baseline never does
-	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see fs2_tools\l1_lib.ps1
+	[ValidateSet('L1', 'L2')][string]$Level = 'L2',	# L2 = everything below, unchanged; L1 = smoke set (GATING_PLAN_v2), see tools\gates\l1_lib.ps1
 	[int]$Seed,	# L1: seed of the 3 random missions (logged; same seed, same picks)
 	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
 	[switch]$Shown,	# gate C (D-20261027-190104): Godot run in a real window (no --headless), host renderer (FS2_GR_HOST=1), game without -headless; native baseline unchanged
@@ -28,7 +28,7 @@ param(
 )
 $repo = Split-Path $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
-if ($Level -eq 'L1') { $ft = if ($env:FS2_TOOLS) { $env:FS2_TOOLS } else { 'C:\Users\Claude\fs2_tools' }; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
+if ($Level -eq 'L1') { $ft = Join-Path $PSScriptRoot 'gates'; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
 if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe' }
 Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue	# the native baseline must not inherit it
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }

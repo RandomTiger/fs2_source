@@ -3,12 +3,12 @@
 Code and project files only. No game data (read at run time through cfile).
 
 ## Pins
-- Godot 4.7.2-stable win64, from github.com/godotengine/godot-builds, in a folder named by the env var `GODOT_ENGINE_4_7` on every machine (e.g. `C:\dev\Tools\godot_4.7.2`, holding `Godot_v4.7.2-stable_win64.exe`, `_console.exe` and the export templates `.tpz`; not in git). All Godot scripts derive the exe from it; `-Godot <exe>` overrides.
+- Godot 4.7.2-stable win64, from github.com/godotengine/godot-builds, in a folder named by the env var `GODOT_ENGINE_4_7` on every machine (each PC's folder is in its machine profile; it holds `Godot_v4.7.2-stable_win64.exe`, `_console.exe` and the export templates `.tpz`; not in git). All Godot scripts derive the exe from it; `-Godot <exe>` overrides.
   Zip SHA512 starts `83decd58fd`. A bump is its own brief.
-- godot-cpp 10.0.0-stable, commit `507ed9d840c01a3c5b2a39af8bb4000bfac30bf5`, in `C:\dev\Tools\godot-cpp` (not in git). API 4.7.
+- godot-cpp 10.0.0-stable, commit `507ed9d840c01a3c5b2a39af8bb4000bfac30bf5`, in the folder named by the env var `FS2_GODOT_CPP` (machine profile; not in git). API 4.7.
 
 ## Build the extension (needs fs2game.dll built; see fs2game/)
-    cmake -S godot -B godot/build -G "Visual Studio 17 2022" -A x64 -DGODOT_CPP_DIR=C:/dev/Tools/godot-cpp
+    cmake -S godot -B godot/build -G "Visual Studio 17 2022" -A x64   (godot-cpp from FS2_GODOT_CPP, or -DGODOT_CPP_DIR=<dir>)
     cmake --build godot/build --config Debug --parallel
 CMake is the one bundled with Visual Studio. Output: `godot/bin/fs2godot.dll` (template_debug, the flavour the stock binary loads).
 The wrapper is /MD, fs2game.dll is /MT; only the plain C API (fs2game/fs2_api.h) crosses, so the two CRTs never share memory.
