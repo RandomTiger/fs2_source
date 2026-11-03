@@ -33,6 +33,8 @@ Model=D:\Vosk\vosk-model-small-en-us-0.15
 | `PushToTalk` | The push-to-talk key, as a FreeSpace key code (a DirectInput scan code), in decimal. | 58 (0x3A, Caps Lock) |
 | `MinConfidence` | Results whose lowest word confidence is below this are ignored. 0 to 1. | 0.6 |
 
+If `fs2.ini` in the game folder has no `Enabled` key under `[Voice]`, the `[Voice]` section of the `fs2.ini` beside the exe is used instead; this is how a package with its data in another folder ships voice. A relative `Dll` or `Model` path counts from the folder of the `fs2.ini` it was read from.
+
 Caps Lock is the default because no game control uses it. The backtick key is not used: it is the debug key, and while it is held the game ignores the ship keys (in a Debug build it also turns primary fire into the debug laser). Whatever key is chosen still does what it is bound to in the controls config, so pick an unbound one.
 
 The model loads in the background when the game starts, so the first few seconds may not hear anything. The log (`mprintf`, Debug builds) says what happened: `Voice: loading model ...`, `Voice: off: <reason>` when the DLL or model could not be loaded, `Voice: cannot open the microphone`, and `Voice: heard '<text>' (<confidence>): result ...` for each phrase.

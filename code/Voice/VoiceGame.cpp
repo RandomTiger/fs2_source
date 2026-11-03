@@ -76,9 +76,48 @@ static voice_row Voice_rows[VOICE_MAX_ROWS];
 static char Voice_grammar[VOICE_GRAMMAR_LEN];
 static char Voice_json[VOICE_RESULT_LEN];
 
+// the file with the [Voice] settings: the game's fs2.ini if it has them, else the fs2.ini beside the exe.
+// A package can ship voice beside its exe with the game's fs2.ini in a data folder somewhere else.
+static void voice_find_ini(char *ini)
+{
+	char buf[16];
+	char *slash;
+
+	strncpy(ini, os_config_ini_file(), MAX_PATH - 1);
+	ini[MAX_PATH - 1] = 0;
+	if (GetPrivateProfileStringA(VOICE_INI_SECTION, "Enabled", "", buf, sizeof(buf), ini) > 0) {
+		return;
+	}
+	GetModuleFileNameA(NULL, ini, MAX_PATH);
+	ini[MAX_PATH - 1] = 0;
+	slash = strrchr(ini, '\\');
+	if (slash && ((slash - ini) + 1 + (int)strlen("fs2.ini") < MAX_PATH)) {
+		strcpy(slash + 1, "fs2.ini");
+	}
+}
+
+// a relative path in the ini counts from the ini's folder
+static void voice_path_from_ini(char *path, const char *ini)
+{
+	char full[MAX_PATH];
+	const char *slash;
+
+	if (!path[0] || (path[1] == ':') || (path[0] == '\\') || (path[0] == '/')) {
+		return;
+	}
+	slash = strrchr(ini, '\\');
+	if (!slash) {
+		return;
+	}
+	_snprintf(full, MAX_PATH - 1, "%.*s\\%s", (int)(slash - ini), ini, path);
+	full[MAX_PATH - 1] = 0;
+	strcpy(path, full);
+}
+
 void voice_game_init()
 {
-	char *ptr;
+	char ini[MAX_PATH];
+	char min_conf[32];
 	char dll_dir[MAX_PATH], model_dir[MAX_PATH];
 	uint key;
 
@@ -89,23 +128,22 @@ void voice_game_init()
 		return;
 	}
 
-	if (!os_config_read_uint(VOICE_INI_SECTION, "Enabled", 0)) {
+	voice_find_ini(ini);
+	if (!GetPrivateProfileIntA(VOICE_INI_SECTION, "Enabled", 0, ini)) {
 		return;
 	}
 
-	ptr = os_config_read_string(VOICE_INI_SECTION, "Dll", "");
-	strncpy(dll_dir, ptr ? ptr : "", MAX_PATH - 1);
-	dll_dir[MAX_PATH - 1] = 0;
+	GetPrivateProfileStringA(VOICE_INI_SECTION, "Dll", "", dll_dir, MAX_PATH, ini);
+	voice_path_from_ini(dll_dir, ini);
 
-	ptr = os_config_read_string(VOICE_INI_SECTION, "Model", "");
-	strncpy(model_dir, ptr ? ptr : "", MAX_PATH - 1);
-	model_dir[MAX_PATH - 1] = 0;
+	GetPrivateProfileStringA(VOICE_INI_SECTION, "Model", "", model_dir, MAX_PATH, ini);
+	voice_path_from_ini(model_dir, ini);
 
-	key = os_config_read_uint(VOICE_INI_SECTION, "PushToTalk", VOICE_DEFAULT_PTT);
+	key = GetPrivateProfileIntA(VOICE_INI_SECTION, "PushToTalk", VOICE_DEFAULT_PTT, ini);
 	Voice_ptt_key = ((key > 0) && (key < NUM_KEYS)) ? (int)key : VOICE_DEFAULT_PTT;
 
-	ptr = os_config_read_string(VOICE_INI_SECTION, "MinConfidence", VOICE_DEFAULT_MIN_CONF);
-	Voice_min_conf = (float)atof(ptr ? ptr : VOICE_DEFAULT_MIN_CONF);
+	GetPrivateProfileStringA(VOICE_INI_SECTION, "MinConfidence", VOICE_DEFAULT_MIN_CONF, min_conf, sizeof(min_conf), ini);
+	Voice_min_conf = (float)atof(min_conf);
 
 	if (!voice_engine_open(dll_dir, model_dir)) {
 		mprintf(("Voice: off: %s\n", voice_engine_error()));
