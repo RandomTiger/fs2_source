@@ -95,6 +95,20 @@ if ($present -contains 'RecordPlayback') {
 	}
 }
 
+# Each branch names its own exes through FS2Layer in build\layer.props (D-20261101-064106). A merge keeps the target's
+# value, but git takes a child's value silently when the target has not changed the file since, so compare it with the
+# branch name (D-20261101-105804). Report only: the build never derives the name from the branch.
+Write-Output "== Layer names (build\layer.props)"
+foreach ($b in $remote) {
+	$props = git show "origin/${b}:build/layer.props" 2>$null
+	if ($LASTEXITCODE -ne 0) { continue }	# not merged up to the per-layer names yet
+	$m = [regex]::Match(($props -join "`n"), '<FS2Layer>\s*([^<]*?)\s*</FS2Layer>')
+	$want = if ($b -eq 'Latest') { 'Enhanced' } else { $b }	# Latest is only ever moved to Enhanced
+	if (-not $m.Success) { Out-Error "$b has build\layer.props with no FS2Layer" }
+	elseif ($m.Groups[1].Value -ne $want) { Out-Error "$b names its exes after '$($m.Groups[1].Value)', not '$want': a merge took another branch's layer name; restore $want in a commit on $b" }
+	else { Out-Ok "$b layer name $want" }
+}
+
 Write-Output "== Local branches"
 foreach ($b in @(git for-each-ref --format='%(refname:short)' refs/heads)) {
 	if ($remote -notcontains $b) { Out-Warn "$b exists only on this PC: push it or delete it"; continue }

@@ -9,7 +9,7 @@ The code is `code/Replay/Autotest.cpp`. With no `-autotest` flag, and no autotes
 ## Usage
 Run with the working directory set to the game directory.
 ```
-FS2vs2022d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
+FS2_RecordPlayback_d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS] [-at_speed N] [-at_pilot CALLSIGN] [-at_skill N] [-playernpc]
 ```
 | Flag | Meaning | Default |
 |---|---|---|
@@ -36,13 +36,14 @@ The `-at_` flags do nothing without `-autotest`. An invalid value stops the run 
 
 ## Menu tour
 ```
-FS2vs2022d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
+FS2_RecordPlayback_d.exe -window -autotest -at_menus [-at_mission FILE] [-at_shots FOLDER]
 tools\menu_check.ps1 [-Configs r,d] [-Shots FOLDER] [-Mission FILE]
 ```
-Visits every single-player screen and quits: the main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
+Visits every single-player screen and quits: the main hall, the Vasudan (Bastion) main hall, options (general, multi, detail), control config (all four tabs), HUD config, medals, barracks, tech room (ships, weapons, species), campaign and simulator rooms, cutscenes, credits, then with one mission (`-at_mission`, or the first campaign mission) the command briefing, briefing, ship and weapon select, gameplay, pause, mission log (objectives, messages, events), hotkeys, gameplay help (every page), the in-game options, controls and HUD config, and the debriefing with its stats pages. Screens with an F1 help overlay are also visited with it shown.
 - Each screen, tab, page and help overlay is a view. Main hall rooms are opened by clicking their region, other screens the way their button or key opens them. Each view is drawn for 30 frames (gameplay 120) and the screen is closed the way its Back button closes it.
 - The log has one line per view: `Screen '<category>/<screen>': PASS`, `FAIL <why>` or `SKIP <why>`. A view fails if its screen does not open, closes by itself or does not go back, if its help overlay does not show, or if an `Assert`, `Int3` or `Warning` fires while it is up. After a crash the views not reached are listed as `FAIL not reached`. The log ends with `Menu tour: N screens, N passed, N failed, N skipped`. Any failure gives exit code 2.
 - A screen that shows the "not in demo" popup (`game_feature_not_in_demo_popup`) is skipped: `SKIP not in demo`. The stops it hosts (below) are then skipped without being opened, naming the screen with the wall: `SKIP not in demo (host Tech room)` (D-20261022-090902).
+- The Vasudan (Bastion) main hall (`main_hall_pilot/main_hall_bastion` and `main_hall_pilot/main_hall_bastion_help`, its MH2 overlay) is main hall 1. The tour sets the pilot's `on_bastion`, enters the main hall again so `main_hall_init(1)` runs, shows both views, then sets `on_bastion` back and enters the main hall again. Nothing is written to the pilot file. If the loaded `mainhall.tbl` defines fewer than two halls, or the data lacks the second hall's background or mask (the FS2 and FS1 demos), both views are `SKIP no second hall` (D-20261031-084801, D-20261031-084802).
 - **Rule:** a tour stop for a screen with a demo wall is opened through the player's entry, never by posting its state event, so the tour meets the wall the player meets (D-20261021-201402). HUD config (main menu and in-game) is the H key on the Options screen: the tour opens Options first and closes it again after.
   Medals is the Barracks medals button: the tour opens Barracks through its main hall region, presses the button, and closes Barracks to the main hall after (D-20261022-060501).
   Simulator room and Credits are the Tech room's Mission Simulator and Credits tabs: the tour opens the Tech room through its main hall region, presses the tab, and leaves to the main hall after (D-20261022-090902).
@@ -96,8 +97,8 @@ While an autotest runs:
 
 ## Recordings
 ```
-FS2vs2022d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
-FS2vs2022d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
+FS2_RecordPlayback_d.exe -window -autotest -at_mission sm1-03 -record recordings\NAME.fs2rec -trace recordings\NAME.trace
+FS2_RecordPlayback_d.exe -window -replay recordings\NAME.fs2rec -trace replays\NAME.trace
 tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 ```
 - With `-record`, the game plays one mission and quits. Without `-at_mission`, that is the first campaign mission.

@@ -5,7 +5,7 @@ and help overlay, opens and closes with no Assert, Int3, Warning or crash.
 Usage (PowerShell, from anywhere):
   tools\menu_check.ps1 [-Out <dir>] [-Configs r,d] [-GameDir <dir>] [-Shots <dir>] [-Mission <file.fs2>]
 
-The game directory defaults to $env:PATH_FS2, where the build puts FS2vs2022r.exe / FS2vs2022d.exe.
+The game directory defaults to $env:PATH_FS2, where the build puts FS2_<Layer>_r.exe / _d.exe (tools\layer.ps1).
 Prints one line per screen per build ("<config> Screen '<category>/<screen>': PASS|FAIL <why>|SKIP <why>"), then one
 line per build. Everything printed also goes to <Out>\summary.txt; the last line is DONE pass=N fail=N (builds).
 -Shots saves each screen as <Shots>\<config>\<category>\<screen>.bmp. Keep it outside the repo: the screenshots show
@@ -21,6 +21,7 @@ param(
 )
 
 $repo = Split-Path $PSScriptRoot
+. "$PSScriptRoot\layer.ps1"	# exe names (D-20261101-064106)
 if (-not $GameDir) { throw 'Set PATH_FS2 or pass -GameDir' }
 if (-not $Out) { $Out = Join-Path $repo ("replays\menus_" + (Get-Date -Format 'yyyyMMdd_HHmm')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -31,7 +32,7 @@ $Configs = $Configs | ForEach-Object { $_ -split ',' }
 Set-Location $GameDir
 $pass = 0; $fail = 0
 foreach ($e in $Configs) {
-	while (Get-Process FS2vs2022* -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 	$log = Join-Path $GameDir 'autotest.log'
 	Remove-Item $log -ErrorAction SilentlyContinue
 	$gameArgs = '-window -autotest -at_menus'
@@ -41,7 +42,7 @@ foreach ($e in $Configs) {
 		New-Item -ItemType Directory -Force $dir | Out-Null
 		$gameArgs += " -at_shots `"$dir`""
 	}
-	$p = Start-Process ".\FS2vs2022$e.exe" -ArgumentList $gameArgs -PassThru
+	$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $gameArgs -PassThru
 	if (-not $p.WaitForExit(900000)) { Stop-Process $p -Force }
 	$tour = 'NO LOG'
 	if (Test-Path $log) {

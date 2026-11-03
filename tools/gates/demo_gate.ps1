@@ -1,4 +1,4 @@
-# Gate for FS2Demo and Enhanced (no suite_check there): demo build into FS2DEMO_TEST, retail Rebuild, quick replays
+# Gate for FS2Demo and Enhanced (no suite_check there): demo build into PATH_FS2DEMO, retail Rebuild, quick replays
 # with the demo set, tools check, and warning_check with -Warn. Last line PASS or FAIL.
 param([string]$Repo = '', [string]$Label = 'demo_gate', [switch]$Warn)
 $sp = $PSScriptRoot
