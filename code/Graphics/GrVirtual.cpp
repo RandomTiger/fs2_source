@@ -227,3 +227,55 @@ void gr_virtual_wide_clip()
 		Clip_listener();
 	}
 }
+
+int gr_virtual_wide_shift_x() { return gr_virtual_in_wide_clip() ? -gr_screen.offset_x : 0; }
+int gr_virtual_wide_shift_y() { return gr_virtual_in_wide_clip() ? -gr_screen.offset_y : 0; }
+
+static int Base_clip_depth = 0;
+static int Base_clip_saved = 0;
+static int Saved_clip[8];
+static int Saved_anchor = HUD_ANCHOR_CENTRE;
+
+void gr_virtual_base_clip_begin()
+{
+	if (Base_clip_depth++ > 0) {
+		return;
+	}
+	Base_clip_saved = gr_virtual_in_wide_clip();
+	if (!Base_clip_saved) {
+		return;
+	}
+	Saved_clip[0] = gr_screen.offset_x;		Saved_clip[1] = gr_screen.offset_y;
+	Saved_clip[2] = gr_screen.clip_left;	Saved_clip[3] = gr_screen.clip_top;
+	Saved_clip[4] = gr_screen.clip_right;	Saved_clip[5] = gr_screen.clip_bottom;
+	Saved_clip[6] = gr_screen.clip_width;	Saved_clip[7] = gr_screen.clip_height;
+	Saved_anchor = Anchor;
+	gr_virtual_set_anchor(HUD_ANCHOR_CENTRE);	// the reticle's; a gauge check inside sets its own
+	gr_screen.offset_x = 0;
+	gr_screen.offset_y = 0;
+	gr_screen.clip_left = 0;
+	gr_screen.clip_top = 0;
+	gr_screen.clip_right = gr_screen.max_w - 1;
+	gr_screen.clip_bottom = gr_screen.max_h - 1;
+	gr_screen.clip_width = gr_screen.max_w;
+	gr_screen.clip_height = gr_screen.max_h;
+	if (Clip_listener != NULL) {
+		Clip_listener();
+	}
+}
+
+void gr_virtual_base_clip_end()
+{
+	if ((Base_clip_depth <= 0) || (--Base_clip_depth > 0) || !Base_clip_saved) {
+		return;
+	}
+	Base_clip_saved = 0;
+	gr_screen.offset_x = Saved_clip[0];		gr_screen.offset_y = Saved_clip[1];
+	gr_screen.clip_left = Saved_clip[2];	gr_screen.clip_top = Saved_clip[3];
+	gr_screen.clip_right = Saved_clip[4];	gr_screen.clip_bottom = Saved_clip[5];
+	gr_screen.clip_width = Saved_clip[6];	gr_screen.clip_height = Saved_clip[7];
+	Anchor = Saved_anchor;
+	if (Clip_listener != NULL) {
+		Clip_listener();
+	}
+}
