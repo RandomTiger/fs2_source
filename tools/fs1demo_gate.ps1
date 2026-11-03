@@ -8,8 +8,8 @@ gate is fs1demo_run.ps1 -Configs r,d. In one run:
 
   tools\fs1demo_gate.ps1 [-Fs2Dir <dir>] [-Fs1Dir <dir>] [-DemoDir <dir>] [-Fs1DemoDir <dir>] [-Out <dir>]
 
-The folders default to $env:PATH_FS2 (FS2 retail), $env:PATH_FS1 (FS1 retail), $env:FS2DEMO_TEST (the FS2 demo
-test folder) and $env:FS1DEMO_PATH (the FS1 demo folder, see fs1demo_run.ps1). FS1 branches link into PATH_FS1 and
+The folders default to $env:PATH_FS2 (FS2 retail), $env:PATH_FS1 (FS1 retail), $env:PATH_FS2DEMO (the FS2 demo
+test folder) and $env:PATH_FS1DEMO (the FS1 demo folder, see fs1demo_run.ps1). FS1 branches link into PATH_FS1 and
 Enhanced into PATH_FS2, so each build here sets both to the folder it is for; the retail exes are copied into the
 FS1 retail folder.
 The exes already in the FS2, FS1 and FS2 demo folders are saved first and put back at the end (other branches
@@ -20,8 +20,8 @@ Known: AutotestAI fails in Debug on its two warnings (#78), as on Enhanced.
 param(
 	[string]$Fs2Dir = $env:PATH_FS2,
 	[string]$Fs1Dir = $env:PATH_FS1,
-	[string]$DemoDir = $env:FS2DEMO_TEST,
-	[string]$Fs1DemoDir = $env:FS1DEMO_PATH,
+	[string]$DemoDir = $env:PATH_FS2DEMO,
+	[string]$Fs1DemoDir = $env:PATH_FS1DEMO,
 	[string]$Out = (Join-Path $env:LOCALAPPDATA 'fs1demo_gate'),
 	[switch]$Headless	# every replay and demo run also with -headless (#101)
 )
@@ -62,7 +62,7 @@ try {
 	# 1. retail and FS1 recordings
 	if (-not (Build $Fs2Dir)) { exit 1 }
 	Copy-Item (Join-Path $Fs2Dir (Get-FS2Exe r)), (Join-Path $Fs2Dir (Get-FS2Exe d)) $Fs1Dir
-	$env:FS2DEMO_TEST = $null	# the demo set runs in step 2, from its own build
+	$env:PATH_FS2DEMO = $null	# the demo set runs in step 2, from its own build
 	& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'replay_check.ps1') -Out (Join-Path $Out 'retail') -Configs r,d -GameDir $Fs2Dir -Fs1Dir $Fs1Dir @hl | Select-Object -Last 1
 	Get-Content (Join-Path $Out 'retail\summary.txt') | Where-Object { $_ -match '^FAIL' }
 

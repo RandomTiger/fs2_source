@@ -81,7 +81,7 @@ Real 3D, stripping Network, FRED work, the `/analyze` bug list in `TODO.md` (tha
 ## Lessons from the Unreal ports
 Two earlier attempts, both on GitHub and both dead references (read for lessons, never fixed):
 - `RandomTiger/fs2ue` (2017 to 2021, Tom by hand). It ran inside Unreal, in the editor and packaged: booted straight into a mission, simulated headless, drew textured ship hulls moving with the simulation, played DirectSound, and could Play/Stop repeatedly. It never had HUD, menus, 2D, effects, keyboard or mouse input, a player camera or correct submodels. Its goal was different: an Unreal actor and Blueprint per ship, with Unreal owning them. Godot is planned as a wrapper for platform and device calls, with the C++ simulation in charge.
-- `RandomTiger/fs2_source_ue` (local clone `U:\Projects\GitHub\fs2_source_ue`). No Unreal code was ever written; it got a VS2022 build, a bug audit (`CODE_ISSUES.md`, with false positives), `-autotest` and a `-nographics` null renderer.
+- `RandomTiger/fs2_source_ue` (a local clone, path in the machine profile). No Unreal code was ever written; it got a VS2022 build, a bug audit (`CODE_ISSUES.md`, with false positives), `-autotest` and a `-nographics` null renderer.
 
 "Confirmed" means the point was checked in code; "claimed" means only a commit message or doc says it.
 
