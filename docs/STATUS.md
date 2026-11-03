@@ -38,6 +38,16 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
   window pixels (22px at 1080, 29px at 1440), same in both modes, box grown and centred on the row when the font needs more.
   Godot host r/d menu tour, FS2: 68 PASS, 2 SKIP, 0 FAIL.
 
+- Six live device transitions (D-20261102-204804): `-at_input both -at_flight cycle` (InputTest.cpp) runs Pad -> Joystick
+  -> Mouse -> Pad -> Mouse -> Joystick -> Pad in one AutotestJoy run, one 100-frame segment each. Each switch goes through
+  `game_options_set_flight_device` (choice, Use_mouse_to_fly, `joy_reassign`, as the flight row), then checks the ownership
+  left (joy_num_sticks, Use_mouse_to_fly, which reader flies), moves the stick with fire held, then the pad with fire held,
+  and checks only the chosen device reaches the controls. `tools\flight_switch_check.ps1` (native Win32 + x64, `-Godot`
+  the game DLL in the Godot host, headless): r and d, 6 of 6 runs PASS, 6/6 transitions, 570 checks, 0 asserts. With
+  `joy_reassign` taken out, Pad -> Joystick and Mouse -> Joystick fail (stick not taken back), so the check sees it.
+  No code fix was needed. In the Godot host the run uses the scripted device table, not Godot's joypad reader.
+  Godot host r menu tour, FS2: 70/70, 0 black; native menu tour r/d: 68 pass, 2 skip. Package re-exported.
+
 ## For GodotResolution (flag, not done there)
 - `godot/src/fs2_node.cpp` (d773c72): the host now acts on `fs2_display_request` at start and on each step (a size
   request resizes the window). That is Resolution-side behaviour; GodotResolution should take it or say no.
@@ -47,8 +57,15 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
   0 black. Package re-exported into the FS2 install.
 
 ## Open
-- InputTest's six device transitions (204804) need a device switch between injected inputs inside one run; not small,
-  not done.
+- Record/replay TraceDiff for the switch runs (204804's "then TraceDiff 0"): not done; `-at_flight` is live only by
+  design (FATAL in a recording), and compared runs ignore the key, so there is nothing a replay would compare yet.
+- By hand (Tom), real devices on the Godot host and natively, since the injected run swaps the host's device table:
+  1. Plug in a pad and a joystick, start the game, open Options (main hall, bottom left), choose Pad, start any mission:
+     the pad flies, the stick does nothing. Esc, quit the mission.
+  2. Options: Joystick, start a mission: the stick flies and fires, the pad's sticks and triggers do nothing.
+  3. Options: Mouse: the mouse flies; stick and pad move nothing.
+  4. Then Mouse -> Pad, Pad -> Mouse, Mouse -> Joystick, Joystick -> Pad, each with a mission between, same checks.
+  No restart between steps. Afterwards set the choice back to what it was.
 - Native Win32 tour (`tools\menu_tour_all.ps1`) not run this round (no gates on WIP).
 - At GR_640 the drawn Resolution sizes row (native D3D and compared runs; the Godot host now has the drop-down) is tight (step w/8 at 640 wide); readable, no overlap.
 

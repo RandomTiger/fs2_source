@@ -46,6 +46,14 @@
  *   -autotest -at_mission AutotestJoy -at_input joy -at_flight pad ...
  *   -autotest -at_mission AutotestPad -at_input pad -at_flight joystick ...
  *   -autotest -at_mission AutotestJoy -at_input both -at_flight mouse ...
+ *
+ * -at_flight cycle, with -at_input both, takes the six live device switches (D-20261102-204804) in one run in place of the
+ * two scripts: Pad -> Joystick -> Mouse -> Pad -> Mouse -> Joystick -> Pad, one segment each.  A segment switches through
+ * game_options_set_flight_device (the choice, Use_mouse_to_fly and joy_reassign, as the Options screen's row), checks the
+ * ownership it left (joy_num_sticks, Use_mouse_to_fly, which reader flies), then moves the stick with its fire button down,
+ * then the pad with its fire trigger down, and checks only the chosen device reached the controls.  One line per
+ * transition, "Flight switch: <from> -> <to> live: ... PASS", and a last "Flight switch: 6 of 6 transitions passed ... PASS".
+ *   -autotest -at_mission AutotestJoy -at_input both -at_flight cycle -at_pilot AutotestPilot -at_time 60 (tools\flight_switch_check.ps1)
  */
 
 #ifndef _FS2_INPUT_TEST_H
