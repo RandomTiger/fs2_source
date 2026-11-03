@@ -2,7 +2,7 @@
 Windowed Godot smoke test (G3): a visible Godot window runs a live autotest mission on the game fiber, one game resume per Godot
 _process. Passes when the game ends with exit 0 and Godot's window kept processing events meanwhile: runner.gd (FS2_SMOKE=1) logs
 the gap between Godot frames and every window event; this script resizes the window and takes a screenshot during the mission and
-checks the window is not reported hung. Proof goes to <Out>: smoke.out.txt, smoke_during.png, smoke.txt.
+logs what Windows reports for the window (the hung reading is logged only, it does not fail the run). Runs on the scratch pilot AutotestPilot, not a real pilot. Exits non-zero when the game does or autotest.log says FAIL. Proof goes to <Out>: smoke.out.txt, smoke_during.png, smoke.txt.
 Usage: tools\godot_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Seconds 90] [-Out dir]
 #>
 param([string]$Config = 'r', [string]$Mission = 'sm1-01', [int]$Seconds = 90, [string]$Out,
@@ -25,7 +25,7 @@ public static class W32 {
 }
 "@
 $env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'; $env:FS2_SMOKE = '1'
-$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot Tom -at_time $Seconds"
+$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot AutotestPilot -at_time $Seconds"
 Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
 Set-Location $GameDir
 $p = Start-Process $Godot -ArgumentList "--path `"$(Join-Path $repo 'godot')`" --windowed --resolution 800x450" -PassThru -RedirectStandardOutput "$Out\smoke.out.txt" -RedirectStandardError "$Out\smoke.err.txt"
@@ -61,3 +61,4 @@ $res += ($o | Select-String 'smoke: t=' | Select-Object -Last 1 | % { $_.Line })
 $res += "autotest.log: " + ((Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'PASS|FAIL|Asserts' | Select-Object -Last 2 | % { $_.Line }) -join ' | ')
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_SMOKE -ErrorAction SilentlyContinue
 $res | Set-Content "$Out\smoke.txt"; $res
+if ($code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'FAIL' -Quiet)) { exit 1 }
