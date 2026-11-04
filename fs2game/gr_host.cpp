@@ -1066,7 +1066,7 @@ void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts
 
 // ---- R3: billboards (g3_draw_bitmap, g3_draw_laser) ---------------------------------------------------------------
 // The game keeps the trivial culls and hands the eye-space points over; the sink applies the game's own size, placement and pixel rules
-// (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 = the draw stays on the CPU path (counted).
+// (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 only with FS2_BB_OFF (proof baseline, draw stays on the CPU path); faults are counted and draw nothing.
 int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags)
 {
 	if (H.sink == nullptr || H.sink->billboard_draw == nullptr) { return 0; }
@@ -1075,9 +1075,9 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	ensure_frame();
 	if (!drawing()) { H.bb_why[0]++; return 0; }	// as tmapper_internal: outside an open frame nothing is drawn on either path
 	const bool zbuffering = H.zmode != GR_ZBUFF_NONE;
-	// flags the sink does not model stay on the CPU path
+	// flags the sink does not model: a counted fault, nothing is drawn (D-20261104-174832)
 	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
-		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 0; }
+		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 1; }
 	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
 
 	fs2_sink_billboard b = {};
@@ -1104,7 +1104,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	glow_flush();
 	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
 	send_view();
-	if (!H.sink->billboard_draw(H.sink->user, &b)) { H.bb_cpu++; H.bb_why[3]++; return 0; }
+	if (!H.sink->billboard_draw(H.sink->user, &b)) { H.bb_cpu++; H.bb_why[3]++; return 1; }	// counted fault, nothing is drawn
 	H.bb_sink++;
 	return 1;
 }
@@ -1713,7 +1713,7 @@ void host_init()
 
 void host_cleanup()
 {
-	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d on the CPU path (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
