@@ -305,7 +305,7 @@ void pad_menu_test_frame()
 		test_check(cmd_brief_test_stage() == 0, "command briefing: LB stops at the first stage");
 		Test_cmd_brief_done = 1;
 
-		// the tactical briefing, the same
+		// the tactical briefing, the same, with a fourth stage: the game adds the objectives after the mission's three
 		WAIT(STATE == GS_STATE_BRIEFING);
 		POLLS(10);
 		test_check(brief_test_stage() == 0, "tactical briefing: opens on stage 1");
@@ -314,13 +314,17 @@ void pad_menu_test_frame()
 		TAP(PAD_RSHOULDER);
 		test_check(brief_test_stage() == 2, "tactical briefing: RB moves to stage 3");
 		TAP(PAD_DPAD_RIGHT);
-		test_check(brief_test_stage() == 2, "tactical briefing: D-pad right stops at the last stage");
+		test_check(brief_test_stage() == 3, "tactical briefing: D-pad right moves to the objectives");
+		TAP(PAD_RSHOULDER);
+		test_check(brief_test_stage() == 3, "tactical briefing: RB stops at the objectives");
 		TAP(PAD_LSHOULDER);
-		test_check(brief_test_stage() == 1, "tactical briefing: LB moves back to stage 2");
+		test_check(brief_test_stage() == 2, "tactical briefing: LB moves back to stage 3");
 		TAP(PAD_DPAD_LEFT);
-		test_check(brief_test_stage() == 0, "tactical briefing: D-pad left moves back to stage 1");
+		test_check(brief_test_stage() == 1, "tactical briefing: D-pad left moves back to stage 2");
 		TAP(PAD_LSHOULDER);
-		test_check(brief_test_stage() == 0, "tactical briefing: LB stops at the first stage");
+		test_check(brief_test_stage() == 0, "tactical briefing: LB moves back to stage 1");
+		TAP(PAD_DPAD_LEFT);
+		test_check(brief_test_stage() == 0, "tactical briefing: D-pad left stops at the first stage");
 
 		// South and RB go down on a menu and are held into the mission
 		Test_pad.button[PAD_SOUTH] = 1;
