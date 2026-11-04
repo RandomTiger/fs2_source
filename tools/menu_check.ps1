@@ -3,13 +3,14 @@ Runs the autotest menu tour (-autotest -at_menus, docs/AUTOTEST.md): every singl
 and help overlay, opens and closes with no Assert, Int3, Warning or crash.
 
 Usage (PowerShell, from anywhere):
-  tools\menu_check.ps1 [-Out <dir>] [-Configs r,d] [-GameDir <dir>] [-Shots <dir>] [-Mission <file.fs2>]
+  tools\menu_check.ps1 [-Out <dir>] [-Configs r,d] [-GameDir <dir>] [-Shots <dir>] [-Mission <file.fs2>] [-Awards [mrb]]
 
 The game directory defaults to $env:PATH_FS2, where the build puts FS2_<Layer>_r.exe / _d.exe (tools\layer.ps1).
 Prints one line per screen per build ("<config> Screen '<category>/<screen>': PASS|FAIL <why>|SKIP <why>"), then one
 line per build. Everything printed also goes to <Out>\summary.txt; the last line is DONE pass=N fail=N (builds).
 -Shots saves each screen as <Shots>\<config>\<category>\<screen>.bmp. Keep it outside the repo: the screenshots show
 game data, which must never be committed.
+-Awards makes the tour's debriefing show awards (-at_awards: m medal, r rank, b badge; default all). The log must name them.
 Build first, and don't build or run the game from another session while this runs.
 #>
 param(
@@ -17,7 +18,8 @@ param(
 	[string[]]$Configs = @('r', 'd'),
 	[string]$GameDir = $env:PATH_FS2,
 	[string]$Shots,
-	[string]$Mission
+	[string]$Mission,
+	[string]$Awards
 )
 
 $repo = Split-Path $PSScriptRoot
@@ -35,8 +37,11 @@ foreach ($e in $Configs) {
 	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
 	$log = Join-Path $GameDir 'autotest.log'
 	Remove-Item $log -ErrorAction SilentlyContinue
-	$gameArgs = '-window -autotest -at_menus'
+	# the scratch pilot, so the result never depends on a real pilot in this folder (#141)
+	Get-ChildItem 'data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
+	$gameArgs = '-window -autotest -at_menus -at_pilot AutotestPilot'
 	if ($Mission) { $gameArgs += " -at_mission $Mission" }
+	if ($PSBoundParameters.ContainsKey('Awards')) { $gameArgs += " -at_awards $Awards" }
 	if ($Shots) {
 		$dir = Join-Path $Shots $e
 		New-Item -ItemType Directory -Force $dir | Out-Null
@@ -44,6 +49,9 @@ foreach ($e in $Configs) {
 	}
 	$p = Start-Process ".\$(Get-FS2Exe $e)" -ArgumentList $gameArgs -PassThru
 	if (-not $p.WaitForExit(900000)) { Stop-Process $p -Force }
+	$p.WaitForExit()
+	# it goes again, so it never shows on the player's pilot screen and each run starts from a new one
+	Get-ChildItem 'data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
 	$tour = 'NO LOG'
 	if (Test-Path $log) {
 		Copy-Item $log (Join-Path $Out "menus_$e.autotest.log")
