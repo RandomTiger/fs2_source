@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define FS2_RENDER_SINK_VERSION 5
+#define FS2_RENDER_SINK_VERSION 6
 
 /* v3 (P1, GodotRender3D): the game camera, for a sink that draws meshes. Informational: no draw changes with it. */
 typedef struct fs2_sink_view {
@@ -142,6 +142,7 @@ typedef struct fs2_sink_draw {
  * set_view scale and canvas. */
 #define FS2_SINK_BB_BITMAP	0	/* g3_draw_bitmap: p0 = centre, rad = half size, orient = flip bits (1: u, 2: v) */
 #define FS2_SINK_BB_RIBBON	1	/* g3_draw_laser: p0 = head, p1 = tail, rad = head width, rad_tail = tail width, max_len = pixel cap of the 2D length */
+#define FS2_SINK_BB_ROTATED	2	/* v6, g3_draw_rotated_bitmap: p0 = centre, rad = size of the shorter side (not half), angle = roll in radians (viewer bank already added, wrapped to 0..2pi); constant per-quad sw, always uv 0..1 */
 typedef struct fs2_sink_billboard {
 	int32_t kind;			/* FS2_SINK_BB_* */
 	int32_t texture, blend;		/* as fs2_sink_draw; texture 0 = untextured (tint colour) */
@@ -153,6 +154,7 @@ typedef struct fs2_sink_billboard {
 	int32_t orient;
 	int32_t bw, bh;			/* bitmap size in texels (bitmap kind: the aspect rule) */
 	int32_t clip[4];		/* gr_screen clip left, top, right, bottom, canvas-relative: the bitmap kind's scaler clips and drops tiny quads with them */
+	float angle;			/* v6: FS2_SINK_BB_ROTATED only */
 } fs2_sink_billboard;
 
 typedef struct fs2_sink_mesh_fog {

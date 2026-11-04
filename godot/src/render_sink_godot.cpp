@@ -2176,7 +2176,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(kind & 1) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u);
+	const uint32_t skey = ((uint32_t)(kind & 3) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u);
 	auto it = bb_shaders.find(skey);
 	if (it != bb_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, ";
@@ -2207,6 +2207,14 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\tsx = snap16(cx);\n\tsy = snap16(cy);\n";
 		code += "\tint ori = int(bbp.y + 0.5);\n\tuv = vec2((cx - x0) / w, (cy - y0) / h);\n\tif ((ori & 1) != 0) { uv.x = 1.0 - uv.x; }\n\tif ((ori & 2) != 0) { uv.y = 1.0 - uv.y; }\n";
 		code += "\tzq = max(z - rad * 0.5, 0.0);\n";
+	} else if (kind == FS2_SINK_BB_ROTATED) {
+		// g3_draw_rotated_bitmap: the four corners rotated by the roll angle (pB.x), sized by the bitmap's aspect (the shorter side = rad), scaled by
+		// Matrix_scale in eye space, all at the centre's z. The CPU draws it with a constant sw, so the uvs need no perspective divide.
+		code += "\tfloat rad = pA.w;\n\tfloat width; float height;\n";
+		code += "\tif (bbp.z < bbp.w) { width = rad; height = width * bbp.w / bbp.z; } else if (bbp.z > bbp.w) { height = rad; width = height * bbp.z / bbp.w; } else { width = rad; height = rad; }\n";
+		code += "\tfloat sa = sin(pB.x);\n\tfloat ca = cos(pB.x);\n\tfloat su = 2.0 * q.x - 1.0;\n\tfloat tv = 2.0 * q.y - 1.0;\n";
+		code += "\tfloat ex = (su * width * ca + tv * height * sa) * sc.x + pA.x;\n\tfloat ey = (su * width * sa - tv * height * ca) * sc.y + pA.y;\n\tfloat z = pA.z;\n";
+		code += "\tsx = snap16((cwh.x + ex * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ey * cwh.y / z) * 0.5);\n\tzq = z;\n";
 	} else {
 		code += "\tfloat sw0 = min(1.0 / pA.z, 1.0);\n\tfloat sw1 = min(1.0 / pB.z, 1.0);\n";
 		code += "\tfloat hx = (cwh.x + pA.x * cwh.x / pA.z) * 0.5;\n\tfloat hy = (cwh.y - pA.y * cwh.y / pA.z) * 0.5;\n";
@@ -2228,7 +2236,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
 	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
 	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
-	code += kind == FS2_SINK_BB_BITMAP ? "\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
+	code += kind != FS2_SINK_BB_RIBBON ? "\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
 	code += "void fragment() {\n";
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
 	code += arr ? "\tvec4 t = texture(tex, vec3(pc.xy / pc.z, lyr));\n" : "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
@@ -2312,7 +2320,7 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	for (int i = 0; i < n; i++) {
 		const fs2_sink_billboard &b = bb_draws[idx[(size_t)i]].b;
 		float *e = w + (size_t)i * kStride;
-		const float v[12] = { b.p0[0], b.p0[1], b.p0[2], b.rad, b.p1[0], b.p1[1], b.p1[2], b.rad_tail, b.max_len, (float)b.orient, (float)b.zbias, (float)bb_draws[idx[(size_t)i]].layer };
+		const float v[12] = { b.p0[0], b.p0[1], b.p0[2], b.rad, (b.kind == FS2_SINK_BB_ROTATED ? b.angle : b.p1[0]), b.p1[1], b.p1[2], b.rad_tail, b.max_len, (float)b.orient, (float)b.zbias, (float)bb_draws[idx[(size_t)i]].layer };
 		for (int k = 0; k < 12; k++) { e[(k % 3) * 4 + (k / 3)] = v[k]; }
 		e[12] = b.tint[0] / 255.0f; e[13] = b.tint[1] / 255.0f; e[14] = b.tint[2] / 255.0f; e[15] = b.tint[3] / 255.0f;
 	}
@@ -2351,7 +2359,7 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 		rs->instance_set_custom_aabb(inst, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
 	}
 	// Godot sorts by depth + this offset; the instance is at the origin, so the offset is the old per-instance origin distance
-	rs->instance_set_pivot_data(inst, origin, false);
+	rs->instance_set_pivot_data(inst, -origin, false);
 	rs->instance_geometry_set_material_override(inst, mat);
 	l.bb_instances.push_back(inst);
 }

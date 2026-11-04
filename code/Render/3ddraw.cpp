@@ -703,6 +703,10 @@ int g3_draw_rotated_bitmap(vertex *pnt,float angle, float rad,uint tmap_flags)
 	else if ( angle > PI2 )
 		angle -= PI2;
 //	angle = 0.0f;
+
+	// Claude: R3, the host's sink sizes, rotates and places the quad on the GPU (same rules below); 0 = this draw stays here. A user clip plane keeps the CPU clipper.
+	if ( (pnt->z > 0.0f) && !G3_user_clip && (tmap_flags & TMAP_FLAG_TEXTURED) && gr_host_billboard(2, &pnt->x, &angle, rad, 0.0f, 0.0f, 0, tmap_flags, -1) )
+		return 0;
 			
 	sa = (float)sin(angle);
 	ca = (float)cos(angle);
