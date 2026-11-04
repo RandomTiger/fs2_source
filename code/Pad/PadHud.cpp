@@ -9,6 +9,7 @@
 
 #include "2d.h"
 #include "HUD.h"
+#include "AlphaColors.h"
 
 #define PAD_HUD_Y_FRACTION		0.14f		// centre of the cross, as a fraction of screen height (top quarter, clear of the gauges)
 #define PAD_HUD_GAP				12			// pixels between the centre and the Left/Right labels
@@ -25,6 +26,14 @@ static void pad_hud_string(int x, int y, int align, const char *text)
 		x -= w;
 	}
 	gr_string(x, y, (char *) text);
+}
+
+// white shows against each of the game's HUD colours
+void pad_ets_recolor(int gauge, int bright)
+{
+	if (pad_ets_highlight(gauge)) {
+		gr_set_color_fast(bright ? &Color_bright_white : &Color_white);
+	}
 }
 
 void pad_hud_render()
