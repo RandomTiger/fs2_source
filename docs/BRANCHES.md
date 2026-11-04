@@ -11,19 +11,25 @@ master                    original 1999 source, as provided by Volition. Never c
             Enhanced      the original game with all its features combined (Latest points here)
               PrePort32   port preparation that needs no engine, rendered and 32-bit; code removal (cleanup) lives here
                 PrePort64 x64, headless, with the host seam: the last point before an engine is chosen
-                  Godot   the game running in Godot, cut from PrePort64, with its own feature branches off it
-                    GodotEnhanced   the Godot game with its features combined (later)
+                  Godot   a clean render2d base to change the basics of the port, cut from PrePort64, with its own feature branches off it
+                    GodotRender3D, GodotResolution > GodotOptions, SteamIntegration   Godot features, all work in progress
+                      GodotPlus   everything we have (for now) combined together
 ```
 
-The port stack is `Enhanced` -> `PrePort32` -> `PrePort64` -> `Godot` -> `GodotEnhanced` (Tom, D-20261021-200950, as corrected by D-20261022-173525). `PrePort32` is the old `PrePort`, renamed after `PrePortCleanup` was merged into it; it therefore also holds the D-057 x64 portability commits, which are inert in the x86 build. `PrePortCleanup` and `GodotPrep` are closed: tagged `PrePortCleanup-closed` and `GodotPrep-closed`, branch names deleted; their commits are in `PrePort32` and `PrePort64`.
+The port stack is `Enhanced` -> `PrePort32` -> `PrePort64` -> `Godot` -> `GodotPlus` (Tom, D-20261021-200950, as corrected by D-20261022-173525; GodotPlus was first called GodotEnhanced, renamed by Tom 2026-11-04 to avoid confusion with `Enhanced`). `PrePort32` is the old `PrePort`, renamed after `PrePortCleanup` was merged into it; it therefore also holds the D-057 x64 portability commits, which are inert in the x86 build. `PrePortCleanup` and `GodotPrep` are closed: tagged `PrePortCleanup-closed` and `GodotPrep-closed`, branch names deleted; their commits are in `PrePort32` and `PrePort64`.
 
 `Latest` is not a layer. It is the default branch on GitHub and is moved forward to `Enhanced` each time `Enhanced` passes the full suite, so it is always the newest known-good build.
 
+## Godot and GodotPlus (Tom, 2026-11-04)
+- **`Godot`** provides a clean render2d base to change the basics of the port. It stays a render2d testable branch: `GodotRender3D` never merges back into it, nor do `GodotResolution` and `GodotOptions`.
+- **`GodotPlus`** is everything we have (for now) combined together. It branches off `Godot` and takes merges from `Godot`, `GodotRender3D`, `GodotOptions` (which carries `GodotResolution`) and `SteamIntegration`. It merges into nothing.
+- Those feature branches all stay work in progress: no gate of their own by default, and their merge into `GodotPlus` is the only merge out of them. `GodotPlus` runs all scripted autotests after everything is merged in, with a test list from the planner.
+
 ## Folders
-Each branch in use has its own folder (a git worktree, like a second Perforce workspace) next to the others, named `fs2_<Branch>`: `fs2_RecordPlayback` (the main clone), `fs2_Enhanced`, `fs2_PrePort32`, `fs2_PrePort64`, and later `fs2_Godot`, `fs2_GodotEnhanced`. Build and run the tests in `fs2_Enhanced`, so every feature is covered; commit each change in the folder of the branch it belongs on.
+Each branch in use has its own folder (a git worktree, like a second Perforce workspace) next to the others, named `fs2_<Branch>`: `fs2_RecordPlayback` (the main clone), `fs2_Enhanced`, `fs2_PrePort32`, `fs2_PrePort64`, and later `fs2_Godot`, `fs2_GodotPlus`. Build and run the tests in `fs2_Enhanced`, so every feature is covered; commit each change in the folder of the branch it belongs on.
 
 ## Rules
-- **Fix a bug on the lowest layer that has it, then merge it upward one layer at a time.** An original-game bug goes on `OriginalSourceBugFixes`, a recorder bug on `RecordPlayback`, a feature bug on that feature's branch. Then: `OriginalSourceBugFixes` → `RecordPlayback` → `Enhanced` → `PrePort32` → `PrePort64` → `Godot` → `GodotEnhanced`.
+- **Fix a bug on the lowest layer that has it, then merge it upward one layer at a time.** An original-game bug goes on `OriginalSourceBugFixes`, a recorder bug on `RecordPlayback`, a feature bug on that feature's branch. Then: `OriginalSourceBugFixes` → `RecordPlayback` → `Enhanced` → `PrePort32` → `PrePort64` → `Godot` → `GodotPlus`.
 - **`RecordPlayback` is strictly for changes that let record and playback run without sync error** (Tom, 2026-10-22, D-20261022-085602), ideally only within the recording systems. What stays on it: the test suite (autotest, the menu tour, the replay and check scripts); the audio listening scenes and their A/B script, which count as autotest; and the `fs2.ini` settings file that replaced the registry (registry settings caused start-up problems). Docs and process commits are acceptable there, since they cannot cause a sync error. Diagnostics, speed tools and features go elsewhere: the lowest layer whose job it is, `PrePort32` for diagnostics and speed work. Already-pushed work stays where it is.
 - **Merges only flow up.** Never merge a higher branch into a lower one. One agreed exception: `CosmeticRandom` (a separate random stream for effects) was merged into `RecordPlayback`, because it makes the recordings independent of rendering and fixes nothing a player sees.
 - **Feature branches branch off `RecordPlayback`** and only take merges from it, never from `Enhanced` or from each other. That keeps each feature separable. Features that need the port preparation (for example `Headless`) branch off `PrePort32` instead and only take merges from it.
