@@ -264,10 +264,12 @@ static void game_options_res_add(int mode, int w, int h, char *text)
 static void game_options_res_list()
 {
 	int mw, mh, cw, ch, cur, i, first, n;
+	char classic[24];	// Claude: GodotOptions, the Classic entry names the size the game draws at
 	int num_common = (int)(sizeof(Go_common_sizes) / sizeof(Go_common_sizes[0]));
 
 	Go_num_res = 0;
-	game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, "Classic (4:3)");
+	sprintf(classic, "%s (4:3)", (Go_gr_shown == GR_640) ? "640x480" : "1024x768");
+	game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, classic);
 	game_options_res_add(GR_DISPLAY_DESKTOP, 0, 0, "Desktop");
 	game_options_monitor_size(&mw, &mh);
 	n = 0;
@@ -501,6 +503,7 @@ static void game_options_pick(go_item *it)
 		int gr = it->value;
 
 		Go_gr_shown = gr;
+		game_options_res_list();	// Claude: GodotOptions, the Classic entry follows the mode
 		if (game_options_keys_active()) {
 			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (gr == GR_1024) ? "GR_1024" : "GR_640");
 			game_options_load();

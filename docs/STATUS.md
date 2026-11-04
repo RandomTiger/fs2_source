@@ -13,7 +13,7 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
   resolution (list with letters, a letter, a height, `<w>x<h>`), unlock missions (loads the pilot's campaign if needed,
   marks every mission completed and saves). API v10 `fs2_console_command`. In a mission the game runs on behind it.
 - Merge of GodotResolution: conflict in FreeSpace.cpp's host init kept both (`gr_virtual_read_config` + GraphicsMode key).
-- Resolution row: Classic (4:3) / Desktop / up to 3 common sizes that fit the monitor / the monitor's size (and the size in
+- Resolution row: Classic, named by its size (1024x768 (4:3) or 640x480 (4:3)) / Desktop / up to 3 common sizes that fit the monitor / the monitor's size (and the size in
   force if none of those). Writes `DisplayResolution`; live where `gr_live_mode_change()` (Godot host: the window follows
   `fs2_display_request`); else "Takes effect next time the game starts" (native D3D).
 - GR row (FS2 retail): live via `game_switch_gr_mode` where the backend says live; the next-start notice only where not.
