@@ -1,4 +1,5 @@
 #include "render_sink_godot.h"
+#include "opaque_reorder.h"
 #include "perf_prof.h"
 
 #include <cstring>
@@ -23,6 +24,7 @@
 #include <godot_cpp/variant/rect2.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
+#include <godot_cpp/variant/vector4.hpp>
 
 using namespace godot;
 
@@ -60,6 +62,15 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.depth_begin = &GodotSink::s_depth_begin;
 	sink.depth_end = &GodotSink::s_depth_end;
 	sink.depth_clear = &GodotSink::s_depth_clear;
+	sink.set_view = &GodotSink::s_set_view;
+	sink.mesh_create = &GodotSink::s_mesh_create;
+	sink.mesh_free = &GodotSink::s_mesh_free;
+	sink.mesh_draw = &GodotSink::s_mesh_draw;
+	sink.mesh_state = &GodotSink::s_mesh_state;
+	sink.mesh_draw_lit = &GodotSink::s_mesh_draw_lit;
+	sink.mesh_clip = &GodotSink::s_mesh_clip;
+	sink.mesh_thrust = &GodotSink::s_mesh_thrust;
+	sink.mesh_fog = &GodotSink::s_mesh_fog;
 	batcher.set_emitter(this);
 	return true;
 }
@@ -83,6 +94,10 @@ void GodotSink::shutdown()
 		for (auto &m : spatial_materials) {
 			rs->free_rid(m.second);
 		}
+		for (auto &m : mesh_data) { free_mesh_data(m.second); }
+		mesh_data.clear();
+		for (auto &sh : mesh_shaders) { rs->free_rid(sh.second); }
+		mesh_shaders.clear();
 		for (RID &r : gpu_tab) {
 			if (r.is_valid()) { rs->free_rid(r); }
 			r = RID();
@@ -416,7 +431,7 @@ void GodotSink::age_dying(bool force_all)
 void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t flags, const uint8_t *pixels)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
-	if (!s->in_frame || id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {
+	if (id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {	// legal outside a frame too: level load uploads before the first frame
 		return;
 	}
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
@@ -972,6 +987,16 @@ void GodotSink::s_depth_end(void *u)
 	}
 }
 
+// v3: the camera is kept for the mesh path (P1); no draw uses it yet
+void GodotSink::s_set_view(void *u, const fs2_sink_view *v)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (s->in_frame && v != nullptr) {
+		s->view = *v;
+		s->have_view = true;
+	}
+}
+
 // Depth cleared in a rectangle: everything drawn after it is in front of everything before it. Approximation: the
 // whole layer, not only the rectangle. The same as D3D while the depth draws after the clear do not overlap earlier
 // ones outside the rectangle; in the missions checked (R1-9) they are the target box model, whose z is near 0 and
@@ -1010,6 +1035,11 @@ void GodotSink::end_run()
 	in_run = false;
 	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
 	RenderingServer *rs = RenderingServer::get_singleton();
+	if (g_opaque_reorder) {
+		const size_t before = run_batches.size();
+		reorder_opaque_batches(run_batches);
+		stat_reorder_saved += before - run_batches.size();
+	}
 	int first = -1, last = -1;
 	for (int i = 0; i < (int)run_batches.size(); i++) {
 		if (run_batches[i].key.zmode != 0) {
@@ -1046,6 +1076,8 @@ void GodotSink::end_run()
 		}
 	}
 	run_batches.clear();
+	{ std::set<std::pair<int32_t, int>> seen; for (const MeshDraw &md : mesh_draws) { seen.insert(std::make_pair(md.id, md.state)); } stat_mesh_models += seen.size(); }
+	mesh_draws.clear();
 	cur_item = RID();
 	if (clipped) {
 		open_clip_item();
@@ -1107,6 +1139,7 @@ void GodotSink::release_layers(std::vector<Layer> &layers)
 			}
 		}
 		l.instances.clear();
+		release_mesh_res(l, false);
 		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
 		spare_layers.push_back(l);
 	}
@@ -1120,6 +1153,7 @@ void GodotSink::free_layer(Layer &l)
 		rs->free_rid(i);
 	}
 	l.instances.clear();
+	release_mesh_res(l, true);
 	rs->free_rid(l.viewport);
 	rs->free_rid(l.camera);
 	rs->free_rid(l.scenario);
@@ -1478,6 +1512,11 @@ void GodotSink::gpu_frame_end()
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
+	if (b.key.texture < 0) {
+		const size_t di = (size_t)(-(int64_t)b.key.texture - 1);
+		if (di < mesh_draws.size()) { add_mesh_to_layer(l, mesh_draws[di], order); }
+		return;
+	}
 	fs2perf::Zone _pz(fs2perf::Z_LAYER_ADD);
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
 	fs2perf::count(fs2perf::C_MESHES);
@@ -1518,7 +1557,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 	Vector3 *pp = pos.ptrw();
 	for (int i = 0; i < nv; i++) {
 		/* zbias: retail D3D adds ~1 depth-buffer step per unit (decals, subobjects over the hull); 2.0 here was ~60 game m per unit and pulled insignias and turrets through the hull */
-		const float d = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f + b.z[i] * 1000.0f - (float)b.key.zbias * 0.05f;
+		const float d = legacy_depth(b.z[i], epoch, MAX_EPOCH, b.key.zbias);
 		pp[i] = Vector3(b.pos[i * 2] - hw, hh - b.pos[i * 2 + 1], origin - d);
 	}
 	std::memcpy(uvs.ptrw(), b.uv.data(), sizeof(float) * 2 * (size_t)nv);
@@ -1556,6 +1595,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 		spare_instances.pop_back();
 		rs->instance_set_base(inst, mesh);
 		rs->instance_set_scenario(inst, l.scenario);
+		rs->instance_geometry_set_material_override(inst, RID());	// a pooled instance may come from a mesh draw, which overrides its material
 		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
 	} else {
 		inst = rs->instance_create2(mesh, l.scenario);
@@ -1564,6 +1604,426 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
 	}
 	l.instances.push_back(inst);
+}
+
+// ---- v4 meshes (P3b) ----------------------------------------------------------------------------------------------------------------
+// The mesh shader reproduces the sink's depth contract (depth_contract.h) per vertex: eye = xform * model position; the screen
+// position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
+// position is output homogeneous (w = eye z), so the GPU clips at w > 0 and the fragment shader discards below the near plane (eye z 0.1) and interpolates the UVs
+// perspective-correct; colour and fog stay linear in screen space (the game's Gouraud), carried as value * z and divided by the interpolated z.
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const uint32_t skey = (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
+	auto it = mesh_shaders.find(skey);
+	if (it != mesh_shaders.end()) { return it->second; }
+	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
+	// the game culls back faces on the CPU (g3_check_normal_facing) for polys that carry the cull flag; the mesh does it on the GPU
+	code += cull ? (kMeshFrontCCW ? "cull_back, " : "cull_front, ") : "cull_disabled, ";
+	code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";
+	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
+	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
+	code += ";\nuniform sampler2D tex : ";
+	code += lin ? "filter_linear, " : "filter_nearest, ";
+	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
+	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\nvarying float wv;\n";
+	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
+	if (crect) { code += "uniform vec4 crc;\n"; }	// the screen clip rect (x0, y0, x1, y1) in pixels
+	if (thr) { code += "uniform vec2 thr;\n"; }	// an engine thruster: z below thr.y is scaled by thr.x (model_interp_defpoints)
+	const bool fgpu = fog && g_nebfog == kNebFogGpu;
+	if (fog) {
+		// fogp = near, far, 32 / screen width, 32 / screen height; fogc = the fixed fog colour (not used by fog gpu)
+		code += "uniform vec4 fogp;\nuniform vec4 fogc;\nvarying vec3 fgc;\nvarying float fgf;\n";
+		if (fgpu) {
+			// neb2_get_pixel (Neb.cpp 1229-1343) for the vertex's projected screen cell, on the 32x32 pre-render `bg`: the same integer average
+			// over the cell and its neighbours as the poly path's fog gpu takes per poly vertex
+			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\n";
+			code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
+			code += "ivec3 nbget(int xs, int ys) {\n\tivec3 s = nbpx(xs, ys);\n\tint n = 1;\n";
+			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys); n++; }\n";
+			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys); n++; }\n";
+			code += "\tif (ys > 0) { s += nbpx(xs, ys - 1); n++; }\n";
+			code += "\tif (ys < 30) { s += nbpx(xs, ys + 1); n++; }\n";
+			code += "\tif (xs > 0 && ys > 0) { s += nbpx(xs - 1, ys - 1); n++; }\n";
+			code += "\tif (xs < 31 && ys < 31) { s += nbpx(xs + 1, ys + 1); n++; }\n";
+			code += "\tif (ys > 0 && xs < 31) { s += nbpx(xs + 1, ys - 1); n++; }\n";
+			code += "\tif (ys < 31 && xs > 0) { s += nbpx(xs - 1, ys + 1); n++; }\n";
+			code += "\treturn ivec3(s.x / n, s.y / n, s.z / n);\n}\n";
+		}
+	}
+	if (lit) {
+		// light_apply_rgb (code/Lighting/Lighting.cpp) per vertex, then the host's gamma table; lt0 = ambient, reflective, level, darken;
+		// lt1 = suns, points, 1/gamma, flat byte (< 0: none)
+		code += "uniform vec4 lt0;\nuniform vec4 lt1;\nuniform vec4 sunD[4];\nuniform vec4 sunC[4];\nuniform vec4 ptA[16];\nuniform vec4 ptB[16];\nuniform vec4 ptC[16];\nuniform vec4 ptD[16];\n";
+		code += "vec3 light_vertex(vec3 pos, vec3 nrm) {\n\tvec3 a = vec3(lt0.x);\n\tvec3 v;\n\tif (lt1.w >= 0.0) { v = vec3(lt1.w / 255.0); } else {\n";
+		code += "\tfor (int i = 0; i < 4; i++) {\n\t\tif (float(i) >= lt1.x) { break; }\n\t\tfloat l = -dot(sunD[i].xyz, nrm) * sunD[i].w * lt0.y;\n";
+		code += "\t\tif (l > 0.0) { if (lt0.w > 0.5) { a = max(a - vec3(l), vec3(0.0)); } else { a += sunC[i].rgb * l; } }\n\t}\n";
+		code += "\ta = clamp(a, vec3(0.0), vec3(0.75)) * lt0.z;\n";
+		code += "\tfor (int i = 0; i < 16; i++) {\n\t\tif (float(i) >= lt1.y) { break; }\n\t\tvec3 tl;\n\t\tfloat dist = -1.0;\n";
+		code += "\t\tif (ptD[i].x > 0.5) {\n\t\t\tvec3 l0 = ptA[i].xyz;\n\t\t\tvec3 b = ptB[i].xyz - l0;\n\t\t\tfloat bm = length(b);\n\t\t\tfloat comp = dot(pos - l0, b) / bm;\n";
+		code += "\t\t\tif (comp < 0.0 || comp > bm) { continue; }\n\t\t\ttl = l0 + b / bm * comp - pos;\n\t\t\tdist = dot(tl, tl);\n\t\t} else { tl = ptA[i].xyz - pos; }\n";
+		code += "\t\tfloat d = dot(tl, nrm);\n\t\tif (d > 0.0) {\n\t\t\tif (dist < 0.0) { dist = dot(tl, tl); }\n\t\t\tfloat ra = ptA[i].w;\n\t\t\tfloat rb = ptB[i].w;\n";
+		code += "\t\t\tif (dist < ra) { a += ptC[i].rgb * (ptC[i].w * d * 0.25); }\n\t\t\telse if (dist < rb) { a += ptC[i].rgb * ((1.0 - (dist - ra) / (rb - ra)) * d * ptC[i].w * 0.25); }\n\t\t}\n\t}\n";
+		code += "\tfloat m = max(a.r, max(a.g, a.b));\n\tif (m > 1.0) { a /= m; }\n\tv = floor(clamp(a, vec3(0.0), vec3(1.0)) * 255.0) / 255.0;\n\t}\n";
+		code += "\treturn floor(pow(v, vec3(lt1.z)) * 255.0) / 255.0;\n}\n";
+	}
+	code += "void vertex() {\n\tvec3 p = VERTEX;\n";
+	if (thr) { code += "\tif (p.z < thr.y) { p.z *= thr.x; }\n"; }
+	code += "\tvec3 e =vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
+	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
+	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x * e.z + cfg.x * e.x, org.y * e.z + cfg.y * e.y, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
+	if (!rpt) {	// LEGACY PIXEL COMPATIBILITY (#133): D3D clamps untiled uvs per vertex to [2/w, 1-2/w] (gr_host.cpp tmapper_internal, flCAP)
+		code += "\tvec2 ts = vec2(textureSize(tex, 0));\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { pc.xy = clamp(UV, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	}
+	if (uclip) { code += "\tcz = dot(clipp.xyz, e) + clipp.w;\n"; }
+	if (fog) {
+		// linear in the eye depth, as the poly path (gr_d3d_stuff_fog_value): depth = the capped vertex z * 30000
+		code += "\tfgf = clamp((fogp.y - min(z / 30000.0, 0.98) * 30000.0) / (fogp.y - fogp.x), 0.0, 1.0) * e.z;\n";
+		if (fgpu) {
+			// the game-screen pixel of the vertex, truncated as the host passes (int)x, (int)y, then the start cell as Neb.cpp 1252-1273
+			code += "\tint xs = int(fogp.z * float(int(cfg.x * (1.0 + e.x / z))));\n\tint ys = int(fogp.w * float(int(cfg.y * (1.0 - e.y / z))));\n";
+			code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0 * e.z;\n";
+		} else {
+			code += "\tfgc = fogc.rgb * e.z;\n";
+		}
+	}
+	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb * e.z;\n}\n";
+	code += "void fragment() {\n";
+	code += "\tif (wv < 0.1) { discard; }\n";	// the near plane, eye z 0.1 (Tom's order; the GPU itself clips at w > 0, the host no longer clips)
+	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
+	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
+	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
+	code += "\tvec4 c = t;\n\tc.rgb *= vcol / wv;\n";
+	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
+	if (fog) { code += "\tc.rgb = mix(fgc / wv, c.rgb, fgf / wv);\n"; }	// D3D: f * colour + (1 - f) * fog colour, rgb only
+	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
+	RID sh = rs->shader_create();
+	rs->shader_set_code(sh, code);
+	mesh_shaders[skey] = sh;
+	return sh;
+}
+
+void GodotSink::free_mesh_data(MeshData &md)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (MeshGroup &mg : md.groups) {
+		if (mg.mesh_rid.is_valid()) { rs->free_rid(mg.mesh_rid); }
+	}
+	md.groups.clear();
+	md.states.clear();
+}
+
+GodotSink::MeshGroupState GodotSink::mesh_group_state(const fs2_sink_mesh_group &g)
+{
+	MeshGroupState st;
+	st.g = g;
+	const bool zr = (g.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (g.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+	st.zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
+	return st;
+}
+
+// The state of the draws that follow. The geometry stays; a state seen before is reused, so the list stays as short as the game's variety.
+void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto it = s->mesh_data.find(id);
+	if (!s->in_frame || it == s->mesh_data.end() || g == nullptr || ng != (int)it->second.groups.size()) { return; }
+	MeshData &md = it->second;
+	std::vector<MeshGroupState> st((size_t)ng);
+	for (int i = 0; i < ng; i++) { st[(size_t)i] = mesh_group_state(g[i]); }
+	for (size_t k = 0; k < md.states.size(); k++) {
+		bool same = true;
+		for (int i = 0; i < ng && same; i++) {
+			const fs2_sink_mesh_group &a = md.states[k][(size_t)i].g, &b = st[(size_t)i].g;
+			same = a.texture == b.texture && a.blend == b.blend && a.flags == b.flags && a.zbias == b.zbias;
+		}
+		if (same) { md.cur = (int)k; return; }
+	}
+	md.states.push_back(std::move(st));
+	md.cur = (int)md.states.size() - 1;
+}
+
+// A material for one group of one draw: the group's shader and texture, and the draw's colour table.
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool a8 = false;
+	uint32_t tflags = 0;
+	RID tex = white_texture();
+	if (mg.g.texture != 0) {
+		auto it = textures.find(mg.g.texture);
+		if (it != textures.end()) {
+			tex = it->second.rid;
+			a8 = (it->second.format == FS2_SINK_TEX_A8);
+			tflags = it->second.flags;
+		}
+	}
+	RID mat;
+	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
+	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
+	// a glow overlay (FS2_SINK_DRAWF_OVERLAY, the ship glow pass) is unlit and a hair nearer than the lit group it covers, as the poly path's overlay draws
+	const bool ovl = (mg.g.flags & FS2_SINK_DRAWF_OVERLAY) != 0;
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl, thr, crect));
+	rs->material_set_param(mat, "tex", tex);
+	rs->material_set_param(mat, "cols", cols);
+	rs->material_set_param(mat, "zbias", (float)mg.g.zbias + (ovl ? 1.0f : 0.0f));	// 0.05 depth units a step: the poly path's overlay shift
+	return mat;
+}
+
+void GodotSink::release_mesh_res(Layer &l, bool free_them)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (RID &m : l.mesh_materials) { if (free_them) { rs->free_rid(m); } else { mesh_mat_pool.push_back(m); } }
+	for (auto &t : l.mesh_coltex) { if (free_them) { rs->free_rid(t.second); } else { mesh_col_pool[t.first].push_back(t.second); } }
+	l.mesh_materials.clear();
+	l.mesh_coltex.clear();
+}
+
+void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
+	const uint32_t *idx, int ni)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0) { return; }	// legal outside a frame (level load)
+	RenderingServer *rs = RenderingServer::get_singleton();
+	auto old = s->mesh_data.find(id);
+	if (old != s->mesh_data.end()) { s->free_mesh_data(old->second); s->mesh_data.erase(old); }
+	MeshData md;
+	for (int gi = 0; gi < ng; gi++) {
+		MeshGroup mg;
+		// the vertices of this group only, renumbered
+		std::map<uint32_t, int> remap;
+		std::vector<uint32_t> used;
+		PackedInt32Array indices;
+		indices.resize(g[gi].index_count);
+		for (int k = 0; k < g[gi].index_count; k++) {
+			const uint32_t src = idx[g[gi].first_index + k];
+			auto r = remap.find(src);
+			if (r == remap.end()) { r = remap.emplace(src, (int)used.size()).first; used.push_back(src); }
+			indices.ptrw()[k] = r->second;
+		}
+		PackedVector3Array pos;
+		PackedVector2Array uvs;
+		pos.resize((int64_t)used.size());
+		uvs.resize((int64_t)used.size());
+		PackedFloat32Array orig;
+		orig.resize((int64_t)used.size());
+		PackedFloat32Array nrm;		// CUSTOM1: the vertex normal, for the lit draws
+		nrm.resize((int64_t)used.size() * 3);
+		for (size_t k = 0; k < used.size(); k++) {
+			const fs2_sink_mesh_vertex &sv = v[used[k]];
+			pos.ptrw()[k] = Vector3(sv.pos[0], sv.pos[1], sv.pos[2]);
+			uvs.ptrw()[k] = Vector2(sv.u, sv.v);
+			orig.ptrw()[k] = (float)used[k];
+			nrm.ptrw()[k * 3 + 0] = sv.normal[0]; nrm.ptrw()[k * 3 + 1] = sv.normal[1]; nrm.ptrw()[k * 3 + 2] = sv.normal[2];
+		}
+		Array arrays;
+		arrays.resize(RenderingServer::ARRAY_MAX);
+		arrays[RenderingServer::ARRAY_VERTEX] = pos;
+		arrays[RenderingServer::ARRAY_TEX_UV] = uvs;
+		arrays[RenderingServer::ARRAY_CUSTOM0] = orig;	// the vertex's index in the whole mesh: where its colour is in the draw's table
+		arrays[RenderingServer::ARRAY_CUSTOM1] = nrm;
+		arrays[RenderingServer::ARRAY_INDEX] = indices;
+		mg.mesh_rid = rs->mesh_create();
+		rs->mesh_add_surface_from_arrays(mg.mesh_rid, RenderingServer::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(),
+			(BitField<RenderingServer::ArrayFormat>)(((int64_t)RenderingServer::ARRAY_CUSTOM_R_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM0_SHIFT)
+				| ((int64_t)RenderingServer::ARRAY_CUSTOM_RGB_FLOAT << RenderingServer::ARRAY_FORMAT_CUSTOM1_SHIFT)));
+		// the vertices are model space, not where the camera looks: the culling box is made huge so Godot never drops the instance
+		rs->mesh_set_custom_aabb(mg.mesh_rid, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
+		md.groups.push_back(mg);
+	}
+	std::vector<MeshGroupState> st((size_t)ng);
+	for (int gi = 0; gi < ng; gi++) { st[(size_t)gi] = mesh_group_state(g[gi]); }
+	md.states.push_back(std::move(st));
+	s->mesh_data[id] = std::move(md);
+}
+
+void GodotSink::s_mesh_free(void *u, int32_t id)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto it = s->mesh_data.find(id);
+	if (it == s->mesh_data.end()) { return; }
+	s->free_mesh_data(it->second);
+	s->mesh_data.erase(it);
+}
+
+void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *colours, int ncolours)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto md = s->mesh_data.find(id);
+	if (!s->in_frame || !s->in_run || s->clip_empty || xform == nullptr || md == s->mesh_data.end()) { return; }
+	s->batcher.flush();
+	MeshDraw d;
+	d.crect = s->clipped;
+	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
+	d.id = id;
+	d.state = md->second.cur;
+	std::memcpy(d.xf, xform, sizeof(d.xf));
+	if (colours != nullptr && ncolours > 0) { d.col.assign(colours, colours + (size_t)ncolours * 4); }
+	d.epoch = s->run_epoch;
+	d.clip = s->mesh_clip_on;
+	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
+	d.thr = s->mesh_thr_on;
+	if (d.thr) { d.thrv[0] = s->mesh_thr[0]; d.thrv[1] = s->mesh_thr[1]; }
+	d.fog = s->mesh_fog_state.mode == FS2_SINK_FOG_LINEAR;
+	d.fogv = s->mesh_fog_state;
+	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
+	s->mesh_draws.push_back(d);
+	Batch b;
+	b.key.texture = -(int32_t)s->mesh_draws.size();
+	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
+	s->run_batches.push_back(b);
+}
+
+// the thruster scale for the draws that follow; NULL clears it
+void GodotSink::s_mesh_thrust(void *u, const float t[2])
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->mesh_thr_on = t != nullptr;
+	if (t != nullptr) { s->mesh_thr[0] = t[0]; s->mesh_thr[1] = t[1]; }
+}
+
+// the fog of the mesh draws that follow; NULL clears it
+int GodotSink::s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (fog != nullptr && fog->mode == FS2_SINK_FOG_LINEAR && fog->fog_far > fog->fog_near) {
+		// only the gpu nebula fog has the pixels behind the model to query; the other modes leave a fogged model on the CPU path
+		if (g_nebfog != kNebFogGpu) { s->mesh_fog_state = fs2_sink_mesh_fog(); return 0; }
+		s->mesh_fog_state = *fog;
+	} else {
+		s->mesh_fog_state = fs2_sink_mesh_fog();
+	}
+	return 1;
+}
+
+// the user clip plane for the draws that follow; NULL clears it
+void GodotSink::s_mesh_clip(void *u, const float plane[4])
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->mesh_clip_on = plane != nullptr;
+	if (plane != nullptr) { std::memcpy(s->mesh_clip_plane, plane, sizeof(s->mesh_clip_plane)); }
+}
+
+// as s_mesh_draw, but the vertex colours are worked out on the GPU from the lighting inputs
+void GodotSink::s_mesh_draw_lit(void *u, int32_t id, const float *xform, const fs2_sink_mesh_light *light)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	auto md = s->mesh_data.find(id);
+	if (!s->in_frame || !s->in_run || s->clip_empty || xform == nullptr || light == nullptr || md == s->mesh_data.end()) { return; }
+	s->batcher.flush();
+	MeshDraw d;
+	d.crect = s->clipped;
+	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
+	d.id = id;
+	d.state = md->second.cur;
+	std::memcpy(d.xf, xform, sizeof(d.xf));
+	d.lit = true;
+	d.light = *light;
+	d.epoch = s->run_epoch;
+	d.clip = s->mesh_clip_on;
+	if (d.clip) { std::memcpy(d.plane, s->mesh_clip_plane, sizeof(d.plane)); }
+	d.fog = s->mesh_fog_state.mode == FS2_SINK_FOG_LINEAR;
+	d.fogv = s->mesh_fog_state;
+	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
+	s->mesh_draws.push_back(d);
+	Batch b;
+	b.key.texture = -(int32_t)s->mesh_draws.size();
+	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
+	s->run_batches.push_back(b);
+}
+
+void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
+{
+	auto it = mesh_data.find(d.id);
+	if (it == mesh_data.end() || d.state < 0 || d.state >= (int)it->second.states.size()) { return; }
+	const std::vector<MeshGroupState> &states = it->second.states[(size_t)d.state];
+	fs2perf::count(fs2perf::C_LAYER_BATCHES);
+	fs2perf::count(fs2perf::C_MESH_DRAWS);
+	stat_mesh_draws++;
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
+	const float origin = 29000.0f - 0.25f * (float)order;
+	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
+	// the draw's colour table: 256 texels wide, a row per 256 vertices, rows rounded up to a power of two so tables pool
+	int rows = 1;
+	while (rows * 256 < (int)(d.col.size() / 4)) { rows <<= 1; }
+	RID cols = white_texture();
+	if (!d.col.empty()) {
+		std::vector<RID> &pool = mesh_col_pool[rows];
+		PackedByteArray bytes;
+		bytes.resize((int64_t)rows * 256 * 4);
+		std::memset(bytes.ptrw(), 255, (size_t)bytes.size());
+		std::memcpy(bytes.ptrw(), d.col.data(), d.col.size());
+		Ref<Image> img = Image::create_from_data(256, rows, false, Image::FORMAT_RGBA8, bytes);
+		if (!pool.empty()) {
+			cols = pool.back();
+			pool.pop_back();
+			rs->texture_2d_update(cols, img, 0);
+		} else {
+			cols = rs->texture_2d_create(img);
+		}
+		l.mesh_coltex.push_back(std::make_pair(rows, cols));
+	}
+	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
+		MeshGroup &mg = it->second.groups[gi];
+		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog, d.thr, d.crect);
+		l.mesh_materials.push_back(mat);
+		const float gorigin = (states[gi].g.flags & FS2_SINK_DRAWF_OVERLAY) ? origin - 0.1f : origin;	// the overlay sorts after the lit group (back to front by origin)
+		RID inst;
+		if (kInstancePool && !spare_instances.empty()) {
+			inst = spare_instances.back();
+			spare_instances.pop_back();
+			rs->instance_set_base(inst, mg.mesh_rid);
+			rs->instance_set_scenario(inst, l.scenario);
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -gorigin)));
+		} else {
+			inst = rs->instance_create2(mg.mesh_rid, l.scenario);
+			rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -gorigin)));
+			rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+			rs->instance_set_pivot_data(inst, 0.0f, false);	// sort by the origin, which carries the call order, not by the mesh's bounds
+		}
+		rs->instance_geometry_set_material_override(inst, mat);
+		// per-draw values are material parameters (the material is per draw), not instance uniforms: those come from a fixed-size buffer
+		// Vector4, not Color: a Color on a vec4 uniform can be taken as sRGB and converted, which wrecks values above 1
+		rs->material_set_param(mat, "r0", Vector4(d.xf[0], d.xf[1], d.xf[2], d.xf[3]));
+		rs->material_set_param(mat, "r1", Vector4(d.xf[4], d.xf[5], d.xf[6], d.xf[7]));
+		rs->material_set_param(mat, "r2", Vector4(d.xf[8], d.xf[9], d.xf[10], d.xf[11]));
+		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
+		rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
+		// canvas centre relative to the screen centre, y up
+		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
+		if (d.clip) { rs->material_set_param(mat, "clipp", Vector4(d.plane[0], d.plane[1], d.plane[2], d.plane[3])); }
+		if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
+		if (d.thr) { rs->material_set_param(mat, "thr", Vector2(d.thrv[0], d.thrv[1])); }
+		if (d.fog) {
+			rs->material_set_param(mat, "fogp", Vector4(d.fogv.fog_near, d.fogv.fog_far, batcher.fog_cell_x(), batcher.fog_cell_y()));
+			rs->material_set_param(mat, "fogc", Vector4(d.fogv.rgb[0] / 255.0f, d.fogv.rgb[1] / 255.0f, d.fogv.rgb[2] / 255.0f, 0.0f));
+			if (g_nebfog == kNebFogGpu) { rs->material_set_param(mat, "bg", gpu_bg_texture((int)(committed & 1))); }	// this frame's pre-render, as the poly materials
+		}
+		if (d.lit) {
+			const fs2_sink_mesh_light &L = d.light;
+			rs->material_set_param(mat, "lt0", Vector4(L.ambient, L.reflective, L.level, (float)L.darken));
+			rs->material_set_param(mat, "lt1", Vector4((float)L.nsun, (float)L.npoint, L.inv_gamma, (float)L.flat));
+			PackedVector4Array sd, sc, pa, pb, pc4, pd;
+			sd.resize(FS2_SINK_MAX_SUN); sc.resize(FS2_SINK_MAX_SUN);
+			for (int i = 0; i < FS2_SINK_MAX_SUN; i++) {
+				sd.set(i, Vector4(L.sun_dir[i][0], L.sun_dir[i][1], L.sun_dir[i][2], L.sun_intensity[i]));
+				sc.set(i, Vector4(L.sun_rgb[i][0], L.sun_rgb[i][1], L.sun_rgb[i][2], 0.0f));
+			}
+			pa.resize(FS2_SINK_MAX_POINT); pb.resize(FS2_SINK_MAX_POINT); pc4.resize(FS2_SINK_MAX_POINT); pd.resize(FS2_SINK_MAX_POINT);
+			for (int i = 0; i < FS2_SINK_MAX_POINT; i++) {
+				pa.set(i, Vector4(L.point_pos[i][0], L.point_pos[i][1], L.point_pos[i][2], L.point_rad1_sq[i]));
+				pb.set(i, Vector4(L.point_pos2[i][0], L.point_pos2[i][1], L.point_pos2[i][2], L.point_rad2_sq[i]));
+				pc4.set(i, Vector4(L.point_rgb[i][0], L.point_rgb[i][1], L.point_rgb[i][2], L.point_intensity[i]));
+				pd.set(i, Vector4((float)L.point_tube[i], 0.0f, 0.0f, 0.0f));
+			}
+			rs->material_set_param(mat, "sunD", sd); rs->material_set_param(mat, "sunC", sc);
+			rs->material_set_param(mat, "ptA", pa); rs->material_set_param(mat, "ptB", pb);
+			rs->material_set_param(mat, "ptC", pc4); rs->material_set_param(mat, "ptD", pd);
+		}
+		l.instances.push_back(inst);
+	}
 }
 
 } // namespace fs2sink

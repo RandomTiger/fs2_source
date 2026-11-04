@@ -8,7 +8,11 @@
 #include "tex_convert.h"
 #include "batcher.h"
 #include "fake_sink.h"
+#include "depth_contract.h"
+#include "opaque_reorder.h"
 #include "selftest_scenes.h"
+
+using namespace fs2sink;
 
 static int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { std::printf("FAIL line %d: %s\n", __LINE__, #cond); failures++; } } while (0)
@@ -325,8 +329,168 @@ static void test_batcher_cost()
 	}
 }
 
+// P1: the camera call and the depth contract
+static Batch mk(int tex, int blend, int zmode, int epoch, int nv)
+{
+	Batch b;
+	b.key.texture = tex; b.key.blend = blend; b.key.depth = 1; b.key.zmode = zmode; b.key.epoch = epoch; b.key.perspective = 1;
+	for (int i = 0; i < nv; i++) {
+		b.pos.push_back((float)i); b.pos.push_back(0); b.uv.push_back(0); b.uv.push_back(0);
+		for (int k = 0; k < 4; k++) { b.col.push_back(1); b.custom.push_back(1); }
+		b.z.push_back(0.5f);
+	}
+	for (int i = 0; i + 2 < nv; i++) { b.idx.push_back(0); b.idx.push_back(i + 1); b.idx.push_back(i + 2); }
+	return b;
+}
+
+static void test_opaque_reorder()
+{
+	const int O = FS2_SINK_BLEND_OPAQUE, A = FS2_SINK_BLEND_ALPHA;
+	std::vector<Batch> v;
+	// textures A B A B, then an alpha batch, then A B in the same epoch, then A in the next epoch
+	v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4)); v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4));
+	v.push_back(mk(3, A, 1, 0, 4));
+	v.push_back(mk(1, O, 2, 0, 4)); v.push_back(mk(2, O, 2, 0, 4));
+	v.push_back(mk(1, O, 2, 1, 4));
+	long tris = 0;
+	for (const Batch &b : v) { tris += (long)b.idx.size() / 3; }
+	reorder_opaque_batches(v);
+	CHECK(v.size() == 6);	// {1,2} alpha {1,2} {1 epoch 1}
+	CHECK(v[0].key.texture == 1 && v[1].key.texture == 2 && v[2].key.blend == A);
+	CHECK(v[3].key.texture == 1 && v[4].key.texture == 2 && v[5].key.epoch == 1);
+	CHECK(v[0].nverts() == 8 && v[0].idx.size() == 12 && v[0].z.size() == 8);
+	long after = 0;
+	bool in_range = true;
+	for (const Batch &b : v) {
+		after += (long)b.idx.size() / 3;
+		for (int32_t i : b.idx) { if (i < 0 || i >= b.nverts()) { in_range = false; } }
+	}
+	CHECK(after == tris && in_range);
+	CHECK(v[0].idx[6] == 4 && v[0].idx[7] == 5);	// the second batch's indices were moved by 4
+}
+
+static void test_mesh_api()
+{
+	FakeSink fake;
+	fs2_render_sink *s = fake.sink();
+	CHECK(s->mesh_create && s->mesh_free && s->mesh_draw);
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	const unsigned char px[4] = { 255, 255, 255, 255 };
+	s->texture_create(s->user, 7, 1, 1, FS2_SINK_TEX_RGBA8, 0, px);
+	fs2_sink_mesh_vertex v[3] = {};
+	v[1].pos[0] = 1; v[2].pos[1] = 1;
+	const uint32_t idx[3] = { 0, 1, 2 };
+	fs2_sink_mesh_group g = { 7, FS2_SINK_BLEND_OPAQUE, FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE, 0, 0, 3 };
+	s->mesh_create(s->user, 1, v, 3, &g, 1, idx, 3);
+	CHECK(fake.errors.empty());
+	const float xf[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 10 };
+	s->depth_begin(s->user);
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);
+	fs2_sink_mesh_light lt = {};
+	CHECK(s->mesh_draw_lit != nullptr);
+	s->mesh_draw_lit(s->user, 1, xf, &lt);
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshDraw) == 1);
+	s->depth_end(s->user);
+	CHECK(fake.count(Cmd::MeshDrawLit) == 1);
+	CHECK(s->mesh_clip != nullptr);
+	{ const float pl[4] = { 0, 0, 1, -5 }; s->mesh_clip(s->user, pl); s->mesh_clip(s->user, nullptr); }
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshClip) == 2);
+	CHECK(s->mesh_thrust != nullptr);
+	{ const float th[2] = { 0.5f, -1.0f }; s->mesh_thrust(s->user, th); s->mesh_thrust(s->user, nullptr); }
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshThrust) == 2);
+	CHECK(s->mesh_fog != nullptr);
+	{ const fs2_sink_mesh_fog fg = { FS2_SINK_FOG_LINEAR, { 10, 20, 30, 0 }, 100.0f, 5000.0f }; s->mesh_fog(s->user, &fg); s->mesh_fog(s->user, nullptr); }
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshFog) == 2);
+	CHECK(s->mesh_state != nullptr);
+	g.zbias = 2;
+	s->mesh_state(s->user, 1, &g, 1);	// the state of the draws that follow: no new geometry
+	CHECK(fake.errors.empty() && fake.count(Cmd::MeshState) == 1 && fake.count(Cmd::MeshCreate) == 1);
+	s->mesh_state(s->user, 9, &g, 1);	// unknown mesh
+	CHECK(fake.errors.size() == 1);
+	fake.errors.clear();
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);	// outside a run
+	CHECK(fake.errors.size() == 1);
+	s->mesh_free(s->user, 1);
+	s->depth_begin(s->user);
+	s->mesh_draw(s->user, 1, xf, nullptr, 0);	// freed
+	CHECK(fake.errors.size() == 2);
+	fs2_sink_mesh_group bad = { 7, FS2_SINK_BLEND_OPAQUE, 0, 0, 0, 6 };
+	s->mesh_create(s->user, 2, v, 3, &bad, 1, idx, 3);
+	CHECK(fake.errors.size() == 3);
+	s->frame_end(s->user);
+}
+
+static void test_texture_arrays()
+{
+	fs2sink::FakeSink fake;
+	const fs2_render_sink *s = fake.sink();
+	CHECK(s->texture_array_create != nullptr && s->texture_layer != nullptr && s->texture_array_free != nullptr);
+	const uint8_t px[2 * 2 * 4 * 3] = {};
+	s->texture_array_create(s->user, 5, 2, 2, 3, FS2_SINK_TEX_RGBA8, 0, px);	// at mission load: no frame open
+	s->texture_layer(s->user, 100, 5, 0);
+	s->texture_layer(s->user, 101, 5, 2);
+	CHECK(fake.errors.empty() && fake.count(Cmd::ArrayCreate) == 1 && fake.count(Cmd::ArrayLayer) == 2);
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	fs2_sink_draw d = {};
+	d.texture = 101;
+	d.tint[0] = d.tint[1] = d.tint[2] = d.tint[3] = 255;
+	fs2_sink_vertex v[3] = {};
+	const uint16_t idx[3] = { 0, 1, 2 };
+	s->draw_tris(s->user, &d, v, 3, idx, 3);	// a layer id draws like a texture
+	CHECK(fake.errors.empty());
+	s->texture_layer(s->user, 101, 5, 1);	// id in use
+	s->texture_layer(s->user, 102, 5, 3);	// layer out of range
+	s->texture_layer(s->user, 103, 6, 0);	// unknown array
+	CHECK(fake.errors.size() == 3);
+	fake.errors.clear();
+	s->texture_array_free(s->user, 5);
+	d.texture = 100;
+	s->draw_tris(s->user, &d, v, 3, idx, 3);	// its ids went with it
+	CHECK(fake.errors.size() == 1);
+	fake.errors.clear();
+	s->texture_array_free(s->user, 5);	// already freed
+	CHECK(fake.errors.size() == 1);
+	s->frame_end(s->user);
+}
+
+static void test_view_and_depth()
+{
+	fs2sink::FakeSink fake;
+	fs2_render_sink *s = fake.sink();
+	fs2_sink_view v = {};
+	v.canvas_w = 640; v.canvas_h = 480; v.scale[0] = v.scale[1] = v.scale[2] = 1.0f; v.zoom = 1.0f;
+	CHECK(s->frame_begin(s->user, 640, 480) == 1);
+	s->set_view(s->user, &v);
+	CHECK(fake.count(fs2sink::Cmd::SetView) == 1 && fake.last_view.canvas_w == 640);
+	s->frame_end(s->user);
+	CHECK(fake.errors.empty());
+
+	// the game's projection (g3_project_vertex) of eye space points, rebuilt from what the host sends
+	const float pts[][3] = { { 10, 5, 100 }, { -300, 200, 5000 }, { 0.2f, -0.1f, 0.5f }, { 5000, -4000, 40000 }, { 3, 2, 29000 } };
+	for (const auto &p : pts) {
+		float w = 1.0f / p[2];
+		const float sx = (640.0f + p[0] * 640.0f * w) * 0.5f, sy = (480.0f - p[1] * 480.0f * w) * 0.5f;
+		if (w > 1.0f) { w = 1.0f; }
+		float zd = p[2] / 30000.0f;
+		if (zd > 0.98f) { zd = 0.98f; }
+		float e[3];
+		CHECK(fs2sink::reconstruct_eye(v, sx, sy, w, zd, e) == 1);
+		const float tol = 1e-3f * p[2] + 1e-3f;
+		CHECK(std::fabs(e[0] - p[0]) < tol && std::fabs(e[1] - p[1]) < tol && std::fabs(e[2] - p[2]) < tol);
+	}
+	float e[3];
+	CHECK(fs2sink::reconstruct_eye(v, 0, 0, 1.0f, 0.0f, e) == 0);	// no depth and a clamped sw: not recoverable
+
+	// the contract: nearer epoch, smaller z, larger bias are all nearer (smaller distance)
+	CHECK(fs2sink::legacy_depth(0.5f, 3, 24, 0) == 2.0f + 21 * 1100.0f + 500.0f);
+	CHECK(fs2sink::legacy_depth(0.1f, 0, 24, 0) < fs2sink::legacy_depth(0.2f, 0, 24, 0));
+	CHECK(fs2sink::legacy_depth(0.5f, 1, 24, 0) < fs2sink::legacy_depth(0.5f, 0, 24, 0));
+	CHECK(fs2sink::legacy_depth(0.5f, 0, 24, 4) < fs2sink::legacy_depth(0.5f, 0, 24, 0));
+}
+
 int main()
 {
+	std::setvbuf(stdout, nullptr, _IONBF, 0);
 	test_scenes();
 	test_tex_convert();
 	test_batcher_merge();
@@ -334,6 +498,10 @@ int main()
 	test_perspective_equivalence();
 	test_batcher_cost();
 	test_frame_rules();
+	test_view_and_depth();
+	test_opaque_reorder();
+	test_mesh_api();
+	test_texture_arrays();
 	if (failures) {
 		std::printf("sink_check: %d FAILED\n", failures);
 		return 1;

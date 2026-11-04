@@ -109,6 +109,8 @@ public:
 		fog_ex = 32.0f / (float)(sw > 0 ? sw : 1);
 		fog_ey = 32.0f / (float)(sh > 0 ? sh : 1);
 	}
+	float fog_cell_x() const { return fog_ex; }	// 32 / screen width and height: the scale to the pre-render's cells
+	float fog_cell_y() const { return fog_ey; }
 	const std::vector<uint8_t> &fog_table() const { return ftab; }	// x y per entry, cell coordinates 0..31
 	// frame: the sink's count of drawn frames; the table is per frame, the last marked poly's cells are kept across frames
 	void fog_table_clear(uint64_t frame) { ftab.clear(); fog_frame = frame; fog_copy_frame = ~0ull; }

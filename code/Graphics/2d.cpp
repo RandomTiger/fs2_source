@@ -491,6 +491,53 @@ int gr_host_backend_registered()
 	return Gr_host_backend != NULL;	// Claude: P7-8
 }
 
+// Claude: P3b, optional model meshes; all null-safe (no backend, or a backend without mesh support, means the CPU path)
+int gr_host_mesh_ready()
+{
+	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->mesh_ready && Gr_host_backend->mesh_ready();
+}
+
+int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_create) { return 0; }
+	return Gr_host_backend->mesh_create(key, vtx, nv, g, ng, idx, ni, poly_nv, npoly);
+}
+
+int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_draw) { return 0; }
+	return Gr_host_backend->mesh_draw(key, xform, rgb, nv, tiled);
+}
+
+int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_draw_lit) { return 0; }
+	return Gr_host_backend->mesh_draw_lit(key, xform, light, nv, tiled);
+}
+
+int gr_host_mesh_clip(const float *plane)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_clip) { return plane == NULL; }
+	return Gr_host_backend->mesh_clip(plane);
+}
+
+int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_thrust) { return 0; }
+	return Gr_host_backend->mesh_thrust(key, xform, nv, bitmap, scale, min_dist, rgb);
+}
+
+int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_bg) { return 0; }
+	return Gr_host_backend->mesh_bg(key, xform, nv, bitmap, tiled, gray);
+}
+
+void gr_host_mesh_free(int key)
+{
+	if (Gr_host_backend && Gr_host_backend->mesh_free) { Gr_host_backend->mesh_free(key); }
+}
+
 void gr_host_model_page_in(int modelnum)
 {
 	if ( Gr_host_backend && Gr_host_backend->model_page_in ) Gr_host_backend->model_page_in(modelnum);

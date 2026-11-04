@@ -237,6 +237,9 @@
 #include "Object.h"			// For MAX_OBJECTS
 #include "MissionParse.h"
 #include "Neb.h"
+#include <vector>
+#include <map>
+#include <string.h>
 
 
 // Some debug variables used externally for displaying stats
@@ -446,6 +449,14 @@ void model_set_thrust( int model_num, float length, int bitmap, int glow_bitmap,
 {
 	Interp_thrust_scale = length;
 	Interp_thrust_bitmap = bitmap;
+	// test switch (FS2_FORCE_FLATTHR=1): every thruster as one without a flame bitmap, to compare the flat path on both renderers (D-20261103-103538)
+	static int force_flat = -1;
+	if (force_flat < 0) {
+#pragma warning(suppress: 4996)
+		const char *e = getenv("FS2_FORCE_FLATTHR");
+		force_flat = (e != NULL && e[0] == '1') ? 1 : 0;
+	}
+	if (force_flat) { Interp_thrust_bitmap = -1; }
 	Interp_thrust_glow_bitmap = glow_bitmap;
 	Interp_thrust_glow_noise = glow_noise;
 
@@ -1372,6 +1383,357 @@ void interp_render_lightning( polymodel *pm, bsp_info * sm )
 	}
 }
 
+// ---- render 3D: static submodel meshes (P3b, GodotRender3D) -------------------------------------------------------------
+// With a host that draws meshes (gr_host_mesh_ready, FS2_RENDER3D=1) a submodel's plain textured polygons are handed to it once
+// as triangles in model space, and each frame only the model-to-eye matrix and the per-vertex lighting go over; the CPU does no
+// transform, back-face test or clip for it. Anything else (forced or tiled textures, subspace, fogged thrusters, other nebula fog,
+// saved lighting) leaves the submodel on the polygon path, unchanged. Lighting is the CPU's, per normal.
+struct InterpMesh {
+	int state;						// 0 = not built, 1 = built, 2 = stays on the polygon path
+	int key;
+	int created;						// the host has it
+	int model_id, bsp_size;
+	ubyte *bsp;
+	std::vector<int> tex_snapshot;				// pm->textures when built
+	std::vector<int> v_slot;				// mesh vertex -> light slot
+	std::vector<int> slot_norm;				// light slot -> normal index
+	std::vector<vector> slot_pos, slot_nrm;
+	std::vector<ubyte> rgb;
+	InterpMesh() : state(0), key(0), created(0), model_id(-1), bsp_size(0), bsp(NULL) {}
+};
+static std::map<bsp_info *, InterpMesh> Interp_meshes;
+static int Interp_mesh_next_key = 1;
+
+struct InterpMeshBuild {
+	bool ok;
+	bool thruster;					// an engine thruster submodel: every textured poly is drawn with the thruster bitmap, whatever its own texture
+	std::vector<vector *> verts, norms;
+	std::vector<float> vtx;
+	std::map<std::pair<int, int>, int> vmap;		// (vertnum<<16|normnum, u bits) -> mesh vertex; v folded below
+	std::map<std::pair<unsigned long long, unsigned long long>, int> vkey;
+	std::vector<int> v_vertnum, v_normnum;
+	std::vector<int> gtex;
+	std::vector< std::vector<unsigned> > gidx;
+	std::vector< std::vector<int> > gpoly;		// per group, the vertex count of each polygon in index order (a polygon is a fan of nv-2 triangles)
+	int tris, tris_agree;
+	InterpMeshBuild() : ok(true), thruster(false), tris(0), tris_agree(0) {}
+};
+
+static int Interp_fb_count[11] = { 0 };
+static int Interp_mesh_unmeshed_flat = 0,Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
+
+static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int depth)
+{
+	if (depth > 64) { b.ok = false; return; }
+	int chunk_type = w(p);
+	int chunk_size = w(p+4);
+	while (b.ok && chunk_type != OP_EOF) {
+		if (chunk_size <= 0) { b.ok = false; return; }
+		switch (chunk_type) {
+		case OP_DEFPOINTS: {
+			const int nverts = w(p+8);
+			const int offset = w(p+16);
+			ubyte *normcount = p+20;
+			vector *src = vp(p+offset);
+			if (nverts < 0 || nverts >= MAX_POLYGON_VECS) { b.ok = false; return; }
+			b.verts.clear(); b.norms.clear();
+			for (int n = 0; n < nverts; n++) {
+				b.verts.push_back(src);
+				src++;
+				for (int i = 0; i < normcount[n]; i++) {
+					if ((int)b.norms.size() >= MAX_POLYGON_NORMS) { b.ok = false; return; }
+					b.norms.push_back(src);
+					src++;
+				}
+			}
+			break;
+		}
+		case OP_FLATPOLY:
+		case OP_TMAPPOLY: {
+			const bool flat = (chunk_type == OP_FLATPOLY);		// flat: group -1, white, lit per vertex, no uv
+			if (flat && b.thruster) { b.ok = false; return; }
+			const int tex = (flat || b.thruster) ? -1 : w(p+40);		// a thruster's polys are one group (the host gives it the thruster bitmap)
+			const int nv = w(p+36);
+			if (!flat && !b.thruster && (tex < 0 || tex >= pm->n_textures)) { b.ok = false; return; }
+			if (nv < 3 || (!flat && !b.thruster && pm->textures[tex] < 0)) { break; }		// invisible (or degenerate) polys are never drawn
+			model_tmap_vert tvflat[TMAP_MAX_VERTS];
+			model_tmap_vert *tv = (model_tmap_vert *)(p+44);
+			if (flat) {
+				if (nv > TMAP_MAX_VERTS) { b.ok = false; return; }
+				const short *sv = (const short *)(p+44);
+				for (int i = 0; i < nv; i++) { tvflat[i].vertnum = sv[i*2]; tvflat[i].normnum = sv[i*2+1]; tvflat[i].u = 0.0f; tvflat[i].v = 0.0f; }
+				tv = tvflat;
+			}
+			int gi = -1;
+			for (size_t g = 0; g < b.gtex.size(); g++) { if (b.gtex[g] == tex) { gi = (int)g; break; } }
+			if (gi < 0) { gi = (int)b.gtex.size(); b.gtex.push_back(tex); b.gidx.push_back(std::vector<unsigned>()); b.gpoly.push_back(std::vector<int>()); }
+			std::vector<int> mv(nv);
+			for (int i = 0; i < nv; i++) {
+				const int vn = tv[i].vertnum, nn = tv[i].normnum;
+				if (vn < 0 || vn >= (int)b.verts.size() || nn < 0 || nn >= (int)b.norms.size()) { b.ok = false; return; }
+				unsigned ub, vb;
+				memcpy(&ub, &tv[i].u, 4); memcpy(&vb, &tv[i].v, 4);
+				const std::pair<unsigned long long, unsigned long long> k(((unsigned long long)(unsigned)vn << 16) | (unsigned)nn, ((unsigned long long)ub << 32) | vb);
+				std::map<std::pair<unsigned long long, unsigned long long>, int>::iterator it = b.vkey.find(k);
+				if (it == b.vkey.end()) {
+					it = b.vkey.insert(std::make_pair(k, (int)b.v_vertnum.size())).first;
+					b.v_vertnum.push_back(vn); b.v_normnum.push_back(nn);
+					const vector *pv = b.verts[vn], *pn = b.norms[nn];
+					b.vtx.push_back(pv->x); b.vtx.push_back(pv->y); b.vtx.push_back(pv->z);
+					b.vtx.push_back(pn->x); b.vtx.push_back(pn->y); b.vtx.push_back(pn->z);
+					b.vtx.push_back(tv[i].u); b.vtx.push_back(tv[i].v);
+				}
+				mv[i] = it->second;
+			}
+			vector *pn0 = vp(p+8);
+			b.gpoly[gi].push_back(nv);
+			for (int i = 1; i < nv - 1; i++) {
+				b.gidx[gi].push_back((unsigned)mv[0]); b.gidx[gi].push_back((unsigned)mv[i]); b.gidx[gi].push_back((unsigned)mv[i+1]);
+				// winding against the polygon normal, to confirm the sink's front face convention
+				const vector *a = b.verts[tv[0].vertnum], *c = b.verts[tv[i].vertnum], *d = b.verts[tv[i+1].vertnum];
+				const float ux = c->x - a->x, uy = c->y - a->y, uz = c->z - a->z;
+				const float vx = d->x - a->x, vy = d->y - a->y, vz = d->z - a->z;
+				const float cx = uy*vz - uz*vy, cy = uz*vx - ux*vz, cz = ux*vy - uy*vx;
+				b.tris++;
+				if (cx*pn0->x + cy*pn0->y + cz*pn0->z > 0.0f) { b.tris_agree++; }
+			}
+			break;
+		}
+		case OP_SORTNORM: {
+			const int lists[5] = { w(p+44), w(p+40), w(p+52), w(p+36), w(p+48) };		// prelist, back, on, front, post
+			for (int i = 0; i < 5; i++) { if (lists[i]) { interp_mesh_walk(b, pm, p + lists[i], depth + 1); } }
+			break;
+		}
+		case OP_BOUNDBOX:
+			break;
+		default:		// flat polys and anything else: not meshed
+		Interp_mesh_unmeshed_other++;
+			b.ok = false;
+			return;
+		}
+		p += chunk_size;
+		chunk_type = w(p);
+		chunk_size = w(p+4);
+	}
+}
+
+static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
+{
+	m.state = 2;
+	InterpMeshBuild b;
+	b.thruster = sm->is_thruster != 0;
+	interp_mesh_walk(b, pm, sm->bsp_data, 0);
+	if (!b.ok || b.v_vertnum.empty() || b.gtex.empty()) { return; }
+
+	std::vector<gr_host_mesh_group> groups;
+	std::vector<unsigned> idx;
+	std::vector<int> poly_nv;
+	for (size_t g = 0; g < b.gtex.size(); g++) {
+		gr_host_mesh_group hg;
+		hg.bitmap = (b.gtex[g] < 0) ? -1 : pm->textures[b.gtex[g]];
+		hg.tileable = (pm->flags & PM_FLAG_ALLOW_TILING) ? 1 : 0;
+		hg.first_index = (int)idx.size();
+		hg.index_count = (int)b.gidx[g].size();
+		idx.insert(idx.end(), b.gidx[g].begin(), b.gidx[g].end());
+		poly_nv.insert(poly_nv.end(), b.gpoly[g].begin(), b.gpoly[g].end());
+		groups.push_back(hg);
+	}
+
+	// light slots: one per normal index, placed at the first vertex that uses it (the polygon path lights a normal once, at the
+	// first vertex that asks)
+	std::map<int, int> slot_of;
+	m.v_slot.assign(b.v_vertnum.size(), 0);
+	m.slot_norm.clear(); m.slot_pos.clear(); m.slot_nrm.clear();
+	for (size_t i = 0; i < b.v_vertnum.size(); i++) {
+		const int nn = b.v_normnum[i];
+		std::map<int, int>::iterator it = slot_of.find(nn);
+		if (it == slot_of.end()) {
+			it = slot_of.insert(std::make_pair(nn, (int)m.slot_norm.size())).first;
+			m.slot_norm.push_back(nn);
+			m.slot_pos.push_back(*b.verts[b.v_vertnum[i]]);
+			m.slot_nrm.push_back(*b.norms[nn]);
+		}
+		m.v_slot[i] = it->second;
+	}
+
+	if (m.key == 0) { m.key = Interp_mesh_next_key++; }
+	if (!gr_host_mesh_create(m.key, &b.vtx[0], (int)b.v_vertnum.size(), &groups[0], (int)groups.size(), &idx[0], (int)idx.size(), &poly_nv[0], (int)poly_nv.size())) { return; }
+	m.created = 1;
+	m.state = 1;
+	Interp_mesh_meshed++;
+	m.bsp = sm->bsp_data;
+	m.bsp_size = sm->bsp_data_size;
+	m.model_id = pm->id;
+	m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
+}
+
+static int Interp_mesh_late = 0, Interp_mesh_late_stale = 0, Interp_mesh_preloaded = 0, Interp_mesh_preload_calls = 0;	// meshes built at the first draw instead of at page-in; read 0 in play
+
+// Claude: load hook (gr_host model_page_in): the host's fixed data for every submodel of the model, built at load, not at the first draw
+void model_interp_mesh_preload(int modelnum)
+{
+	Interp_mesh_preload_calls++;
+	if (!gr_host_mesh_ready()) { return; }
+	polymodel *pm = model_get(modelnum);
+	if (pm == NULL) { return; }
+	for (int i = 0; i < pm->n_models; i++) {
+		bsp_info *sm = &pm->submodel[i];
+		if (sm->bsp_data == NULL) { continue; }
+		InterpMesh &m = Interp_meshes[sm];
+		if (m.state != 0) { continue; }
+		Interp_mesh_preloaded++;
+		interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures);
+	}
+}
+
+// Claude: load hook (gr_host level_loaded): every model loaded for the level, ship classes page in without model_page_in_textures
+extern polymodel *Polygon_models[MAX_POLYGON_MODELS];
+void model_interp_mesh_preload_all()
+{
+	for (int i = 0; i < MAX_POLYGON_MODELS; i++) {
+		if (Polygon_models[i] != NULL) { model_interp_mesh_preload(i); }
+	}
+}
+
+int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+
+// 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
+static int model_interp_mesh_try(polymodel *pm, int mn)
+{
+	if (!gr_host_mesh_ready()) { return 0; }
+	// a thruster is drawn unlit with fixed poly flags (see model_interp_tmappoly), so the tmap flags and the saved lighting do not matter to it;
+	// without a thruster bitmap (or a flame of no length) it is a flat poly in the lit vertex colours, the hull's untextured polys with the
+	// flame's z scale; in pofview the polygon path draws it
+	const bool thr = Interp_thrust_scale_subobj != 0;
+	const bool thr_flat = thr && (Interp_thrust_bitmap < 0 || Interp_thrust_scale <= 0.0f);
+	// the draws that stay on the polygon path, counted by reason (reported at exit: the classes still to retire)
+	if (Interp_subspace) { Interp_fb_count[0]++; return 0; }
+	if (!gr_screen.hardware) { Interp_fb_count[1]++; return 0; }
+	if ((!thr || thr_flat) && Interp_use_saved_lighting) { Interp_fb_count[2]++; return 0; }
+	if (thr && Pofview_running) { Interp_fb_count[3]++; return 0; }
+	if (thr_flat && (Interp_tmap_flags & ~(TMAP_FLAG_TEXTURED | TMAP_FLAG_TILED | TMAP_FLAG_CORRECT | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB)) { Interp_fb_count[4]++; return 0; }
+	// the nebula background model (stars_draw_background) has its own mesh draw: forced bitmap, additive, no depth, no cull, unlit
+	const bool bg = (Interp_flags & MR_FORCE_TEXTURE) && (Interp_flags & MR_ALL_XPARENT) && (Interp_flags & MR_NO_CULL) && (Interp_flags & MR_NO_LIGHTING)
+		&& Interp_forced_bitmap >= 0 && Interp_xparent_alpha == 1.0f && !thr;
+	if (!bg && (Interp_flags & MR_FORCE_TEXTURE)) { Interp_fb_count[5]++; return 0; }
+	if (!bg && (Interp_flags & MR_ALL_XPARENT)) { Interp_fb_count[6]++; return 0; }
+	if (!bg && (Interp_flags & MR_NO_CULL)) { Interp_fb_count[7]++; return 0; }
+	if (Interp_flags & MR_NO_POLYS) { Interp_fb_count[10]++; return 0; }
+	if (Interp_flags & (MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET | MR_SHOW_INVISIBLE_FACES | MR_SHOW_PIVOTS)) { Interp_fb_count[8]++; return 0; }
+	if (!thr && (Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { Interp_fb_count[9]++; return 0; }
+	bsp_info *sm = &pm->submodel[mn];
+	if (sm->bsp_data == NULL) { return 0; }
+
+	InterpMesh &m = Interp_meshes[sm];
+	if (m.state != 0) {
+		bool stale = (m.bsp != sm->bsp_data) || (m.bsp_size != sm->bsp_data_size) || (m.model_id != pm->id)
+			|| ((int)m.tex_snapshot.size() != pm->n_textures);
+		for (int i = 0; !stale && i < pm->n_textures; i++) { if (m.tex_snapshot[i] != pm->textures[i]) { stale = true; } }
+		if (stale) {
+			Interp_mesh_late_stale++;
+			if (m.created) { gr_host_mesh_free(m.key); }
+			m.created = 0;
+			m.state = 0;
+		}
+	}
+	if (m.state == 0) { Interp_mesh_late++; interp_mesh_build(m, pm, sm); m.bsp = sm->bsp_data; m.bsp_size = sm->bsp_data_size; m.model_id = pm->id; m.tex_snapshot.assign(pm->textures, pm->textures + pm->n_textures); }
+	if (m.state != 1) { return 0; }
+
+	// model to eye: where the instance stack puts the origin and the three axes
+	vector zero = { 0.0f, 0.0f, 0.0f }, ax = { 1.0f, 0.0f, 0.0f }, ay = { 0.0f, 1.0f, 0.0f }, az = { 0.0f, 0.0f, 1.0f };
+	vertex o, ex, ey, ez;
+	g3_rotate_vertex(&o, &zero); g3_rotate_vertex(&ex, &ax); g3_rotate_vertex(&ey, &ay); g3_rotate_vertex(&ez, &az);
+	float xf[12];
+	xf[0] = ex.x - o.x; xf[1] = ey.x - o.x; xf[2]  = ez.x - o.x; xf[3]  = o.x;
+	xf[4] = ex.y - o.y; xf[5] = ey.y - o.y; xf[6]  = ez.y - o.y; xf[7]  = o.y;
+	xf[8] = ex.z - o.z; xf[9] = ey.z - o.z; xf[10] = ez.z - o.z; xf[11] = o.z;
+
+	// the warp clip plane (eye space, kept where dot(n, p) + w > 0); a host that cannot take it has the polygon path draw the submodel
+	static int s_was_clipping = 0;
+	if (G3_user_clip) {
+		const float plane[4] = { G3_user_clip_normal.x, G3_user_clip_normal.y, G3_user_clip_normal.z, -vm_vec_dot(&G3_user_clip_normal, &G3_user_clip_point) };
+		if (!gr_host_mesh_clip(plane)) { return 0; }
+		s_was_clipping = 1;
+	} else if (s_was_clipping) {
+		gr_host_mesh_clip(NULL);
+		s_was_clipping = 0;
+	}
+
+	if (bg) {
+		const int rb = gr_host_mesh_bg(m.key, xf, (int)m.v_slot.size(), Interp_forced_bitmap, (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0, 191);
+		if (rb < 0) {
+			gr_host_mesh_free(m.key);
+			m.created = 0;
+			m.state = 0;
+			return 0;
+		}
+		if (rb != 1) { Interp_fb_count[5]++; }
+		return rb == 1;
+	}
+
+	const float min_dist = (Interp_flags & MR_IS_MISSILE) ? 0.5f : -1.5f;		// the base of the flame is not scaled (model_interp_defpoints)
+	if (thr && !thr_flat) {
+		const int rt = gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), Interp_thrust_bitmap, Interp_thrust_scale, min_dist, NULL);
+		if (rt < 0) {
+			gr_host_mesh_free(m.key);
+			m.created = 0;
+			m.state = 0;
+			return 0;
+		}
+		return rt == 1;
+	}
+
+	// a host that lights per vertex takes the lighting inputs as they are (not when the object's lighting is being saved: the saved arrays
+	// are filled by the CPU path below)
+	if (!thr && Interp_lighting == &Interp_lighting_temp) {
+		gr_host_mesh_light hl;
+		if (Interp_flags & MR_NO_LIGHTING) {
+			memset(&hl, 0, sizeof(hl));
+			hl.flat = 191;
+		} else if (!light_get_mesh_lighting(&hl, Interp_light)) {
+			hl.flat = -2;
+		}
+		if (hl.flat != -2) {
+			const int rl = gr_host_mesh_draw_lit(m.key, xf, &hl, (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
+			if (rl < 0) {
+				gr_host_mesh_free(m.key);
+				m.created = 0;
+				m.state = 0;
+				return 0;
+			}
+			if (rl == 1) { return 1; }
+		}
+	}
+
+	// lighting, per normal, as model_interp_tmappoly
+	const size_t ns = m.slot_norm.size();
+	m.rgb.resize(m.v_slot.size() * 3);
+	std::vector<ubyte> slot_rgb(ns * 3);
+	for (size_t s = 0; s < ns; s++) {
+		const int n = m.slot_norm[s];
+		if (Interp_flags & MR_NO_LIGHTING) {
+			slot_rgb[s*3] = slot_rgb[s*3+1] = slot_rgb[s*3+2] = 191;
+		} else {
+			light_apply_rgb( &Interp_lighting->r[n], &Interp_lighting->g[n], &Interp_lighting->b[n], &m.slot_pos[s], &m.slot_nrm[s], Interp_light );
+			slot_rgb[s*3] = Interp_lighting->r[n]; slot_rgb[s*3+1] = Interp_lighting->g[n]; slot_rgb[s*3+2] = Interp_lighting->b[n];
+		}
+	}
+	for (size_t i = 0; i < m.v_slot.size(); i++) {
+		const int s = m.v_slot[i];
+		m.rgb[i*3] = slot_rgb[s*3]; m.rgb[i*3+1] = slot_rgb[s*3+1]; m.rgb[i*3+2] = slot_rgb[s*3+2];
+	}
+
+	const int r = thr ? gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), -1, Interp_thrust_scale, min_dist, &m.rgb[0])
+		: gr_host_mesh_draw(m.key, xf, &m.rgb[0], (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
+	if (r < 0) {
+		gr_host_mesh_free(m.key);
+		m.created = 0;
+		m.state = 0;
+		return 0;
+	}
+	return r == 1;
+}
+
 void model_interp_subcall(polymodel * pm, int mn, int detail_level)
 {
 	int i;
@@ -1404,7 +1766,8 @@ void model_interp_subcall(polymodel * pm, int mn, int detail_level)
 		light_rotate_all();
 	}
 
-	model_interp_sub( pm->submodel[mn].bsp_data, pm, &pm->submodel[mn], 0 );
+	if ( !model_interp_mesh_try( pm, mn ) )
+		model_interp_sub( pm->submodel[mn].bsp_data, pm, &pm->submodel[mn], 0 );
 
 	if (Interp_flags & MR_SHOW_PIVOTS )
 		model_draw_debug_points( pm, &pm->submodel[mn] );
@@ -2496,9 +2859,25 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 		flags |= MR_NO_POLYS;
 	}
 
+	// test switch (FS2_FORCE_BG=1): every model drawn as a background model (forced texture, no z, no cull, all transparent), to compare the mesh and polygon paths in an open frame (D-20261103-103538)
+	{
+		static int force_bg = -1;
+		if (force_bg < 0) {
+#pragma warning(suppress: 4996)
+			const char *e = getenv("FS2_FORCE_BG");
+			force_bg = (e != NULL && e[0] == '1') ? 1 : 0;
+		}
+		if (force_bg) {
+			flags |= MR_NO_ZBUFFER | MR_NO_CULL | MR_ALL_XPARENT | MR_NO_LIGHTING | MR_FORCE_TEXTURE;
+			polymodel *fpm = model_get(model_num);
+			Interp_forced_bitmap = -1;
+			for (int ti = 0; ti < fpm->n_textures && Interp_forced_bitmap < 0; ti++) { Interp_forced_bitmap = fpm->textures[ti]; }
+		}
+	}
+
 	Interp_flags = flags;
 
-	pm = model_get(model_num);	
+	pm = model_get(model_num);
 
 	// Set the flags we will pass to the tmapper
 	if ( gr_screen.hardware )	{
@@ -2670,7 +3049,8 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 	gr_zbias(0);
 		
 	// draw the hull of the ship
-	model_interp_sub( (ubyte *)pm->submodel[pm->detail[detail_level]].bsp_data, pm, &pm->submodel[pm->detail[detail_level]], 0 );
+	if ( !model_interp_mesh_try( pm, pm->detail[detail_level] ) )
+		model_interp_sub( (ubyte *)pm->submodel[pm->detail[detail_level]].bsp_data, pm, &pm->submodel[pm->detail[detail_level]], 0 );
 
 	if (Interp_flags & MR_SHOW_PIVOTS )	{
 		model_draw_debug_points( pm, NULL );

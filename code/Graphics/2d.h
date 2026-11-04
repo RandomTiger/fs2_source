@@ -593,6 +593,32 @@ extern int Gr_mmx;
 
 // Claude: P7, the host's backend (D-20261027-185301).  The host fills these before gr_init(.., GR_HOST); init fills in gr_screen's
 // gf_ table like gr_dummy_init does.  Any entry may be NULL except init.
+typedef struct gr_host_mesh_group {	// Claude: P3b, one texture's triangles of a host mesh
+	int bitmap;						// bmpman handle
+	int first_index;
+	int index_count;
+	int tileable;					// the model allows tiled draws (PM_FLAG_ALLOW_TILING): the host makes the repeat texture at load too
+} gr_host_mesh_group;
+// Claude: P3b, the game's lighting of one mesh draw (light_apply_rgb's inputs) for a host that lights per vertex; same layout as fs2_sink_mesh_light
+#define GR_HOST_MAX_SUN 4
+#define GR_HOST_MAX_POINT 16
+typedef struct gr_host_mesh_light {
+	int flat;						// >= 0: every vertex this grey byte, nothing else applies
+	float ambient, reflective, level;
+	int darken;
+	float inv_gamma;				// filled by the host
+	int nsun;
+	float sun_dir[GR_HOST_MAX_SUN][3];
+	float sun_intensity[GR_HOST_MAX_SUN];
+	float sun_rgb[GR_HOST_MAX_SUN][3];
+	int npoint;
+	int point_tube[GR_HOST_MAX_POINT];
+	float point_pos[GR_HOST_MAX_POINT][3];
+	float point_pos2[GR_HOST_MAX_POINT][3];
+	float point_rad1_sq[GR_HOST_MAX_POINT], point_rad2_sq[GR_HOST_MAX_POINT];
+	float point_intensity[GR_HOST_MAX_POINT];
+	float point_rgb[GR_HOST_MAX_POINT][3];
+} gr_host_mesh_light;
 typedef struct gr_host_backend {
 	void (*init)();
 	void (*cleanup)();
@@ -601,9 +627,27 @@ typedef struct gr_host_backend {
 	void (*bitmap)(int x, int y);										// Claude: P7-3, gr_bitmap (all sections of gr_screen.current_bitmap)
 	void (*bitmap_ex)(int x, int y, int w, int h, int sx, int sy);	// Claude: P7-3, gr_bitmap_ex
 	int no_device;													// Claude: P7-4, nonzero when the host draws nothing (headless); then it counts as the null renderer does for Autotest's "no device" test
+	// Claude: P3b, optional model meshes (render 3D). vtx = 8 floats per vertex (pos3, normal3, uv2); xform = 3x4 model to eye, row major;
+	// rgb = 3 bytes per vertex, lit, before gamma. mesh_draw: 1 drawn, 0 draw on the CPU path this time, -1 mesh invalid (drop it).
+	int (*mesh_ready)();
+	int (*mesh_create)(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly);
+	int (*mesh_draw)(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
+	void (*mesh_free)(int key);
+	int (*mesh_draw_lit)(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);	// as mesh_draw, the host lights per vertex; 0 = use mesh_draw
+	int (*mesh_clip)(const float *plane);	// the user clip plane (eye space, nx ny nz w; kept where dot + w > 0) for the draws that follow, NULL = none; 0 = not supported
+	int (*mesh_thrust)(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb);	// an engine thruster submodel (unlit, additive, bitmap as its texture, z < min_dist scaled by scale); bitmap < 0: the flat lit polys of a thruster without a flame bitmap, rgb as mesh_draw; same returns as mesh_draw
+	int (*mesh_bg)(int key, const float *xform, int nv, int bitmap, int tiled, int gray);	// the nebula background model: bitmap on every poly, additive, no depth, no cull, flat gray vertex colour; same returns as mesh_draw
 	void (*model_page_in)(int modelnum);							// Claude: load hook, a ship model's textures were just paged in (model_page_in_textures); the host may build its fixed data for it now
 	void (*level_loaded)();											// Claude: load hook, level paging is done (level_page_in); the host may finish what needs its device
 } gr_host_backend;
+extern int gr_host_mesh_ready();
+extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly);
+extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled);
+extern int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);
+extern int gr_host_mesh_clip(const float *plane);
+extern int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb);
+extern int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray);
+extern void gr_host_mesh_free(int key);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST
 extern void gr_host_model_page_in(int modelnum);	// Claude: load hook, no-op when the backend has no model_page_in

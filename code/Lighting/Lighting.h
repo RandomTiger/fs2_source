@@ -117,6 +117,10 @@ ubyte light_apply( vector *pos, vector * norm, float static_light_val );
 // Same as above only does RGB.
 void light_apply_rgb( ubyte *param_r, ubyte *param_g, ubyte *param_b, vector *pos, vector * norm, float static_light_val );
 
+// Claude: P3b, light_apply_rgb's inputs for a host that lights per vertex (0: do not fit, light on the CPU)
+struct gr_host_mesh_light;
+int light_get_mesh_lighting( struct gr_host_mesh_light *out, float static_light_level );
+
 // return the # of global light sources
 int light_get_global_count();
 

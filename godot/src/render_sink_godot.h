@@ -14,6 +14,7 @@
 #define FS2_RENDER_SINK_GODOT_H
 
 #include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include <godot_cpp/variant/rid.hpp>
 
 #include "batcher.h"
+#include "depth_contract.h"
 #include "render_sink.h"
 
 namespace fs2sink {
@@ -50,6 +52,10 @@ constexpr int kNebFogOff = 0, kNebFogSame = 1, kNebFogLag = 2, kNebFogGpu = 3;
 // D-20261030-063743: the state is chosen at run time, Godot-side (Fs2Game::start, fs2_node.cpp): kNebFogGpu for live shown play (a window, no
 // -replay/-autotest/-record/-at_ run), kNebFogOff for every scripted, trace-compared or gate run. FS2_NEBFOG=off|same|lag|gpu overrides it.
 inline int g_nebfog = kNebFogOff;
+// P3a (GodotRender3D, D-20261031-120702): opaque depth-written batches of one epoch are regrouped by texture. FS2_OPAQUE_REORDER=0 turns it off.
+inline bool g_opaque_reorder = true;
+// P3b: winding of front faces on the layer (y up) for mesh draws with the cull flag; settled by the depth harness (design note)
+constexpr bool kMeshFrontCCW = true;
 constexpr int kNebFogLagFrames = 1;
 constexpr int kNebFogReadMaxPixels = 64 * 64;	// reads at (0,0) up to this size are the fog read; larger ones are screenshots
 
@@ -70,6 +76,9 @@ public:
 	int frames_committed() const { return committed; }
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
+	unsigned long long stat_mesh_draws = 0;	// mesh draws that reached a 3D layer, all frames (counted-shot proof)
+	unsigned long long stat_mesh_models = 0;	// distinct (model, state) per run summed: batching potential = draws vs this
+	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
 	// Perspective-correct UVs (S-2, D-20261027-190102): custom shader (default) or CPU subdivision (fallback).
 	void set_perspective_mode(PerspectiveMode m) { batcher.set_perspective_mode(m); }
@@ -135,6 +144,8 @@ private:
 		int w = 0, h = 0;
 		bool probe_parent = false;	// its parent viewport is a fog probe slot (fog lag), not the game viewport
 		std::vector<godot::RID> instances;
+		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
+		std::vector<std::pair<int, godot::RID>> mesh_coltex;	// (rows, texture)
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
 	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
@@ -216,6 +227,67 @@ private:
 	static void s_depth_begin(void *u);
 	static void s_depth_end(void *u);
 	static void s_depth_clear(void *u, int x, int y, int w, int h);
+	static void s_set_view(void *u, const fs2_sink_view *v);
+	fs2_sink_view view = {};	// the last camera the game sent (v3)
+
+	// v4 meshes (P3b): model-space geometry kept by id; a draw inside a run leaves a placeholder batch (key.texture = -(draw index + 1))
+	// so it keeps its place among the run's batches, and add_to_layer turns it into mesh instances with the mesh shader.
+	struct MeshGroup {
+		godot::RID mesh_rid;		// a mesh with one surface, made once with the geometry and kept across frames
+	};
+	struct MeshGroupState {			// how a group is drawn: set per draw (mesh_state), not part of the geometry
+		fs2_sink_mesh_group g;
+		int zmode = 2;
+	};
+	struct MeshData {
+		std::vector<MeshGroup> groups;
+		std::vector<std::vector<MeshGroupState>> states;	// every distinct state the game has set; a draw keeps the index it was made with
+		int cur = 0;
+	};
+	struct MeshDraw {
+		int32_t id = 0;
+		int state = 0;	// index into the mesh's states
+		float xf[12] = {};
+		int epoch = 0;
+		int cw = 0, ch = 0, ox = 0, oy = 0;	// the canvas and its screen origin when drawn
+		std::vector<uint8_t> col;	// RGBA8 per mesh vertex
+		bool lit = false;			// lit on the GPU from `light` (mesh_draw_lit); col is empty
+		fs2_sink_mesh_light light = {};
+		bool clip = false;			// the user clip plane (mesh_clip) in force when drawn
+		float plane[4] = {};
+		bool crect = false;			// the screen clip rect (set_clip) in force when drawn: x, y, w, h
+		int cr[4] = {};
+		bool fog = false;			// the fog (mesh_fog) in force when drawn
+		fs2_sink_mesh_fog fogv = {};
+		bool thr = false;			// a thruster flame (mesh_thrust) in force when drawn: z scaled by thrv[0] below thrv[1]
+		float thrv[2] = {};
+	};
+	bool mesh_thr_on = false;
+	float mesh_thr[2] = {};
+	static void s_mesh_thrust(void *u, const float t[2]);
+	bool mesh_clip_on = false;
+	float mesh_clip_plane[4] = {};
+	static void s_mesh_clip(void *u, const float plane[4]);
+	fs2_sink_mesh_fog mesh_fog_state = {};
+	static int s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog);
+	std::vector<godot::RID> mesh_mat_pool;
+	std::map<int, std::vector<godot::RID>> mesh_col_pool;	// by rows
+	void release_mesh_res(Layer &l, bool free_them);
+	std::map<int32_t, MeshData> mesh_data;
+	std::vector<MeshDraw> mesh_draws;
+	std::map<uint32_t, godot::RID> mesh_shaders;
+	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect);
+	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect);
+	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);
+	static void s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, int ng);
+	void free_mesh_data(MeshData &md);
+	void add_mesh_to_layer(Layer &l, const MeshDraw &d, int order);
+	static void s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
+		const uint32_t *idx, int ni);
+	static void s_mesh_free(void *u, int32_t id);
+	static void s_mesh_draw(void *u, int32_t id, const float *xform, const uint8_t *colours, int ncolours);
+	static void s_mesh_draw_lit(void *u, int32_t id, const float *xform, const fs2_sink_mesh_light *light);
+	bool have_view = false;
 };
 
 } // namespace fs2sink

@@ -76,6 +76,7 @@ struct HostTex {
 	int sink_id;		// 0 = not uploaded (a TK_GLOW entry: no glow for this bitmap)
 	int type;			// TCACHE_TYPE_* it was uploaded as
 	int w, h;
+	bool opaque;		// RGBA8 texture with every alpha 255 (a mesh group of it may be drawn opaque)
 };
 
 // one queued ship glow poly (see "ship glow")
@@ -111,9 +112,15 @@ struct Host {
 	std::vector<int> capture_pending;	// save_screen ids asked for in a skipped frame: captured at the start of the next accepted frame
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
+	float inv_gamma = 1.0f;			// the exponent the table was built with
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
+	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
+	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
+	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
+	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
+	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
 	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
@@ -122,12 +129,29 @@ struct Host {
 	bool zget_pending = false;		// get() seen, the next set() is the save half of a pair
 	int zget_saved = GR_ZBUFF_NONE;
 	bool run_open = false;			// a sink depth run is open (drawn frames only)
+	bool view_sent = false;			// H.view was sent to the sink in this run
+	fs2_sink_view view = {};		// the camera last sent (v3)
 	int zbias = 0;
 	int cull = 0;
 	// ship glow queue (see "ship glow"): host only
 	std::vector<GlowPoly> glow_q;
 	std::vector<fs2_sink_vertex> glow_v;
 	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
+	// render 3D meshes (P3b): the model builder hands geometry over once; the sink copy is made on the first draw in an accepted frame
+	struct HostMesh {
+		std::vector<fs2_sink_mesh_vertex> v;
+		std::vector<gr_host_mesh_group> g;
+		std::vector<uint32_t> idx;
+		bool sink_made = false;
+		float bmin[3] = {}, bmax[3] = {};	// model space bounds: a draw that reaches the near plane stays on the polygon path (it clips there)
+		bool cpu_only = false;				// the mesh cannot be drawn by the sink (a texture failed to upload): stays on the polygon path
+		std::vector<int> poly_nv;			// vertex count of each polygon, in index order (a fan of nv-2 triangles)
+		int zmode = -1, zbias = 0, cull = 0, tiled = 0;	// the state the sink copy was made for
+		std::vector<int> tex;				// sink texture per group at creation
+		std::vector<int> blend;
+	};
+	std::unordered_map<int, HostMesh> meshes;
+	std::vector<uint8_t> mesh_rgba;
 } H;
 
 inline bool drawing() { return H.frame == FRAME_OPEN; }
@@ -316,7 +340,7 @@ void legacy_d3d_texel_shift(std::vector<uint8_t> &px, int w, int h)
 // type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
 int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
 {
-	if (!drawing() || bitmap_id < 0) { return 0; }
+	if ((!drawing() && !H.load_mode) || bitmap_id < 0) { return 0; }
 	const bool aa = (type == TCACHE_TYPE_AABITMAP);
 	int kind = TK_NORMAL;
 	if (aa) { kind = TK_AA; }
@@ -359,6 +383,10 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
+	t.opaque = (format == FS2_SINK_TEX_RGBA8);
+	if (t.opaque) {
+		for (size_t i = 3; i < px.size(); i += 4) { if (px[i] != 255) { t.opaque = false; break; } }
+	}
 	// UI text and 2D bitmaps keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
 	uint32_t tf = (aa || bitmap_2d) ? 0 : FS2_SINK_TEXF_LINEAR;
 	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
@@ -405,7 +433,7 @@ int glow_shivan_class(int bitmap_handle)
 // of the bitmap's size, glow off). The answer is cached either way.
 int glow_tex_get(int bitmap_id)
 {
-	if (!drawing() || bitmap_id < 0 || Cmdline_no_ship_glow) { return 0; }
+	if ((!drawing() && !H.load_mode) || bitmap_id < 0 || Cmdline_no_ship_glow) { return 0; }
 	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), TK_GLOW };
 	auto found = H.tex.find(key);
 	if (found != H.tex.end()) { return found->second.sink_id; }
@@ -471,6 +499,44 @@ void depth_run_end()
 	glow_flush();
 	if (H.run_open && drawing()) { H.sink->depth_end(H.sink->user); }
 	H.run_open = false;
+	H.view_sent = false;
+}
+
+// v3: the 3D camera, read from the g3 globals (g3_set_view_matrix runs after g3_start_frame has opened the run), sent when it differs
+// from the one the sink has. Reads game state only.
+} // namespace
+extern void model_interp_mesh_preload(int modelnum);	// ModelInterp.cpp
+extern int model_interp_mesh_late();
+extern void model_interp_mesh_preload_all();
+extern float View_zoom;
+extern vector Matrix_scale;
+extern matrix Eye_matrix;
+extern vector Eye_position;
+extern int Canvas_width, Canvas_height;
+extern int G3_user_clip;
+extern vector G3_user_clip_normal, G3_user_clip_point;
+namespace {
+void send_view()
+{
+	fs2_sink_view v = {};
+	v.eye_pos[0] = Eye_position.x; v.eye_pos[1] = Eye_position.y; v.eye_pos[2] = Eye_position.z;
+	v.eye_rvec[0] = Eye_matrix.rvec.x; v.eye_rvec[1] = Eye_matrix.rvec.y; v.eye_rvec[2] = Eye_matrix.rvec.z;
+	v.eye_uvec[0] = Eye_matrix.uvec.x; v.eye_uvec[1] = Eye_matrix.uvec.y; v.eye_uvec[2] = Eye_matrix.uvec.z;
+	v.eye_fvec[0] = Eye_matrix.fvec.x; v.eye_fvec[1] = Eye_matrix.fvec.y; v.eye_fvec[2] = Eye_matrix.fvec.z;
+	v.scale[0] = Matrix_scale.x; v.scale[1] = Matrix_scale.y; v.scale[2] = Matrix_scale.z;
+	v.zoom = View_zoom;
+	v.canvas_w = Canvas_width; v.canvas_h = Canvas_height;
+	v.origin_x = gr_screen.offset_x + gr_screen.clip_left; v.origin_y = gr_screen.offset_y + gr_screen.clip_top;
+	v.user_clip = G3_user_clip;
+	if (G3_user_clip) {
+		v.clip_normal[0] = G3_user_clip_normal.x; v.clip_normal[1] = G3_user_clip_normal.y; v.clip_normal[2] = G3_user_clip_normal.z;
+		v.clip_point[0] = G3_user_clip_point.x; v.clip_point[1] = G3_user_clip_point.y; v.clip_point[2] = G3_user_clip_point.z;
+	}
+	if (v.canvas_w <= 0 || v.canvas_h <= 0) { return; }
+	if (H.view_sent && std::memcmp(&v, &H.view, sizeof(v)) == 0) { return; }
+	H.view = v;
+	H.view_sent = true;
+	H.sink->set_view(H.sink->user, &v);
 }
 
 void h_flip()
@@ -494,8 +560,24 @@ void h_set_palette(ubyte *, int) { }				// same as dummy and D3D: nothing. BmpMa
 void h_fade_in(int) { }
 void h_fade_out(int) { }
 
+// test switch (FS2_FORCE_CLIP=x,y,w,h): every full-screen clip becomes this rect, to compare the mesh and polygon paths under a letterbox clip (the death state)
+static bool forced_clip(int rect[4])
+{
+	static int state = -1;
+	static int r[4];
+	if (state < 0) {
+#pragma warning(suppress: 4996)
+		const char *e = getenv("FS2_FORCE_CLIP");
+		state = (e != NULL && sscanf(e, "%d,%d,%d,%d", &r[0], &r[1], &r[2], &r[3]) == 4) ? 1 : 0;
+	}
+	if (state) { for (int i = 0; i < 4; i++) { rect[i] = r[i]; } }
+	return state == 1;
+}
+
 void h_set_clip(int x, int y, int w, int h)
 {
+	int fr[4];
+	if (x == 0 && y == 0 && w >= gr_screen.max_w && h >= gr_screen.max_h && forced_clip(fr)) { x = fr[0]; y = fr[1]; w = fr[2]; h = fr[3]; }
 	gr_screen.offset_x = x;
 	gr_screen.offset_y = y;
 	gr_screen.clip_left = 0;
@@ -518,6 +600,8 @@ void h_set_clip(int x, int y, int w, int h)
 
 void h_reset_clip()
 {
+	int fr[4];
+	if (forced_clip(fr)) { h_set_clip(0, 0, gr_screen.max_w, gr_screen.max_h); return; }
 	gr_screen.offset_x = 0;
 	gr_screen.offset_y = 0;
 	gr_screen.clip_left = 0;
@@ -853,7 +937,8 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 	if (zbuffering) {
 		zflags = (is_scaler || gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER) ? FS2_SINK_DRAWF_ZREAD
 			: (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
-		if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
+		if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+		send_view();
 	}
 
 	int blend, alpha = 255;
@@ -978,6 +1063,294 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
 
+// ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
+// Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
+// (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
+// in an accepted frame, when the textures can be uploaded, and again when the draw state (z mode, zbias, cull) or a texture
+// changes. Groups are drawn opaque when the texture has no alpha below 255, else alpha blended; polygons that glow stay CPU.
+bool mesh_switch()
+{
+	static int on = -1;
+	if (on < 0) {
+		const char *e = getenv("FS2_RENDER3D");
+		on = (e != nullptr) ? (e[0] - '0') : 0;
+	}
+	return on == 1;
+}
+
+
+int h_mesh_ready()
+{
+	return H.sink != nullptr && H.sink->mesh_create && H.sink->mesh_draw && H.sink->mesh_free && mesh_switch();
+}
+
+void h_mesh_free(int key);
+
+int h_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly)
+{
+	if (nv <= 0 || ng <= 0 || ni <= 0 || vtx == nullptr || poly_nv == nullptr || npoly <= 0) { return 0; }
+	if (H.meshes.find(key) != H.meshes.end()) { h_mesh_free(key); }
+	Host::HostMesh &m = H.meshes[key];
+	m.v.resize((size_t)nv);
+	for (int i = 0; i < nv; i++) {
+		fs2_sink_mesh_vertex &o = m.v[(size_t)i];
+		const float *s = vtx + 8 * i;
+		o.pos[0] = s[0]; o.pos[1] = s[1]; o.pos[2] = s[2];
+		o.normal[0] = s[3]; o.normal[1] = s[4]; o.normal[2] = s[5];
+		o.u = s[6]; o.v = s[7];
+		for (int k = 0; k < 3; k++) {
+			if (i == 0 || s[k] < m.bmin[k]) { m.bmin[k] = s[k]; }
+			if (i == 0 || s[k] > m.bmax[k]) { m.bmax[k] = s[k]; }
+		}
+	}
+	m.g.assign(g, g + ng);
+	m.idx.assign(idx, idx + ni);
+	m.poly_nv.assign(poly_nv, poly_nv + npoly);
+	return 1;
+}
+
+void h_mesh_free(int key)
+{
+	auto it = H.meshes.find(key);
+	if (it == H.meshes.end()) { return; }
+	if (it->second.sink_made && H.sink != nullptr) { H.sink->mesh_free(H.sink->user, key); }
+	H.meshes.erase(it);
+}
+
+// The sink groups of a mesh: one per host group, then one glow overlay per group whose texture glows (the ship glow pass, "ship glow":
+// the same triangles unlit with the glow texture, alpha blended, z read only, FS2_SINK_DRAWF_OVERLAY). The set of glowing groups never
+// changes for a mesh (glow_tex_get answers once per bitmap), so the group count is fixed and mesh_state can follow.
+static void mesh_sink_groups(const Host::HostMesh &m, const std::vector<int> &tex, const std::vector<int> &blend, unsigned fl, int zbias,
+	std::vector<fs2_sink_mesh_group> &sg)
+{
+	sg.assign(m.g.size(), fs2_sink_mesh_group());
+	for (size_t i = 0; i < m.g.size(); i++) {
+		sg[i].texture = tex[i]; sg[i].blend = blend[i]; sg[i].flags = fl; sg[i].zbias = zbias;
+		sg[i].first_index = m.g[i].first_index; sg[i].index_count = m.g[i].index_count;
+	}
+	for (size_t i = 0; i < m.g.size(); i++) {
+		const int gtex = m.g[i].bitmap < 0 ? 0 : glow_tex_get(m.g[i].bitmap);
+		if (gtex == 0) { continue; }
+		fs2_sink_mesh_group og = sg[i];
+		og.texture = gtex; og.blend = FS2_SINK_BLEND_ALPHA;
+		og.flags = (fl & ~(unsigned)FS2_SINK_DRAWF_ZWRITE) | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_OVERLAY;
+		sg.push_back(og);
+	}
+}
+
+// load hooks: a model was paged in (its meshes are built on the host now), and level paging is done (the sink copies are made now,
+// outside a frame, so the first draw of a ship does not stall on texture uploads). The copies are made for the usual state; a draw in
+// another z mode, zbias or cull remakes only the group state (mesh_state), never the geometry.
+void h_model_page_in(int modelnum)
+{
+	if (mesh_switch()) { model_interp_mesh_preload(modelnum); }
+}
+
+void h_level_loaded()
+{
+	if (!h_mesh_ready()) { return; }
+	model_interp_mesh_preload_all();
+	if (H.sink == nullptr) { return; }
+	if (H.flush_pending) {		// a flush or gamma change before the load: do it now, or the first frame drops what the load uploads
+		for (auto &kv : H.tex) { if (kv.second.sink_id != 0) { H.sink->texture_free(H.sink->user, kv.second.sink_id); } }
+		H.tex.clear();
+		H.flush_pending = false;
+	}
+	H.load_mode = true;
+	for (auto &e : H.meshes) {
+		Host::HostMesh &m = e.second;
+		if (m.sink_made || m.cpu_only) { continue; }
+		std::vector<int> tex(m.g.size()), blend(m.g.size());
+		bool ok = true;
+		for (size_t i = 0; i < m.g.size() && ok; i++) {
+			const int bmp = m.g[i].bitmap;
+			if (bmp < 0) { tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE; continue; }		// flat polys: the sink's white texture
+			tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, false);
+			if (tex[i] == 0) { ok = false; break; }
+			if (m.g[i].tileable) { tex_get(bmp, TCACHE_TYPE_NORMAL, true); }		// a tiled draw wants the repeat variant
+			bool opaque = false;
+			const TexKey k = { bmp, bm_get_signature(bmp), TK_NORMAL };
+			auto f = H.tex.find(k);
+			if (f != H.tex.end()) { opaque = f->second.opaque; }
+			blend[i] = opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA;
+		}
+		if (!ok) { continue; }
+		std::vector<fs2_sink_mesh_group> sg;
+		mesh_sink_groups(m, tex, blend, FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE | FS2_SINK_DRAWF_CULL, 0, sg);
+		H.sink->mesh_create(H.sink->user, e.first, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		m.sink_made = true;
+		m.zmode = GR_ZBUFF_FULL; m.zbias = 0; m.cull = 1; m.tiled = 0;
+		m.tex = tex; m.blend = blend;
+	}
+	// the level's other model textures (the engine thruster frames): the game's own page-in list (W11), no lookup by name
+	const int nlist = bm_get_level_bitmaps(nullptr, 0);
+	std::vector<bm_level_bitmap> list((size_t)(nlist > 0 ? nlist : 0));
+	if (nlist > 0) { bm_get_level_bitmaps(list.data(), nlist); }
+	for (auto &b : list) {
+		if (b.handle < 0 || (b.flags & (BM_LEVEL_AABITMAP | BM_LEVEL_LISTED))) { continue; }
+		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
+	}
+	H.load_mode = false;
+}
+
+// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid.
+// thr_bitmap >= 0: an engine thruster, every group drawn with that bitmap, additive, depth read only (the poly path's filter blend).
+static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_bitmap = -1, bool flat_all = false, bool bg = false)
+{
+	auto it = H.meshes.find(key);
+	if (it == H.meshes.end()) { return -1; }
+	Host::HostMesh &m = it->second;
+	if ((int)m.v.size() != nv) { return -1; }
+	if (m.cpu_only || (H.zmode == GR_ZBUFF_NONE && !bg) || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
+	ensure_frame();
+	if (!drawing()) { return 0; }
+
+	// the sink copy: made, or remade when the state or a texture it was made with has changed
+	const int zmode = bg ? -2 : H.zmode;		// the background draw is its own state: no depth, no cull
+	const int cull = bg ? 0 : H.cull;
+	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != cull || m.tiled != tiled;
+	std::vector<int> tex(m.g.size());
+	std::vector<int> blend(m.g.size());
+	for (size_t i = 0; i < m.g.size(); i++) {
+		const int bmp = flat_all ? -1 : (thr_bitmap >= 0 ? thr_bitmap : m.g[i].bitmap);
+		if (bmp < 0) {
+			tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE;
+			if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
+			continue;
+		}
+		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
+		const bool tex_had = H.tex.count(TexKey{ bmp, bm_get_signature(bmp), tkind }) != 0;
+		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
+		if (tex[i] == 0) { return 0; }
+		if (!tex_had && H.mesh_tex_late++ == 0) { fprintf(stderr, "render3d: LATE mesh texture at a draw (bitmap %d, kind %d, thruster %d, mesh key %d)\n", bmp, tkind, thr_bitmap, key); }
+		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
+		auto f = H.tex.find(k);
+		bool opaque = false;
+		if (f == H.tex.end()) {
+			for (auto &e : H.tex) { if (e.first.handle == bmp && e.first.kind == tkind) { opaque = e.second.opaque; break; } }
+		} else {
+			opaque = f->second.opaque;
+		}
+		blend[i] = (thr_bitmap >= 0 || bg) ? FS2_SINK_BLEND_ADD : (opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA);
+		if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
+	}
+	if (remake) {
+		std::vector<fs2_sink_mesh_group> sg;
+		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | (bg ? 0 : FS2_SINK_DRAWF_ZREAD)
+			| ((thr_bitmap < 0 && (zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE)) ? FS2_SINK_DRAWF_ZWRITE : 0) | (bg ? 0 : FS2_SINK_DRAWF_CULL);	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
+		mesh_sink_groups(m, tex, blend, fl, H.zbias, sg);
+		if (m.sink_made && H.sink->mesh_state) {
+			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
+		} else {
+			// load created every sink copy it could; reaching here means a mesh load could not make (no texture then). Counted, never expected.
+			if (H.mesh_sink_late++ == 0) { fprintf(stderr, "render3d: LATE sink mesh at a draw (key %d): the level load did not make it\n", key); }
+			H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
+		}
+		m.sink_made = true;
+		m.zmode = zmode; m.zbias = H.zbias; m.cull = cull; m.tiled = tiled;
+		m.tex = tex; m.blend = blend;
+	}
+
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	if (H.sink->mesh_fog != nullptr) {
+		// the fog state of the polys (plain_draw): on only with usable planes
+		fs2_sink_mesh_fog f = {};
+		if (H.fog_mode != GR_FOGMODE_NONE && H.fog_far > H.fog_near) {
+			f.mode = FS2_SINK_FOG_LINEAR;
+			f.rgb[0] = clamp8(H.fog_r); f.rgb[1] = clamp8(H.fog_g); f.rgb[2] = clamp8(H.fog_b);
+			f.fog_near = H.fog_near; f.fog_far = H.fog_far;
+		}
+		if (!H.mesh_fog_valid || std::memcmp(&f, &H.mesh_fog_sent, sizeof(f)) != 0) {
+			H.mesh_fog_ok = H.sink->mesh_fog(H.sink->user, &f) != 0;
+			H.mesh_fog_sent = f;
+			H.mesh_fog_valid = true;
+		}
+		if (f.mode != FS2_SINK_FOG_NONE && !H.mesh_fog_ok) { return 0; }
+	}
+	return 1;
+}
+
+int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
+{
+	const int p = mesh_prepare(key, xform, nv, tiled);
+	if (p != 1) { return p; }
+	H.mesh_rgba.resize((size_t)nv * 4);
+	for (int i = 0; i < nv; i++) {
+		H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
+		H.mesh_rgba[(size_t)i * 4 + 1] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 1]];
+		H.mesh_rgba[(size_t)i * 4 + 2] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 2]];
+		H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+	}
+	H.sink->mesh_draw(H.sink->user, key, xform, H.mesh_rgba.data(), nv);
+	return 1;
+}
+
+// the sink lights per vertex (step 4); the same inputs as the CPU path, the gamma table's exponent added
+int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled)
+{
+	if (H.sink->mesh_draw_lit == nullptr) { return 0; }
+	static_assert(sizeof(gr_host_mesh_light) == sizeof(fs2_sink_mesh_light), "mesh light layouts differ");
+	const int p = mesh_prepare(key, xform, nv, tiled);
+	if (p != 1) { return p; }
+	fs2_sink_mesh_light sl;
+	memcpy(&sl, light, sizeof(sl));
+	sl.inv_gamma = H.inv_gamma;
+	H.sink->mesh_draw_lit(H.sink->user, key, xform, &sl);
+	return 1;
+}
+// an engine thruster (model_interp_sub's thruster branch): unlit white, the thruster bitmap, additive, depth read only; the flame's length
+// is a z scale in the sink for the vertices in front of min_dist
+int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
+{
+	// fogged (nebula): a thruster poly has no PIXEL_FOG mark, so it takes the fog colour the last marked poly left (see fog_rgb[3]); not the mesh fog's
+	if (H.sink->mesh_thrust == nullptr || H.fog_mode != GR_FOGMODE_NONE || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
+	const float ts[2] = { scale, min_dist };
+	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
+	if (p != 1) { return p; }
+	if (flat) {
+		H.mesh_rgba.resize((size_t)nv * 4);
+		for (int i = 0; i < nv; i++) {
+			H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
+			H.mesh_rgba[(size_t)i * 4 + 1] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 1]];
+			H.mesh_rgba[(size_t)i * 4 + 2] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 2]];
+			H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+		}
+	}
+	const float t[2] = { scale, min_dist };
+	H.sink->mesh_thrust(H.sink->user, t);
+	H.sink->mesh_draw(H.sink->user, key, xform, flat ? H.mesh_rgba.data() : nullptr, flat ? nv : 0);
+	H.sink->mesh_thrust(H.sink->user, nullptr);
+	return 1;
+}
+
+// the nebula background model (stars_draw_background): the forced bitmap on every poly, additive, no depth, no culling, vertex colour
+// gray (191 unlit), as the polygon path draws MR_NO_ZBUFFER | MR_NO_CULL | MR_ALL_XPARENT | MR_NO_LIGHTING | MR_FORCE_TEXTURE
+int h_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray)
+{
+	if (bitmap < 0 || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
+	ensure_frame();
+	if (!drawing()) { return 1; }	// outside a frame the polygon path draws nothing either (tmapper_internal)
+	const int p = mesh_prepare(key, xform, nv, tiled, bitmap, false, true);
+	if (p != 1) { return p; }
+	const uint8_t g = (uint8_t)H.gamma_lookup[gray];
+	H.mesh_rgba.resize((size_t)nv * 4);
+	for (int i = 0; i < nv; i++) {
+		H.mesh_rgba[(size_t)i * 4 + 0] = g; H.mesh_rgba[(size_t)i * 4 + 1] = g; H.mesh_rgba[(size_t)i * 4 + 2] = g; H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+	}
+	H.sink->mesh_draw(H.sink->user, key, xform, H.mesh_rgba.data(), nv);
+	return 1;
+}
+
+// the user clip plane of the draws that follow (a sink without the entry cannot clip: only "no clip" is accepted)
+int h_mesh_clip(const float *plane)
+{
+	if (H.sink->mesh_clip == nullptr) { return plane == nullptr; }
+	H.sink->mesh_clip(H.sink->user, plane);
+	return 1;
+}
 #define SCALE_UV(x, x0, x1, y0, y1) (((((x) - (x0)) * ((y1) - (y0))) / ((x1) - (x0))) + (y0))
 
 // gr_d3d_scaler: clip the two corner vertices to the clip rectangle, moving the uvs with them, then a textured quad
@@ -1106,6 +1479,7 @@ void h_dump_frame_stop() { }
 void build_gamma(float gamma)
 {
 	if (gamma < 0.01f) { gamma = 1.0f; }
+	H.inv_gamma = 1.0f / gamma;
 	for (int i = 0; i < 256; i++) {
 		int v = (int)(std::pow((float)i / 255.0f, 1.0f / gamma) * 255.0f);
 		H.gamma_lookup[i] = v > 255 ? 255 : (v < 0 ? 0 : v);
@@ -1176,7 +1550,7 @@ int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale,
 }
 
 void h_zbias(int bias) { H.zbias = bias; }
-void h_flush() { H.flush_pending = true; }
+void h_flush() { }	// D3D's d3d_flush only ends and restarts the scene (the nebula calls it every frame); it never dropped textures
 void h_preload_init() { }
 int h_preload(int, int) { return 0; }
 void h_preload_done() { }
@@ -1293,10 +1667,12 @@ void host_init()
 
 void host_cleanup()
 {
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
 	H.tex.clear();
+	H.meshes.clear();
 	H.release_pending.clear();
 	H.capture_pending.clear();
 	Bm_release_hook = nullptr;
@@ -1324,7 +1700,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	if (sink == nullptr || sink->version != FS2_RENDER_SINK_VERSION || sink->size < sizeof(fs2_render_sink)) { return 0; }
 	if (!sink->frame_begin || !sink->frame_end || !sink->clear || !sink->set_clip || !sink->texture_create || !sink->texture_free
 		|| !sink->texture_free_all || !sink->draw_tris || !sink->capture_to_texture || !sink->read_region || !sink->set_gamma
-		|| !sink->depth_begin || !sink->depth_end || !sink->depth_clear) {
+		|| !sink->depth_begin || !sink->depth_end || !sink->depth_clear || !sink->set_view) {
 		return 0;
 	}
 	H.sink_copy = *sink;
@@ -1337,6 +1713,16 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.bitmap = h_bitmap;
 	Backend.bitmap_ex = h_bitmap_ex;
 	Backend.no_device = 0;
+	Backend.mesh_ready = h_mesh_ready;
+	Backend.mesh_create = h_mesh_create;
+	Backend.mesh_draw = h_mesh_draw;
+	Backend.mesh_draw_lit = h_mesh_draw_lit;
+	Backend.mesh_clip = h_mesh_clip;
+	Backend.mesh_thrust = h_mesh_thrust;
+	Backend.mesh_bg = h_mesh_bg;
+	Backend.mesh_free = h_mesh_free;
+	Backend.model_page_in = h_model_page_in;
+	Backend.level_loaded = h_level_loaded;
 	gr_host_backend_register(&Backend);
 	return 1;
 }
