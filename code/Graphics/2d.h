@@ -639,6 +639,7 @@ typedef struct gr_host_backend {
 	int (*mesh_bg)(int key, const float *xform, int nv, int bitmap, int tiled, int gray);	// the nebula background model: bitmap on every poly, additive, no depth, no cull, flat gray vertex colour; same returns as mesh_draw
 	void (*model_page_in)(int modelnum);							// Claude: load hook, a ship model's textures were just paged in (model_page_in_textures); the host may build its fixed data for it now
 	void (*level_loaded)();											// Claude: load hook, level paging is done (level_page_in); the host may finish what needs its device
+	int live_mode_change;											// Claude: GodotResolution, nonzero when gr_init may run again for another GR mode while the game runs
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly);
@@ -652,6 +653,7 @@ extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST
 extern void gr_host_model_page_in(int modelnum);	// Claude: load hook, no-op when the backend has no model_page_in
 extern void gr_host_level_loaded();		// Claude: load hook, no-op when the backend has no level_loaded
+extern int gr_live_mode_change();		// Claude: GodotResolution, 1 when the backend takes a GR mode change while the game runs (GR_HOST with a device; never native D3D or headless)
 extern int gr_host_no_device();		// Claude: P7-4, 1 when gr_screen.mode is GR_HOST and the registered backend says it has no device
 
 // resolution constants   - always keep resolutions in ascending order and starting from 0  

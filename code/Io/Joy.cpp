@@ -215,10 +215,12 @@
 #include "Replay.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
 #include "DataSetProfile.h"	// Claude
+#include "GameOptions.h"	// Claude: the FlightControl choice (D-20261102-200107)
 
 #define PRECALIBRATED 1
 
 static int Joy_inited = 0;
+static int Joy_lock_made = 0;	// Claude: GodotOptions, joy_lock exists (joy_init returns before making it when there is no driver)
 int joy_num_sticks = 0;
 int Dead_zone_size = 10;
 int Cur_joystick = -1;  // joystick used for input or -1
@@ -446,6 +448,7 @@ void joy_close()
 
 	Joy_polling = 0;	// Claude: no polling thread to end (D-20261022-143926)
 	DeleteCriticalSection( &joy_lock );
+	Joy_lock_made = 0;	// Claude: GodotOptions (joy_reassign)
 
 	joy_ff_shutdown();
 }
@@ -554,6 +557,7 @@ int joy_init()
 	}
 
 	InitializeCriticalSection(&joy_lock);
+	Joy_lock_made = 1;	// Claude: GodotOptions (joy_reassign)
 	{ static int joy_atexit = 0; if ( !joy_atexit ) { joy_atexit = 1; atexit(joy_close); } }	// Claude: registered once (P2)
 
 	joy_flush();
@@ -562,7 +566,7 @@ int joy_init()
 	memset(&ji, 0, sizeof(ji));
 
 	// Claude: control pad. An XInput pad also shows up here as a joystick; leave it to the pad module
-	if (pad_owns_joystick()) {
+	if (game_options_joystick_yields_to_pad() && pad_owns_joystick()) {	// Claude: unless Joystick was chosen (D-20261102-200107)
 		mprintf(("Joystick: XInput pad found, legacy joystick off\n"));
 		Cur_joystick = -1;
 	}
@@ -626,6 +630,25 @@ int joy_init()
 	// joy_di_init();
 
 	return joy_num_sticks;
+}
+
+// Claude: GodotOptions, a flight device chosen live on the Game Options screen (outside a mission) re-runs the pad/joystick
+// ownership joy_init decided at start (D-20261102-204804): Pad gives the stick to a connected pad, Joystick takes it back, no
+// restart. joy_init is re-entered: release, then open. On the native backends that is the WinMM stick (and force feedback)
+// let go and found again; on a host reader (the Godot host) joy_init opens no device, it only reads through the host hooks,
+// so the same run is the reader's ownership taken again. Not called before joy_init has run.
+void joy_reassign()
+{
+	if (!Joy_inited) {
+		return;
+	}
+	if (Joy_lock_made) {
+		joy_close();
+	} else {
+		Joy_inited = 0;	// no driver at start: joy_init stopped before the lock
+	}
+	joy_init();
+	mprintf(("Joystick: ownership re-run (flight choice), %d stick(s)\n", joy_num_sticks));
 }
 
 // Claude: replay. Whether a joystick was in use comes from the recording, not from what is plugged in now.

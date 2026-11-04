@@ -215,6 +215,7 @@
 #include "Autotest.h"	// Claude
 #include "DataSetProfile.h"	// Claude
 #include "DataSetInstall.h"	// Claude: data_set_name for the 141 tag
+#include "GameOptions.h"	// Claude: the FlightControl key (D-20261102-200101)
 
 // update this when altering data that is read/written to .PLR file
 #define CURRENT_PLAYER_FILE_VERSION					141	// Claude: was 140; 141 adds the data-set tag and the medal count (batch 5, D-20261023-201347, D-20261023-201747)
@@ -994,6 +995,7 @@ int read_pilot_file(char *callsign, int single, player *p)
 	Player->auto_advance = cfread_int(file);
 
 	Use_mouse_to_fly = cfread_int(file);
+	game_options_apply_flight();	// Claude: a FlightControl key overrides the pilot's mouse setting (D-20261102-200101)
 	Mouse_sensitivity = cfread_int(file);
 	Joy_sensitivity = cfread_int(file);
 	Dead_zone_size = cfread_int(file);
@@ -1455,6 +1457,7 @@ void init_new_pilot(player *p, int reset)
 
 		mprintf(( "Setting detail level to %d because of new pilot\n", cur_speed ));
 		Use_mouse_to_fly = 0;
+		game_options_apply_flight();	// Claude: a FlightControl key sets the new pilot's mouse setting (D-20261102-200101)
 		Mouse_sensitivity = 4;
 		Joy_sensitivity = 9;
 		Dead_zone_size = 10;

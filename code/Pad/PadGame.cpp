@@ -22,6 +22,7 @@
 #include "AiGoals.h"
 #include "HUDtarget.h"
 #include "Object.h"
+#include "GameOptions.h"	// the FlightControl choice (D-20261102-200107)
 
 extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is reading a device
 
@@ -555,6 +556,9 @@ const pad_output *pad_game_output()
 
 int pad_control_held(int id)
 {
+	if (!game_options_pad_flies()) {	// another flight reader was chosen (D-20261102-200107)
+		return 0;
+	}
 	return pad_output_is_held(&Pad_game_out, id);
 }
 
@@ -565,7 +569,7 @@ int pad_voice_talk_held()
 
 void pad_read_flight(control_info *ci, float frame_time)
 {
-	if (!Pad_game_out.connected) {
+	if (!Pad_game_out.connected || !game_options_pad_flies()) {	// or another flight reader was chosen (D-20261102-200107)
 		return;
 	}
 

@@ -261,6 +261,9 @@
     <ClCompile Include="Graphics\2d.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics\GrVirtual.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
     <ClCompile Include="Graphics\aaline.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
@@ -433,6 +436,9 @@
       <Filter>MenuUI</Filter>
     </ClCompile>
     <ClCompile Include="MenuUI\Credits.cpp">
+      <Filter>MenuUI</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuUI\GameOptions.cpp">
       <Filter>MenuUI</Filter>
     </ClCompile>
     <ClCompile Include="MenuUI\fishtank.cpp">
@@ -1064,6 +1070,9 @@
     <ClInclude Include="Graphics\2d.h">
       <Filter>Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics\GrVirtual.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="Graphics\Bitblt.h">
       <Filter>Graphics</Filter>
     </ClInclude>
@@ -1236,6 +1245,9 @@
       <Filter>MenuUI</Filter>
     </ClInclude>
     <ClInclude Include="MenuUI\Credits.h">
+      <Filter>MenuUI</Filter>
+    </ClInclude>
+    <ClInclude Include="MenuUI\GameOptions.h">
       <Filter>MenuUI</Filter>
     </ClInclude>
     <ClInclude Include="MenuUI\fishtank.h">

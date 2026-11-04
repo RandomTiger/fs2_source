@@ -14,7 +14,15 @@
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/popup_menu.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/classes/viewport.hpp>
+
+#ifdef _WIN32
+extern "C" __declspec(dllimport) int __stdcall ShowCursor(int show);	// user32; windows.h clashes with godot-cpp's names
+#endif
 
 using namespace godot;
 
@@ -123,6 +131,8 @@ static std::deque<Event> Queue;
 static bool Foreground = true;
 static int Mouse_x = 0, Mouse_y = 0;	// the cursor in the game's screen, as of the events the game has taken
 static float View_w = 1.0f, View_h = 1.0f;	// the Godot viewport the last mouse event was relative to
+static int Map_last[8];			// GodotOptions: the mapping the mouse was last mapped with (remap_mouse_on_change)
+static bool Map_last_set = false;
 
 static bool is_headless_display()
 {
@@ -140,6 +150,7 @@ void reset()
 {
 	Queue.clear();
 	Mouse_x = Mouse_y = 0;
+	Map_last_set = false;
 	// a headless Godot has no window to be in front, and the game must see itself in front as it did with the headless hooks
 	Foreground = true;
 	if (!is_headless_display()) {
@@ -257,6 +268,21 @@ static void game_screen(int *w, int *h)
 	}
 }
 
+// GodotResolution: the canvas the game draws (fs2_canvas_info, v8) and the base screen's corner in it. The canvas is the base screen
+// unless the display mode widens it to the window's aspect.
+static void game_canvas(int *vw, int *vh, int *cx, int *cy)
+{
+	int gw, gh;
+	game_screen(&gw, &gh);
+	Api->canvas_info(vw, vh, cx, cy);
+	if (*vw < gw || *vh < gh) {
+		*vw = gw;
+		*vh = gh;
+		*cx = 0;
+		*cy = 0;
+	}
+}
+
 // The game's screen sits centred in the Godot viewport at its own aspect (Fs2Screen: TextureRect keep-aspect), so a viewport of another
 // aspect (a 16:9 fullscreen, a resized window) has bars. fit_rect gives the picture's rectangle in viewport pixels.
 static void fit_rect(int gw, int gh, float *ox, float *oy, float *scale)
@@ -271,12 +297,253 @@ static void fit_rect(int gw, int gh, float *ox, float *oy, float *scale)
 	*oy = (View_h - gh * s) * 0.5f;
 }
 
+// GodotResolution: window -> canvas pixels -> base screen pixels (the game's mouse, also its flight deltas, stays in base pixels).
+// px, py: viewport pixels. A position over a bar lands on the picture's edge.
+static void map_mouse(float px, float py, int gw, int gh, int cw, int ch, int cx, int cy)
+{
+	float ox, oy, sc;
+	fit_rect(cw, ch, &ox, &oy, &sc);
+	const int mx = (int)((px - ox) / sc) - cx;
+	const int my = (int)((py - oy) / sc) - cy;
+	Mouse_x = mx < 0 ? 0 : (mx > gw - 1 ? gw - 1 : mx);
+	Mouse_y = my < 0 ? 0 : (my > gh - 1 ? gh - 1 : my);
+}
+
+// GodotOptions: the window -> base pixel mapping changes under a still mouse when the GR mode switches live (another base screen and
+// canvas) or the window is resized (a Resolution pick). No mouse event follows, so the game's cursor stayed in the old mapping's
+// pixels, drawn away from the pointer until the mouse moved. On a change, read the pointer again and map it the new way.
+static void remap_mouse_on_change(int gw, int gh, int cw, int ch, int cx, int cy)
+{
+	if (is_headless_display()) {
+		return;
+	}
+	DisplayServer *ds = DisplayServer::get_singleton();
+	const Vector2i ws = ds->window_get_size(0);
+	const int now[8] = { gw, gh, cw, ch, cx, cy, ws.x, ws.y };
+	const bool changed = Map_last_set && (memcmp(now, Map_last, sizeof(now)) != 0);
+	memcpy(Map_last, now, sizeof(now));
+	Map_last_set = true;
+	if (!changed || ws.x <= 0 || ws.y <= 0) {
+		return;
+	}
+	View_w = (float)ws.x;
+	View_h = (float)ws.y;
+	const Vector2i p = ds->mouse_get_position() - ds->window_get_position(0);
+	map_mouse((float)p.x, (float)p.y, gw, gh, cw, ch, cx, cy);
+}
+
+// ---- GodotOptions: the game's drop-down (fs2_set_dropdown_hooks, v9) as Godot's own OptionButton ----
+// The game gives the rect in its base screen pixels; it is mapped through the canvas and the keep-aspect fit the picture uses
+// (game_canvas, fit_rect), every poll, so the button sits on the game's row at any window size and in either GR mode.
+static OptionButton *Dd_button = NULL;
+static int Dd_x = 0, Dd_y = 0, Dd_w = 0, Dd_h = 0;
+static int Dd_selected = -1;		// the entry the game has lit; a different selection on the button is the player's pick
+static bool Console_cursor = false;	// the console is open
+static bool Dd_cursor_shown = false;	// the OS cursor is shown over the button and its list (the game's own is drawn under them)
+
+static Ref<StyleBoxFlat> dd_box(const Color &bg, const Color &border)
+{
+	Ref<StyleBoxFlat> b;
+	b.instantiate();
+	b->set_bg_color(bg);
+	b->set_border_color(border);
+	b->set_border_width_all(1);
+	b->set_content_margin_all(4);
+	return b;
+}
+
+// plain, in the game's colours: near-black boxes, a green edge, grey-white text that goes white (on dark green) under the cursor
+static void dd_style(OptionButton *b)
+{
+	const Color bg(0.02f, 0.03f, 0.02f), edge(0.18f, 0.45f, 0.18f), edge_lit(0.35f, 0.8f, 0.35f), lit(0.05f, 0.25f, 0.05f);
+	const Color text(0.78f, 0.78f, 0.78f), text_lit(1.0f, 1.0f, 1.0f);
+	b->add_theme_stylebox_override("normal", dd_box(bg, edge));
+	b->add_theme_stylebox_override("hover", dd_box(bg, edge_lit));
+	b->add_theme_stylebox_override("pressed", dd_box(lit, edge_lit));
+	b->add_theme_stylebox_override("hover_pressed", dd_box(lit, edge_lit));
+	b->add_theme_stylebox_override("focus", dd_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)));
+	b->add_theme_color_override("font_color", text);
+	b->add_theme_color_override("font_hover_color", text_lit);
+	b->add_theme_color_override("font_pressed_color", text_lit);
+	b->add_theme_color_override("font_hover_pressed_color", text_lit);
+	b->add_theme_color_override("font_focus_color", text);
+	PopupMenu *p = b->get_popup();
+	p->add_theme_stylebox_override("panel", dd_box(bg, edge));
+	p->add_theme_stylebox_override("hover", dd_box(lit, lit));
+	p->add_theme_color_override("font_color", text);
+	p->add_theme_color_override("font_hover_color", text_lit);
+}
+
+void attach_dropdown(Node *parent)
+{
+	if (parent == NULL || is_headless_display()) {
+		return;
+	}
+	if (Dd_button == NULL) {
+		Dd_button = memnew(OptionButton);
+		Dd_button->set_focus_mode(Control::FOCUS_NONE);	// the game's keys never drive it; the open list takes its own
+		dd_style(Dd_button);
+		parent->add_child(Dd_button);	// after the screen's picture, so drawn over it
+	}
+	Dd_button->set_visible(false);
+	Dd_selected = -1;
+}
+
+static bool dd_shown(void)
+{
+	return Dd_button != NULL && Dd_button->is_visible();
+}
+
+static bool dd_list_open(void)
+{
+	return dd_shown() && Dd_button->get_popup()->is_visible();
+}
+
+// the button on the game's row, its text sized with it
+static void dd_layout(void)
+{
+	if (!dd_shown()) {
+		return;
+	}
+	Viewport *vp = Dd_button->get_viewport();
+	if (vp == NULL) {
+		return;
+	}
+	const Vector2 vs = vp->get_visible_rect().size;
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
+	if (cw <= 0 || ch <= 0) {
+		return;
+	}
+	float s = vs.x / (float)cw;
+	if (vs.y / (float)ch < s) {
+		s = vs.y / (float)ch;
+	}
+	const float ox = (vs.x - (float)cw * s) * 0.5f, oy = (vs.y - (float)ch * s) * 0.5f;
+	// the text follows the picture's height, not the art mode: the menu art fills the same height at 1024 and 640, while the row
+	// (FONT1, the same pixel font in both modes) is a third shorter at 1024. 2% of the height reads like the menu labels; the box
+	// grows round it where the row is shorter, centred on the row.
+	int fs = (int)((float)ch * s * 0.02f + 0.5f);
+	if (fs < 12) {
+		fs = 12;
+	}
+	float bh = (float)Dd_h * s;
+	const float need = (float)fs * 1.5f;
+	const float by = oy + (float)(Dd_y + cy) * s - (bh < need ? (need - bh) * 0.5f : 0.0f);
+	if (bh < need) {
+		bh = need;
+	}
+	Dd_button->set_position(Vector2(ox + (float)(Dd_x + cx) * s, by));
+	Dd_button->set_size(Vector2((float)Dd_w * s, bh));
+	Dd_button->add_theme_font_size_override("font_size", fs);
+	Dd_button->get_popup()->add_theme_font_size_override("font_size", fs);
+}
+
+static void h_dd_show(int x, int y, int w, int h, const char *const *labels, int count, int selected)
+{
+	if (Dd_button == NULL) {
+		return;
+	}
+	Dd_x = x;
+	Dd_y = y;
+	Dd_w = w;
+	Dd_h = h;
+	Dd_button->clear();
+	for (int i = 0; i < count; i++) {
+		Dd_button->add_item(String::utf8(labels[i]), i);
+	}
+	Dd_selected = (selected >= 0 && selected < count) ? selected : -1;
+	Dd_button->select(Dd_selected);
+	Dd_button->set_visible(true);
+	dd_layout();
+}
+
+static void dd_cursor(bool shown)
+{
+	if (shown != Dd_cursor_shown && !is_headless_display()) {
+		Dd_cursor_shown = shown;
+#ifdef _WIN32
+		// The game's os_init called ShowCursor(0) on this thread, so the display count hides the cursor whatever Godot's mode says.
+		if (shown) {
+			while (ShowCursor(1) < 0) {
+			}
+		} else {
+			while (ShowCursor(0) >= 0) {
+			}
+		}
+#endif
+		Input::get_singleton()->set_mouse_mode(shown ? Input::MOUSE_MODE_VISIBLE : Input::MOUSE_MODE_HIDDEN);
+	}
+}
+
+static void h_dd_hide(void)
+{
+	if (Dd_button != NULL) {
+		Dd_button->get_popup()->hide();
+		Dd_button->set_visible(false);
+	}
+	Dd_selected = -1;
+	dd_cursor(false);
+}
+
+// once per poll: follow the window, hand over the player's pick, show the OS cursor where the game's is covered
+static void dd_poll(void)
+{
+	if (!dd_shown()) {
+		dd_cursor(Console_cursor);
+		return;
+	}
+	dd_layout();
+	const int sel = Dd_button->get_selected();
+	if (sel >= 0 && sel != Dd_selected) {
+		Dd_selected = sel;
+		Api->input_dropdown(sel);
+	}
+	Viewport *vp = Dd_button->get_viewport();
+	const bool over = vp != NULL && Dd_button->get_global_rect().has_point(vp->get_mouse_position());
+	dd_cursor(over || dd_list_open() || Console_cursor);
+}
+
+void fill_dropdown(fs2_dropdown_hooks *h)
+{
+	h->show = h_dd_show;
+	h->hide = h_dd_hide;
+}
+
+void console_cursor(bool on)
+{
+	Console_cursor = on;
+}
+
+void hide_dropdown(void)
+{
+	h_dd_hide();
+}
+
+bool dropdown_takes(const Ref<InputEvent> &ev)
+{
+	if (!dd_shown()) {
+		return false;
+	}
+	if (dd_list_open()) {	// the open list owns every key and click (Godot hands most to it before this)
+		return Object::cast_to<InputEventMouseMotion>(ev.ptr()) == NULL;
+	}
+	InputEventMouseButton *mb = Object::cast_to<InputEventMouseButton>(ev.ptr());
+	return mb != NULL && Dd_button->get_global_rect().has_point(mb->get_position());
+}
+
 // the only place the game takes the host's events
 static void h_poll_events(void)
 {
 	uint64_t now = Time::get_singleton()->get_ticks_msec();
+	if (Api->input_dropdown != NULL) {
+		dd_poll();
+	}
 	int gw, gh;
 	game_screen(&gw, &gh);
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
+	remap_mouse_on_change(gw, gh, cw, ch, cx, cy);
 	while (!Queue.empty()) {
 		Event e = Queue.front();
 		Queue.pop_front();
@@ -292,15 +559,8 @@ static void h_poll_events(void)
 			Api->input_mouse_button(e.a, e.b);
 			break;
 		case EV_MOUSE_MOVE:
-		{
-			float ox, oy, sc;
-			fit_rect(gw, gh, &ox, &oy, &sc);
-			int mx = (int)((e.nx * View_w - ox) / sc);	// a position over a bar lands on the picture's edge
-			int my = (int)((e.ny * View_h - oy) / sc);
-			Mouse_x = mx < 0 ? 0 : (mx > gw - 1 ? gw - 1 : mx);
-			Mouse_y = my < 0 ? 0 : (my > gh - 1 ? gh - 1 : my);
+			map_mouse(e.nx * View_w, e.ny * View_h, gw, gh, cw, ch, cx, cy);
 			break;
-		}
 		case EV_FOCUS:
 			Foreground = (e.b != 0);
 			Api->input_focus(e.b);
@@ -327,8 +587,8 @@ static void h_mouse_get_pos(int *x, int *y)
 // still queued from before the move, which would pull the game's cursor back.
 static void h_mouse_set_pos(int x, int y)
 {
-	int gw, gh;
-	game_screen(&gw, &gh);
+	int cw, ch, cx, cy;
+	game_canvas(&cw, &ch, &cx, &cy);
 	Mouse_x = x;
 	Mouse_y = y;
 	for (std::deque<Event>::iterator it = Queue.begin(); it != Queue.end();) {
@@ -336,8 +596,8 @@ static void h_mouse_set_pos(int x, int y)
 	}
 	if (!is_headless_display()) {
 		float ox, oy, sc;
-		fit_rect(gw, gh, &ox, &oy, &sc);
-		Input::get_singleton()->warp_mouse(Vector2(ox + (float)x * sc, oy + (float)y * sc));
+		fit_rect(cw, ch, &ox, &oy, &sc);
+		Input::get_singleton()->warp_mouse(Vector2(ox + (float)(x + cx) * sc, oy + (float)(y + cy) * sc));
 	}
 }
 

@@ -266,10 +266,13 @@ cmdline_parm autotest_debugcam_arg("-at_debugcam", NULL);	// Claude: the debug c
 cmdline_parm autotest_padmenu_arg("-at_padmenu", NULL);	// Claude: the pad's menu test, see PadMenuTest.cpp
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm autotest_input_arg("-at_input", NULL);	// Claude: scripted joystick, see InputTest.h
+cmdline_parm autotest_flight_arg("-at_flight", NULL);	// Claude: the flight device choice for the input tests, see InputTest.h (D-20261102-200107)
 cmdline_parm autotest_awards_arg("-at_awards", NULL);	// Claude: the tour's debriefing shows awards, see Autotest.h
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
+cmdline_parm gr_switch_test_arg("-gr_switch_test", NULL);	// Claude: GodotResolution, switch GR mode 640 and back on the first main hall entry
+int Cmdline_gr_switch_test = 0;						// Claude: GodotResolution
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
 cmdline_parm bmlog_arg("-bmlog", NULL);			// Claude: bitmap section evidence log, see BitmapLog.h
 cmdline_parm bmshots_arg("-bmshots", NULL);		// Claude
@@ -745,6 +748,9 @@ int parse_cmdline(char *cmdline)
 	if(dataset_arg.found()){	// Claude
 		Cmdline_dataset = dataset_arg.str();	// Claude
 	}	// Claude
+	if(gr_switch_test_arg.found()){	// Claude: GodotResolution
+		Cmdline_gr_switch_test = 1;	// Claude: GodotResolution
+	}	// Claude: GodotResolution
 
 	// Claude: -bmlog, -bmshots, -bmframes
 	if(bmlog_arg.found() || bmshots_arg.found()){
@@ -780,6 +786,9 @@ int parse_cmdline(char *cmdline)
 		}
 		if(autotest_input_arg.found()){	// Claude: -at_input
 			input_test_set_cmdline(autotest_input_arg.str());
+		}
+		if(autotest_flight_arg.found()){	// Claude: -at_flight
+			input_test_set_flight(autotest_flight_arg.str());
 		}
 		if(autotest_awards_arg.found()){	// Claude: -at_awards
 			autotest_set_awards(autotest_awards_arg.str());

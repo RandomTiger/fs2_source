@@ -19,6 +19,7 @@
 #include "Key.h"
 #include "Mouse.h"
 #include "2d.h"
+#include "GrVirtual.h"	// v8
 #include "fs2_api.h"
 #include "InputTest.h"
 #include "OsApi.h"
@@ -50,6 +51,9 @@ static char Api_error_text[1024] = "";
 // v7: the host's sound window (fs2_set_window_handle); 0 = none, the game's own window stays in use
 static unsigned long long Api_sound_window = 0;
 static int Api_sound_logged = 0;
+
+// v9: the host's drop-down widget (fs2_set_dropdown_hooks); both null = none, the game draws its own choices
+static fs2_dropdown_hooks Api_dropdown = { NULL, NULL };
 
 static uintptr_t api_sound_window(void)
 {
@@ -182,6 +186,9 @@ int fs2_init(const char *cmdline, const char *root_dir)
 		host_hooks_set(api_cmdline_has(cmd, "-headless") ? &host_hooks_headless : &host_hooks_windows);
 	}
 	Host_hooks.sound_window = Api_sound_window ? api_sound_window : NULL;	// v7: after the table copy, so it holds for any table
+	Host_hooks.dropdown_show = Api_dropdown.show;	// v9: likewise; null for a host that gave none
+	Host_hooks.dropdown_hide = Api_dropdown.hide;
+	Host_dropdown_chosen = -1;
 	Api_sound_logged = 0;
 
 	replay_wait_for_restart();
@@ -304,9 +311,57 @@ void fs2_screen_size(int *w, int *h)
 	*h = gr_screen.max_h;
 }
 
+void fs2_set_window_size(int w, int h)
+{
+	gr_virtual_set_window(w, h);
+}
+
+void fs2_canvas_info(int *vw, int *vh, int *cx, int *cy)
+{
+	*vw = gr_virtual_w();
+	*vh = gr_virtual_h();
+	*cx = gr_virtual_centre_x();
+	*cy = gr_virtual_centre_y();
+}
+
+int fs2_display_request(int *w, int *h)
+{
+	return gr_virtual_display_request(w, h);
+}
+
+extern "C++" int game_switch_gr_mode(int res);	// FreeSpace.cpp, GodotResolution
+
+int fs2_switch_gr_mode(int res)
+{
+	return game_switch_gr_mode(res);
+}
+
+extern "C++" int game_options_console_command(const char *line, char *out, int out_size);	// GameOptions.cpp
+
+int fs2_console_command(const char *line, char *out, int out_size)
+{
+	return game_options_console_command(line, out, out_size);
+}
+
 void fs2_set_window_handle(unsigned long long handle)
 {
 	Api_sound_window = handle;
+}
+
+int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks)
+{
+	if ( (hooks == NULL) || (hooks->show == NULL) || (hooks->hide == NULL) ) {
+		Api_dropdown.show = NULL;
+		Api_dropdown.hide = NULL;
+		return 0;
+	}
+	Api_dropdown = *hooks;
+	return 1;
+}
+
+void fs2_input_dropdown(int index)
+{
+	Host_dropdown_chosen = (index < 0) ? -1 : index;
 }
 
 void fs2_set_fiber(int mode)

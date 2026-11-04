@@ -26,6 +26,8 @@
 #include "Timer.h"
 #include "UI.H"
 
+#include "GameOptions.h"	// Claude: the FlightControl choice (D-20261102-200107)
+
 extern int joy_num_sticks;			// Joy.cpp: 1 if the legacy joystick code is reading a device
 
 #define PAD_MENU_STALE_POLLS	2		// what a window or a region reported is good for this many polls
@@ -101,7 +103,8 @@ static int pad_menu_read(pad_state *st)
 	}
 
 	// a legacy joystick took input at startup (no pad then): the pad stays off, never both
-	if (joy_num_sticks > 0) {
+	// Claude: with Joystick chosen the stick is kept beside a pad, which then still works outside flight (D-20261102-200107)
+	if ((joy_num_sticks > 0) && game_options_joystick_yields_to_pad()) {
 		memset(st, 0, sizeof(*st));
 		return 0;
 	}

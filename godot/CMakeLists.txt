@@ -25,7 +25,7 @@ else()
 	set(FS2_OUT_NAME fs2godot)
 endif()
 
-add_library(fs2godot SHARED src/register_types.cpp src/fs2_node.cpp src/fs2_node.h src/host_hooks_godot.cpp src/host_hooks_godot.h
+add_library(fs2godot SHARED src/register_types.cpp src/fs2_node.cpp src/fs2_node.h src/fs2_console.cpp src/fs2_console.h src/host_hooks_godot.cpp src/host_hooks_godot.h
 	src/render_sink_godot.cpp src/render_sink_godot.h src/fs2_screen.cpp src/fs2_screen.h src/sink_selftest.cpp src/sink_selftest.h src/perf_prof.cpp src/perf_prof.h ../fs2game/render_sink.h)
 target_include_directories(fs2godot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../fs2game ${CMAKE_CURRENT_SOURCE_DIR}/render_sink)
 target_link_libraries(fs2godot PRIVATE godot-cpp)

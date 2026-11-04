@@ -396,6 +396,7 @@
 #define GS_EVENT_END_DEMO							60		// end of demo campaign
 #define GS_EVENT_LOOP_BRIEF						61		// campaign loop brief
 #define GS_EVENT_CAMPAIGN_CHEAT					62		// skip to a mission in a campaign
+#define GS_EVENT_GAME_OPTIONS						63		// Claude: the main hall's OPTIONS label (MenuUI/GameOptions.cpp, D-20261102-200101)
 
 // IMPORTANT:  When you add a new event, update the initialization for GS_event_text[]
 //             which is done in GameSequence.cpp
@@ -455,6 +456,7 @@ extern char *GS_event_text[];		// text description for the GS_EVENT_* #defines a
 #define GS_STATE_GAMEPLAY_HELP					47
 #define GS_STATE_END_DEMO							48		// end of demo campaign (upsell then main menu)
 #define GS_STATE_LOOP_BRIEF						49
+#define GS_STATE_GAME_OPTIONS						50	// Claude: the Game Options screen (MenuUI/GameOptions.cpp, D-20261102-200101)
 
 
 // IMPORTANT:  When you add a new state, update the initialization for GS_state_text[]

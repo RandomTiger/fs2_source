@@ -231,6 +231,7 @@
 #include "beam.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "GameOptions.h"	// Claude: the FlightControl key (D-20261102-200101)
 
 
 // will display a notification warning message
@@ -1019,6 +1020,9 @@ void options_cancel_exit()
 	}
 
 	Briefing_voice_enabled = Backup_briefing_voice_enabled;
+	if (Use_mouse_to_fly != Backup_use_mouse_to_fly) {	// Claude: cancel puts the FlightControl key back in step too (D-20261102-200101)
+		game_options_mouse_changed(Backup_use_mouse_to_fly);
+	}
 	Use_mouse_to_fly = Backup_use_mouse_to_fly;
 
 	if ( Options_detail_inited ) {
@@ -1173,11 +1177,13 @@ void options_button_pressed(int n)
 
 		case MOUSE_ON:
 			Use_mouse_to_fly = 1;
+			game_options_mouse_changed(1);	// Claude: the FlightControl key follows (D-20261102-200101)
 			gamesnd_play_iface(SND_USER_SELECT);
 			break;
 
 		case MOUSE_OFF:
 			Use_mouse_to_fly = 0;
+			game_options_mouse_changed(0);	// Claude: the FlightControl key follows (D-20261102-200101)
 			gamesnd_play_iface(SND_USER_SELECT);
 			break;
 	}

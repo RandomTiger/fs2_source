@@ -287,6 +287,7 @@
     <ClCompile Include="GlobalIncs\version.cpp" />
     <ClCompile Include="GlobalIncs\WinDebug.cpp" />
     <ClCompile Include="Graphics\2d.cpp" />
+    <ClCompile Include="Graphics\GrVirtual.cpp" />
     <ClCompile Include="Graphics\aaline.cpp" />
     <ClCompile Include="Graphics\Bitblt.cpp" />
     <ClCompile Include="Graphics\Circle.cpp" />
@@ -351,6 +352,7 @@
     <ClCompile Include="MenuUI\Barracks.cpp" />
     <ClCompile Include="MenuUI\Credits.cpp" />
     <ClCompile Include="MenuUI\fishtank.cpp" />
+    <ClCompile Include="MenuUI\GameOptions.cpp" />
     <ClCompile Include="MenuUI\MainHallMenu.cpp" />
     <ClCompile Include="MenuUI\MainHallTemp.cpp" />
     <ClCompile Include="MenuUI\OptionsMenu.cpp" />
@@ -569,6 +571,7 @@
     <ClInclude Include="GlobalIncs\SystemVars.h" />
     <ClInclude Include="GlobalIncs\version.h" />
     <ClInclude Include="Graphics\2d.h" />
+    <ClInclude Include="Graphics\GrVirtual.h" />
     <ClInclude Include="Graphics\Bitblt.h" />
     <ClInclude Include="Graphics\Circle.h" />
     <ClInclude Include="Graphics\Colors.h" />
@@ -633,6 +636,7 @@
     <ClInclude Include="MenuUI\Barracks.h" />
     <ClInclude Include="MenuUI\Credits.h" />
     <ClInclude Include="MenuUI\fishtank.h" />
+    <ClInclude Include="MenuUI\GameOptions.h" />
     <ClInclude Include="MenuUI\MainHallMenu.h" />
     <ClInclude Include="MenuUI\MainHallTemp.h" />
     <ClInclude Include="MenuUI\OptionsMenu.h" />

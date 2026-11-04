@@ -98,6 +98,7 @@ extern int Joy_sensitivity;
 extern int Dead_zone_size;  // percentage of range that is dead zone
 
 int	joy_init();
+void	joy_reassign();	// Claude: GodotOptions, re-run the pad/joystick ownership after a live flight device choice (D-20261102-204804)
 void	joy_flush();
 void	joy_poll();	// Claude: one stick sample, from os_poll (D-20261022-143926)
 int	joy_get_pos(int * x, int * y, int *z, int *r);

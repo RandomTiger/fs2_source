@@ -232,6 +232,7 @@
 #include "Localize.h"
 #include "Awacs.h"
 #include "HUDArtillery.h"
+#include "GrVirtual.h"	// Claude: GodotResolution
 #include "DataSetProfile.h"	// Claude: Game_profile (batch 6, D-20261023-182930)
 
 // If any of these bits in the ship->flags are set, ignore this ship when targetting
@@ -3029,8 +3030,8 @@ void hud_render_triangle(vector *hostile_pos, int aspect_flag, int show_interior
 		if (!(hostile_vertex.flags & PF_OVERFLOW)) {  // make sure point projected
 			float mag_squared;
 
-			projected_x = hostile_vertex.sx;
-			projected_y = hostile_vertex.sy;
+			projected_x = hostile_vertex.sx - gr_virtual_wide_shift_x();	// Claude: GodotResolution, clip to base coordinates
+			projected_y = hostile_vertex.sy - gr_virtual_wide_shift_y();	// Claude: GodotResolution
 
 			mag_squared = (projected_x-Hud_reticle_center[gr_screen.res][0])*(projected_x-Hud_reticle_center[gr_screen.res][0]) + 
 							  (projected_y-Hud_reticle_center[gr_screen.res][1])*(projected_y-Hud_reticle_center[gr_screen.res][1]);
@@ -3057,8 +3058,8 @@ void hud_render_triangle(vector *hostile_pos, int aspect_flag, int show_interior
 		ypos = Hud_reticle_center[gr_screen.res][1] - sin_ang*(Outer_circle_radius[gr_screen.res]+4);
 	}
 
-	xpos += HUD_offset_x;
-	ypos += HUD_offset_y;
+	xpos += HUD_offset_x + gr_virtual_wide_shift_x();	// Claude: GodotResolution, base to wide-clip coordinates
+	ypos += HUD_offset_y + gr_virtual_wide_shift_y();	// Claude: GodotResolution
 	
 	if ( split_tri ) {
 //		hud_render_split_missile_triangle(ang, xpos, ypos, cur_dist, aspect_flag, draw_inside);
@@ -3584,8 +3585,10 @@ void hud_show_brackets(object *targetp, vertex *projected_v)
 void hud_update_target_in_reticle(vertex *projected_v)
 {
 	float mag_squared;
-	mag_squared = (projected_v->sx-Hud_reticle_center[gr_screen.res][0])*(projected_v->sx-Hud_reticle_center[gr_screen.res][0]) + 
-					  (projected_v->sy-Hud_reticle_center[gr_screen.res][1])*(projected_v->sy-Hud_reticle_center[gr_screen.res][1]);
+	// Claude: GodotResolution, the projected point in base coordinates (0 shift outside the wide clip)
+	float psx = projected_v->sx - gr_virtual_wide_shift_x(), psy = projected_v->sy - gr_virtual_wide_shift_y();
+	mag_squared = (psx-Hud_reticle_center[gr_screen.res][0])*(psx-Hud_reticle_center[gr_screen.res][0]) + 
+					  (psy-Hud_reticle_center[gr_screen.res][1])*(psy-Hud_reticle_center[gr_screen.res][1]);
 
 	if (mag_squared < Outer_circle_radius[gr_screen.res]*Outer_circle_radius[gr_screen.res]) {
 		// this information can be used elsewhere
@@ -3712,6 +3715,7 @@ void hud_show_targeting_gauges(float frametime, int in_cockpit)
 	}
 
 	if ( in_cockpit ) {
+		gr_virtual_base_clip_begin();	// Claude: GodotResolution, these gauges draw in base coordinates (GrVirtual.h)
 		// show the indicator that orbits the outer reticle and points in the direction of the target
 		hud_show_target_triangle_indicator(&target_point);
 
@@ -3748,6 +3752,7 @@ void hud_show_targeting_gauges(float frametime, int in_cockpit)
 				hud_shield_show_mini(targetp);
 			}
 		}
+		gr_virtual_base_clip_end();	// Claude: GodotResolution
 	}	// Claude: outside the cockpit hud_update_targeting stops the cargo scan now
 
 	// display the lock indicator

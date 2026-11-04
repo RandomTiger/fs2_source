@@ -174,6 +174,13 @@ void g3_start_frame_func(int zbuffer_flag, char * filename, int lineno)
 	
 	Window_scale.z = 1.0f;		//always 1
 
+	// Claude: GodotResolution, a canvas wider than 4:3 (the wide clip, GrVirtual.h) is drawn Hor+: the pixel scale stays
+	// height * 4/3 / 2, as on the base screen, so the view widens instead of zooming in. Scaling z keeps every
+	// size taken from Canv_w2 and Matrix_scale in step. Never true on the base screen.
+	if ( (Canvas_width > gr_screen.max_w) && ((float)Canvas_width * (float)gr_screen.max_h > (float)Canvas_height * (float)gr_screen.max_w) ) {
+		Window_scale.z = ((float)Canvas_width * (float)gr_screen.max_h) / ((float)Canvas_height * (float)gr_screen.max_w);
+	}
+
 	init_free_points();
 
 	if (zbuffer_flag)	{

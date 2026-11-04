@@ -1,4 +1,5 @@
 #include "fs2_node.h"
+#include "fs2_console.h"
 #include "fs2_screen.h"
 #include "render_sink_godot.h"
 
@@ -83,6 +84,18 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	} else {
 		api.set_render_sink(nullptr);
 	}
+	// GodotOptions (v9): a shown run gets Godot's own drop-down for the game's lists (the game uses it in live play only)
+	if (api.set_dropdown_hooks != nullptr) {
+		DisplayServer *dds = DisplayServer::get_singleton();
+		if (screen != nullptr && dds != nullptr && dds->get_name() != "headless") {
+			fs2_dropdown_hooks dd;
+			fs2host::attach_dropdown(screen);
+			fs2host::fill_dropdown(&dd);
+			api.set_dropdown_hooks(&dd);
+		} else {
+			api.set_dropdown_hooks(nullptr);
+		}
+	}
 	api.set_fatal_return(fatal_return ? 1 : 0);
 	api.set_fiber(fiber_mode);
 	if (api.set_host_pacing != nullptr) {
@@ -111,6 +124,7 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		DisplayServer *nds = DisplayServer::get_singleton();
 		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
 		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
+		fs2console::attach(screen, &api, !scripted && shown);	// GodotOptions: live play only
 		const String ov = OS::get_singleton()->get_environment("FS2_NEBFOG");
 		if (ov == "off") { fs2sink::g_nebfog = fs2sink::kNebFogOff; } else if (ov == "same") { fs2sink::g_nebfog = fs2sink::kNebFogSame; } else if (ov == "lag") { fs2sink::g_nebfog = fs2sink::kNebFogLag; } else if (ov == "gpu") { fs2sink::g_nebfog = fs2sink::kNebFogGpu; }
 		UtilityFunctions::print("Fs2Game: kNebFog ", fs2sink::g_nebfog == fs2sink::kNebFogGpu ? "gpu" : fs2sink::g_nebfog == fs2sink::kNebFogSame ? "same" : fs2sink::g_nebfog == fs2sink::kNebFogLag ? "lag" : "off");
@@ -123,7 +137,42 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		return false;
 	}
 	running = true;
+	display_mode = 0;
+	display_w = display_h = 0;
+	apply_display_request();
 	return true;
+}
+
+// GodotResolution: DisplayResolution = WxH asks for a window of that size (live play; compared runs report classic). GodotOptions:
+// checked at start and before every step, so a size chosen on the Game Options screen applies at once (D-20261102-204803)
+bool Fs2Game::window_is_fullscreen() const
+{
+	DisplayServer *ds = DisplayServer::get_singleton();
+	if (ds == nullptr || ds->get_name() == "headless") {
+		return false;
+	}
+	const DisplayServer::WindowMode m = ds->window_get_mode();
+	return m == DisplayServer::WINDOW_MODE_FULLSCREEN || m == DisplayServer::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
+}
+
+void Fs2Game::apply_display_request()
+{
+	int dw = 0, dh = 0;
+	const int mode = api.display_request(&dw, &dh);
+	if (mode == display_mode && dw == display_w && dh == display_h) {
+		return;
+	}
+	display_mode = mode;
+	display_w = dw;
+	display_h = dh;
+	DisplayServer *ds = DisplayServer::get_singleton();
+	if (mode == 2 && ds != nullptr && ds->get_name() != "headless" && screen != nullptr) {
+		// a fullscreen window stays fullscreen: the size gives the picture's shape (step), the host's bars take the rest
+		if (!window_is_fullscreen()) {
+			ds->window_set_size(Vector2i(dw, dh));
+			UtilityFunctions::print("Fs2Game: DisplayResolution window ", dw, "x", dh);
+		}
+	}
 }
 
 bool Fs2Game::step()
@@ -148,6 +197,18 @@ bool Fs2Game::step()
 			return true;
 		}
 	}
+	fs2console::run_pending();	// GodotOptions: between frames
+	// GodotResolution: the window size, so the game's canvas follows a resize (fs2_set_window_size, v8)
+	if (screen != nullptr) {
+		apply_display_request();	// GodotOptions: a size chosen live
+		Viewport *wvp = get_viewport();
+		const Vector2 ws = (wvp != NULL) ? wvp->get_visible_rect().size : Vector2(0, 0);
+		if (display_mode == 2 && display_w > 0 && display_h > 0 && window_is_fullscreen()) {
+			api.set_window_size(display_w, display_h);	// the chosen size's shape inside the fullscreen window
+		} else {
+			api.set_window_size((int)ws.x, (int)ws.y);
+		}
+	}
 	for (int i = 0; i < n; i++) {
 		if (screen != nullptr && skip_stale_draws) {
 			static_cast<Fs2Screen *>(screen)->set_frames_left(n - i);
@@ -163,6 +224,9 @@ bool Fs2Game::step()
 			perf.add_game((uint32_t)frame_count, g0, fs2perf::now_ns(), before);
 		} else {
 			r = api.frame();
+		}
+		if (r <= 0) {
+			fs2host::hide_dropdown();
 		}
 		if (r < 0) {
 			running = false;
@@ -202,8 +266,9 @@ void Fs2Game::perf_finish()
 	perf.finish();
 }
 
-void Fs2Game::_process(double)
+void Fs2Game::_process(double delta)
 {
+	fs2console::tick(delta);
 	if (!running) {
 		return;
 	}
@@ -255,6 +320,12 @@ void Fs2Game::_ready()
 void Fs2Game::_input(const Ref<InputEvent> &event)
 {
 	if (!forward_input || !running) {
+		return;
+	}
+	if (fs2console::input(event, get_viewport())) {	// GodotOptions: the console's key, and what it keeps from the game while open
+		return;
+	}
+	if (fs2host::dropdown_takes(event)) {	// GodotOptions: a click on Godot's drop-down is not also the game's
 		return;
 	}
 	Viewport *vp = get_viewport();
