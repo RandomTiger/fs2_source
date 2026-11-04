@@ -1591,7 +1591,7 @@ extern polymodel *Polygon_models[MAX_POLYGON_MODELS];
 void model_interp_mesh_preload_all()
 {
 	for (int i = 0; i < MAX_POLYGON_MODELS; i++) {
-		if (Polygon_models[i] != NULL) { model_interp_mesh_preload(i); }
+		if (Polygon_models[i] != NULL) { model_interp_mesh_preload(Polygon_models[i]->id); }	// Claude: model_get wants the model's id, not its slot
 	}
 }
 
