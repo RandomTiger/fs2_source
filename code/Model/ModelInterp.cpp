@@ -2858,9 +2858,25 @@ void model_really_render(int model_num, matrix *orient, vector * pos, uint flags
 		flags |= MR_NO_POLYS;
 	}
 
+	// test switch (FS2_FORCE_BG=1): every model drawn as a background model (forced texture, no z, no cull, all transparent), to compare the mesh and polygon paths in an open frame (D-20261103-103538)
+	{
+		static int force_bg = -1;
+		if (force_bg < 0) {
+#pragma warning(suppress: 4996)
+			const char *e = getenv("FS2_FORCE_BG");
+			force_bg = (e != NULL && e[0] == '1') ? 1 : 0;
+		}
+		if (force_bg) {
+			flags |= MR_NO_ZBUFFER | MR_NO_CULL | MR_ALL_XPARENT | MR_NO_LIGHTING | MR_FORCE_TEXTURE;
+			polymodel *fpm = model_get(model_num);
+			Interp_forced_bitmap = -1;
+			for (int ti = 0; ti < fpm->n_textures && Interp_forced_bitmap < 0; ti++) { Interp_forced_bitmap = fpm->textures[ti]; }
+		}
+	}
+
 	Interp_flags = flags;
 
-	pm = model_get(model_num);	
+	pm = model_get(model_num);
 
 	// Set the flags we will pass to the tmapper
 	if ( gr_screen.hardware )	{
