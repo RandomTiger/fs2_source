@@ -119,6 +119,7 @@ struct Host {
 	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
 	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
+	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
@@ -1150,6 +1151,11 @@ void h_level_loaded()
 	if (!h_mesh_ready()) { return; }
 	model_interp_mesh_preload_all();
 	if (H.sink == nullptr) { return; }
+	if (H.flush_pending) {		// a flush or gamma change before the load: do it now, or the first frame drops what the load uploads
+		for (auto &kv : H.tex) { if (kv.second.sink_id != 0) { H.sink->texture_free(H.sink->user, kv.second.sink_id); } }
+		H.tex.clear();
+		H.flush_pending = false;
+	}
 	H.load_mode = true;
 	for (auto &e : H.meshes) {
 		Host::HostMesh &m = e.second;
@@ -1161,6 +1167,7 @@ void h_level_loaded()
 			if (bmp < 0) { tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE; continue; }		// flat polys: the sink's white texture
 			tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, false);
 			if (tex[i] == 0) { ok = false; break; }
+			if (m.g[i].tileable) { tex_get(bmp, TCACHE_TYPE_NORMAL, true); }		// a tiled draw wants the repeat variant
 			bool opaque = false;
 			const TexKey k = { bmp, bm_get_signature(bmp), TK_NORMAL };
 			auto f = H.tex.find(k);
@@ -1174,6 +1181,14 @@ void h_level_loaded()
 		m.sink_made = true;
 		m.zmode = GR_ZBUFF_FULL; m.zbias = 0; m.cull = 1; m.tiled = 0;
 		m.tex = tex; m.blend = blend;
+	}
+	// the level's other model textures (the engine thruster frames): the game's own page-in list (W11), no lookup by name
+	const int nlist = bm_get_level_bitmaps(nullptr, 0);
+	std::vector<bm_level_bitmap> list((size_t)(nlist > 0 ? nlist : 0));
+	if (nlist > 0) { bm_get_level_bitmaps(list.data(), nlist); }
+	for (auto &b : list) {
+		if (b.handle < 0 || (b.flags & (BM_LEVEL_AABITMAP | BM_LEVEL_LISTED))) { continue; }
+		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
 	}
 	H.load_mode = false;
 }
@@ -1203,9 +1218,11 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 			if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
 			continue;
 		}
+		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
+		const bool tex_had = H.tex.count(TexKey{ bmp, bm_get_signature(bmp), tkind }) != 0;
 		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
 		if (tex[i] == 0) { return 0; }
-		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
+		if (!tex_had && H.mesh_tex_late++ == 0) { fprintf(stderr, "render3d: LATE mesh texture at a draw (bitmap %d, kind %d, thruster %d, mesh key %d)\n", bmp, tkind, thr_bitmap, key); }
 		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
 		auto f = H.tex.find(k);
 		bool opaque = false;
@@ -1533,7 +1550,7 @@ int h_tcache_set(int bitmap_id, int bitmap_type, float *u_scale, float *v_scale,
 }
 
 void h_zbias(int bias) { H.zbias = bias; }
-void h_flush() { H.flush_pending = true; }
+void h_flush() { }	// D3D's d3d_flush only ends and restarts the scene (the nebula calls it every frame); it never dropped textures
 void h_preload_init() { }
 int h_preload(int, int) { return 0; }
 void h_preload_done() { }
@@ -1650,7 +1667,7 @@ void host_init()
 
 void host_cleanup()
 {
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }

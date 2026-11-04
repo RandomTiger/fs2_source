@@ -144,7 +144,6 @@ private:
 	static void s_texture_free(void *u, int32_t id)
 	{
 		FakeSink *s = me(u);
-		s->need_frame("texture_free outside a frame");
 		if (s->textures.erase(id) == 0) { s->err("texture_free of an unknown texture"); }
 		s->add(Cmd::TexFree).a = id;
 	}

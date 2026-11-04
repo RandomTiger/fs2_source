@@ -597,6 +597,7 @@ typedef struct gr_host_mesh_group {	// Claude: P3b, one texture's triangles of a
 	int bitmap;						// bmpman handle
 	int first_index;
 	int index_count;
+	int tileable;					// the model allows tiled draws (PM_FLAG_ALLOW_TILING): the host makes the repeat texture at load too
 } gr_host_mesh_group;
 // Claude: P3b, the game's lighting of one mesh draw (light_apply_rgb's inputs) for a host that lights per vertex; same layout as fs2_sink_mesh_light
 #define GR_HOST_MAX_SUN 4

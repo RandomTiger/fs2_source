@@ -1531,6 +1531,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	for (size_t g = 0; g < b.gtex.size(); g++) {
 		gr_host_mesh_group hg;
 		hg.bitmap = (b.gtex[g] < 0) ? -1 : pm->textures[b.gtex[g]];
+		hg.tileable = (pm->flags & PM_FLAG_ALLOW_TILING) ? 1 : 0;
 		hg.first_index = (int)idx.size();
 		hg.index_count = (int)b.gidx[g].size();
 		idx.insert(idx.end(), b.gidx[g].begin(), b.gidx[g].end());
