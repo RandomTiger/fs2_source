@@ -298,16 +298,8 @@ void gr_virtual_set_hud_double(int on) { Hud_double = on ? 1 : 0; }
 void gr_virtual_hud_double_begin() { Hud_double_depth++; }
 void gr_virtual_hud_double_end() { if (Hud_double_depth > 0) { Hud_double_depth--; } }
 
-static int Caption_pivot_y = -1;
-void gr_virtual_caption_scale(int pivot_y) { Caption_pivot_y = pivot_y; }
-
 float gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
 {
-	if (Caption_pivot_y >= 0) {
-		*pivot_x = gr_screen.max_w / 2;
-		*pivot_y = Caption_pivot_y;
-		return 2;
-	}
 	*pivot_x = *pivot_y = 0;
 	if (!Hud_double || !Hud_on || Fog_read || gr_virtual_in_wide_clip() || ((Hud_double_depth <= 0) && (Base_clip_depth <= 0))) {
 		return 1;

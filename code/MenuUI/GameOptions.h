@@ -89,5 +89,6 @@ enum {
 void game_options_settings_init();
 int game_option(int id);
 void game_option_set(int id, int value);
+int game_option_voiced_text_shown();	// the Subtitles option: a compared run always shows the line
 
 #endif

@@ -385,9 +385,7 @@
 #include "Replay.h"
 #include "DataSetProfile.h"	// Claude: Game_profile
 #include "bmpman.h"	// Claude: bm_page_in_listed (W11)
-#include "2d.h"	// Claude: GodotOptions, the captions
-#include "font.h"	// Claude: GodotOptions, the captions
-#include "alphacolors.h"	// Claude: GodotOptions, the captions
+#include "GameOptions.h"	// Claude: GodotOptions, the Subtitles option
 
 // here is a text list of the builtin message names.  These names are used to match against
 // names read in for builtin message radio bits to see what message to play.  These are
@@ -553,7 +551,6 @@ int Head_coords[GR_NUM_RESOLUTIONS][2] = {
 
 // forward declaration
 void message_maybe_distort_text(char *text);
-static int Caption_id = -1;		// Claude: GodotOptions, the voiced message on screen, -1 for none
 
 // following functions to parse messages.tbl -- code pretty much ripped from weapon/ship table parsing code
 
@@ -792,7 +789,6 @@ void messages_init()
 	}
 
 	Message_shipnum = -1;
-	Caption_id = -1;	// Claude: GodotOptions
 	Num_messages_playing = 0;
 	for ( i = 0; i < MAX_PLAYING_MESSAGES; i++ ) {
 		Playing_messages[i].anim = NULL;
@@ -1028,60 +1024,6 @@ void message_load_wave(int index, const char *filename)
 	if ( Message_waves[index].num == -1 ) {
 		nprintf (("messaging", "Cannot load message wave: %s.  Will not play\n", Message_waves[index].name ));
 	}
-}
-
-// Claude: GodotOptions, the Subtitles option: the voiced message playing now, large and low in the middle of the screen.
-// Display only: the game never reads any of this back.
-#define CAPTION_MAX_LINES	8
-static char Caption_who[NAME_LENGTH];
-static char Caption_text[512];
-
-static void message_caption_line(char *text, int y)
-{
-	int w, h;
-
-	gr_get_string_size(&w, &h, text);
-	gr_string((gr_screen.max_w - w) / 2, y, text);
-}
-
-void message_caption_draw(int scale, int bottom)
-{
-	int i, n, y, line_h;
-	int n_chars[CAPTION_MAX_LINES];
-	char *p_str[CAPTION_MAX_LINES];
-	char line[512];
-
-	if (Caption_id < 0) {
-		return;
-	}
-
-	// the caption lasts as long as its voice
-	for (i = 0; i < Num_messages_playing; i++) {
-		if ((Playing_messages[i].id == Caption_id) && (Playing_messages[i].voice_left_ms > 0.0f)) {
-			break;
-		}
-	}
-	if (i == Num_messages_playing) {
-		Caption_id = -1;
-		return;
-	}
-
-	gr_set_font(FONT3);
-	gr_get_string_size(NULL, &line_h, NOX("Xg"));
-	n = split_str(Caption_text, gr_screen.max_w * 8 / 10 / scale, n_chars, p_str, CAPTION_MAX_LINES);
-
-	y = bottom - ((n + 1) * line_h);
-
-	gr_set_color_fast(&Color_bright_blue);
-	message_caption_line(Caption_who, y);
-	gr_set_color_fast(&Color_bright_white);
-	for (i = 0; i < n; i++) {
-		y += line_h;
-		strncpy(line, p_str[i], n_chars[i]);
-		line[n_chars[i]] = 0;
-		message_caption_line(line, y);
-	}
-	gr_set_font(FONT1);
 }
 
 // Play wave file associated with message
@@ -1600,13 +1542,14 @@ void message_queue_process()
 	}
 #endif
 
-	HUD_sourced_printf( q->source, NOX("%s: %s"), q->who_from, buf );
+	// Claude: GodotOptions, the Subtitles option: with it off, a line its voice is speaking goes to the message log only
+	if ( (Playing_messages[Num_messages_playing].wave >= 0) && (Master_voice_volume > 0.0f) && !game_option_voiced_text_shown() ) {
+		char line[HUD_MSG_LENGTH_MAX];
 
-	// Claude: GodotOptions, what the caption shows, if it is on
-	if ( Playing_messages[Num_messages_playing].voice_left_ms > 0.0f ) {
-		strcpy( Caption_who, q->who_from );
-		strncpy( Caption_text, buf, sizeof(Caption_text) - 1 );
-		Caption_id = q->message_num;
+		sprintf( line, NOX("%s: %s"), q->who_from, buf );
+		hud_add_msg_to_scrollback( line, q->source, timestamp() );
+	} else {
+		HUD_sourced_printf( q->source, NOX("%s: %s"), q->who_from, buf );
 	}
 
 	if ( Message_shipnum >= 0 ) {
