@@ -51,6 +51,7 @@ static int Test_until = 0;
 static int Test_bad = 0;
 static int Test_events = 0;
 static int Test_v0, Test_v1;
+static int Test_south = 0;				// pad_game_south_count() before what is checked (South targets in flight, West talks: #151)
 static int Test_x = 0, Test_y = 0;
 static int Test_key = 0;
 static pad_state Test_pad;
@@ -201,6 +202,7 @@ static void test_fail(char *what)
 #define ALWAYS(p, c, m)		ALWAYS_(__COUNTER__ + 1, p, c, m)
 
 #define TALK		pad_voice_talk_held()
+#define SOUTHS		pad_game_south_count()
 #define MISSILE	pad_control_held(FIRE_SECONDARY)
 #define STATE		gameseq_get_state()
 #define DEAD		((STATE == GS_STATE_DEATH_DIED) || (STATE == GS_STATE_DEATH_BLEW_UP))
@@ -325,28 +327,33 @@ void pad_menu_test_frame()
 		Test_pad.button[PAD_RSHOULDER] = 1;
 		POLLS(5);
 		test_check(STATE == GS_STATE_BRIEFING, "tactical briefing: South on nothing stays in the briefing");
+		Test_south = SOUTHS;
 		Player->auto_advance = Test_auto_advance;
 		Test_brief_done = 1;
 
 		WAIT(STATE == GS_STATE_GAME_PLAY);
 		POLLS(3);
-		ALWAYS(30, !TALK && !MISSILE, "flight: South and RB held from a menu do nothing");
+		ALWAYS(30, (SOUTHS == Test_south) && !MISSILE, "flight: South and RB held from a menu do nothing");
 		Test_events = pad_menu_events();
 		test_release_all();
 		POLLS(TEST_HOLD);
 		test_check(pad_menu_events() == Test_events, "flight: nothing sent when they are released");
 
 		// a fresh press in flight is the flight action again
+		Test_south = SOUTHS;
 		Test_pad.button[PAD_SOUTH] = 1;
-		WAIT(TALK);
+		WAIT(SOUTHS != Test_south);
 		RELEASE(PAD_SOUTH);
+		Test_pad.button[PAD_WEST] = 1;
+		WAIT(TALK);
+		RELEASE(PAD_WEST);
 		WAIT(!TALK);
 
 		// in flight the layer sends nothing and leaves the cursor alone
 		Test_events = pad_menu_events();
 		Test_v0 = Test_x;
 		Test_v1 = Test_y;
-		Test_pad.button[PAD_SOUTH] = 1;
+		Test_pad.button[PAD_WEST] = 1;
 		Test_pad.button[PAD_RSHOULDER] = 1;
 		Test_pad.button[PAD_DPAD_LEFT] = 1;
 		Test_pad.axis[PAD_LEFT_X] = 1.0f;
@@ -390,15 +397,15 @@ void pad_menu_test_frame()
 		Test_key = KEY_ESC;
 		WAIT(popup_active());
 		POLLS(TEST_HOLD);
+		Test_south = SOUTHS;
 		Test_pad.button[PAD_SOUTH] = 1;
 		WAIT(!popup_active());
 		test_check(STATE == GS_STATE_GAME_PLAY, "popup: South takes the default, No, back in flight");
-		ALWAYS(30, !TALK, "popup: South held after it closed is not push-to-talk");
+		ALWAYS(30, SOUTHS == Test_south, "popup: South held after it closed does not target");
 		RELEASE(PAD_SOUTH);
 		Test_pad.button[PAD_SOUTH] = 1;
-		WAIT(TALK);
+		WAIT(SOUTHS != Test_south);
 		RELEASE(PAD_SOUTH);
-		WAIT(!TALK);
 
 		// death: the view takes nothing, the popup works
 		WAIT(DEAD);
@@ -406,11 +413,12 @@ void pad_menu_test_frame()
 		PRESS(PAD_SOUTH);
 		RELEASE(PAD_SOUTH);
 		test_check(popupdead_is_active() || (pad_menu_events() == Test_events), "death view: South sends nothing");
+		Test_south = SOUTHS;
 		Test_pad.button[PAD_SOUTH] = 1;
 		WAIT(popupdead_is_active());
 		POLLS(TEST_HOLD);
 		test_check(pad_menu_events() == Test_events, "death popup: South held into it sends nothing");
-		test_check(1, TALK ? "death popup: fact: South down as it opened leaves push-to-talk on until it closes, flight does not read the pad under it" : "death popup: fact: South held into it does not reach push-to-talk");
+		test_check(1, (SOUTHS != Test_south) ? "death popup: fact: South down as it opened targeted first" : "death popup: fact: South held into it does not reach flight");
 		RELEASE(PAD_SOUTH);
 
 		Test_pad.axis[PAD_LEFT_X] = 1.0f;
