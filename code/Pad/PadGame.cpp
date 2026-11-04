@@ -527,7 +527,7 @@ void pad_frame()
 		case PAD_ACTION_MENU_SELECT:	hud_squadmsg_pad_select();		break;
 		case PAD_ACTION_MENU_BACK:		hud_squadmsg_pad_back();		break;
 		case PAD_ACTION_SECONDARY_STEP:	pad_game_secondary_step();	break;
-		case PAD_ACTION_ETS_PREV:		pad_ets_step(1);					break;	// left steps up the list: the gauge is drawn in that order (#151)
+		case PAD_ACTION_ETS_PREV:		pad_ets_step(1);					break;	// reversed at Tom's request: left steps up the list (#151)
 		case PAD_ACTION_ETS_NEXT:		pad_ets_step(-1);					break;
 		case PAD_ACTION_ETS_UP:			pad_ets_change(1);				break;
 		case PAD_ACTION_ETS_DOWN:		pad_ets_change(0);				break;
