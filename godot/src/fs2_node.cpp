@@ -38,6 +38,8 @@ void Fs2Game::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_pace_realtime", "on"), &Fs2Game::set_pace_realtime);
 	ClassDB::bind_method(D_METHOD("get_pace_realtime"), &Fs2Game::get_pace_realtime);
 	ClassDB::bind_method(D_METHOD("set_pace_hz", "hz"), &Fs2Game::set_pace_hz);
+	ClassDB::bind_method(D_METHOD("set_pace_display", "on"), &Fs2Game::set_pace_display);
+	ClassDB::bind_method(D_METHOD("get_pace_display"), &Fs2Game::get_pace_display);
 	ClassDB::bind_method(D_METHOD("get_stats"), &Fs2Game::get_stats);
 	ClassDB::bind_method(D_METHOD("perf_start", "out_dir", "tag", "sample_hz"), &Fs2Game::perf_start);
 	ClassDB::bind_method(D_METHOD("perf_finish"), &Fs2Game::perf_finish);
@@ -99,7 +101,7 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 	api.set_fatal_return(fatal_return ? 1 : 0);
 	api.set_fiber(fiber_mode);
 	if (api.set_host_pacing != nullptr) {
-		api.set_host_pacing(pace_realtime ? 1 : 0);
+		api.set_host_pacing(pace_realtime ? (pace_display ? 2 : 1) : 0);
 	}
 	// D-20261029-060953: interactive shown play gives DirectSound Godot's own window. A headless Godot has none, and a game started with
 	// -headless or -nosounddevice has no sound device, so compared runs (gates, record, replay) keep the no-device side untouched.
@@ -187,7 +189,13 @@ bool Fs2Game::step()
 		pace_last_usec = t0;
 		const double period = 1000000.0 / pace_hz;
 		n = (int)(pace_acc_usec / period);
-		if (n > pace_max_catchup) {
+		if (pace_display) {
+			// GodotPlus (Tom): one game frame per displayed frame, never above the ceiling; the game steps by the real time since its last frame
+			if (n > 0) {
+				n = 1;
+				pace_acc_usec = 0;
+			}
+		} else if (n > pace_max_catchup) {
 			n = pace_max_catchup;
 			pace_acc_usec = 0;
 		} else {

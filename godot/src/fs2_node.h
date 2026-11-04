@@ -32,6 +32,7 @@ class Fs2Game : public Node {
 	bool skip_stale_draws = true;	// R1-feel: with several game frames per Godot frame only the last is drawn (GodotSink::set_frames_left)
 	bool pace_realtime = false;	// R1-feel: step by the wall clock, pace_hz game frames per second, no sleeping inside the game (fs2_set_host_pacing)
 	int pace_hz = 120;
+	bool pace_display = false;	// GodotPlus: one game frame per displayed frame, stepped by real time; pace_hz is then only the ceiling
 	int pace_max_catchup = 4;	// game frames in one call at most; further lag is dropped (the game runs slow rather than spiralling)
 	double pace_acc_usec = 0;
 	unsigned long long pace_last_usec = 0;
@@ -58,6 +59,8 @@ public:
 	void set_pace_realtime(bool on) { pace_realtime = on; }
 	bool get_pace_realtime() const { return pace_realtime; }
 	void set_pace_hz(int hz) { pace_hz = hz < 1 ? 1 : hz; }
+	void set_pace_display(bool on) { pace_display = on; }
+	bool get_pace_display() const { return pace_display; }
 	// R1-feel measurement: process calls, usec spent inside the game, last step usec, events the game has taken and when
 	Dictionary get_stats() const;
 	// Performance profile (measurement, off by default): record per game frame and per Godot frame, optionally sample the stack at sample_hz

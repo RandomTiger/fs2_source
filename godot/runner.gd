@@ -14,7 +14,7 @@
 #   FS2_FRAMES  optional: game frames per Godot process call (default 8)
 #   FS2_STATS  optional: 1 measures the run (R1-feel) and prints one "feel:" summary at the end: Godot frame time spread, game and Godot frames per second,
 #               input-to-draw latency (needs FS2_LAT_EVERY: a synthetic key every N Godot frames; stamps from Godot's _input to the frame_post_draw that follows the game taking it)
-#   FS2_PACE  optional: 1 steps the game by the wall clock (120 game frames per second, whatever the Godot frame rate) and the game no longer sleeps to its frame cap; default 1 for live play (window, no -replay, no -autotest), 0 otherwise
+#   FS2_PACE  optional (GodotPlus: live play with it unset runs one game frame per displayed frame): 1 steps the game by the wall clock (120 game frames per second, whatever the Godot frame rate) and the game no longer sleeps to its frame cap; default 1 for live play (window, no -replay, no -autotest), 0 otherwise
 #   FS2_SKIP_STALE  optional: 0 draws every game frame of a batch (the old behaviour); default 1 draws only the last
 #   FS2_VSYNC  optional: 0 off, 1 on (default: the project setting); FS2_MAXFPS caps Godot's frame rate
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
@@ -101,6 +101,9 @@ func _ready() -> void:
 	var pace_env := OS.get_environment("FS2_PACE")
 	if pace_env == "1" or (pace_env == "" and DisplayServer.get_name() != "headless" and not (" -replay" in " " + cmds[0] or " -autotest" in " " + cmds[0])):
 		game.set_pace_realtime(true)
+		# GodotPlus (Tom): live play runs one game frame per displayed frame, 120 at most; FS2_PACE=1 keeps the fixed 120
+		if pace_env == "":
+			game.set_pace_display(true)
 	if OS.get_environment("FS2_SKIP_STALE") == "0":
 		game.set_skip_stale_draws(false)
 	if OS.get_environment("FS2_VSYNC") != "":

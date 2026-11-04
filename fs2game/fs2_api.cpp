@@ -372,7 +372,7 @@ void fs2_set_fiber(int mode)
 extern "C++" int Game_host_paced;
 void fs2_set_host_pacing(int on)
 {
-	Game_host_paced = on ? 1 : 0;
+	Game_host_paced = on;	// GodotPlus: 0 off, 1 fixed steps of the frame cap, 2 one game frame per displayed frame, real time steps
 }
 
 void fs2_set_fatal_return(int on)

@@ -4364,7 +4364,8 @@ void game_set_frametime(int state)
 
 	if ( Last_time == 0 )	
 		Frametime = F1_0 / 30;
-	else if ( Game_host_paced && !replay_should_read() ) {	// Claude: host-paced live play steps exactly one cap interval per game frame (the host paces by the wall clock, so the measured gap would be added on top of the paced step)
+	else if ( (Game_host_paced == 1) && !replay_should_read() ) {	// Claude: GodotPlus, 2 (a game frame per displayed frame) takes the real time below
+		// Claude: host-paced live play steps exactly one cap interval per game frame (the host paces by the wall clock, so the measured gap would be added on top of the paced step)
 		Frametime = F1_0 / Framerate_cap;
 		thistime = Last_time + Frametime;
 	} else
