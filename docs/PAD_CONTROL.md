@@ -1,6 +1,6 @@
 # Control pad support (prototype)
 
-Branch `PadControl`, from `VS2022` at 94ea4fa. Exes: `FS2pad_d.exe` / `FS2pad_r.exe`.
+Branch `PadControl`, from `VS2022` at 94ea4fa. Exes: `FS2_PadControl_d.exe` / `FS2_PadControl_r.exe`.
 
 Parent: `VoiceControl` (Tom, 2026-10-22). The pad needs voice for squad orders, so PadControl takes
 updates only from `VoiceControl`, merged down, and merges into `Enhanced` itself once the voice
@@ -62,6 +62,8 @@ of FS2 (and the recorder, later) sees no difference:
 7. HUD render (HUD.cpp): `pad_hud_render()` draws the open pad tree options.
 8. Squad menu (HUDsquadmsg.cpp): a block of `hud_squadmsg_pad_*` functions (open, close,
    move, select, back) and a ">" on the highlighted row.
+9. `game_poll()` (FreeSpace.cpp): `pad_menu_poll()` first thing, the menu layer.
+10. `UI_WINDOW::process` / `destroy` (WINDOW.cpp), `snazzy_menu_do()` (SnazzyUI.cpp): tell the layer what is under the cursor.
 
 Read every frame. The original joystick code reads only 10 times a second ("like we did
 in Descent"); that is too coarse for a thumbstick.
@@ -86,6 +88,31 @@ Match target speed has no slot yet (was LB double tap); it goes in the pad tree.
 Gesture overlap: the first press of a double tap also does its single action (LB slows,
 then the second tap stops; LT raises throttle briefly, then afterburner). Waiting for
 the double-tap window instead would add ~250 ms lag to every stop. Proposed: no delay.
+
+## On the menus (from Tom, #147)
+
+| Pad | Menus |
+|---|---|
+| Left stick | Adds to the mouse cursor; a real mouse works alongside it |
+| South (360: A) | Left click. With no gadget or region under the cursor, also Enter |
+| East (360: B) | Esc |
+| LB, RB, D-pad left, right | Left and right arrow |
+| D-pad up, down | Up and down arrow |
+
+It covers every state but flight and the two death views, so also pause and the in-mission screens,
+and popups whatever is under them, the death popup too. All of it goes through the game's own UI, in
+`code/Pad/PadMenu.*` (no game types) and `PadMenuGame.*` (glue): `key_mark` and `mouse_mark_button`,
+so a screen does what its arrow keys and hotkeys do, and a screen with none does nothing. One press,
+one key: no repeat while held.
+
+A button only counts if it goes down on a menu. It then does not do its flight action until it has
+been released once, so South that closes a popup is not push-to-talk (D-20261104-065940). A button
+held from flight into a menu keeps its flight action and does nothing on the menu. Sticks and
+triggers are not held back like this.
+
+A recording keeps the events like a person's. A replay runs none of this and gets them from the
+stream. The test is `-at_padmenu` with mission AutotestPadMenu (`PadMenuTest.cpp`): a script feeds a
+fake pad below the layer, and is run when the recording is made, never in a replay.
 
 ## Pad tree (from Tom)
 Players won't remember dozens of combinations, so the less-used actions live in a
@@ -137,7 +164,8 @@ Tier 2, useful: in the pad tree.
 Tier 3, keyboard only.
 - Multiplayer messaging and net keys, time compression, HUD contrast, external camera,
   view slew, navmap, damage popup, escort add/clear, self-destruct, debug keys.
-- Front-end menus. The pad works in a mission only.
+- A commit from anywhere but its button: South never sends Ctrl+Enter, so the cursor has to be on Commit.
+- Screens with no arrow keys or hotkeys: the button does nothing there, the stick and South still work.
 
 ## Settings
 Prototype: an optional text file `pad.cfg` in the game folder, read the first time the
@@ -157,6 +185,7 @@ trigger_deadzone = 0.05
 trigger_threshold = 0.3  # trigger counts as a button above this
 double_tap_ms = 250
 throttle_rate = 100      # percent per second at full left trigger
+menu_cursor_speed = 1.0  # on the menus, screen widths per second at full left stick
 ```
 The binding table is in code (`PadGame.cpp`) for now. An in-game options screen is out
 of scope for the prototype.

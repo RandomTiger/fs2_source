@@ -14,7 +14,7 @@ Parent branch `VoiceControl` (merged down into this one); its notes are in STATU
    `check_control`, `read_keyboard_controls`, `pause_do`. No init hook: the pad
    initialises on first use.
 5. Optional `pad.cfg` in the game folder; built-in defaults otherwise.
-6. Debug and Release build clean: `FS2pad_d.exe`, `FS2pad_r.exe`.
+6. Debug and Release build clean: `FS2_PadControl_d.exe`, `FS2_PadControl_r.exe`.
 
 Defaults taken on open questions: pause = Start; double taps act on the first tap
 with no delay.
