@@ -608,7 +608,6 @@ static void autotest_main_menu()
 #define AUTOTEST_REGION_TECH_ROOM		3
 #define AUTOTEST_REGION_OPTIONS			4
 #define AUTOTEST_REGION_CAMPAIGN_ROOM	5
-#define AUTOTEST_REGION_GAME_OPTIONS	14	// the OPTIONS label, added in code (GameOptions.h, D-20261102-200105)
 // Barracks.cpp's buttons
 #define AUTOTEST_BARRACKS_MEDALS_BUTTON	8	// B_STATS_MEDAL_BUTTON
 // ReadyRoom.cpp's Simulator room buttons
@@ -640,14 +639,14 @@ static autotest_stop Autotest_tour[] = {
 		{ { "main_hall_pilot/main_hall_bastion", 0 }, { "main_hall_pilot/main_hall_bastion_help", AUTOTEST_TOUR_HELP } } },
 	{ "Options",			AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_OPTIONS,			GS_STATE_OPTIONS_MENU,				GS_EVENT_PREVIOUS_STATE,
 		{ { "options/options_general", 0 }, { "options/options_multi", KEY_RIGHT }, { "options/options_detail", KEY_RIGHT } } },
-	{ "Game options",		AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_GAME_OPTIONS,		GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_BACK,
+	{ "Game options",		AUTOTEST_OPEN_EVENT,	GS_EVENT_GAME_OPTIONS,				GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_BACK,
 		{ { "main_hall_pilot/game_options", 0 }, { "main_hall_pilot/game_options_gr640", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_GR_640) },
 		  { "main_hall_pilot/game_options_device", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_DEVICE) },
 		  { "main_hall_pilot/game_options_device_back", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_DEVICE_BACK) },
 		  { "main_hall_pilot/game_options_resolution", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_RES) },
 		  { "main_hall_pilot/game_options_resolution_back", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_RES_BACK) },
 		  { "main_hall_pilot/game_options_gr1024", AUTOTEST_TOUR_GO_STEP(GAME_OPTIONS_TOUR_GR_1024) } } },
-	{ "Game options (Esc)",	AUTOTEST_OPEN_REGION,	AUTOTEST_REGION_GAME_OPTIONS,		GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_ESC,
+	{ "Game options (Esc)",	AUTOTEST_OPEN_EVENT,	GS_EVENT_GAME_OPTIONS,				GS_STATE_GAME_OPTIONS,				AUTOTEST_TOUR_LEAVE_ESC,
 		{ { "main_hall_pilot/game_options_esc", 0 } } },
 	{ "Control config",		AUTOTEST_OPEN_EVENT,	GS_EVENT_CONTROL_CONFIG,			GS_STATE_CONTROL_CONFIG,			GS_EVENT_PREVIOUS_STATE,
 		{ { "controls/controls_targeting", 0 }, { "controls/controls_targeting_help", AUTOTEST_TOUR_HELP }, { "controls/controls_ship", KEY_TAB },

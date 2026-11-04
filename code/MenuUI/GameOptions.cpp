@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "pstypes.h"
 #include "GameOptions.h"
@@ -26,6 +27,11 @@
 #include "GrVirtual.h"
 #include "LoadTimes.h"
 #include "HostHooks.h"
+#include "cfile.h"
+#include "bmpman.h"
+#include "player.h"
+#include "MissionCampaign.h"
+#include "Scoring.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -298,6 +304,7 @@ static void game_options_res_list()
 // Only for live play: a backend without the hook (native D3D, headless) and a compared run (autotest, record, replay) keep the
 // drawn row, so the menu tour and the replays see the screen they always did.
 static int Go_dropdown_on = 0;
+static int Go_from_pilot_screen = 0;	// opened by the pilot screen's button: Back returns there
 
 static int game_options_dropdown_ok()
 {
@@ -332,26 +339,32 @@ static void game_options_dropdown_hide()
 
 // the Resolution row's choice: the key, then, where the backend changes mode live, the canvas at once (GrVirtual: the host
 // follows fs2_display_request); otherwise at the next start. A compared run (the tour) neither writes nor applies it.
-static void game_options_apply_res(int i)
+static void game_options_write_display(int mode, int w, int h)
 {
-	go_res *r = &Go_res[i];
 	char text[24];
 
-	Go_res_shown = i;
-	if (!game_options_keys_active()) {
-		return;
-	}
-	if (r->mode == GR_DISPLAY_CLASSIC) {
+	if (mode == GR_DISPLAY_CLASSIC) {
 		strcpy(text, "classic");
-	} else if (r->mode == GR_DISPLAY_DESKTOP) {
+	} else if (mode == GR_DISPLAY_DESKTOP) {
 		strcpy(text, "desktop");
 	} else {
-		sprintf(text, "%dx%d", r->w, r->h);
+		sprintf(text, "%dx%d", w, h);
 	}
 	os_config_write_string(NULL, GAME_OPTIONS_KEY_DISPLAY, text);
 	if (gr_live_mode_change()) {
 		gr_virtual_read_config();
 	}
+}
+
+static void game_options_apply_res(int i)
+{
+	go_res *r = &Go_res[i];
+
+	Go_res_shown = i;
+	if (!game_options_keys_active()) {
+		return;
+	}
+	game_options_write_display(r->mode, r->w, r->h);
 }
 
 // a Resolution choice, from a click on the drawn row, the drop-down or the menu tour
@@ -511,7 +524,12 @@ static void game_options_pick(go_item *it)
 void game_options_screen_back()
 {
 	gamesnd_play_iface(SND_USER_SELECT);
-	gameseq_post_event(GS_EVENT_MAIN_MENU);
+	if (Go_from_pilot_screen) {
+		Go_from_pilot_screen = 0;
+		gameseq_post_event(GS_EVENT_INITIAL_PLAYER_SELECT);
+	} else {
+		gameseq_post_event(GS_EVENT_MAIN_MENU);
+	}
 }
 
 // the screen's item of this kind and value, or NULL
@@ -687,29 +705,251 @@ void game_options_screen_do_frame(float /*frametime*/)
 }
 
 // ---------------------------------------------------------------------------------------------------
-// the main hall's OPTIONS label: bottom left, level with the version number in the bottom right
+// the pilot screen's Options button: bottom right, the Options tab's four-diamond icon from this data set's own art.
+// Data with no such art (a demo) gets the word instead.
 
-static void game_options_hall_label_pos(int *x, int *y, int *w, int *h)
+#define GO_BUTTON_MARGIN	8
+
+static int Go_button_frame[2] = { -1, -1 };		// normal, under the mouse
+static int Go_button_on = 0;
+static int Go_button_was_down = 0;
+
+void game_options_pilot_button_init()
 {
-	gr_set_font(FONT1);
-	gr_get_string_size(w, h, "OPTIONS");
-	*x = Cfile_fs1_data ? 10 : 12;
-	*y = gr_screen.max_h - (Cfile_fs1_data ? 13 : 12);
+	char name[MAX_FILENAME_LEN];
+	char *root;
+	int first, nframes = 0;
+
+	Go_button_on = game_options_keys_active();
+	Go_from_pilot_screen = 0;
+	Go_button_frame[0] = Go_button_frame[1] = -1;
+	Go_button_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+	if (!Go_button_on) {
+		return;
+	}
+
+	root = Cfile_fs1_data ? "OP_00" : ((gr_screen.res == GR_1024) ? "2_OPT_00" : "OPT_00");
+	sprintf(name, "%s0001", root);
+	Go_button_frame[0] = bm_load(name);
+	sprintf(name, "%s0002", root);
+	Go_button_frame[1] = bm_load(name);
+	if (Go_button_frame[0] < 0) {
+		first = bm_load_animation(root, &nframes);
+		if (first >= 0) {
+			Go_button_frame[0] = first;
+			Go_button_frame[1] = (nframes > 1) ? first + 1 : -1;
+		}
+	}
+	if (Go_button_frame[1] < 0) {
+		Go_button_frame[1] = Go_button_frame[0];
+	}
 }
 
-int game_options_hall_label_hit(int x, int y)
+void game_options_pilot_button_do()
 {
-	int lx, ly, lw, lh;
+	int w = 0, h = 0, x, y, mx, my, over, down;
 
-	game_options_hall_label_pos(&lx, &ly, &lw, &lh);
-	return (x >= lx - 6) && (x < lx + lw + 6) && (y >= ly - 6) && (y < gr_screen.max_h);
+	if (!Go_button_on) {
+		return;
+	}
+	if (Go_button_frame[0] >= 0) {
+		bm_get_info(Go_button_frame[0], &w, &h);
+	} else {
+		gr_set_font(FONT1);
+		gr_get_string_size(&w, &h, "OPTIONS");
+	}
+	x = gr_screen.max_w - w - GO_BUTTON_MARGIN;
+	y = gr_screen.max_h - h - GO_BUTTON_MARGIN;
+	if (Cfile_fs1_data) {
+		y -= (18 * gr_screen.max_h) / 480;	// FS1's copyright line runs this far right: sit above it
+	}
+
+	mouse_get_pos(&mx, &my);
+	down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+	over = (mx >= x - 4) && (mx < x + w + 4) && (my >= y - 4) && (my < y + h + 4);
+
+	if (Go_button_frame[0] >= 0) {
+		gr_set_bitmap(Go_button_frame[over ? 1 : 0]);
+		gr_bitmap(x, y);
+	} else {
+		gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
+		gr_string(x, y, "OPTIONS");
+	}
+
+	if (over && !down && Go_button_was_down && !Go_from_pilot_screen) {
+		Go_from_pilot_screen = 1;
+		gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+		gameseq_post_event(GS_EVENT_GAME_OPTIONS);
+	}
+	Go_button_was_down = down;
 }
 
-void game_options_hall_label_draw(int hover)
+int game_options_pilot_button_leaving()
 {
-	int x, y, w, h;
+	return Go_from_pilot_screen;
+}
 
-	game_options_hall_label_pos(&x, &y, &w, &h);
-	gr_set_color_fast(hover ? &Color_bright_white : game_options_text_color());
-	gr_string(x, y, "OPTIONS");
+// ---------------------------------------------------------------------------------------------------
+// the Godot host's console
+
+static void go_console_print(char *out, int out_size, const char *text)
+{
+	int len = (int)strlen(out);
+
+	if (len < out_size - 1) {
+		strncat(out, text, out_size - 1 - len);
+	}
+}
+
+static void go_console_apply(int mode, int w, int h, char *out, int out_size)
+{
+	char line[64];
+
+	game_options_write_display(mode, w, h);
+	game_options_res_list();
+	game_options_dropdown_show();
+	if (mode == GR_DISPLAY_SIZE) {
+		sprintf(line, "resolution %dx%d", w, h);
+	} else {
+		sprintf(line, "resolution %s", (mode == GR_DISPLAY_CLASSIC) ? "classic" : "desktop");
+	}
+	go_console_print(out, out_size, line);
+}
+
+static void go_console_resolution(const char *arg, char *out, int out_size)
+{
+	char line[64];
+	int i, w, h, mw, mh, end = 0;
+	int num_common = (int)(sizeof(Go_common_sizes) / sizeof(Go_common_sizes[0]));
+
+	game_options_res_list();
+
+	if (arg[0] == 0) {
+		for (i = 0; i < Go_num_res; i++) {
+			sprintf(line, "%c  %s%s\n", 'a' + i, Go_res[i].text, (i == Go_res_shown) ? "  *" : "");
+			go_console_print(out, out_size, line);
+		}
+		return;
+	}
+
+	// a single letter: an index in the list
+	if ((arg[1] == 0) && (tolower(arg[0]) >= 'a') && (tolower(arg[0]) <= 'z')) {
+		i = tolower(arg[0]) - 'a';
+		if (i >= Go_num_res) {
+			sprintf(line, "no resolution %c: 'resolution' lists them", arg[0]);
+			go_console_print(out, out_size, line);
+			return;
+		}
+		go_console_apply(Go_res[i].mode, Go_res[i].w, Go_res[i].h, out, out_size);
+		return;
+	}
+
+	// w x h
+	if ((sscanf(arg, "%dx%d%n", &w, &h, &end) == 2) && (arg[end] == 0)) {
+		if ((w < 320) || (h < 240) || (w > 16384) || (h > 16384)) {
+			go_console_print(out, out_size, "resolution must be from 320x240 to 16384x16384");
+			return;
+		}
+		go_console_apply(GR_DISPLAY_SIZE, w, h, out, out_size);
+		return;
+	}
+
+	// a height: the list first, then the common sizes that fit the monitor, the shape nearest the monitor's
+	if ((sscanf(arg, "%d%n", &h, &end) == 1) && (arg[end] == 0)) {
+		int best_w = 0;
+		float best = 0.0f, want;
+
+		game_options_monitor_size(&mw, &mh);
+		want = (mh > 0) ? (float)mw / (float)mh : 1.0f;
+		for (i = 0; i < Go_num_res; i++) {
+			if ((Go_res[i].mode == GR_DISPLAY_SIZE) && (Go_res[i].h == h)) {
+				float d = (float)Go_res[i].w / (float)h - want;
+				d = (d < 0.0f) ? -d : d;
+				if (!best_w || (d < best)) {
+					best_w = Go_res[i].w;
+					best = d;
+				}
+			}
+		}
+		for (i = 0; i < num_common; i++) {
+			if ((Go_common_sizes[i][1] == h) && (Go_common_sizes[i][0] <= mw) && (h <= mh)) {
+				float d = (float)Go_common_sizes[i][0] / (float)h - want;
+				d = (d < 0.0f) ? -d : d;
+				if (!best_w || (d < best)) {
+					best_w = Go_common_sizes[i][0];
+					best = d;
+				}
+			}
+		}
+		if (best_w) {
+			go_console_apply(GR_DISPLAY_SIZE, best_w, h, out, out_size);
+		} else {
+			sprintf(line, "no resolution of height %d: try resolution <w>x<h>", h);
+			go_console_print(out, out_size, line);
+		}
+		return;
+	}
+
+	go_console_print(out, out_size, "usage: resolution, resolution <letter>, resolution <height>, resolution <w>x<h>");
+}
+
+extern int mission_campaign_savefile_save();	// MissionCampaign.cpp
+
+static void go_console_unlock_missions(char *out, int out_size)
+{
+	char line[64];
+	int i, count = 0;
+
+	if ((Player == NULL) || (Player->callsign[0] == 0) || (gameseq_get_state() == GS_STATE_INITIAL_PLAYER_SELECT)) {
+		go_console_print(out, out_size, "no pilot yet: select a pilot first");
+		return;
+	}
+	// The game loads the campaign only on the way into the ready room, so in the main hall it may not be here yet.
+	if ((Campaign.num_missions <= 0) && (mission_load_up_campaign() || (Campaign.num_missions <= 0))) {
+		go_console_print(out, out_size, "this pilot's campaign would not load");
+		return;
+	}
+	for (i = 0; i < Campaign.num_missions; i++) {
+		cmission *cm = &Campaign.missions[i];
+
+		if (!cm->completed) {
+			cm->completed = 1;
+			if (cm->num_goals < 0) {
+				cm->num_goals = 0;
+			}
+			if (cm->num_events < 0) {
+				cm->num_events = 0;
+			}
+			init_scoring_element(&cm->stats);
+			count++;
+		}
+	}
+	Campaign.num_missions_completed = Campaign.num_missions;
+	mission_campaign_savefile_save();
+	sprintf(line, "%d missions unlocked, %d in the campaign", count, Campaign.num_missions);
+	go_console_print(out, out_size, line);
+}
+
+int game_options_console_command(const char *line, char *out, int out_size)
+{
+	out[0] = 0;
+	while (*line == ' ') {
+		line++;
+	}
+	if (!game_options_keys_active()) {
+		return 0;
+	}
+	if (!strnicmp(line, "resolution", 10) && ((line[10] == 0) || (line[10] == ' '))) {
+		line += 10;
+		while (*line == ' ') {
+			line++;
+		}
+		go_console_resolution(line, out, out_size);
+		return 1;
+	}
+	if (!stricmp(line, "unlock missions")) {
+		go_console_unlock_missions(out, out_size);
+		return 1;
+	}
+	return 0;
 }

@@ -189,6 +189,7 @@
 #include "Mouse.h"
 #include "AlphaColors.h"
 #include "localize.h"
+#include "GameOptions.h"	// Claude: the Options button (Tom, GodotOptions)
 
 // --------------------------------------------------------------------------------------------------------
 // Demo title screen
@@ -435,6 +436,8 @@ void player_select_init()
 		player_select_fs1_layout();
 	}
 
+	game_options_pilot_button_init();	// Claude: the Options button (Tom, GodotOptions)
+
 	// create the UI window
 	Player_select_window.create(0, 0, gr_screen.max_w, gr_screen.max_h, 0);
 	Player_select_window.set_mask_bmap(Player_select_background_mask_bitmap[gr_screen.res]);
@@ -674,6 +677,8 @@ void player_select_do()
 	// draw any pending messages on the bottom or middle of the screen
 	player_select_display_all_text();	
 
+	game_options_pilot_button_do();	// Claude: the Options button, bottom right (Tom, GodotOptions)
+
 #ifndef RELEASE_REAL
 	// gr_set_color_fast(&Color_bright_green);
 	// gr_string(0x8000, 10, "Development version - DO NOT RELEASE");
@@ -705,6 +710,15 @@ void player_select_close()
 		player_select_cancel_create();
 	}
 	
+	// Claude: off to Game Options and back here (the Options button): no pilot is chosen yet
+	if (game_options_pilot_button_leaving()) {
+		if (Player_select_background_bitmap >= 0) {
+			bm_release(Player_select_background_bitmap);
+			Player_select_background_bitmap = -1;
+		}
+		return;
+	}
+
 	// actually set up the Player struct here	
 	if((Player_select_pilot == -1) || (Player_select_num_pilots == 0)){
 		nprintf(("General","WARNING! No pilot selected! We should be exiting the game now!\n"));

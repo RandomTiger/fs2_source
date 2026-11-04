@@ -4,6 +4,14 @@ Branch `GodotOptions` (WIP, no gates; never merged into `Godot`, Tom's order). G
 D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own status follows below this section.
 
 ## Done
+- Options moved (Tom, 2026-11-04): from the main hall label to an icon button on the pilot screen, bottom right, using the
+  game's own options tab art (`OP_00` FS1, `2_OPT_00` / `OPT_00` FS2, the word OPTIONS on demos without it). Back returns to
+  the pilot screen. The autotest tour opens the screen by event, and hall baseline images change as the label is gone.
+- Drop-down mouse: the game's `ShowCursor(0)` on the host's main thread hid the OS cursor whatever Godot's mouse mode said;
+  `dd_cursor` now moves the display count with it. Size changes keep the window fullscreen; the canvas takes the shape.
+- Console (`godot/src/fs2_console.cpp`, all builds, host only): the key left of 1 slides it down or up. help/usage, fps,
+  resolution (list with letters, a letter, a height, `<w>x<h>`), unlock missions (loads the pilot's campaign if needed,
+  marks every mission completed and saves). API v10 `fs2_console_command`. In a mission the game runs on behind it.
 - Merge of GodotResolution: conflict in FreeSpace.cpp's host init kept both (`gr_virtual_read_config` + GraphicsMode key).
 - Resolution row: Classic (4:3) / Desktop / up to 3 common sizes that fit the monitor / the monitor's size (and the size in
   force if none of those). Writes `DisplayResolution`; live where `gr_live_mode_change()` (Godot host: the window follows
@@ -60,7 +68,7 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
 - Record/replay TraceDiff for the switch runs (204804's "then TraceDiff 0"): not done; `-at_flight` is live only by
   design (FATAL in a recording), and compared runs ignore the key, so there is nothing a replay would compare yet.
 - By hand (Tom), real devices on the Godot host and natively, since the injected run swaps the host's device table:
-  1. Plug in a pad and a joystick, start the game, open Options (main hall, bottom left), choose Pad, start any mission:
+  1. Plug in a pad and a joystick, start the game, open Options (pilot screen, bottom right), choose Pad, start any mission:
      the pad flies, the stick does nothing. Esc, quit the mission.
   2. Options: Joystick, start a mission: the stick flies and fires, the pad's sticks and triggers do nothing.
   3. Options: Mouse: the mouse flies; stick and pad move nothing.

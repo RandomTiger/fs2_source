@@ -314,7 +314,6 @@
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
-#include "GameOptions.h"	// Claude: the OPTIONS label (D-20261102-200106)
 
 #include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
@@ -558,8 +557,6 @@ void main_hall_render_door_anims(float frametime);
 #define LOAD_MISSION_REGION    11
 #define QUICK_START_REGION     12
 #define SKILL_LEVEL_REGION     13
-#define GAME_OPTIONS_REGION    14	// Claude: the OPTIONS label, bottom left; a code region, not in mainhall.tbl (GameOptions.cpp, D-20261102-200106)
-static int Main_hall_game_options_hover = 0;	// Claude: the mouse is on that label
 
 // all the menu regions in the main hall
 MENU_REGION Main_hall_region[NUM_MAIN_HALL_REGIONS];
@@ -1050,24 +1047,6 @@ void main_hall_do(float frametime)
 		Game_mode &= ~(GM_CAMPAIGN_MODE);
 		gameseq_post_event(GS_EVENT_START_GAME);
 	}
-	// Claude: the OPTIONS label (D-20261102-200106): over it, the mouse is not on a table region; a release on it, or Enter, clicks it
-	{
-		static int game_options_was_down = 0;
-		int mx, my, down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
-
-		mouse_get_pos(&mx, &my);
-		Main_hall_game_options_hover = game_options_hall_label_hit(mx, my) && !help_overlay_active(Main_hall_overlay_id);
-		if (Main_hall_game_options_hover && (code != ESC_PRESSED)) {
-			if ((!down && game_options_was_down) || ((snazzy_action == SNAZZY_CLICKED) && (code == -1))) {
-				code = GAME_OPTIONS_REGION;
-				snazzy_action = SNAZZY_CLICKED;
-			} else if (snazzy_action == SNAZZY_OVER) {
-				code = -1;
-				snazzy_action = -1;
-			}
-		}
-		game_options_was_down = down;
-	}
 	// Claude: the autotest menu tour clicks a region here, the way the player does (docs/AUTOTEST.md)
 	autotest_main_hall_click(&code, &snazzy_action);
 
@@ -1117,12 +1096,6 @@ void main_hall_do(float frametime)
 			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 			gameseq_post_event( GS_EVENT_TECH_MENU );
 			}	// Claude
-			break;
-
-		// Claude: clicked on the OPTIONS label (D-20261102-200106)
-		case GAME_OPTIONS_REGION:
-			gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
-			gameseq_post_event(GS_EVENT_GAME_OPTIONS);
 			break;
 
 		// clicked on the options region
@@ -1308,7 +1281,6 @@ void main_hall_do(float frametime)
 
 	// blit the freespace version #
 	main_hall_blit_version();
-	game_options_hall_label_draw(Main_hall_game_options_hover);	// Claude: the OPTIONS label (D-20261102-200106)
 
 	// blit ship and weapon table status
 	main_hall_blit_table_status();

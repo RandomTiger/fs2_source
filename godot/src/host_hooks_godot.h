@@ -32,6 +32,8 @@ void attach_dropdown(godot::Node *parent);
 void fill_dropdown(fs2_dropdown_hooks *hooks);
 bool dropdown_takes(const godot::Ref<godot::InputEvent> &event);
 void hide_dropdown(void);
+// GodotOptions: the console is open, so the OS cursor shows (the game's own is drawn under the console)
+void console_cursor(bool on);
 
 // Queue one of Godot's input events (keys and mouse buttons and motion are used; the rest is ignored). The viewport size is
 // the size the event's position is relative to.

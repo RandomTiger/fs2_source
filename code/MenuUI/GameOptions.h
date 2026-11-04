@@ -1,7 +1,7 @@
 /*
  * Claude: the Game Options screen and its two fs2.ini keys (D-20261102-200101..107).
  *
- * The main hall's OPTIONS label (bottom left) opens it.  Two choices:
+ * The Options button on the pilot screen (bottom right, live play only) opens it.  Two choices:
  *   FlightControl=Pad|Joystick|Mouse  the in-game flight reader; applied at pilot load and when chosen here.
  *                                     No key: the automatic rule (a pad takes the joystick's place, joy_init).
  *   GraphicsMode=GR_1024|GR_640       the art mode gr_init picks at the next start; FS2 retail only
@@ -66,10 +66,14 @@ void game_options_screen_back();
 #define GAME_OPTIONS_TOUR_STEPS			6
 int game_options_tour_step(int step);
 
-// where the main hall draws its OPTIONS label; 1 if (x, y) is on it
-int game_options_hall_label_hit(int x, int y);
+// the pilot screen's Options button (live play only: a compared run neither loads nor draws it)
+void game_options_pilot_button_init();
+// draws it and takes a click on it; call once a frame, before the flip
+void game_options_pilot_button_do();
+// 1 if the screen is closing because the button was clicked: Back returns to the pilot screen
+int game_options_pilot_button_leaving();
 
-// draws the main hall's OPTIONS label, lit when 'hover'
-void game_options_hall_label_draw(int hover);
+// the Godot host's console (fs2_console_command): "resolution ..." and "unlock missions".  Returns 0 for any other line.
+int game_options_console_command(const char *line, char *out, int out_size);
 
 #endif

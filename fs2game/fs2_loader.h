@@ -33,8 +33,9 @@ struct Fs2Api {
 	int	(*display_request)(int *, int *);	// v8
 	int	(*set_dropdown_hooks)(const fs2_dropdown_hooks *);	// v9, optional
 	void	(*input_dropdown)(int);	// v9, optional
+	int	(*console_command)(const char *, char *, int);	// v10, optional
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), set_window_handle(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL), set_window_size(NULL), canvas_info(NULL), display_request(NULL), set_dropdown_hooks(NULL), input_dropdown(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), set_window_handle(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL), set_window_size(NULL), canvas_info(NULL), display_request(NULL), set_dropdown_hooks(NULL), input_dropdown(NULL), console_command(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -65,6 +66,7 @@ struct Fs2Api {
 		display_request = (int (*)(int *, int *))GetProcAddress(module, "fs2_display_request");
 		set_dropdown_hooks = (int (*)(const fs2_dropdown_hooks *))GetProcAddress(module, "fs2_set_dropdown_hooks");
 		input_dropdown = (void (*)(int))GetProcAddress(module, "fs2_input_dropdown");
+		console_command = (int (*)(const char *, char *, int))GetProcAddress(module, "fs2_console_command");
 		if ( !input_key || !input_mouse_button || !input_focus || !input_close || !screen_size || !set_window_size || !canvas_info || !display_request ) {
 			FreeLibrary(module);
 			module = NULL;

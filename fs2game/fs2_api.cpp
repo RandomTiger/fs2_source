@@ -336,6 +336,13 @@ int fs2_switch_gr_mode(int res)
 	return game_switch_gr_mode(res);
 }
 
+extern "C++" int game_options_console_command(const char *line, char *out, int out_size);	// GameOptions.cpp
+
+int fs2_console_command(const char *line, char *out, int out_size)
+{
+	return game_options_console_command(line, out, out_size);
+}
+
 void fs2_set_window_handle(unsigned long long handle)
 {
 	Api_sound_window = handle;

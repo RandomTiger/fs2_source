@@ -20,6 +20,10 @@
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 
+#ifdef _WIN32
+extern "C" __declspec(dllimport) int __stdcall ShowCursor(int show);	// user32; windows.h clashes with godot-cpp's names
+#endif
+
 using namespace godot;
 
 namespace fs2host {
@@ -334,6 +338,7 @@ static void remap_mouse_on_change(int gw, int gh, int cw, int ch, int cx, int cy
 static OptionButton *Dd_button = NULL;
 static int Dd_x = 0, Dd_y = 0, Dd_w = 0, Dd_h = 0;
 static int Dd_selected = -1;		// the entry the game has lit; a different selection on the button is the player's pick
+static bool Console_cursor = false;	// the console is open
 static bool Dd_cursor_shown = false;	// the OS cursor is shown over the button and its list (the game's own is drawn under them)
 
 static Ref<StyleBoxFlat> dd_box(const Color &bg, const Color &border)
@@ -457,6 +462,16 @@ static void dd_cursor(bool shown)
 {
 	if (shown != Dd_cursor_shown && !is_headless_display()) {
 		Dd_cursor_shown = shown;
+#ifdef _WIN32
+		// The game's os_init called ShowCursor(0) on this thread, so the display count hides the cursor whatever Godot's mode says.
+		if (shown) {
+			while (ShowCursor(1) < 0) {
+			}
+		} else {
+			while (ShowCursor(0) >= 0) {
+			}
+		}
+#endif
 		Input::get_singleton()->set_mouse_mode(shown ? Input::MOUSE_MODE_VISIBLE : Input::MOUSE_MODE_HIDDEN);
 	}
 }
@@ -475,7 +490,7 @@ static void h_dd_hide(void)
 static void dd_poll(void)
 {
 	if (!dd_shown()) {
-		dd_cursor(false);
+		dd_cursor(Console_cursor);
 		return;
 	}
 	dd_layout();
@@ -486,13 +501,18 @@ static void dd_poll(void)
 	}
 	Viewport *vp = Dd_button->get_viewport();
 	const bool over = vp != NULL && Dd_button->get_global_rect().has_point(vp->get_mouse_position());
-	dd_cursor(over || dd_list_open());
+	dd_cursor(over || dd_list_open() || Console_cursor);
 }
 
 void fill_dropdown(fs2_dropdown_hooks *h)
 {
 	h->show = h_dd_show;
 	h->hide = h_dd_hide;
+}
+
+void console_cursor(bool on)
+{
+	Console_cursor = on;
 }
 
 void hide_dropdown(void)

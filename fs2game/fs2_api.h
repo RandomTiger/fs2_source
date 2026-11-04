@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 9
+#define FS2_API_VERSION 10
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -163,6 +163,10 @@ typedef struct fs2_dropdown_hooks {
 FS2_API int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks);
 // The player chose item index in the shown drop-down. Call only from inside the poll_events hook, like the other input sinks.
 FS2_API void fs2_input_dropdown(int index);
+
+// v10: a line from the host's console, called between frames. The game's commands: resolution ..., unlock missions. Returns 1 and
+// its answer in out (out_size bytes, lines split by \n), or 0 for a line that is not the game's.
+FS2_API int fs2_console_command(const char *line, char *out, int out_size);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);
