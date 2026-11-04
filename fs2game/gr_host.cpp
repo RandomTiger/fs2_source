@@ -557,8 +557,24 @@ void h_set_palette(ubyte *, int) { }				// same as dummy and D3D: nothing. BmpMa
 void h_fade_in(int) { }
 void h_fade_out(int) { }
 
+// test switch (FS2_FORCE_CLIP=x,y,w,h): every full-screen clip becomes this rect, to compare the mesh and polygon paths under a letterbox clip (the death state)
+static bool forced_clip(int rect[4])
+{
+	static int state = -1;
+	static int r[4];
+	if (state < 0) {
+#pragma warning(suppress: 4996)
+		const char *e = getenv("FS2_FORCE_CLIP");
+		state = (e != NULL && sscanf(e, "%d,%d,%d,%d", &r[0], &r[1], &r[2], &r[3]) == 4) ? 1 : 0;
+	}
+	if (state) { for (int i = 0; i < 4; i++) { rect[i] = r[i]; } }
+	return state == 1;
+}
+
 void h_set_clip(int x, int y, int w, int h)
 {
+	int fr[4];
+	if (x == 0 && y == 0 && w >= gr_screen.max_w && h >= gr_screen.max_h && forced_clip(fr)) { x = fr[0]; y = fr[1]; w = fr[2]; h = fr[3]; }
 	gr_screen.offset_x = x;
 	gr_screen.offset_y = y;
 	gr_screen.clip_left = 0;
@@ -581,6 +597,8 @@ void h_set_clip(int x, int y, int w, int h)
 
 void h_reset_clip()
 {
+	int fr[4];
+	if (forced_clip(fr)) { h_set_clip(0, 0, gr_screen.max_w, gr_screen.max_h); return; }
 	gr_screen.offset_x = 0;
 	gr_screen.offset_y = 0;
 	gr_screen.clip_left = 0;
