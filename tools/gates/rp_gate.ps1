@@ -11,5 +11,7 @@ if ($LASTEXITCODE) { $bad += 'replays' }
 "quick: $q"
 $tc = & powershell -NoProfile -ExecutionPolicy Bypass -File "$r\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
 "tools: $tc"; if ($tc -notmatch 'PASS') { $bad += 'tools' }
+$aw = & powershell -NoProfile -ExecutionPolicy Bypass -File "$sp\awards_check.ps1" -Configs r,d | Select-Object -Last 1
+"awards: $aw"; if ($aw -notmatch 'PASS') { $bad += 'awards' }
 if ($bad) { "rp_gate: FAIL ($($bad -join ', '))"; exit 1 }
 'rp_gate: PASS'
