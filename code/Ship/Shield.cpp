@@ -45,7 +45,8 @@
  * Temporary checkin to fix some texture transparency problems in d3d.
  * 
  * 3     11/05/98 5:55p Dave
- * Big pass at reducing #includes
+ * Big pass at reducing #include "RenderShow.h"	// Claude: GodotOptions
+#includes
  * 
  * 2     10/07/98 10:53a Dave
  * Initial checkin.
@@ -651,6 +652,9 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 // occur with the ship, perhaps even internal to the ship.
 void render_shields()
 {
+	if (!Render_show[RS_SHIELDS]) {	// Claude: GodotOptions, the console
+		return;
+	}
 	if ( !Game_profile->shields )	return;	// Claude: the FS1 demo build stubbed this out (D-20261020-161655)
 	int	i;
 

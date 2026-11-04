@@ -50,6 +50,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "parselo.h"
 #include "linklist.h"
 #include "bmpman.h"
@@ -761,6 +762,10 @@ void nebl_render_all()
 {
 	int idx;
 	l_bolt *b;
+
+	if (!Render_show[RS_LIGHTNING]) {	// Claude: GodotOptions, the console
+		return;
+	}
 
 	// no lightning in non-nebula missions
 	if(!(The_mission.flags & MISSION_FLAG_FULLNEB)){

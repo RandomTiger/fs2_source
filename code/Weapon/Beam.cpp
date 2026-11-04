@@ -257,6 +257,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "Linklist.h"
 #include "Object.h"
 #include "ObjCollide.h"
@@ -1525,6 +1526,10 @@ void beam_render_muzzle_glow(beam *b)
 void beam_render_all()
 {
 	beam *moveup;		
+
+	if (!Render_show[RS_BEAMS]) {	// Claude: GodotOptions, the console: drawing only, beams still fire
+		return;
+	}
 
 	// traverse through all active beams
 	moveup = GET_FIRST(&Beam_used_list);

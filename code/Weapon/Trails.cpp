@@ -80,6 +80,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "PsTypes.h"
 #include "Freespace.h"
 #include "Weapon.h"
@@ -136,6 +137,10 @@ int trail_create(trail_info info)
 {
 	int trail_num;
 	trail *trailp;
+
+	if (!Render_show[RS_TRAILS]) {	// Claude: GodotOptions, the console: none are made (-1, as with no free slot)
+		return -1;
+	}
 
 	// standalone server should never create trails
 	if(Game_mode & GM_STANDALONE_SERVER){
@@ -447,6 +452,10 @@ void trail_object_died( int trail_num )
 void trail_render_all()
 {
 	trail *trailp;
+
+	if (!Render_show[RS_TRAILS]) {	// Claude: GodotOptions, those made before it went off
+		return;
+	}
 
 	if ( !Detail.weapon_extras )	{
 		// No trails at slot 0

@@ -86,6 +86,7 @@
  */
 
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "3dinternal.h"
 #include "tmapper.h"
 #include "2d.h"			// Needed for w,h,aspect of canvas
@@ -399,6 +400,10 @@ not much more than any other clipping we do.
 */
 void g3_start_user_clip_plane( vector *plane_point, vector *plane_normal )
 {
+	if (!Render_show[RS_CLIPPLANES]) {	// Claude: GodotOptions, the console: what the warp would cut shows whole
+		return;
+	}
+
 	float mag = vm_vec_mag( plane_normal );
 	if ( (mag < 0.1f) || (mag > 1.5f ) )	{
 		// Invalid plane_normal passed in.  Get Allender (since it is

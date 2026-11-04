@@ -416,6 +416,7 @@
 
 // Claude: no windows.h; the Windows host is FreeSpaceWin32.cpp (D-045)
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include <stdlib.h>
 #include <process.h>
 #include <time.h>
@@ -2201,6 +2202,7 @@ void game_init()
 
 	int trying_d3d = 0;
 	
+	game_options_settings_init();	// Claude: GodotOptions, the options in GameOptionList.h
 	// Claude: P7-8, a backend registered with gr_host_backend_register takes the choice; with none, the chain below is as before
 	if (gr_host_backend_registered()) {
 		gr_virtual_read_config();	// Claude: GodotResolution, the DisplayResolution key (GrVirtual.h)
@@ -3549,8 +3551,12 @@ void game_render_frame( vector * eye_pos, matrix * eye_orient )
 	hud_show_radar();
 
 	if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
-		hud_maybe_clear_head_area();
-		anim_render_all(0, flFrametime);
+		if (Render_show[RS_HUD]) {	// Claude: GodotOptions, the show check and the double size HUD
+			gr_virtual_hud_double_begin();
+			hud_maybe_clear_head_area();
+			anim_render_all(0, flFrametime);
+			gr_virtual_hud_double_end();
+		}
 	}
 
 	extern int Multi_display_netinfo;
@@ -4009,15 +4015,35 @@ int game_actually_playing()
 		return 1;
 }
 
+// Claude: GodotOptions, the Subtitles option: over the HUD and not part of it, so it stays when the HUD is off
+static void game_render_caption()
+{
+	if ( game_option(GO_OPT_SUBTITLES) ) {
+		int bottom = gr_screen.max_h * 74 / 100;	// just above the radar
+		int scale = gr_live_mode_change() ? 2 : 1;	// only the Godot host scales a draw
+
+		gr_virtual_set_anchor(HUD_ANCHOR_CENTRE);
+		if ( scale > 1 ) {
+			gr_virtual_caption_scale(bottom);
+		}
+		message_caption_draw(scale, bottom);
+		gr_virtual_caption_scale(-1);
+	}
+}
+
 // Draw the 2D HUD gauges
 void game_render_hud_2d()
 {
-	if ( !(Game_detail_flags & DETAIL_FLAG_HUD) ) {
+	if ( !(Game_detail_flags & DETAIL_FLAG_HUD) || !Render_show[RS_HUD] ) {	// Claude: GodotOptions, the show check
+		game_render_caption();	// Claude: GodotOptions
 		return;
 	}
 	
+	gr_virtual_hud_double_begin();	// Claude: GodotOptions
 	HUD_render_2d(flFrametime);
+	gr_virtual_hud_double_end();	// Claude: GodotOptions
 	gr_reset_clip();
+	game_render_caption();	// Claude: GodotOptions
 }
 
 // Draw the 3D-dependant HUD gauges
@@ -4027,7 +4053,9 @@ void game_render_hud_3d(vector *eye_pos, matrix *eye_orient)
 	g3_set_view_matrix( eye_pos, eye_orient, Viewer_zoom );
 
 	if ( (Game_detail_flags & DETAIL_FLAG_HUD) && (supernova_active() < 3)/* && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) )*/ ) {
-		HUD_render_3d(flFrametime);
+		if (Render_show[RS_HUD]) {	// Claude: GodotOptions, the show check
+			HUD_render_3d(flFrametime);
+		}
 	}
 
 	// Do the sunspot

@@ -61,6 +61,7 @@ static int Display_w = 0, Display_h = 0;		// GR_DISPLAY_SIZE only
 static int Window_w = 0, Window_h = 0;		// from the host; 0 = none
 static int Hud_on = 0;
 static int Anchor = HUD_ANCHOR_CENTRE;
+static int Hud_gauge_now = -1;		// the gauge the anchor came from, -1 when it was set directly
 static void (*Clip_listener)() = NULL;
 static int Fog_read = 0;
 
@@ -204,6 +205,7 @@ void gr_virtual_hud_gauge(int gauge_index)
 {
 	if (Hud_on) {
 		Anchor = gr_virtual_gauge_anchor(gauge_index);
+		Hud_gauge_now = gauge_index;
 	}
 }
 
@@ -211,6 +213,7 @@ void gr_virtual_set_anchor(int anchor)
 {
 	if (Hud_on && (anchor >= 0) && (anchor < HUD_NUM_ANCHORS)) {
 		Anchor = anchor;
+		Hud_gauge_now = -1;
 	}
 }
 
@@ -285,4 +288,43 @@ void gr_virtual_base_clip_end()
 	if (Clip_listener != NULL) {
 		Clip_listener();
 	}
+}
+
+// GodotOptions: the double size HUD (GrVirtual.h)
+static int Hud_double = 0;
+static int Hud_double_depth = 0;
+
+void gr_virtual_set_hud_double(int on) { Hud_double = on ? 1 : 0; }
+void gr_virtual_hud_double_begin() { Hud_double_depth++; }
+void gr_virtual_hud_double_end() { if (Hud_double_depth > 0) { Hud_double_depth--; } }
+
+static int Caption_pivot_y = -1;
+void gr_virtual_caption_scale(int pivot_y) { Caption_pivot_y = pivot_y; }
+
+int gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
+{
+	if (Caption_pivot_y >= 0) {
+		*pivot_x = gr_screen.max_w / 2;
+		*pivot_y = Caption_pivot_y;
+		return 2;
+	}
+	*pivot_x = *pivot_y = 0;
+	if (!Hud_double || !Hud_on || Fog_read || gr_virtual_in_wide_clip() || ((Hud_double_depth <= 0) && (Base_clip_depth <= 0))) {
+		return 1;
+	}
+	// the centre group and the radar stay their normal size (Tom, 2026-11-04)
+	if ((Anchor == HUD_ANCHOR_CENTRE) || (Hud_gauge_now == HUD_RADAR)) {
+		return 1;
+	}
+	*pivot_x = (Anchor % 3) * gr_screen.max_w / 2;
+	*pivot_y = (Anchor / 3) * gr_screen.max_h / 2;
+	// three gauges share a column or corner with a doubled neighbour, so they double about a point that keeps them clear
+	if (Hud_gauge_now == HUD_WINGMEN_STATUS) {
+		*pivot_y = gr_screen.max_h * 37 / 100;		// to the top of the right column
+	} else if (Hud_gauge_now == HUD_ESCORT_VIEW) {
+		*pivot_y = gr_screen.max_h * 70 / 100;		// under the wingmen, above the weapons
+	} else if (Hud_gauge_now == HUD_PLAYER_SHIELD_ICON) {
+		*pivot_x += gr_screen.max_w * 46 / 1000;	// between the radar and the energy bars
+	}
+	return 2;
 }

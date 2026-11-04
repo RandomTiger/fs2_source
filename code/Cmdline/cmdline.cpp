@@ -188,6 +188,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "cmdline.h"
+#include "GameOptions.h"	// Claude: GodotOptions
 #include "LinkList.h"
 #include "systemvars.h"
 #include "multi.h"
@@ -286,6 +287,17 @@ int Cmdline_freespace_no_sound = 0;
 int Cmdline_freespace_no_music = 0;
 int Cmdline_gimme_all_medals = 0;
 int Cmdline_allmedals = 0;	// Claude: -allmedals (#124)
+
+// Claude: GodotOptions, the options in GameOptionList.h: -<name>, or -<name> 0 for off
+#define GO_OPTION(id, name, key, label, dflt, host_only) static cmdline_parm id##_arg("-" name, NULL);
+#include "GameOptionList.h"
+#undef GO_OPTION
+#define GO_OPTION(id, name, key, label, dflt, host_only) &id##_arg,
+static cmdline_parm *Go_option_args[GO_OPT_COUNT] = {
+#include "GameOptionList.h"
+};
+#undef GO_OPTION
+int Cmdline_game_option[GO_OPT_COUNT];	// -1 not given, else 0 or 1
 int Cmdline_use_last_pilot = 0;
 int Cmdline_multi_protocol = -1;
 int Cmdline_cd_check = 1;
@@ -700,6 +712,12 @@ int parse_cmdline(char *cmdline)
 	}
 
 	// Claude: -allmedals, the medals screen fully populated; display only, the pilot is not changed (#124)
+	{	// Claude: GodotOptions
+		int go;
+		for (go = 0; go < GO_OPT_COUNT; go++) {
+			Cmdline_game_option[go] = !Go_option_args[go]->found() ? -1 : (Go_option_args[go]->args[0] ? (atoi(Go_option_args[go]->args) != 0) : 1);
+		}
+	}
 	if(allmedals_arg.found()){
 		Cmdline_allmedals = 1;
 	}

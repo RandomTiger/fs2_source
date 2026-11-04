@@ -105,3 +105,5 @@ int saved_timestamp_ticker = -1;
 void demo_reset_trailer_timer() {}
 // Claude: the menus now call this on every data set when a screen is walled off (D-20261021-071013); FreeSpace.cpp, its home, is not linked here
 void game_feature_not_in_demo_popup() {}
+// Claude: the Game Options screen in code.lib calls this for the live GR mode switch; FreeSpace.cpp, its home, is not linked
+int game_switch_gr_mode(int res) { return 0; }

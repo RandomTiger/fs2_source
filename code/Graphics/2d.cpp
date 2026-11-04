@@ -424,6 +424,14 @@
 
 #include "BitmapLog.h"	// Claude
 #include "GrDummy.h"	// Claude: null renderer
+#include "RenderShow.h"	// Claude: GodotOptions
+
+#define RS_ITEM(id, name) 1,
+int Render_show[RS_COUNT] = {	// Claude: GodotOptions, all on (RenderShow.h)
+#include "RenderShowList.h"
+};
+#undef RS_ITEM
+
 #include <windows.h>
 #include <windowsx.h>
 

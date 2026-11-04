@@ -52,6 +52,10 @@ static void show_help(void)
 	print_line("resolution <height>   use one of that height");
 	print_line("resolution <w>x<h>    try that size");
 	print_line("unlock missions       unlock every mission in the current campaign");
+	print_line("subtitles [on|off]    subtitles");
+	print_line("hud_double [on|off]   the double size HUD");
+	print_line("show                  list what can be switched off, for testing");
+	print_line("show <name> [on|off]  switch it; show all on or off");
 }
 
 static void submit(const String &raw)
