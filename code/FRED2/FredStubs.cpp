@@ -652,3 +652,5 @@ fix Last_delta_time = 0;
 int saved_timestamp_ticker = -1;
 // Claude: the demo trailer timer lives in FreeSpace.cpp, which this tool does not link; code.lib now calls it on every data set (D-20261021-071013)
 void demo_reset_trailer_timer() {}
+// Claude: the Game Options screen in code.lib calls this for the live GR mode switch; FreeSpace.cpp, its home, is not linked
+int game_switch_gr_mode(int res) { return 0; }
