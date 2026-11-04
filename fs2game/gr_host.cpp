@@ -131,7 +131,8 @@ struct Host {
 	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
 	// GodotResolution: the present offset (GrVirtual.h) the sink's clip and draws were sent with this frame
 	int pdx = 0, pdy = 0;
-	int ps = 1, ppx = 0, ppy = 0;	// GodotOptions: the double size HUD, the scale and its point (GrVirtual.h)
+	float ps = 1.0f;	// GodotOptions: the larger HUD, the scale and its point (GrVirtual.h)
+	int ppx = 0, ppy = 0;
 	std::vector<fs2_sink_vertex> shift_v;
 } H;
 
@@ -208,9 +209,11 @@ void send_clip()
 	gr_virtual_offset(&H.pdx, &H.pdy);
 	H.ps = gr_virtual_hud_scale(&H.ppx, &H.ppy);	// GodotOptions
 	if (H.ps != 1) {
-		int x0 = H.pdx + H.ppx + (gr_screen.offset_x + gr_screen.clip_left - H.ppx) * H.ps;
-		int y0 = H.pdy + H.ppy + (gr_screen.offset_y + gr_screen.clip_top - H.ppy) * H.ps;
-		int x1 = x0 + gr_screen.clip_width * H.ps, y1 = y0 + gr_screen.clip_height * H.ps;
+		// the scale can be fractional: start rounds down and end rounds up, so a clip never cuts what it held
+		const float fx0 = H.pdx + H.ppx + (gr_screen.offset_x + gr_screen.clip_left - H.ppx) * H.ps;
+		const float fy0 = H.pdy + H.ppy + (gr_screen.offset_y + gr_screen.clip_top - H.ppy) * H.ps;
+		int x0 = (int)fx0, y0 = (int)fy0;
+		int x1 = (int)(fx0 + gr_screen.clip_width * H.ps + 0.99f), y1 = (int)(fy0 + gr_screen.clip_height * H.ps + 0.99f);
 		x0 = x0 < 0 ? 0 : x0;
 		y0 = y0 < 0 ? 0 : y0;
 		x1 = x1 > gr_virtual_w() ? gr_virtual_w() : x1;
@@ -225,7 +228,8 @@ void send_clip()
 // GodotResolution: a HUD gauge's anchor moved the present offset since the clip was sent; send it again
 void sync_offset()
 {
-	int dx, dy, px, py, s;
+	int dx, dy, px, py;
+	float s;
 	gr_virtual_offset(&dx, &dy);
 	s = gr_virtual_hud_scale(&px, &py);	// GodotOptions
 	if (dx != H.pdx || dy != H.pdy || s != H.ps || px != H.ppx || py != H.ppy) { send_clip(); }

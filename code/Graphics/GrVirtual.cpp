@@ -301,7 +301,7 @@ void gr_virtual_hud_double_end() { if (Hud_double_depth > 0) { Hud_double_depth-
 static int Caption_pivot_y = -1;
 void gr_virtual_caption_scale(int pivot_y) { Caption_pivot_y = pivot_y; }
 
-int gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
+float gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
 {
 	if (Caption_pivot_y >= 0) {
 		*pivot_x = gr_screen.max_w / 2;
@@ -324,7 +324,7 @@ int gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
 	} else if (Hud_gauge_now == HUD_ESCORT_VIEW) {
 		*pivot_y = gr_screen.max_h * 70 / 100;		// under the wingmen, above the weapons
 	} else if (Hud_gauge_now == HUD_PLAYER_SHIELD_ICON) {
-		*pivot_x += gr_screen.max_w * 46 / 1000;	// between the radar and the energy bars
+		*pivot_x += gr_screen.max_w * 132 / 1000;	// between the radar and the energy bars
 	}
-	return 2;
+	return 1.5f;	// Claude: 1.5 rather than 2 (Tom, 2026-11-04)
 }

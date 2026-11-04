@@ -70,7 +70,7 @@ void gr_virtual_set_anchor(int anchor);
 void gr_virtual_set_hud_double(int on);
 void gr_virtual_hud_double_begin();
 void gr_virtual_hud_double_end();
-int gr_virtual_hud_scale(int *pivot_x, int *pivot_y);
+float gr_virtual_hud_scale(int *pivot_x, int *pivot_y);
 void gr_virtual_caption_scale(int pivot_y);	// draws double around the middle of the screen at this height, -1 ends it
 int gr_virtual_gauge_anchor(int gauge_index);	// the table entry, HUD_ANCHOR_TOP_LEFT for an unknown gauge
 
