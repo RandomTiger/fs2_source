@@ -79,7 +79,7 @@ bool GodotSink::init(SubViewport *viewport)
 		qp.resize(4); qu.resize(4); qi.resize(6);
 		const float cx[4] = {0.0f, 1.0f, 1.0f, 0.0f}, cy[4] = {0.0f, 0.0f, 1.0f, 1.0f};
 		for (int i = 0; i < 4; i++) { qp.ptrw()[i] = Vector3(cx[i], cy[i], 0.0f); qu.ptrw()[i] = Vector2(cx[i], cy[i]); }
-		const int ids[6] = {0, 1, 2, 0, 2, 3};
+		const int ids[6] = {3, 2, 1, 3, 1, 0};
 		for (int i = 0; i < 6; i++) { qi.ptrw()[i] = ids[i]; }
 		Array qa; qa.resize(RenderingServer::ARRAY_MAX);
 		qa[RenderingServer::ARRAY_VERTEX] = qp; qa[RenderingServer::ARRAY_TEX_UV] = qu; qa[RenderingServer::ARRAY_INDEX] = qi;

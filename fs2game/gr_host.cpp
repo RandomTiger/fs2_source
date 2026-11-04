@@ -1067,7 +1067,7 @@ void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts
 // ---- R3: billboards (g3_draw_bitmap, g3_draw_laser) ---------------------------------------------------------------
 // The game keeps the trivial culls and hands the eye-space points over; the sink applies the game's own size, placement and pixel rules
 // (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 only with FS2_BB_OFF (proof baseline, draw stays on the CPU path); faults are counted and draw nothing.
-int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags)
+int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
 	if (H.sink == nullptr || H.sink->billboard_draw == nullptr) { return 0; }
 	static const bool bb_off = getenv("FS2_BB_OFF") != nullptr;	// proof baseline: billboards stay on the CPU path
@@ -1084,14 +1084,19 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	b.kind = kind;
 	b.texture = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, false);
 	if (b.texture == 0) { return 1; }	// as tmapper_internal: no texture, no draw
-	int tint = 255;
+	// rgb >= 0: constant vertex colour (g3_draw_laser_rgb: RGB|GOURAUD), through the gamma table as tmapper_internal does
+	int tint_r = 255, tint_g = 255, tint_b = 255;
+	if (rgb >= 0) { tint_r = H.gamma_lookup[rgb & 255]; tint_g = H.gamma_lookup[(rgb >> 8) & 255]; tint_b = H.gamma_lookup[(rgb >> 16) & 255]; }
 	if (filter) {
 		b.blend = FS2_SINK_BLEND_ADD;
-		if (gr_screen.current_alpha <= 1.0f) { tint = (int)(gr_screen.current_alpha * 255.0f); }
+		if (gr_screen.current_alpha <= 1.0f && rgb < 0) {	// RGB|GOURAUD vertex colours replace the alpha-scaled tint in tmapper_internal
+			const int a = (int)(gr_screen.current_alpha * 255.0f);
+			tint_r = tint_r * a / 255; tint_g = tint_g * a / 255; tint_b = tint_b * a / 255;
+		}
 	} else {
 		b.blend = FS2_SINK_BLEND_ALPHA;
 	}
-	b.tint[0] = b.tint[1] = b.tint[2] = (uint8_t)tint; b.tint[3] = 255;
+	b.tint[0] = (uint8_t)tint_r; b.tint[1] = (uint8_t)tint_g; b.tint[2] = (uint8_t)tint_b; b.tint[3] = 255;
 	// scalers and filter-blended draws read depth only
 	b.flags = !zbuffering ? 0 : (kind == FS2_SINK_BB_BITMAP || filter) ? FS2_SINK_DRAWF_ZREAD : (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
 	b.zbias = H.zbias;

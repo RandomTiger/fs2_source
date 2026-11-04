@@ -534,10 +534,10 @@ int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, 
 }
 
 // Claude: R3, null-safe like the mesh calls
-int gr_host_billboard(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags)
+int gr_host_billboard(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags, int a_rgb)
 {
 	if (!gr_host_mesh_ready() || !Gr_host_backend->billboard) { return 0; }
-	return Gr_host_backend->billboard(kind, p0, p1, a_rad, b_rad, a_maxlen, a_orient, a_flags);
+	return Gr_host_backend->billboard(kind, p0, p1, a_rad, b_rad, a_maxlen, a_orient, a_flags, a_rgb);
 }
 
 void gr_host_mesh_free(int key)

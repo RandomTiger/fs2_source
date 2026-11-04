@@ -639,7 +639,7 @@ typedef struct gr_host_backend {
 	int (*mesh_bg)(int key, const float *xform, int nv, int bitmap, int tiled, int gray);	// the nebula background model: bitmap on every poly, additive, no depth, no cull, flat gray vertex colour; same returns as mesh_draw
 	// Claude: R3, optional screen-aligned bitmap (kind 0, g3_draw_bitmap) or tracer ribbon (kind 1, g3_draw_laser) placed by eye-space points
 	// (p0, and p1 for a ribbon); the host takes the bitmap and blend from gr_screen. 1 = drawn, 0 = draw on the CPU path this time
-	int (*billboard)(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags);
+	int (*billboard)(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags, int a_rgb);
 	void (*model_page_in)(int modelnum);						// Claude: load hook, a ship model's textures were just paged in (model_page_in_textures); the host may build its fixed data for it now
 	void (*level_loaded)();											// Claude: load hook, level paging is done (level_page_in); the host may finish what needs its device
 } gr_host_backend;
@@ -651,7 +651,7 @@ extern int gr_host_mesh_clip(const float *plane);
 extern int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb);
 extern int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray);
 extern void gr_host_mesh_free(int key);
-extern int gr_host_billboard(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags);
+extern int gr_host_billboard(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags, int a_rgb);
 extern void gr_host_backend_register(const gr_host_backend *backend);
 extern int gr_host_backend_registered();	// Claude: P7-8, 1 when a backend has been registered; gr_init then chooses GR_HOST
 extern void gr_host_model_page_in(int modelnum);	// Claude: load hook, no-op when the backend has no model_page_in
