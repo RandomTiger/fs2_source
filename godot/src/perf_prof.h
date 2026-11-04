@@ -73,6 +73,8 @@ enum CounterId {
 	C_MESH_DRAWS,	// v4 mesh draws that reached a 3D layer
 	C_BB_RUNS,	// billboard runs (one instance each)
 	C_BB_DRAWS,	// billboard draws in those runs
+	C_BB_NOARR,	// billboard draws whose texture is not in a texture array
+	C_ARR_BYTES,	// texture array chunks created (bytes)
 	C_COUNT
 };
 extern const char *const counter_names[C_COUNT];
