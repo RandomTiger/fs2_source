@@ -22,7 +22,8 @@ Background nebulas and planets are starfield bitmaps: a fixed mesh on a sphere c
 ## What was checked
 - Tom played a native Direct3D test build with the screen clip off and the near-plane cut kept: the jump is gone.
 - Builds: Release and Debug, no new warnings.
-- Gate on the merge into RecordPlayback, Release and Debug, in Direct3D: not run yet, waiting for Tom to clear it. Only drawing changes, so recordings are expected to replay unchanged.
+- Gate on the merge into RecordPlayback, Release and Debug, in Direct3D: `VisualSpace` under autotest for 60 s exits clean with no assert, with the nebulas and planets drawn; the `sm1-01` replay is `REPLAY OK`, TraceDiff 0, and the two builds give identical traces.
+- No test forces a triangle across the near plane, so the turning view in `sm1-01` probably runs that cut but does not prove it.
 
 ## Not changed
 - Godot is not fixed. It draws through its own renderer mode, not `GR_DIRECT3D`, so it keeps the clip and still jumps. Tom has seen the jump there. Issue 152 tracks it.
