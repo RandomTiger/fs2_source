@@ -128,6 +128,13 @@ void gr_virtual_set_window(int w, int h)
 	Window_h = (h > 0) ? h : 0;
 }
 
+// Claude: GodotOptions
+void gr_virtual_get_window(int *w, int *h)
+{
+	*w = Window_w;
+	*h = Window_h;
+}
+
 // the virtual size for the current base, window and mode
 static void virtual_size(int *vw, int *vh)
 {

@@ -212,10 +212,11 @@ static int Go_fs1_text_inited = 0;
 // the Resolution row (DisplayResolution, D-20261102-200805 / 204803): Classic, Desktop, then window sizes that fit the monitor
 typedef struct go_res {
 	int mode, w, h;		// GR_DISPLAY_*; w x h for GR_DISPLAY_SIZE
+	int gr;				// Claude: GodotOptions, a wide entry's GR mode (it also sets the height), else -1
 	char text[24];
 } go_res;
 
-#define GO_MAX_RES			7
+#define GO_MAX_RES			9	// Claude: GodotOptions, 7 and the two wide entries
 #define GO_MAX_SIZES		3		// common sizes below the monitor's own
 
 static go_res Go_res[GO_MAX_RES];
@@ -252,10 +253,25 @@ static void game_options_res_add(int mode, int w, int h, char *text)
 	r->mode = mode;
 	r->w = w;
 	r->h = h;
+	r->gr = -1;
 	if (text) {
 		strcpy(r->text, text);
 	} else {
 		sprintf(r->text, "%dx%d", w, h);
+	}
+}
+
+// Claude: GodotOptions, a wide entry: this GR mode's height, as wide as the window's shape (GrVirtual.cpp virtual_size: the
+// same sum), so it says what Desktop gives in that mode. mw x mh is the shape to use.
+static void game_options_res_add_wide(int gr, int base_h, int mw, int mh)
+{
+	char text[24];
+	int was = Go_num_res;
+
+	sprintf(text, "%dx%d (wide)", (int)(((long long)base_h * mw + mh / 2) / mh), base_h);
+	game_options_res_add(GR_DISPLAY_DESKTOP, 0, 0, text);
+	if (Go_num_res > was) {
+		Go_res[was].gr = gr;
 	}
 }
 
@@ -272,6 +288,19 @@ static void game_options_res_list()
 	game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, classic);
 	game_options_res_add(GR_DISPLAY_DESKTOP, 0, 0, "Desktop");
 	game_options_monitor_size(&mw, &mh);
+	// Claude: GodotOptions, the wide entries (Tom): only where the mode changes live, and never in a compared run, whose screen stays as it was
+	cur = gr_virtual_display_request(&cw, &ch);
+	if (game_options_keys_active() && gr_live_mode_change() && Game_profile->gr_mode_choice) {
+		gr_virtual_get_window(&cw, &ch);
+		if ((cur == GR_DISPLAY_SIZE) || (cw <= 0) || (ch <= 0)) {	// a chosen size's shape is not the shape Desktop would give
+			cw = mw;
+			ch = mh;
+		}
+		if ((ch > 0) && ((long long)cw * 3 > (long long)ch * 4)) {
+			game_options_res_add_wide(GR_640, 480, cw, ch);
+			game_options_res_add_wide(GR_1024, 768, cw, ch);
+		}
+	}
 	n = 0;
 	first = num_common;
 	for (i = num_common - 1; (i >= 0) && (n < GO_MAX_SIZES); i--) {
@@ -292,7 +321,7 @@ static void game_options_res_list()
 	cur = gr_virtual_display_request(&cw, &ch);
 	Go_res_shown = -1;
 	for (i = 0; i < Go_num_res; i++) {
-		if ((Go_res[i].mode == cur) && ((cur != GR_DISPLAY_SIZE) || ((Go_res[i].w == cw) && (Go_res[i].h == ch)))) {
+		if ((Go_res[i].mode == cur) && ((cur != GR_DISPLAY_SIZE) || ((Go_res[i].w == cw) && (Go_res[i].h == ch))) && ((Go_res[i].gr < 0) || (Go_res[i].gr == Go_gr_shown))) {	// Claude: GodotOptions, gr: the wide entry of this mode wins over plain Desktop
 			Go_res_shown = i;
 		}
 	}
@@ -358,6 +387,8 @@ static void game_options_write_display(int mode, int w, int h)
 	}
 }
 
+static void game_options_gr_choose(int gr);	// Claude: GodotOptions
+
 static void game_options_apply_res(int i)
 {
 	go_res *r = &Go_res[i];
@@ -367,6 +398,9 @@ static void game_options_apply_res(int i)
 		return;
 	}
 	game_options_write_display(r->mode, r->w, r->h);
+	if (r->gr >= 0) {
+		game_options_gr_choose(r->gr);	// Claude: GodotOptions, a wide entry also picks the mode (rebuilds Go_res: r is stale after this)
+	}
 }
 
 // a Resolution choice, from a click on the drawn row, the drop-down or the menu tour
@@ -485,6 +519,28 @@ static int game_options_item_current(go_item *it)
 	return 0;
 }
 
+// Claude: GodotOptions, the GR choice, moved here from game_options_pick for the wide entries too
+static void game_options_gr_choose(int gr)
+{
+	Go_gr_shown = gr;
+	game_options_res_list();	// Claude: GodotOptions, the Classic entry follows the mode
+	if (game_options_keys_active()) {
+		os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (gr == GR_1024) ? "GR_1024" : "GR_640");
+		game_options_load();
+		Game_options_gr = gr;	// the key as read: the screen opened again lights the new choice
+	}
+	// live where the backend can (D-20261102-204802, 204806); only on this screen, never in a mission (the console can ask from anywhere).
+	// The screen is laid out again in the new mode: its coordinates are fractions of gr_screen, its font is FONT1 in both modes.
+	if (gr_live_mode_change() && (gr != gr_screen.res) && (gameseq_get_state() == GS_STATE_GAME_OPTIONS)) {
+		game_options_dropdown_hide();	// the host's drop-down goes while the mode switches, and comes back on the new layout
+		if (game_switch_gr_mode(gr)) {
+			game_options_layout();
+			Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+		}
+		game_options_dropdown_show();
+	}
+}
+
 static void game_options_pick(go_item *it)
 {
 	gamesnd_play_iface(SND_USER_SELECT);
@@ -500,25 +556,7 @@ static void game_options_pick(go_item *it)
 			joy_reassign();	// live, no restart: the pad/joystick ownership is taken again (D-20261102-204804)
 		}
 	} else if (it->kind == GO_ITEM_GR) {
-		int gr = it->value;
-
-		Go_gr_shown = gr;
-		game_options_res_list();	// Claude: GodotOptions, the Classic entry follows the mode
-		if (game_options_keys_active()) {
-			os_config_write_string(NULL, GAME_OPTIONS_KEY_GR, (gr == GR_1024) ? "GR_1024" : "GR_640");
-			game_options_load();
-			Game_options_gr = gr;	// the key as read: the screen opened again lights the new choice
-		}
-		// live where the backend can (D-20261102-204802, 204806); the screen is never in a mission. The screen is laid out again
-		// in the new mode: its coordinates are fractions of gr_screen, its font is FONT1 in both modes. 'it' is stale after this.
-		if (gr_live_mode_change() && (gr != gr_screen.res)) {
-			game_options_dropdown_hide();	// the host's drop-down goes while the mode switches, and comes back on the new layout
-			if (game_switch_gr_mode(gr)) {
-				game_options_layout();
-				Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
-			}
-			game_options_dropdown_show();
-		}
+		game_options_gr_choose(it->value);	// Claude: GodotOptions. 'it' is stale after this
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
 	}
@@ -825,6 +863,9 @@ static void go_console_resolution(const char *arg, char *out, int out_size)
 	int i, w, h, mw, mh, end = 0;
 	int num_common = (int)(sizeof(Go_common_sizes) / sizeof(Go_common_sizes[0]));
 
+	if (gameseq_get_state() != GS_STATE_GAME_OPTIONS) {
+		Go_gr_shown = gr_screen.res;	// Claude: GodotOptions, away from the screen the list follows the mode running
+	}
 	game_options_res_list();
 
 	if (arg[0] == 0) {
@@ -843,7 +884,17 @@ static void go_console_resolution(const char *arg, char *out, int out_size)
 			go_console_print(out, out_size, line);
 			return;
 		}
-		go_console_apply(Go_res[i].mode, Go_res[i].w, Go_res[i].h, out, out_size);
+		{
+			int gr = Go_res[i].gr;	// Claude: GodotOptions, a wide entry also picks the mode
+
+			go_console_apply(Go_res[i].mode, Go_res[i].w, Go_res[i].h, out, out_size);
+			if (gr >= 0) {
+				game_options_gr_choose(gr);
+				if (gr != gr_screen.res) {
+					go_console_print(out, out_size, ", that height at the next start");
+				}
+			}
+		}
 		return;
 	}
 
