@@ -42,6 +42,8 @@ int gr_virtual_display_request(int *w, int *h);
 // The host window's client size in pixels. 0, 0 (the default) means no window: the virtual canvas is the base.
 // Re-settable at any time (a window resize); the next frame draws at the new size.
 void gr_virtual_set_window(int w, int h);
+// Claude: GodotOptions, the window size last set (0 x 0 before the first)
+void gr_virtual_get_window(int *w, int *h);
 
 // The virtual canvas size (the base size when not active), and the base screen's top-left corner in it.
 int gr_virtual_w();
