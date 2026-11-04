@@ -1611,10 +1611,10 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // position is output homogeneous (w = eye z), so the GPU clips at w > 0 and the fragment shader discards below the near plane (eye z 0.1) and interpolates the UVs
 // perspective-correct; colour and fog stay linear in screen space (the game's Gouraud), carried as value * z and divided by the interpolated z.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
+	const uint32_t skey = (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1628,6 +1628,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\nvarying float wv;\n";
 	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
+	if (crect) { code += "uniform vec4 crc;\n"; }	// the screen clip rect (x0, y0, x1, y1) in pixels
 	if (thr) { code += "uniform vec2 thr;\n"; }	// an engine thruster: z below thr.y is scaled by thr.x (model_interp_defpoints)
 	const bool fgpu = fog && g_nebfog == kNebFogGpu;
 	if (fog) {
@@ -1689,6 +1690,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb * e.z;\n}\n";
 	code += "void fragment() {\n";
 	code += "\tif (wv < 0.1) { discard; }\n";	// the near plane, eye z 0.1 (Tom's order; the GPU itself clips at w > 0, the host no longer clips)
+	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
 	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
 	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
@@ -1743,7 +1745,7 @@ void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, 
 }
 
 // A material for one group of one draw: the group's shader and texture, and the draw's colour table.
-RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog, bool thr)
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1762,7 +1764,7 @@ RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bo
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
 	// a glow overlay (FS2_SINK_DRAWF_OVERLAY, the ship glow pass) is unlit and a hair nearer than the lit group it covers, as the poly path's overlay draws
 	const bool ovl = (mg.g.flags & FS2_SINK_DRAWF_OVERLAY) != 0;
-	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl, thr));
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl, thr, crect));
 	rs->material_set_param(mat, "tex", tex);
 	rs->material_set_param(mat, "cols", cols);
 	rs->material_set_param(mat, "zbias", (float)mg.g.zbias + (ovl ? 1.0f : 0.0f));	// 0.05 depth units a step: the poly path's overlay shift
@@ -1849,9 +1851,11 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
 	auto md = s->mesh_data.find(id);
-	if (!s->in_frame || !s->in_run || xform == nullptr || md == s->mesh_data.end()) { return; }
+	if (!s->in_frame || !s->in_run || s->clip_empty || xform == nullptr || md == s->mesh_data.end()) { return; }
 	s->batcher.flush();
 	MeshDraw d;
+	d.crect = s->clipped;
+	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
 	d.id = id;
 	d.state = md->second.cur;
 	std::memcpy(d.xf, xform, sizeof(d.xf));
@@ -1906,9 +1910,11 @@ void GodotSink::s_mesh_draw_lit(void *u, int32_t id, const float *xform, const f
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
 	auto md = s->mesh_data.find(id);
-	if (!s->in_frame || !s->in_run || xform == nullptr || light == nullptr || md == s->mesh_data.end()) { return; }
+	if (!s->in_frame || !s->in_run || s->clip_empty || xform == nullptr || light == nullptr || md == s->mesh_data.end()) { return; }
 	s->batcher.flush();
 	MeshDraw d;
+	d.crect = s->clipped;
+	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
 	d.id = id;
 	d.state = md->second.cur;
 	std::memcpy(d.xf, xform, sizeof(d.xf));
@@ -1961,7 +1967,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	}
 	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
 		MeshGroup &mg = it->second.groups[gi];
-		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog, d.thr);
+		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog, d.thr, d.crect);
 		l.mesh_materials.push_back(mat);
 		const float gorigin = (states[gi].g.flags & FS2_SINK_DRAWF_OVERLAY) ? origin - 0.1f : origin;	// the overlay sorts after the lit group (back to front by origin)
 		RID inst;
@@ -1988,6 +1994,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		// canvas centre relative to the screen centre, y up
 		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
 		if (d.clip) { rs->material_set_param(mat, "clipp", Vector4(d.plane[0], d.plane[1], d.plane[2], d.plane[3])); }
+		if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
 		if (d.thr) { rs->material_set_param(mat, "thr", Vector2(d.thrv[0], d.thrv[1])); }
 		if (d.fog) {
 			rs->material_set_param(mat, "fogp", Vector4(d.fogv.fog_near, d.fogv.fog_far, batcher.fog_cell_x(), batcher.fog_cell_y()));
