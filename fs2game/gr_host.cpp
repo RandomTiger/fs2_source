@@ -1073,7 +1073,8 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	static const bool bb_off = getenv("FS2_BB_OFF") != nullptr;	// proof baseline: billboards stay on the CPU path
 	if (bb_off) { return 0; }
 	ensure_frame();
-	if (!drawing() || H.zmode == GR_ZBUFF_NONE) { H.bb_cpu++; H.bb_why[0]++; return 0; }
+	if (!drawing()) { H.bb_why[0]++; return 0; }	// as tmapper_internal: outside an open frame nothing is drawn on either path
+	const bool zbuffering = H.zmode != GR_ZBUFF_NONE;
 	// flags the sink does not model stay on the CPU path
 	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
 		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 0; }
@@ -1092,7 +1093,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	}
 	b.tint[0] = b.tint[1] = b.tint[2] = (uint8_t)tint; b.tint[3] = 255;
 	// scalers and filter-blended draws read depth only
-	b.flags = (kind == FS2_SINK_BB_BITMAP || filter) ? FS2_SINK_DRAWF_ZREAD : (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
+	b.flags = !zbuffering ? 0 : (kind == FS2_SINK_BB_BITMAP || filter) ? FS2_SINK_DRAWF_ZREAD : (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
 	b.zbias = H.zbias;
 	b.p0[0] = p0[0]; b.p0[1] = p0[1]; b.p0[2] = p0[2];
 	if (p1 != nullptr) { b.p1[0] = p1[0]; b.p1[1] = p1[1]; b.p1[2] = p1[2]; }
