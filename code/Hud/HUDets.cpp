@@ -143,6 +143,9 @@
 #include "Bmpman.h"
 #include "Emp.h"
 #include "Localize.h"
+// Claude: North shows the selected system (#151), PadGame.cpp and PadHud.cpp
+extern int pad_ets_highlight(int gauge);
+extern void pad_ets_recolor(int gauge, int bright);
 	
 #define ENERGY_DIVERT_DELTA				0.2f	// percentage of energy transferred in a shield->weapon or weapon->shield energy transfer
 #define INTIAL_SHIELD_RECHARGE_INDEX	4		// default shield charge rate (index in Energy_levels[])
@@ -505,7 +508,11 @@ void hud_show_ets()
 			continue;
 		}
 		Assert(Ets_gauge_info != NULL);
+		pad_ets_recolor(j, 1);		// Claude
 		gr_printf(Ets_gauge_info[i].letter_coords[0], Ets_gauge_info[i].letter_coords[1], NOX("%c"), Ets_gauge_info[j].letter); 
+		if (pad_ets_highlight(j)) {	// Claude: back for the next letter
+			hud_set_gauge_color(HUD_ETS_GAUGE);
+		}
 		i++;
 	}
 
@@ -536,6 +543,7 @@ void hud_show_ets()
 			// some portion of dark needs to be drawn
 
 			hud_set_gauge_color(HUD_ETS_GAUGE);
+			pad_ets_recolor(j, 0);		// Claude
 
 			// draw the top portion
 
@@ -564,6 +572,7 @@ void hud_show_ets()
 				hud_set_gauge_color(HUD_ETS_GAUGE, HUD_C_BRIGHT);
 				// hud_set_bright_color();
 			}
+			pad_ets_recolor(j, 1);		// Claude
 			// some portion of recharge needs to be drawn
 
 			// draw the top portion

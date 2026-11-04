@@ -40,6 +40,7 @@
 #include "cmdline.h"
 #include "MissionPause.h"
 #include "3d.h"
+#include "../Pad/PadMenuGame.h"
 #include "Medals.h"
 
 #ifdef _DEBUG
@@ -72,6 +73,7 @@
 // mission times (P7-6/P7-7 feature test): open it, pick a wing and an order, open it and cancel, open it
 // and let it time out. The presses are recorded with the recording and replayed from it, not made again.
 #define AUTOTEST_SQUAD_MENU_NOTE	"autotest: squad menu"
+#define AUTOTEST_PAD_MENU_NOTE		"autotest: pad menu"
 struct autotest_squad_key { float time; int key; };
 static autotest_squad_key Autotest_squad_keys[] = {
 	{ 10.0f, KEY_C }, { 11.5f, KEY_2 }, { 13.0f, KEY_1 }, { 14.5f, KEY_7 },	// open, Wings, first wing, an order
@@ -486,6 +488,7 @@ static void autotest_main_menu()
 
 		// a recording holds one mission
 		if (Replay_mode == REPLAY_RECORD) {
+			pad_menu_test_check_finished();
 			gameseq_post_event(GS_EVENT_QUIT_GAME);
 			return;
 		}
@@ -756,6 +759,7 @@ void autotest_cursor_pos(long *x, long *y)
 		*x = 0;
 		*y = 0;
 	}
+	pad_menu_test_cursor(x, y);
 }
 
 static void autotest_press(int key)
@@ -1564,6 +1568,13 @@ void autotest_drive_state(int state)
 		autotest_tour_frame(state);
 		return;
 	}
+	// the pad's menu test works the menus itself before its mission, and the two briefings on the way in; then the
+	// first frame in the main hall starts it, and the first frame after the script is done with a briefing moves on
+	if (pad_menu_test_front_end() || pad_menu_test_holds_briefing(state)) {
+		Autotest_state_ms = Autotest_frame_ms;
+		Autotest_state = -1;
+		return;
+	}
 	if (state == Autotest_state) {
 		// a menu the autotest drives has not moved on (an event was refused or flushed), so give up on
 		// this mission and go on to the next one
@@ -1716,13 +1727,35 @@ void autotest_check(int ok, char *what)
 	autotest_logf("Check %s at mission time %.2f: %s\n", ok ? "passed" : "FAILED", f2fl(Missiontime), what);
 }
 
+void autotest_set_padmenu()
+{
+	pad_menu_test_set();
+}
+
+// by the mission's notes and its state, so the same in the recording and in each replay
+int autotest_popups_by_hand()
+{
+	int state = gameseq_get_state();
+
+	return !Autotest_ending && ((state == GS_STATE_GAME_PLAY) || (state == GS_STATE_DEATH_DIED) || (state == GS_STATE_DEATH_BLEW_UP)) && autotest_mission_note(AUTOTEST_PAD_MENU_NOTE);
+}
+
 int autotest_popup(char *text)
 {
-	if (!Autotest_rules) {
+	if (!Autotest_rules || autotest_popups_by_hand()) {
 		return 0;
 	}
 	autotest_logf("Popup answered with its first choice: '%.100s'\n", text);
 	return 1;
+}
+
+// a popup that ends by itself, a loading bar: the pad's menu test needs what it loads, the screen's list
+int autotest_popup_loading(char *text)
+{
+	if (pad_menu_test_front_end()) {
+		return 0;
+	}
+	return autotest_popup(text);
 }
 
 // one Assert / Warning / Int3 can fire every frame, so each place is logged a few times and counted

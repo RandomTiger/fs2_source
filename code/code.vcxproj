@@ -228,6 +228,9 @@
     <ClCompile Include="Io\Timer.cpp" />
     <ClCompile Include="Pad\PadCore.cpp" />
     <ClCompile Include="Pad\PadGame.cpp" />
+    <ClCompile Include="Pad\PadMenu.cpp" />
+    <ClCompile Include="Pad\PadMenuGame.cpp" />
+    <ClCompile Include="Pad\PadMenuTest.cpp" />
     <ClCompile Include="Pad\PadHud.cpp" />
     <ClCompile Include="Pad\PadXInput.cpp" />
     <ClCompile Include="JumpNode\JumpNode.cpp" />
@@ -510,6 +513,8 @@
     <ClInclude Include="Io\Timer.h" />
     <ClInclude Include="Pad\PadCore.h" />
     <ClInclude Include="Pad\PadGame.h" />
+    <ClInclude Include="Pad\PadMenu.h" />
+    <ClInclude Include="Pad\PadMenuGame.h" />
     <ClInclude Include="Pad\PadState.h" />
     <ClInclude Include="Pad\PadXInput.h" />
     <ClInclude Include="JumpNode\JumpNode.h" />

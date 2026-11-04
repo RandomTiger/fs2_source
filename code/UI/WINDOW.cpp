@@ -298,10 +298,46 @@ void UI_WINDOW::release_bitmaps()
 	}
 }
 
+// Claude: control pad on the menus, see PadMenuGame.h
+extern void pad_menu_note_window(UI_WINDOW *w);
+extern void pad_menu_forget_window(UI_WINDOW *w);
+extern int pad_menu_test_find_pixel(const unsigned char *mask, int w, int h, int value, int *x, int *y);
+
+// Claude: 1 if the cursor is over a gadget that would take a click
+int UI_WINDOW::mouse_over_gadget()
+{
+	UI_GADGET *tmp;
+
+	if (!first_gadget || ignore_gadgets) {
+		return 0;
+	}
+	tmp = first_gadget;
+	do {
+		if (!tmp->hidden && !tmp->disabled_flag && tmp->is_mouse_on()) {
+			return 1;
+		}
+		tmp = tmp->next;
+	} while (tmp != first_gadget);
+	return 0;
+}
+
+// Claude: for the pad's test, a screen position on a gadget
+int UI_WINDOW::gadget_target(UI_GADGET *g, int *px, int *py)
+{
+	if (g->linked_to_hotspot) {
+		return pad_menu_test_find_pixel((const unsigned char *) mask_data, mask_w, mask_h, g->hotspot_num, px, py);
+	}
+	*px = g->x + g->w / 2;
+	*py = g->y + g->h / 2;
+	return 1;
+}
+
 void UI_WINDOW::destroy()
 {
 	UI_GADGET *cur;
 	int idx;
+
+	pad_menu_forget_window(this);	// Claude: control pad
 
 	// free up any bitmaps
 	release_bitmaps();
@@ -512,6 +548,8 @@ void UI_WINDOW::render_tooltip(char *str)
 int UI_WINDOW::process(int key_in,int process_mouse)
 {
 	UI_GADGET *tmp;
+
+	pad_menu_note_window(this);	// Claude: control pad
 
 	// only does stuff in non THREADED mode
 	os_poll();

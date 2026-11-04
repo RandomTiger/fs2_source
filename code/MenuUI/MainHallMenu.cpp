@@ -2227,3 +2227,10 @@ void d3d_test()
 	g3_end_frame();
 	*/
 }
+// Claude: for the pad's test
+extern int pad_menu_test_find_pixel(const unsigned char *mask, int w, int h, int value, int *x, int *y);
+
+int main_hall_test_region_xy(int region, int *x, int *y)
+{
+	return pad_menu_test_find_pixel(Main_hall_mask_data, Main_hall_mask_w, Main_hall_mask_h, region, x, y);
+}
