@@ -21,6 +21,7 @@ function New-Mission([string]$File, [string]$Title, [string]$Notes) {
 		PlayerClass = 'GTF Ulysses'
 		Variables = New-Object Collections.ArrayList
 		JumpNodes = New-Object Collections.ArrayList
+		BriefStages = 0		# text-only stages, on the command briefing and the tactical briefing
 	}
 }
 
@@ -107,7 +108,16 @@ function Save-Mission($m) {
 	}
 
 	W '#Command Briefing'; W
-	W '#Briefing'; W '$start_briefing'; W '$num_stages: 0'; W '$end_briefing'; W
+	for ($i = 1; $i -le $m.BriefStages; $i++) {
+		W '$Stage Text:'; W "Command briefing stage $i."; W '$end_multi_text'; W '$Ani Filename: <default>'; W '+Wave Filename: none'; W
+	}
+	W '#Briefing'; W '$start_briefing'; W "`$num_stages: $($m.BriefStages)"
+	for ($i = 1; $i -le $m.BriefStages; $i++) {
+		W '$start_stage'; W '$multi_text'; W "Tactical briefing stage $i."; W '$end_multi_text'; W '$voice: none'
+		W '$camera_pos:'; W (Format-Vec @(0, 0, -500)); W '$camera_orient:'; W (Format-Orient ''); W '$camera_time: 500'
+		W '$num_lines: 0'; W '$num_icons: 0'; W '$end_stage'
+	}
+	W '$end_briefing'; W
 	W '#Debriefing_info'; W; W '$Num stages: 0'; W
 
 	W '#Players		;! 1 total'; W

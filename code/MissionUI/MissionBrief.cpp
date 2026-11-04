@@ -627,6 +627,12 @@ void brief_skip_training_pressed()
 #ifdef FS2_DEMO
 	extern void demo_reset_trailer_timer();
 #endif
+// Claude: for the pad's test
+int brief_test_stage()
+{
+	return Current_brief_stage;
+}
+
 // --------------------------------------------------------------------------------------
 //	brief_do_next_pressed()
 //

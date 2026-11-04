@@ -1260,8 +1260,9 @@ void autotest_drive_state(int state)
 		autotest_tour_frame(state);
 		return;
 	}
-	// the pad's menu test works the menus itself before its mission; then the first frame in the main hall starts it
-	if (pad_menu_test_front_end()) {
+	// the pad's menu test works the menus itself before its mission, and the two briefings on the way in; then the
+	// first frame in the main hall starts it, and the first frame after the script is done with a briefing moves on
+	if (pad_menu_test_front_end() || pad_menu_test_holds_briefing(state)) {
 		Autotest_state_ms = Autotest_frame_ms;
 		Autotest_state = -1;
 		return;

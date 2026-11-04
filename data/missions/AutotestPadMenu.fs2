@@ -11,7 +11,7 @@ autotest: pad menu
 autotest: mission controls vulnerability
 autotest: player stays still
 Autotest test of the pad on the menus (#147): a script in PadMenuTest.cpp feeds a fake pad below the menu layer, on the
-main hall, tech room and sim room before the mission, then in flight, on pause, on the end-mission popup and on the
+main hall, tech room, sim room and both briefings before the mission, then in flight, on pause, on the end-mission popup and on the
 death popup. The player blows up partway, which brings the death popup. Popups here wait for the pad.
 Run with -at_time 90 -at_padmenu
 $End Notes:
@@ -47,9 +47,72 @@ $Next Mission Failure: Blah
 
 #Command Briefing
 
+$Stage Text:
+Command briefing stage 1.
+$end_multi_text
+$Ani Filename: <default>
++Wave Filename: none
+
+$Stage Text:
+Command briefing stage 2.
+$end_multi_text
+$Ani Filename: <default>
++Wave Filename: none
+
+$Stage Text:
+Command briefing stage 3.
+$end_multi_text
+$Ani Filename: <default>
++Wave Filename: none
+
 #Briefing
 $start_briefing
-$num_stages: 0
+$num_stages: 3
+$start_stage
+$multi_text
+Tactical briefing stage 1.
+$end_multi_text
+$voice: none
+$camera_pos:
+0.000000, 0.000000, -500.000000
+$camera_orient:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$camera_time: 500
+$num_lines: 0
+$num_icons: 0
+$end_stage
+$start_stage
+$multi_text
+Tactical briefing stage 2.
+$end_multi_text
+$voice: none
+$camera_pos:
+0.000000, 0.000000, -500.000000
+$camera_orient:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$camera_time: 500
+$num_lines: 0
+$num_icons: 0
+$end_stage
+$start_stage
+$multi_text
+Tactical briefing stage 3.
+$end_multi_text
+$voice: none
+$camera_pos:
+0.000000, 0.000000, -500.000000
+$camera_orient:
+	1.000000, 0.000000, 0.000000,
+	0.000000, 1.000000, 0.000000,
+	0.000000, 0.000000, 1.000000
+$camera_time: 500
+$num_lines: 0
+$num_icons: 0
+$end_stage
 $end_briefing
 
 #Debriefing_info

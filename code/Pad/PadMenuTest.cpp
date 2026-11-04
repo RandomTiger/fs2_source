@@ -31,12 +31,17 @@ int sim_room_test_missions_tab_xy(int *x, int *y);
 int techroom_test_cur_entry();
 int techroom_test_sim_tab_xy(int *x, int *y);
 int main_hall_test_region_xy(int region, int *x, int *y);
+int cmd_brief_test_stage();
+int brief_test_stage();
 
 #define TEST_TIMEOUT		20000		// polls
 #define TEST_HOLD			6			// polls a tap stays down, and up
 
 static int Test_set = 0;			// -at_padmenu
 static int Test_front_done = 0;
+static int Test_cmd_brief_done = 0;
+static int Test_brief_done = 0;
+static int Test_auto_advance = 0;	// the pilot's auto-advance, off while the script counts stages
 static int Test_done = 0;
 static float Test_last_press = -1.0f;	// mission time of the press that should close the death popup
 static int Test_line = 0;
@@ -63,6 +68,14 @@ int pad_menu_test_on()
 int pad_menu_test_front_end()
 {
 	return pad_menu_test_on() && !Test_front_done;
+}
+
+int pad_menu_test_holds_briefing(int state)
+{
+	if (!pad_menu_test_on()) {
+		return 0;
+	}
+	return ((state == GS_STATE_CMD_BRIEF) && !Test_cmd_brief_done) || ((state == GS_STATE_BRIEFING) && !Test_brief_done);
 }
 
 void pad_menu_test_state(pad_state *st)
@@ -173,6 +186,8 @@ static void test_fail(char *what)
 	test_check(0, what);
 	test_release_all();
 	Test_front_done = 1;
+	Test_cmd_brief_done = 1;
+	Test_brief_done = 1;
 	Test_done = 1;
 }
 
@@ -263,12 +278,55 @@ void pad_menu_test_frame()
 		WAIT(STATE == GS_STATE_MAIN_MENU);
 		POLLS(10);
 
+		TAP(PAD_SOUTH);
+		test_check(STATE == GS_STATE_MAIN_MENU, "main hall: South on nothing stays in the main hall");
+		Test_front_done = 1;
+
+		// the command briefing, three stages: left and right, from the D-pad and the shoulders, move one stage
+		// and stop at each end. Auto-advance would move them too, so it is off until the script has counted.
+		WAIT(STATE == GS_STATE_CMD_BRIEF);
+		POLLS(10);
+		Test_auto_advance = Player->auto_advance;
+		Player->auto_advance = 0;
+		test_check(cmd_brief_test_stage() == 0, "command briefing: opens on stage 1");
+		TAP(PAD_DPAD_RIGHT);
+		test_check(cmd_brief_test_stage() == 1, "command briefing: D-pad right moves to stage 2");
+		TAP(PAD_RSHOULDER);
+		test_check(cmd_brief_test_stage() == 2, "command briefing: RB moves to stage 3");
+		TAP(PAD_DPAD_RIGHT);
+		test_check(cmd_brief_test_stage() == 2, "command briefing: D-pad right stops at the last stage");
+		TAP(PAD_LSHOULDER);
+		test_check(cmd_brief_test_stage() == 1, "command briefing: LB moves back to stage 2");
+		TAP(PAD_DPAD_LEFT);
+		test_check(cmd_brief_test_stage() == 0, "command briefing: D-pad left moves back to stage 1");
+		TAP(PAD_LSHOULDER);
+		test_check(cmd_brief_test_stage() == 0, "command briefing: LB stops at the first stage");
+		Test_cmd_brief_done = 1;
+
+		// the tactical briefing, the same
+		WAIT(STATE == GS_STATE_BRIEFING);
+		POLLS(10);
+		test_check(brief_test_stage() == 0, "tactical briefing: opens on stage 1");
+		TAP(PAD_DPAD_RIGHT);
+		test_check(brief_test_stage() == 1, "tactical briefing: D-pad right moves to stage 2");
+		TAP(PAD_RSHOULDER);
+		test_check(brief_test_stage() == 2, "tactical briefing: RB moves to stage 3");
+		TAP(PAD_DPAD_RIGHT);
+		test_check(brief_test_stage() == 2, "tactical briefing: D-pad right stops at the last stage");
+		TAP(PAD_LSHOULDER);
+		test_check(brief_test_stage() == 1, "tactical briefing: LB moves back to stage 2");
+		TAP(PAD_DPAD_LEFT);
+		test_check(brief_test_stage() == 0, "tactical briefing: D-pad left moves back to stage 1");
+		TAP(PAD_LSHOULDER);
+		test_check(brief_test_stage() == 0, "tactical briefing: LB stops at the first stage");
+
 		// South and RB go down on a menu and are held into the mission
 		Test_pad.button[PAD_SOUTH] = 1;
 		Test_pad.button[PAD_RSHOULDER] = 1;
 		POLLS(5);
-		test_check(STATE == GS_STATE_MAIN_MENU, "main hall: South on nothing stays in the main hall");
-		Test_front_done = 1;
+		test_check(STATE == GS_STATE_BRIEFING, "tactical briefing: South on nothing stays in the briefing");
+		Player->auto_advance = Test_auto_advance;
+		Test_brief_done = 1;
 
 		WAIT(STATE == GS_STATE_GAME_PLAY);
 		POLLS(3);

@@ -7,11 +7,12 @@ autotest: pad menu
 autotest: mission controls vulnerability
 autotest: player stays still
 Autotest test of the pad on the menus (#147): a script in PadMenuTest.cpp feeds a fake pad below the menu layer, on the
-main hall, tech room and sim room before the mission, then in flight, on pause, on the end-mission popup and on the
+main hall, tech room, sim room and both briefings before the mission, then in flight, on pause, on the end-mission popup and on the
 death popup. The player blows up partway, which brings the death popup. Popups here wait for the pad.
 Run with -at_time 90 -at_padmenu
 '@
 
+$m.BriefStages = 3	# so left and right have stages to move through
 Add-Player $m
 
 Add-Event $m @{ Name = 'Vulnerable'; Formula = "( when`n   ( true )`n   ( ship-vulnerable `"Alpha 1`" )`n)" }

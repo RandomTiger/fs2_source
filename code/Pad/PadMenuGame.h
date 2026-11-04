@@ -32,6 +32,7 @@ int	pad_menu_events();					// key and mouse events the layer has sent
 void	pad_menu_test_set();
 int	pad_menu_test_on();
 int	pad_menu_test_front_end();					// 1 while autotest must leave the main hall alone
+int	pad_menu_test_holds_briefing(int state);	// 1 while autotest must leave this briefing screen alone
 void	pad_menu_test_frame();						// once per pad_menu_poll, before the pad is read
 void	pad_menu_test_state(pad_state *st);
 void	pad_menu_test_move_cursor(int x, int y);
