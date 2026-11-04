@@ -4,6 +4,7 @@
 
 #include <deque>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <godot_cpp/classes/display_server.hpp>
@@ -15,10 +16,12 @@
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/popup_menu.hpp>
 #include <godot_cpp/classes/style_box_flat.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #ifdef _WIN32
 extern "C" __declspec(dllimport) int __stdcall ShowCursor(int show);	// user32; windows.h clashes with godot-cpp's names
@@ -113,15 +116,80 @@ unsigned int key_code(int k, int location)
 	return 0;
 }
 
+// Typed text (a character with no key of its own: Steam's keyboard, an IME, a pasted string) to the game key that types it on
+// the game's US table (Key.cpp ascii_table / shifted_ascii_table), and whether shift is needed. 0 for a character the game's
+// keys cannot type; it is dropped.
+static const char Shift_digit_chars[] = ")!@#$%^&*(";	// shifted 0..9
+struct CharKey { char c; unsigned char code; bool shift; };
+static const CharKey Symbol_keys[] = {
+	{ ' ', K_SPACE, false }, { '-', K_MINUS, false }, { '=', K_EQUAL, false }, { '[', K_LBRACKET, false }, { ']', K_RBRACKET, false },
+	{ '\\', K_BACKSLASH, false }, { ';', K_SEMICOL, false }, { '\'', K_APOSTROPHE, false }, { '`', K_GRAVE, false },
+	{ ',', K_COMMA, false }, { '.', K_PERIOD, false }, { '/', K_SLASH, false },
+	{ '_', K_MINUS, true }, { '+', K_EQUAL, true }, { '{', K_LBRACKET, true }, { '}', K_RBRACKET, true }, { '|', K_BACKSLASH, true },
+	{ ':', K_SEMICOL, true }, { '"', K_APOSTROPHE, true }, { '~', K_GRAVE, true }, { '<', K_COMMA, true }, { '>', K_PERIOD, true },
+	{ '?', K_SLASH, true },
+};
+
+unsigned int text_key(unsigned int c, bool *shift)
+{
+	*shift = false;
+	if (c >= 'a' && c <= 'z') {
+		return Letter_codes[c - 'a'];
+	}
+	if (c >= 'A' && c <= 'Z') {
+		*shift = true;
+		return Letter_codes[c - 'A'];
+	}
+	if (c >= '0' && c <= '9') {
+		return Digit_codes[c - '0'];
+	}
+	for (int i = 0; i < 10; i++) {
+		if (c == (unsigned char)Shift_digit_chars[i]) {
+			*shift = true;
+			return Digit_codes[i];
+		}
+	}
+	for (size_t i = 0; i < sizeof(Symbol_keys) / sizeof(Symbol_keys[0]); i++) {
+		if (c == (unsigned char)Symbol_keys[i].c) {
+			*shift = Symbol_keys[i].shift;
+			return Symbol_keys[i].code;
+		}
+	}
+	switch (c) {
+	case 8:		return K_BACKSP;
+	case 9:		return K_TAB;
+	case 10:
+	case 13:	return K_ENTER;
+	case 27:	return K_ESC;
+	}
+	return 0;
+}
+
+// a key that types a character, whose press may come as a key event and a separate text event
+static bool types_text(unsigned int code)
+{
+	if (code == K_ESC || code == K_BACKSP || code == K_TAB || code == K_ENTER) {
+		return true;
+	}
+	bool shift;
+	for (unsigned int c = 32; c < 127; c++) {
+		if (text_key(c, &shift) == code) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // ---- the queue ----
-enum EventType { EV_KEY, EV_MOUSE_BUTTON, EV_MOUSE_MOVE, EV_FOCUS, EV_CLOSE };
+enum EventType { EV_KEY, EV_MOUSE_BUTTON, EV_MOUSE_MOVE, EV_FOCUS, EV_CLOSE, EV_TEXT };
 
 struct Event {
 	EventType	type;
 	unsigned int	a;		// key code | FS2_MOUSE_* bit
-	int		b;		// state | set | got
+	int		b;		// state | set | got | EV_TEXT: shift needed
 	float		nx, ny;		// EV_MOUSE_MOVE: the position as a fraction of the window
 	uint64_t	at_ms;		// when it was queued, for the key latency
+	int		device;		// EV_MOUSE_BUTTON: Godot's device id, for the tap log
 };
 
 static const size_t Queue_cap = 4096;	// nothing drains it before the game runs; the oldest go
@@ -134,16 +202,142 @@ static float View_w = 1.0f, View_h = 1.0f;	// the Godot viewport the last mouse 
 static int Map_last[8];			// GodotOptions: the mapping the mouse was last mapped with (remap_mouse_on_change)
 static bool Map_last_set = false;
 
+// Typed text. The game buffers 16 key presses and a text screen takes one a frame, so a burst of text (a whole name from
+// Steam's keyboard in one Godot frame) would overflow it: the host hands the game one character per press it buffers, then
+// waits that many game frames (or, if the game is not stepping frames, 40 ms each) before the next.
+static unsigned int Companion_key = 0;	// a character key went down with no text: drop the one text event that follows it
+static bool Game_shift = false;		// shift as the game was last told
+static uint64_t Text_frames = 0;	// game frames since the last character
+static uint64_t Text_at_ms = 0;		// when the last character went
+static int Text_cost = 0;		// presses the last character put in the game's buffer
+static bool Text_down[256];		// keys a text event's keycode alone pressed, so only their releases go
+
+// Mouse buttons. The game's UI buttons (message boxes, most screens) act on a button seen down in one frame and up in a later
+// one, so a click that goes down and up between two game frames (a touchscreen tap, a trackpad press) would do nothing: a
+// button's release waits until the game has run a frame with it down (or, if the game is not stepping frames, 40 ms).
+static unsigned int Btn_down = 0;	// buttons the game was told are down
+static uint64_t Btn_frames = 0;		// game frames since a button last went down
+static uint64_t Btn_at_ms = 0;		// when it went down
+
+// Tap log (#146, diagnosis of lost touchscreen taps; measurement only, nothing the game sees). FS2_TAP_LOG=1 in the environment appends
+// one line per mouse button press and release to fs2_tap_log.txt in the game folder, flushed each line, written when the host hands
+// the event to the game. Any other value, or none: no file, and every tap_* call below is skipped. docs/STEAM_CHECK.txt says how to read it.
+static const int Tap_recent = 6;
+static const uint64_t Tap_stall_ms = 500;
+static FILE *Tap_log = NULL;
+static uint64_t Tap_frame_usec[Tap_recent];	// the last game frames, tick to tick (several can run in one Godot frame)
+static int Tap_frame_n = 0;			// frames stored in all
+static uint64_t Tap_tick_usec = 0;		// when the last game frame started
+static uint64_t Tap_longest_usec = 0;		// longest frame since a button last went down
+static void game_screen(int *w, int *h);
+
 static bool is_headless_display()
 {
 	DisplayServer *ds = DisplayServer::get_singleton();
 	return (ds == NULL) || (ds->get_name() == String("headless"));
 }
 
+// The local wall clock, to the millisecond
+static void tap_when(char *out, size_t size)
+{
+	Time *t = Time::get_singleton();
+	const double unix_time = t->get_unix_time_from_system();
+	const int64_t secs = (int64_t)unix_time;
+	const int bias_min = (int)t->get_time_zone_from_system()["bias"];
+	CharString when = t->get_datetime_string_from_unix_time(secs + bias_min * 60, true).utf8();
+	snprintf(out, size, "%s.%03d", when.get_data(), (int)((unix_time - (double)secs) * 1000.0));
+}
+
+static void tap_open()
+{
+	if (Tap_log != NULL || OS::get_singleton()->get_environment("FS2_TAP_LOG") != "1") {
+		return;
+	}
+	String root = OS::get_singleton()->get_environment("FS2_ROOT");
+	String path = root.is_empty() ? String("fs2_tap_log.txt") : root.trim_suffix("\\") + "\\fs2_tap_log.txt";
+	Tap_log = _wfopen((const wchar_t *)path.wide_string().get_data(), L"a");
+	if (Tap_log == NULL) {
+		UtilityFunctions::printerr("tap log: cannot open ", path);
+		return;
+	}
+	UtilityFunctions::print("tap log: ", path);
+	char when[64];
+	tap_when(when, sizeof(when));
+	DisplayServer *ds = DisplayServer::get_singleton();
+	const Vector2i win = (ds != NULL) ? ds->window_get_size(0) : Vector2i();
+	CharString display = (ds != NULL) ? ds->get_name().utf8() : String("none").utf8();
+	fprintf(Tap_log, "# %s session start, display=%s window=%dx%d emulate_mouse_from_touch=%d\n", when, display.get_data(), win.x, win.y, Input::get_singleton()->is_emulating_mouse_from_touch() ? 1 : 0);
+	fflush(Tap_log);
+}
+
+static void tap_frame()
+{
+	const uint64_t now = Time::get_singleton()->get_ticks_usec();
+	if (Tap_tick_usec != 0) {
+		const uint64_t dt = now - Tap_tick_usec;
+		Tap_frame_usec[Tap_frame_n % Tap_recent] = dt;
+		Tap_frame_n++;
+		if (dt > Tap_longest_usec) {
+			Tap_longest_usec = dt;
+		}
+	}
+	Tap_tick_usec = now;
+}
+
+// One button event, just before the game is told. Reads the button state as it stood before this event.
+static void tap_button(const Event &e, uint64_t now_ms, unsigned int waited_ms)
+{
+	const bool press = (e.b != 0);
+	const bool was_down = (Btn_down & e.a) != 0;
+	// this release passed the wait in h_poll_events only by its time limit: no game frame has started since the press
+	const bool fallback = !press && was_down && Btn_frames < 1;
+	const uint64_t now_usec = Time::get_singleton()->get_ticks_usec();
+	const uint64_t running = (Tap_tick_usec != 0) ? now_usec - Tap_tick_usec : 0;	// the frame in progress counts too: it may be the slow one
+	if (running > Tap_longest_usec) {
+		Tap_longest_usec = running;
+	}
+	char when[64], frames[32] = "-", held[32] = "-", longest[32] = "-", recent[128] = "";
+	tap_when(when, sizeof(when));
+	if (!press && was_down) {
+		snprintf(frames, sizeof(frames), "%llu", (unsigned long long)Btn_frames);
+		snprintf(held, sizeof(held), "%llu", (unsigned long long)(now_ms - Btn_at_ms));
+		snprintf(longest, sizeof(longest), "%.1f", Tap_longest_usec / 1000.0);
+	}
+	// oldest first
+	const int count = Tap_frame_n < Tap_recent ? Tap_frame_n : Tap_recent;
+	for (int i = 0; i < count; i++) {
+		char one[24];
+		snprintf(one, sizeof(one), "%s%.1f", i ? "," : "", Tap_frame_usec[(Tap_frame_n - count + i) % Tap_recent] / 1000.0);
+		strncat(recent, one, sizeof(recent) - strlen(recent) - 1);
+	}
+	int gw, gh;
+	game_screen(&gw, &gh);
+	fprintf(Tap_log, "%s ms=%llu %s src=%s dev=%d btn=%s screen=%.1f,%.1f view=%.0fx%.0f game=%d,%d game_screen=%dx%d frames=%s held_ms=%s longest_ms=%s recent_ms=%s fallback=%s waited_ms=%u queue=%llu\n",
+		when, (unsigned long long)now_ms, press ? "press" : "release", (e.device == InputEvent::DEVICE_ID_EMULATION) ? "touch" : "mouse", e.device,
+		e.a == FS2_MOUSE_LEFT ? "left" : (e.a == FS2_MOUSE_RIGHT ? "right" : "middle"),
+		e.nx * View_w, e.ny * View_h, View_w, View_h, Mouse_x, Mouse_y, gw, gh, frames, held, longest, count ? recent : "-",
+		press ? "-" : (fallback ? "yes" : "no"), waited_ms, (unsigned long long)Queue.size());
+	fflush(Tap_log);
+	if (press) {
+		Tap_longest_usec = 0;
+	}
+}
+
+// A button event came in while older events have been left waiting: the game is not polling, and this tap's own line cannot be written until it does
+static void tap_stall(const Event &e)
+{
+	char when[64];
+	tap_when(when, sizeof(when));
+	fprintf(Tap_log, "%s ms=%llu stall %s dev=%d oldest_waiting_ms=%llu queue=%llu\n", when, (unsigned long long)e.at_ms, e.b ? "press" : "release", e.device,
+		(unsigned long long)(e.at_ms - Queue.front().at_ms), (unsigned long long)Queue.size());
+	fflush(Tap_log);
+}
+
 void attach(Fs2Api *api)
 {
 	Api = api;
 	reset();
+	tap_open();
 }
 
 void reset()
@@ -151,6 +345,18 @@ void reset()
 	Queue.clear();
 	Mouse_x = Mouse_y = 0;
 	Map_last_set = false;
+	Companion_key = 0;
+	Game_shift = false;
+	Text_frames = 0;
+	Text_at_ms = 0;
+	Text_cost = 0;
+	memset(Text_down, 0, sizeof(Text_down));
+	Btn_down = 0;
+	Btn_frames = 0;
+	Btn_at_ms = 0;
+	Tap_frame_n = 0;
+	Tap_tick_usec = 0;
+	Tap_longest_usec = 0;
 	// a headless Godot has no window to be in front, and the game must see itself in front as it did with the headless hooks
 	Foreground = true;
 	if (!is_headless_display()) {
@@ -180,17 +386,53 @@ void push_input(const Ref<InputEvent> &ev, float vw, float vh)
 
 	InputEventKey *key = Object::cast_to<InputEventKey>(ev.ptr());
 	if (key != NULL) {
-		int k = (int)key->get_physical_keycode();
-		if (k == 0) {
-			k = (int)key->get_keycode();
+		const int phys = (int)key->get_physical_keycode();
+		const unsigned int uc = (unsigned int)key->get_unicode();
+		const bool pressed = key->is_pressed();
+		if (phys == 0 && uc != 0) {
+			// text with no key of its own (Steam's keyboard, an IME): the game key that types it, as one press
+			if (!pressed) {
+				return;
+			}
+			if (Companion_key != 0) {	// the text half of a key press already sent as a key
+				Companion_key = 0;
+				return;
+			}
+			bool shift;
+			unsigned int tc = text_key(uc, &shift);
+			if (tc == 0) {
+				return;
+			}
+			e.type = EV_TEXT;
+			e.a = tc;
+			e.b = shift ? 1 : 0;
+			queue(e);
+			return;
 		}
+		const int k = (phys != 0) ? phys : (int)key->get_keycode();
 		unsigned int code = key_code(k, (int)key->get_location());
 		if (code == 0) {
 			return;
 		}
+		if (phys == 0) {	// a keycode alone: its release goes only if its press did
+			if (pressed) {
+				Text_down[code & 0xFF] = true;
+			} else if (!Text_down[code & 0xFF]) {
+				return;
+			} else {
+				Text_down[code & 0xFF] = false;
+			}
+		}
+		// Godot sends a key and its character as one event; if the key comes without its character, the character may follow
+		// as a text event of its own, which must not type it again
+		if (pressed && uc == 0 && types_text(code)) {
+			Companion_key = code;
+		} else if (!pressed && code == Companion_key) {
+			Companion_key = 0;
+		}
 		e.type = EV_KEY;
 		e.a = code;
-		e.b = key->is_pressed() ? 1 : 0;	// an auto-repeat is a key down again, as Windows sends it
+		e.b = pressed ? 1 : 0;	// an auto-repeat is a key down again, as Windows sends it
 		queue(e);
 		return;
 	}
@@ -211,6 +453,10 @@ void push_input(const Ref<InputEvent> &ev, float vw, float vh)
 		e.type = EV_MOUSE_BUTTON;
 		e.a = bit;
 		e.b = mb->is_pressed() ? 1 : 0;
+		e.device = mb->get_device();
+		if (Tap_log != NULL && !Queue.empty() && e.at_ms >= Queue.front().at_ms + Tap_stall_ms) {
+			tap_stall(e);
+		}
 		queue(e);
 		return;
 	}
@@ -220,6 +466,19 @@ void push_input(const Ref<InputEvent> &ev, float vw, float vh)
 		e.nx = mm->get_position().x / View_w;
 		e.ny = mm->get_position().y / View_h;
 		queue(e);
+	}
+}
+
+void frame_tick()
+{
+	if (Text_frames < 1000000) {
+		Text_frames++;
+	}
+	if (Btn_frames < 1000000) {
+		Btn_frames++;
+	}
+	if (Tap_log != NULL) {
+		tap_frame();
 	}
 }
 
@@ -546,16 +805,52 @@ static void h_poll_events(void)
 	remap_mouse_on_change(gw, gh, cw, ch, cx, cy);
 	while (!Queue.empty()) {
 		Event e = Queue.front();
+		if (e.type == EV_TEXT && Text_cost > 0 && Text_frames < (uint64_t)Text_cost && now < Text_at_ms + 40u * (uint64_t)Text_cost) {
+			break;	// the game has not yet taken the last character; the rest waits behind it, in order
+		}
+		if (e.type == EV_MOUSE_BUTTON && e.b == 0 && (Btn_down & e.a) && Btn_frames < 1 && now < Btn_at_ms + 40u) {
+			break;	// the game has not yet run a frame with the button down; the release and the rest wait, in order
+		}
 		Queue.pop_front();
 		Consumed_count++;
 		Consumed_usec = (long long)Time::get_singleton()->get_ticks_usec();
+		unsigned int latency = (now > e.at_ms) ? (unsigned int)(now - e.at_ms) : 0;
 		switch (e.type) {
-		case EV_KEY: {
-			unsigned int latency = (now > e.at_ms) ? (unsigned int)(now - e.at_ms) : 0;
+		case EV_KEY:
+			if (e.a == K_LSHIFT) {
+				Game_shift = (e.b != 0);
+			}
 			Api->input_key(e.a, e.b, latency);
+			break;
+		case EV_TEXT: {
+			// shift as the character needs it for its one press, then back as it was (a held shift key stays held)
+			const bool want = (e.b != 0);
+			const bool flip = (want != Game_shift);
+			if (flip) {
+				Api->input_key(K_LSHIFT, want ? 1 : 0, latency);
+			}
+			Api->input_key(e.a, 1, latency);
+			Api->input_key(e.a, 0, latency);
+			if (flip) {
+				Api->input_key(K_LSHIFT, Game_shift ? 1 : 0, latency);
+			}
+			// the presses the game buffered: the key, and a shift going down (before it, or after it when a held shift is restored)
+			Text_cost = flip ? 2 : 1;
+			Text_frames = 0;
+			Text_at_ms = now;
 			break;
 		}
 		case EV_MOUSE_BUTTON:
+			if (Tap_log != NULL) {
+				tap_button(e, now, latency);
+			}
+			if (e.b != 0) {
+				Btn_down |= e.a;
+				Btn_frames = 0;
+				Btn_at_ms = now;
+			} else {
+				Btn_down &= ~e.a;
+			}
 			Api->input_mouse_button(e.a, e.b);
 			break;
 		case EV_MOUSE_MOVE:

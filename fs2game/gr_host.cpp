@@ -582,6 +582,12 @@ void send_view()
 void h_flip()
 {
 	ensure_frame();
+	// the cursor, last, as gr_d3d_flip draws it: at the position gr_flip_frame read, the cursor bitmap (no debug arrow)
+	if (drawing() && mouse_is_visible() && (Gr_cursor != -1)) {
+		gr_reset_clip();
+		gr_set_bitmap(Gr_cursor);
+		gr_bitmap(Gr_flip_mouse_x, Gr_flip_mouse_y);
+	}
 	depth_run_end();
 	// The game's own cursor, drawn last like gr_d3d_flip does (the OS cursor is hidden); gr_flip_frame read the position
 	if (mouse_is_visible() && Gr_cursor != -1) {

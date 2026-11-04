@@ -19,6 +19,10 @@
 #   FS2_VSYNC  optional: 0 off, 1 on (default: the project setting); FS2_MAXFPS caps Godot's frame rate
 #   FS2_INJECT  optional: 1 feeds synthetic keyboard and mouse events into Godot's input once the game has run a while (G4 proof that live
 #               input reaches the game; use with -record, then count the key and mouse entries in <rec>.record.log)
+#   FS2_TEXT_INJECT  optional: 1 types pilot names on the pilot screen as Godot text events (a character and no physical key, as
+#               Steam's keyboard sends them) and as a physical keyboard, then quits with Escape (tools\godot_text_check.ps1 checks the pilots)
+#   FS2_TOUCH_INJECT  optional: 1 taps the pilot screen's Create button as a touchscreen does, at its place in the game's picture
+#               (letterboxed in a window of another shape), names the pilot and quits (tools\godot_touch_check.ps1 checks the pilot)
 extends Node
 
 var game
@@ -64,6 +68,8 @@ func _ready() -> void:
 		var scr: Node = ClassDB.instantiate("Fs2Screen")
 		add_child(scr)
 		game.set_screen(scr)
+		# the game draws its own cursor (h_flip), as it did over its D3D window; the OS cursor would be a second one
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	smoke = OS.get_environment("FS2_SMOKE") == "1"
 	inject = OS.get_environment("FS2_INJECT") == "1"
 	if smoke or inject:
@@ -188,6 +194,110 @@ func _inject_tick() -> void:
 	print("inject: step ", inject_step, " at game frame ", game.get_frame_count())
 	inject_step += 1
 
+# ---- typed text on the pilot screen (FS2_TEXT_INJECT=1) ----
+# [game frames to wait first, kind, value]. text: each character as a text event (no physical key; keycode 0 or KEY_UNKNOWN in
+# turn), all in one Godot frame; ctl: a control character as a text event; keycode: a key with a keycode and no physical key;
+# key: a physical key; keys: typed on a physical keyboard, one key a Godot frame, shift held for capitals, the 'y' sent as a key
+# without its character followed by the character as its own text event (the double-delivery case). The known answers are in
+# tools\godot_text_check.ps1.
+var text_inject := OS.get_environment("FS2_TEXT_INJECT") == "1"
+const TEXT_SCRIPT := [
+	# with no pilots the game opens in the callsign box and accepts the first pilot straight into the main hall; Escape there
+	# cancels the new pilot and that auto-accept, so it goes first and the screen stays up for the rest
+	[600, "text", "Gone"], [0, "ctl", 27],	# Escape while typing: the game cancels the pilot
+	[200, "text", "c"], [100, "text", "Abcdefghijklmnopqrstuvwxyz1"], [0, "keycode", KEY_ENTER],	# the longest name (27), Enter with no physical key
+	[200, "text", "c"], [100, "text", "Zyxwvutsrqponmlkjihgfedcba98"], [0, "ctl", 13],	# one over: the game keeps 27
+	[200, "text", "c"], [100, "text", "Steam Pilotx"], [0, "ctl", 8], [0, "text", "_9"], [0, "keycode", KEY_ENTER],	# space, Backspace, shift
+	[200, "key", KEY_C], [100, "keys", "Key Boardx"], [0, "key", KEY_BACKSPACE], [0, "key", KEY_ENTER],	# a physical keyboard
+	[200, "key", KEY_ESCAPE],	# Escape on the pilot screen: the game quits
+]
+# FS2_TOUCH_INJECT=1: the same steps, plus tap: a finger down and up at once at [x, y], a fraction of the game's 4:3 picture
+var touch_inject := OS.get_environment("FS2_TOUCH_INJECT") == "1"
+const TOUCH_SCRIPT := [
+	[600, "text", "Gone"], [0, "ctl", 27],	# cancel the callsign box the game opens with, as TEXT_SCRIPT does
+	[200, "tap", Vector2(135.0 / 640.0, 222.0 / 480.0)],	# the Create button (CPB_00 at 114,205 in the 640x480 layout)
+	[100, "text", "Tapped"], [0, "keycode", KEY_ENTER],
+	[200, "key", KEY_ESCAPE],	# Escape on the pilot screen: the game quits
+]
+var text_script: Array = TOUCH_SCRIPT if touch_inject else TEXT_SCRIPT
+var text_i := 0
+var text_next := 600
+var text_pending: Array = []	# physical key groups still to send, one a Godot frame
+
+func _key_event(phys: int, kc: int, uc: int, down: bool, shift := false) -> InputEventKey:
+	var k := InputEventKey.new()
+	k.physical_keycode = phys
+	k.keycode = kc
+	k.unicode = uc
+	k.pressed = down
+	k.shift_pressed = shift
+	return k
+
+func _text_tick() -> void:
+	if text_pending.size() > 0:
+		for ev in text_pending.pop_front():
+			Input.parse_input_event(ev)
+		return
+	while text_i < text_script.size() and game.get_frame_count() >= text_next:
+		var s: Array = text_script[text_i]
+		print("text: step ", text_i, " ", s[1], " ", s[2], " at game frame ", game.get_frame_count())
+		match s[1]:
+			"text":
+				var t: String = s[2]
+				for i in t.length():
+					var c := t.unicode_at(i)
+					var kc: int = 0 if i % 2 == 0 else KEY_UNKNOWN
+					Input.parse_input_event(_key_event(0, kc, c, true))
+					Input.parse_input_event(_key_event(0, kc, c, false))
+			"ctl":
+				Input.parse_input_event(_key_event(0, 0, s[2], true))
+				Input.parse_input_event(_key_event(0, 0, s[2], false))
+			"keycode":
+				Input.parse_input_event(_key_event(0, s[2], 0, true))
+				Input.parse_input_event(_key_event(0, s[2], 0, false))
+			"tap":
+				# a wide window (headless starts at 64x64), so the picture has bars at the sides and a tap mapped across the whole
+				# window instead of the picture would miss
+				get_window().size = Vector2i(1280, 480)
+				# where that point of the picture is in the window: the picture is 4:3, as large as fits, centred (Fs2Screen)
+				var vp := get_viewport().get_visible_rect().size
+				var sc: float = min(vp.x / 4.0, vp.y / 3.0)
+				var at: Vector2 = (vp - Vector2(4.0, 3.0) * sc) * 0.5 + Vector2(4.0, 3.0) * sc * s[2]
+				print("touch: viewport ", vp, " tap at ", at)
+				var t := InputEventScreenTouch.new()
+				t.position = at
+				t.pressed = true
+				Input.parse_input_event(t)
+				var tu := t.duplicate()
+				tu.pressed = false
+				Input.parse_input_event(tu)	# up in the same Godot frame: the quickest tap, which the host must still deliver as a click
+			"key":
+				text_pending.append([_key_event(s[2], s[2], 0, true), _key_event(s[2], s[2], 0, false)])
+			"keys":
+				var t: String = s[2]
+				for i in t.length():
+					var ch := t.substr(i, 1)
+					var c := t.unicode_at(i)
+					var kc := ch.to_upper().unicode_at(0)	# KEY_A..KEY_Z and KEY_SPACE are their characters
+					var up := ch != ch.to_lower()
+					var g: Array = []
+					if up:
+						g.append(_key_event(KEY_SHIFT, KEY_SHIFT, 0, true, true))
+					if ch == "y":
+						g.append(_key_event(kc, kc, 0, true, up))
+						g.append(_key_event(0, 0, c, true, up))
+					else:
+						g.append(_key_event(kc, kc, c, true, up))
+					g.append(_key_event(kc, kc, 0, false, up))
+					if up:
+						g.append(_key_event(KEY_SHIFT, KEY_SHIFT, 0, false))
+					text_pending.append(g)
+		text_i += 1
+		if text_i < text_script.size():
+			text_next = game.get_frame_count() + text_script[text_i][0]
+		if text_pending.size() > 0:
+			return
+
 func _process(_delta: float) -> void:
 	if st_on:
 		_stats_tick()
@@ -219,6 +329,8 @@ func _process(_delta: float) -> void:
 		return
 	if inject:
 		_inject_tick()
+	if text_inject or touch_inject:
+		_text_tick()
 	if not smoke:
 		return
 	var now := Time.get_ticks_msec()
