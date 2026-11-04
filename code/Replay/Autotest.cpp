@@ -44,6 +44,7 @@
 #include "MissionPause.h"
 #include "3d.h"
 #include "GameOptions.h"	// Claude: the Game Options screen (D-20261102-200105)
+#include "Medals.h"
 
 #ifdef _DEBUG
 #include <rtcapi.h>
@@ -439,6 +440,7 @@ void autotest_set_from_recording(int on, int time, int speed)
 
 // ManagePilot.cpp: writes the file even under autotest, which write_pilot_file does not
 extern int write_pilot_file_core(player *p);
+extern void debrief_award_init();
 
 // Load the scratch pilot, first creating it as the pilot screen's "create" button does if it is
 // missing or will not load.  Only ever writes AUTOTEST_SCRATCH_PILOT.plr, never a player's pilot.
@@ -710,6 +712,11 @@ static autotest_stop Autotest_tour[] = {
 #define AUTOTEST_TOUR_BACK		4		// wait to be back where the stop started
 static int Autotest_menus = 0;				// -at_menus
 static char Autotest_shots[MAX_PATH] = "";	// -at_shots: the folder for a screenshot of each view, or ""
+static char Autotest_awards[8] = "";		// -at_awards: which awards the debriefing shows (m, r, b), or ""
+static int Autotest_awards_state = 0;		// 1 given, 2 taken back
+static int Autotest_awards_medal, Autotest_awards_badge;	// indices into Medals, or -1
+static int Autotest_awards_rank_was, Autotest_awards_medal_was, Autotest_awards_badge_was;
+static int Autotest_awards_m_medal_was, Autotest_awards_m_promotion_was, Autotest_awards_m_badge_was;
 static int Autotest_tour_stop = 0;
 static int Autotest_tour_view = 0;
 static int Autotest_tour_phase = AUTOTEST_TOUR_GO;
@@ -765,6 +772,17 @@ void autotest_set_shots(char *dir)
 	strcpy(Autotest_shots, dir);
 	CreateDirectory(Autotest_shots, NULL);
 	autotest_logf("Menu tour: a screenshot of each screen to '%s'\n", Autotest_shots);
+}
+
+void autotest_set_awards(char *which)
+{
+	if (!Autotest_harness) {
+		return;
+	}
+	if (strlen(which) >= sizeof(Autotest_awards)) {
+		autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_awards takes the letters m, r and b");
+	}
+	strcpy(Autotest_awards, which[0] ? which : "mrb");
 }
 
 // a view's name in this mission
@@ -1132,12 +1150,88 @@ static void autotest_tour_all_medals_restore()
 	}
 }
 
+// -at_awards: the debriefing has just opened, so scoring_level_close has been and gone (outside a campaign it takes back a
+// promotion or badge).  Give the awards as scoring_do_accept would and draw them up again.  debrief_close backs them out.
+static void autotest_tour_awards_give()
+{
+	scoring_struct *sc = &Player->stats;
+	int i, medal = -1, badge = -1, rank = -1;
+
+	Autotest_awards_state = 1;
+	if (strchr(Autotest_awards, 'm')) {
+		for (i = 0; (i < NUM_MEDALS) && (medal < 0); i++) {
+			// 13 and 17 are the wings and the soc crest: debrief_award_init draws those differently
+			if (Medals[i].name[0] && !Medals[i].kills_needed && (i != 13) && (i != 17)) {
+				medal = i;
+			}
+		}
+	}
+	if (strchr(Autotest_awards, 'b') && (Medals[Badge_index[0]].kills_needed > 0)) {
+		badge = 0;
+	}
+	if (strchr(Autotest_awards, 'r') && (sc->rank < MAX_FREESPACE2_RANK)) {
+		rank = sc->rank + 1;
+	}
+	if ((medal < 0) && (badge < 0) && (rank < 0)) {
+		autotest_logf("Menu tour: awards SKIP nothing to award\n");
+		return;
+	}
+
+	Autotest_awards_medal = medal;
+	Autotest_awards_badge = (badge < 0) ? -1 : Badge_index[badge];
+	Autotest_awards_rank_was = sc->rank;
+	Autotest_awards_medal_was = (medal < 0) ? 0 : sc->medals[medal];
+	Autotest_awards_badge_was = (badge < 0) ? 0 : sc->medals[Autotest_awards_badge];
+	Autotest_awards_m_medal_was = sc->m_medal_earned;
+	Autotest_awards_m_promotion_was = sc->m_promotion_earned;
+	Autotest_awards_m_badge_was = sc->m_badge_earned;
+
+	sc->m_medal_earned = medal;
+	sc->m_badge_earned = badge;
+	sc->m_promotion_earned = rank;
+	if (medal >= 0) {
+		sc->medals[medal]++;
+	}
+	if (badge >= 0) {
+		sc->medals[Autotest_awards_badge] = 1;
+	}
+	if (rank >= 0) {
+		sc->rank = rank;
+	}
+	autotest_logf("Menu tour: awards medal '%s', rank '%s', badge '%s'\n", (medal < 0) ? "" : Medals[medal].name, (rank < 0) ? "" : Ranks[rank].name,
+		(badge < 0) ? "" : Medals[Autotest_awards_badge].name);
+	debrief_award_init();
+	Autotest_awards_state = 2;
+}
+
+// the pilot as it was before the awards: backing out does not undo all of it in a training mission
+static void autotest_tour_awards_restore()
+{
+	scoring_struct *sc = &Player->stats;
+
+	if (Autotest_awards_state != 2) {
+		return;
+	}
+	Autotest_awards_state = 1;
+	sc->rank = Autotest_awards_rank_was;
+	if (Autotest_awards_medal >= 0) {
+		sc->medals[Autotest_awards_medal] = Autotest_awards_medal_was;
+	}
+	if (Autotest_awards_badge >= 0) {
+		sc->medals[Autotest_awards_badge] = Autotest_awards_badge_was;
+	}
+	sc->m_medal_earned = Autotest_awards_m_medal_was;
+	sc->m_promotion_earned = Autotest_awards_m_promotion_was;
+	sc->m_badge_earned = Autotest_awards_m_badge_was;
+}
+
 static void autotest_tour_end(char *why)
 {
 	int i, j;
 
 	autotest_tour_bastion_restore(0);
 	autotest_tour_all_medals_restore();
+	autotest_tour_awards_restore();
 
 	if (why) {
 		autotest_logf("FAILED: menu tour stopped at '%s': %s\n", Autotest_tour[Autotest_tour_stop].name, why);
@@ -1178,6 +1272,7 @@ static void autotest_tour_next_stop()
 {
 	autotest_tour_bastion_restore(1);
 	autotest_tour_all_medals_restore();
+	autotest_tour_awards_restore();
 	Autotest_tour_phase = AUTOTEST_TOUR_GO;
 	Autotest_tour_view = 0;
 	if (++Autotest_tour_stop == AUTOTEST_TOUR_STOPS) {
@@ -1249,6 +1344,10 @@ static void autotest_tour_frame(int state)
 	}
 	s = &Autotest_tour[Autotest_tour_stop];
 	v = &s->views[Autotest_tour_view];
+
+	if (Autotest_awards[0] && !Autotest_awards_state && (state == GS_STATE_DEBRIEF)) {
+		autotest_tour_awards_give();
+	}
 
 	switch (Autotest_tour_phase) {
 		case AUTOTEST_TOUR_GO:
