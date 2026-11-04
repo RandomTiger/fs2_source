@@ -1609,7 +1609,7 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // ---- v4 meshes (P3b) ----------------------------------------------------------------------------------------------------------------
 // The mesh shader reproduces the sink's depth contract (depth_contract.h) per vertex: eye = xform * model position; the screen
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
-// position is output homogeneous (w = eye z), so the GPU clips at the near plane (z = 0, the game's MIN_Z) and interpolates the UVs
+// position is output homogeneous (w = eye z), so the GPU clips at w > 0 and the fragment shader discards below the near plane (eye z 0.1) and interpolates the UVs
 // perspective-correct; colour and fog stay linear in screen space (the game's Gouraud), carried as value * z and divided by the interpolated z.
 RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr)
 {
@@ -1688,7 +1688,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	}
 	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb * e.z;\n}\n";
 	code += "void fragment() {\n";
-	code += "\tif (wv <= 0.0) { discard; }\n";	// behind the eye plane (the GPU keeps these when it does not clip them)
+	code += "\tif (wv < 0.1) { discard; }\n";	// the near plane, eye z 0.1 (Tom's order; the GPU itself clips at w > 0, the host no longer clips)
 	if (uclip) { code += "\tif (cz <= 0.0) { discard; }\n"; }
 	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }

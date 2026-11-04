@@ -497,10 +497,10 @@ int gr_host_mesh_ready()
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->mesh_ready && Gr_host_backend->mesh_ready();
 }
 
-int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni)
+int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly)
 {
 	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_create) { return 0; }
-	return Gr_host_backend->mesh_create(key, vtx, nv, g, ng, idx, ni);
+	return Gr_host_backend->mesh_create(key, vtx, nv, g, ng, idx, ni, poly_nv, npoly);
 }
 
 int gr_host_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
@@ -521,10 +521,16 @@ int gr_host_mesh_clip(const float *plane)
 	return Gr_host_backend->mesh_clip(plane);
 }
 
-int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist)
+int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
 {
 	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_thrust) { return 0; }
-	return Gr_host_backend->mesh_thrust(key, xform, nv, bitmap, scale, min_dist);
+	return Gr_host_backend->mesh_thrust(key, xform, nv, bitmap, scale, min_dist, rgb);
+}
+
+int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray)
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_bg) { return 0; }
+	return Gr_host_backend->mesh_bg(key, xform, nv, bitmap, tiled, gray);
 }
 
 void gr_host_mesh_free(int key)

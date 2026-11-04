@@ -449,6 +449,14 @@ void model_set_thrust( int model_num, float length, int bitmap, int glow_bitmap,
 {
 	Interp_thrust_scale = length;
 	Interp_thrust_bitmap = bitmap;
+	// test switch (FS2_FORCE_FLATTHR=1): every thruster as one without a flame bitmap, to compare the flat path on both renderers (D-20261103-103538)
+	static int force_flat = -1;
+	if (force_flat < 0) {
+#pragma warning(suppress: 4996)
+		const char *e = getenv("FS2_FORCE_FLATTHR");
+		force_flat = (e != NULL && e[0] == '1') ? 1 : 0;
+	}
+	if (force_flat) { Interp_thrust_bitmap = -1; }
 	Interp_thrust_glow_bitmap = glow_bitmap;
 	Interp_thrust_glow_noise = glow_noise;
 
@@ -1406,11 +1414,13 @@ struct InterpMeshBuild {
 	std::vector<int> v_vertnum, v_normnum;
 	std::vector<int> gtex;
 	std::vector< std::vector<unsigned> > gidx;
+	std::vector< std::vector<int> > gpoly;		// per group, the vertex count of each polygon in index order (a polygon is a fan of nv-2 triangles)
 	int tris, tris_agree;
 	InterpMeshBuild() : ok(true), thruster(false), tris(0), tris_agree(0) {}
 };
 
-static int Interp_mesh_unmeshed_flat = 0, Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
+static int Interp_fb_count[11] = { 0 };
+static int Interp_mesh_unmeshed_flat = 0,Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
 
 static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int depth)
 {
@@ -1456,7 +1466,7 @@ static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int de
 			}
 			int gi = -1;
 			for (size_t g = 0; g < b.gtex.size(); g++) { if (b.gtex[g] == tex) { gi = (int)g; break; } }
-			if (gi < 0) { gi = (int)b.gtex.size(); b.gtex.push_back(tex); b.gidx.push_back(std::vector<unsigned>()); }
+			if (gi < 0) { gi = (int)b.gtex.size(); b.gtex.push_back(tex); b.gidx.push_back(std::vector<unsigned>()); b.gpoly.push_back(std::vector<int>()); }
 			std::vector<int> mv(nv);
 			for (int i = 0; i < nv; i++) {
 				const int vn = tv[i].vertnum, nn = tv[i].normnum;
@@ -1476,6 +1486,7 @@ static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int de
 				mv[i] = it->second;
 			}
 			vector *pn0 = vp(p+8);
+			b.gpoly[gi].push_back(nv);
 			for (int i = 1; i < nv - 1; i++) {
 				b.gidx[gi].push_back((unsigned)mv[0]); b.gidx[gi].push_back((unsigned)mv[i]); b.gidx[gi].push_back((unsigned)mv[i+1]);
 				// winding against the polygon normal, to confirm the sink's front face convention
@@ -1516,12 +1527,14 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 
 	std::vector<gr_host_mesh_group> groups;
 	std::vector<unsigned> idx;
+	std::vector<int> poly_nv;
 	for (size_t g = 0; g < b.gtex.size(); g++) {
 		gr_host_mesh_group hg;
 		hg.bitmap = (b.gtex[g] < 0) ? -1 : pm->textures[b.gtex[g]];
 		hg.first_index = (int)idx.size();
 		hg.index_count = (int)b.gidx[g].size();
 		idx.insert(idx.end(), b.gidx[g].begin(), b.gidx[g].end());
+		poly_nv.insert(poly_nv.end(), b.gpoly[g].begin(), b.gpoly[g].end());
 		groups.push_back(hg);
 	}
 
@@ -1543,7 +1556,7 @@ static void interp_mesh_build(InterpMesh &m, polymodel *pm, bsp_info *sm)
 	}
 
 	if (m.key == 0) { m.key = Interp_mesh_next_key++; }
-	if (!gr_host_mesh_create(m.key, &b.vtx[0], (int)b.v_vertnum.size(), &groups[0], (int)groups.size(), &idx[0], (int)idx.size())) { return; }
+	if (!gr_host_mesh_create(m.key, &b.vtx[0], (int)b.v_vertnum.size(), &groups[0], (int)groups.size(), &idx[0], (int)idx.size(), &poly_nv[0], (int)poly_nv.size())) { return; }
 	m.created = 1;
 	m.state = 1;
 	Interp_mesh_meshed++;
@@ -1581,19 +1594,32 @@ void model_interp_mesh_preload_all()
 	}
 }
 
-int model_interp_mesh_late() { fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
 
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)
 {
 	if (!gr_host_mesh_ready()) { return 0; }
 	// a thruster is drawn unlit with fixed poly flags (see model_interp_tmappoly), so the tmap flags and the saved lighting do not matter to it;
-	// without a thruster bitmap (or in pofview) it is a flat colour poly: polygon path
+	// without a thruster bitmap (or a flame of no length) it is a flat poly in the lit vertex colours, the hull's untextured polys with the
+	// flame's z scale; in pofview the polygon path draws it
 	const bool thr = Interp_thrust_scale_subobj != 0;
-	if (Interp_subspace || !gr_screen.hardware || (!thr && Interp_use_saved_lighting) || (thr && (Interp_thrust_bitmap < 0 || Pofview_running))) { return 0; }
-	if (Interp_flags & (MR_NO_POLYS | MR_FORCE_TEXTURE | MR_ALL_XPARENT | MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET
-		| MR_SHOW_INVISIBLE_FACES | MR_NO_CULL | MR_SHOW_PIVOTS)) { return 0; }
-	if (!thr && (Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { return 0; }
+	const bool thr_flat = thr && (Interp_thrust_bitmap < 0 || Interp_thrust_scale <= 0.0f);
+	// the draws that stay on the polygon path, counted by reason (reported at exit: the classes still to retire)
+	if (Interp_subspace) { Interp_fb_count[0]++; return 0; }
+	if (!gr_screen.hardware) { Interp_fb_count[1]++; return 0; }
+	if ((!thr || thr_flat) && Interp_use_saved_lighting) { Interp_fb_count[2]++; return 0; }
+	if (thr && Pofview_running) { Interp_fb_count[3]++; return 0; }
+	if (thr_flat && (Interp_tmap_flags & ~(TMAP_FLAG_TEXTURED | TMAP_FLAG_TILED | TMAP_FLAG_CORRECT | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB)) { Interp_fb_count[4]++; return 0; }
+	// the nebula background model (stars_draw_background) has its own mesh draw: forced bitmap, additive, no depth, no cull, unlit
+	const bool bg = (Interp_flags & MR_FORCE_TEXTURE) && (Interp_flags & MR_ALL_XPARENT) && (Interp_flags & MR_NO_CULL) && (Interp_flags & MR_NO_LIGHTING)
+		&& Interp_forced_bitmap >= 0 && Interp_xparent_alpha == 1.0f && !thr;
+	if (!bg && (Interp_flags & MR_FORCE_TEXTURE)) { Interp_fb_count[5]++; return 0; }
+	if (!bg && (Interp_flags & MR_ALL_XPARENT)) { Interp_fb_count[6]++; return 0; }
+	if (!bg && (Interp_flags & MR_NO_CULL)) { Interp_fb_count[7]++; return 0; }
+	if (Interp_flags & MR_NO_POLYS) { Interp_fb_count[10]++; return 0; }
+	if (Interp_flags & (MR_NO_SMOOTHING | MR_SHOW_OUTLINE | MR_SHOW_OUTLINE_PRESET | MR_SHOW_INVISIBLE_FACES | MR_SHOW_PIVOTS)) { Interp_fb_count[8]++; return 0; }
+	if (!thr && (Interp_tmap_flags & ~(TMAP_FLAG_TILED | TMAP_FLAG_PIXEL_FOG)) != (TMAP_FLAG_GOURAUD | TMAP_FLAG_RGB | TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT)) { Interp_fb_count[9]++; return 0; }
 	bsp_info *sm = &pm->submodel[mn];
 	if (sm->bsp_data == NULL) { return 0; }
 
@@ -1632,9 +1658,21 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 		s_was_clipping = 0;
 	}
 
-	if (thr) {
-		const float min_dist = (Interp_flags & MR_IS_MISSILE) ? 0.5f : -1.5f;		// the base of the flame is not scaled (model_interp_defpoints)
-		const int rt = gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), Interp_thrust_bitmap, Interp_thrust_scale, min_dist);
+	if (bg) {
+		const int rb = gr_host_mesh_bg(m.key, xf, (int)m.v_slot.size(), Interp_forced_bitmap, (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0, 191);
+		if (rb < 0) {
+			gr_host_mesh_free(m.key);
+			m.created = 0;
+			m.state = 0;
+			return 0;
+		}
+		if (rb != 1) { Interp_fb_count[5]++; }
+		return rb == 1;
+	}
+
+	const float min_dist = (Interp_flags & MR_IS_MISSILE) ? 0.5f : -1.5f;		// the base of the flame is not scaled (model_interp_defpoints)
+	if (thr && !thr_flat) {
+		const int rt = gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), Interp_thrust_bitmap, Interp_thrust_scale, min_dist, NULL);
 		if (rt < 0) {
 			gr_host_mesh_free(m.key);
 			m.created = 0;
@@ -1646,7 +1684,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 
 	// a host that lights per vertex takes the lighting inputs as they are (not when the object's lighting is being saved: the saved arrays
 	// are filled by the CPU path below)
-	if (Interp_lighting == &Interp_lighting_temp) {
+	if (!thr && Interp_lighting == &Interp_lighting_temp) {
 		gr_host_mesh_light hl;
 		if (Interp_flags & MR_NO_LIGHTING) {
 			memset(&hl, 0, sizeof(hl));
@@ -1684,7 +1722,8 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 		m.rgb[i*3] = slot_rgb[s*3]; m.rgb[i*3+1] = slot_rgb[s*3+1]; m.rgb[i*3+2] = slot_rgb[s*3+2];
 	}
 
-	const int r = gr_host_mesh_draw(m.key, xf, &m.rgb[0], (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
+	const int r = thr ? gr_host_mesh_thrust(m.key, xf, (int)m.v_slot.size(), -1, Interp_thrust_scale, min_dist, &m.rgb[0])
+		: gr_host_mesh_draw(m.key, xf, &m.rgb[0], (int)m.v_slot.size(), (Interp_tmap_flags & TMAP_FLAG_TILED) ? 1 : 0);
 	if (r < 0) {
 		gr_host_mesh_free(m.key);
 		m.created = 0;

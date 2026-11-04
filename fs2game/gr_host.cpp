@@ -142,6 +142,7 @@ struct Host {
 		bool sink_made = false;
 		float bmin[3] = {}, bmax[3] = {};	// model space bounds: a draw that reaches the near plane stays on the polygon path (it clips there)
 		bool cpu_only = false;				// the mesh cannot be drawn by the sink (a texture failed to upload): stays on the polygon path
+		std::vector<int> poly_nv;			// vertex count of each polygon, in index order (a fan of nv-2 triangles)
 		int zmode = -1, zbias = 0, cull = 0, tiled = 0;	// the state the sink copy was made for
 		std::vector<int> tex;				// sink texture per group at creation
 		std::vector<int> blend;
@@ -1051,7 +1052,7 @@ bool mesh_switch()
 	static int on = -1;
 	if (on < 0) {
 		const char *e = getenv("FS2_RENDER3D");
-		on = (e != nullptr && e[0] == '1') ? 1 : 0;
+		on = (e != nullptr) ? (e[0] - '0') : 0;
 	}
 	return on == 1;
 }
@@ -1062,14 +1063,12 @@ int h_mesh_ready()
 	return H.sink != nullptr && H.sink->mesh_create && H.sink->mesh_draw && H.sink->mesh_free && mesh_switch();
 }
 
-int h_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni)
+void h_mesh_free(int key);
+
+int h_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly)
 {
-	if (nv <= 0 || ng <= 0 || ni <= 0 || vtx == nullptr) { return 0; }
-	auto old = H.meshes.find(key);
-	if (old != H.meshes.end()) {
-		if (old->second.sink_made && H.sink != nullptr) { H.sink->mesh_free(H.sink->user, key); }
-		H.meshes.erase(old);
-	}
+	if (nv <= 0 || ng <= 0 || ni <= 0 || vtx == nullptr || poly_nv == nullptr || npoly <= 0) { return 0; }
+	if (H.meshes.find(key) != H.meshes.end()) { h_mesh_free(key); }
 	Host::HostMesh &m = H.meshes[key];
 	m.v.resize((size_t)nv);
 	for (int i = 0; i < nv; i++) {
@@ -1085,6 +1084,7 @@ int h_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g
 	}
 	m.g.assign(g, g + ng);
 	m.idx.assign(idx, idx + ni);
+	m.poly_nv.assign(poly_nv, poly_nv + npoly);
 	return 1;
 }
 
@@ -1159,23 +1159,24 @@ void h_level_loaded()
 
 // common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid.
 // thr_bitmap >= 0: an engine thruster, every group drawn with that bitmap, additive, depth read only (the poly path's filter blend).
-static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_bitmap = -1)
+static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_bitmap = -1, bool flat_all = false, bool bg = false)
 {
 	auto it = H.meshes.find(key);
 	if (it == H.meshes.end()) { return -1; }
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
-	if (m.cpu_only || H.zmode == GR_ZBUFF_NONE || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
+	if (m.cpu_only || (H.zmode == GR_ZBUFF_NONE && !bg) || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
 	ensure_frame();
 	if (!drawing()) { return 0; }
 
 	// the sink copy: made, or remade when the state or a texture it was made with has changed
-	const int zmode = H.zmode;
-	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != H.cull || m.tiled != tiled;
+	const int zmode = bg ? -2 : H.zmode;		// the background draw is its own state: no depth, no cull
+	const int cull = bg ? 0 : H.cull;
+	bool remake = !m.sink_made || m.zmode != zmode || m.zbias != H.zbias || m.cull != cull || m.tiled != tiled;
 	std::vector<int> tex(m.g.size());
 	std::vector<int> blend(m.g.size());
 	for (size_t i = 0; i < m.g.size(); i++) {
-		const int bmp = thr_bitmap >= 0 ? thr_bitmap : m.g[i].bitmap;
+		const int bmp = flat_all ? -1 : (thr_bitmap >= 0 ? thr_bitmap : m.g[i].bitmap);
 		if (bmp < 0) {
 			tex[i] = 0; blend[i] = FS2_SINK_BLEND_OPAQUE;
 			if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
@@ -1192,13 +1193,13 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 		} else {
 			opaque = f->second.opaque;
 		}
-		blend[i] = thr_bitmap >= 0 ? FS2_SINK_BLEND_ADD : (opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA);
+		blend[i] = (thr_bitmap >= 0 || bg) ? FS2_SINK_BLEND_ADD : (opaque ? FS2_SINK_BLEND_OPAQUE : FS2_SINK_BLEND_ALPHA);
 		if (!m.sink_made || m.tex[i] != tex[i] || m.blend[i] != blend[i]) { remake = true; }
 	}
 	if (remake) {
 		std::vector<fs2_sink_mesh_group> sg;
-		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | FS2_SINK_DRAWF_ZREAD
-			| ((thr_bitmap < 0 && (zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE)) ? FS2_SINK_DRAWF_ZWRITE : 0) | FS2_SINK_DRAWF_CULL;	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
+		const unsigned fl = FS2_SINK_DRAWF_PERSPECTIVE | (bg ? 0 : FS2_SINK_DRAWF_ZREAD)
+			| ((thr_bitmap < 0 && (zmode == GR_ZBUFF_FULL || zmode == GR_ZBUFF_WRITE)) ? FS2_SINK_DRAWF_ZWRITE : 0) | (bg ? 0 : FS2_SINK_DRAWF_CULL);	// the polygon path back-face culls on the CPU, so the mesh must on the GPU
 		mesh_sink_groups(m, tex, blend, fl, H.zbias, sg);
 		if (m.sink_made && H.sink->mesh_state) {
 			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
@@ -1206,7 +1207,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 			H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
 		}
 		m.sink_made = true;
-		m.zmode = zmode; m.zbias = H.zbias; m.cull = H.cull; m.tiled = tiled;
+		m.zmode = zmode; m.zbias = H.zbias; m.cull = cull; m.tiled = tiled;
 		m.tex = tex; m.blend = blend;
 	}
 
@@ -1261,16 +1262,45 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 }
 // an engine thruster (model_interp_sub's thruster branch): unlit white, the thruster bitmap, additive, depth read only; the flame's length
 // is a z scale in the sink for the vertices in front of min_dist
-int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist)
+int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
 {
 	// fogged (nebula): a thruster poly has no PIXEL_FOG mark, so it takes the fog colour the last marked poly left (see fog_rgb[3]); not the mesh fog's
-	if (H.sink->mesh_thrust == nullptr || bitmap < 0 || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
-	const int p = mesh_prepare(key, xform, nv, 0, bitmap);
+	if (H.sink->mesh_thrust == nullptr || H.fog_mode != GR_FOGMODE_NONE || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
+	const float ts[2] = { scale, min_dist };
+	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
 	if (p != 1) { return p; }
+	if (flat) {
+		H.mesh_rgba.resize((size_t)nv * 4);
+		for (int i = 0; i < nv; i++) {
+			H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
+			H.mesh_rgba[(size_t)i * 4 + 1] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 1]];
+			H.mesh_rgba[(size_t)i * 4 + 2] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 2]];
+			H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+		}
+	}
 	const float t[2] = { scale, min_dist };
 	H.sink->mesh_thrust(H.sink->user, t);
-	H.sink->mesh_draw(H.sink->user, key, xform, nullptr, 0);
+	H.sink->mesh_draw(H.sink->user, key, xform, flat ? H.mesh_rgba.data() : nullptr, flat ? nv : 0);
 	H.sink->mesh_thrust(H.sink->user, nullptr);
+	return 1;
+}
+
+// the nebula background model (stars_draw_background): the forced bitmap on every poly, additive, no depth, no culling, vertex colour
+// gray (191 unlit), as the polygon path draws MR_NO_ZBUFFER | MR_NO_CULL | MR_ALL_XPARENT | MR_NO_LIGHTING | MR_FORCE_TEXTURE
+int h_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray)
+{
+	if (bitmap < 0 || H.fog_mode != GR_FOGMODE_NONE) { return 0; }
+	ensure_frame();
+	if (!drawing()) { return 1; }	// outside a frame the polygon path draws nothing either (tmapper_internal)
+	const int p = mesh_prepare(key, xform, nv, tiled, bitmap, false, true);
+	if (p != 1) { return p; }
+	const uint8_t g = (uint8_t)H.gamma_lookup[gray];
+	H.mesh_rgba.resize((size_t)nv * 4);
+	for (int i = 0; i < nv; i++) {
+		H.mesh_rgba[(size_t)i * 4 + 0] = g; H.mesh_rgba[(size_t)i * 4 + 1] = g; H.mesh_rgba[(size_t)i * 4 + 2] = g; H.mesh_rgba[(size_t)i * 4 + 3] = 255;
+	}
+	H.sink->mesh_draw(H.sink->user, key, xform, H.mesh_rgba.data(), nv);
 	return 1;
 }
 
@@ -1648,6 +1678,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_clip = h_mesh_clip;
 	Backend.mesh_thrust = h_mesh_thrust;
+	Backend.mesh_bg = h_mesh_bg;
 	Backend.mesh_free = h_mesh_free;
 	Backend.model_page_in = h_model_page_in;
 	Backend.level_loaded = h_level_loaded;
