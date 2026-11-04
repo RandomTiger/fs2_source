@@ -390,6 +390,15 @@
     <ClCompile Include="Pad\PadGame.cpp">
       <Filter>Pad</Filter>
     </ClCompile>
+    <ClCompile Include="Pad\PadMenu.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadMenuGame.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
+    <ClCompile Include="Pad\PadMenuTest.cpp">
+      <Filter>Pad</Filter>
+    </ClCompile>
     <ClCompile Include="Pad\PadHud.cpp">
       <Filter>Pad</Filter>
     </ClCompile>
@@ -1185,6 +1194,12 @@
       <Filter>Pad</Filter>
     </ClInclude>
     <ClInclude Include="Pad\PadGame.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadMenu.h">
+      <Filter>Pad</Filter>
+    </ClInclude>
+    <ClInclude Include="Pad\PadMenuGame.h">
       <Filter>Pad</Filter>
     </ClInclude>
     <ClInclude Include="Pad\PadState.h">

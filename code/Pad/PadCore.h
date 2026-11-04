@@ -22,21 +22,44 @@ enum {
 	PAD_G_PRESS,				// fired: input goes down
 	PAD_G_RELEASE,				// fired: input comes up
 	PAD_G_HOLD,					// held:  input is down
-	PAD_G_DOUBLE_TAP,			// fired: second tap of a double tap is released
+	PAD_G_DOUBLE_TAP,			// fired: second tap of a double tap is released, the tap itself short
 	PAD_G_DOUBLE_TAP_HOLD,	// held:  second tap of a double tap is down
+	PAD_G_HOLD_PAST_TAP,		// held:  input has been down longer than a tap (double_tap_ms), so a tap does nothing
+	PAD_G_LONG_HOLD,			// fired: input held PAD_LONG_HOLD_MS in the row's layer; once per press, an early release cancels
 };
 
-// A binding is live when its layer is the current layer, or PAD_LAYER_ANY.
+#define PAD_LONG_HOLD_MS	1000
+
+// A binding is live when its layer is the current layer, or PAD_LAYER_ANY. A press belongs to the
+// layer that was current when it went down, and a row on a named layer ignores a press from another:
+// RT pressed under a modifier does not start firing when the modifier comes up, it needs a new press.
+// A press held from the base layer stops while a modifier is down and carries on when it comes up.
 #define PAD_LAYER_ANY		-1
 #define PAD_LAYER_BASE		0
 #define PAD_LAYER_TREE		1			// set by the core while a pad tree category is open
+#define PAD_LAYER_MOD		2			// a held modifier, see pad_modifier
+
+// A chord on a row: the row also needs another input down (or not down) from the row's own layer.
+#define PAD_CHORD_WITH(input)		((input) + 1)
+#define PAD_CHORD_WITHOUT(input)	(-((input) + 1))
 
 typedef struct pad_binding {
 	int	input;		// PAD_* button or PAD_INPUT_*TRIGGER
 	int	gesture;		// PAD_G_*
 	int	layer;		// PAD_LAYER_*
 	int	action;		// game action id, chosen by the glue
+	int	chord;		// 0 = none, or PAD_CHORD_*
 } pad_binding;
+
+// While this input is down the base layer gives way to this layer.
+typedef struct pad_modifier {
+	int	input;
+	int	layer;
+} pad_modifier;
+
+// A held action the core itself answers: the right stick stops rolling and its Y sets the throttle rate
+// (up raises, down lowers, same rate as the left trigger).
+#define PAD_CORE_ACTION_SPEED_MODE		2000
 
 typedef struct pad_settings {
 	int	invert_pitch;
@@ -51,6 +74,7 @@ typedef struct pad_settings {
 	float	trigger_threshold;	// 0..1, a trigger counts as a pressed button above this
 	int	double_tap_ms;			// max gap between taps, and max length of the first tap
 	float	throttle_rate;			// throttle change per second at full left trigger, in percent
+	float	menu_cursor_speed;	// on the menus, the cursor at full left stick, in screen widths per second
 } pad_settings;
 
 #define PAD_MAX_OUT		32
@@ -68,7 +92,7 @@ typedef struct pad_output {
 	float	yaw;							// +right,    -1..1
 	float	pitch;						// +nose up,  -1..1
 	float	roll;							// +right,    -1..1
-	float	throttle_rate;				// percent per second, >= 0
+	float	throttle_rate;				// percent per second, negative lowers the throttle
 	float	throttle_max_rate;		// the throttle_rate setting: percent per second for full-rate throttle actions
 
 	// pad tree
@@ -121,6 +145,7 @@ int	pad_core_parse_settings(pad_settings *s, const char *text);
 void	pad_core_set_settings(const pad_settings *s);
 void	pad_core_set_bindings(const pad_binding *bindings, int count);	// table is not copied
 void	pad_core_set_layer(int layer);
+void	pad_core_set_modifiers(const pad_modifier *modifiers, int count);	// table is not copied
 
 // Tables are not copied.
 void	pad_core_set_tree(const pad_tree_category *categories, int num_categories, const pad_tree_node *nodes, int num_nodes);
@@ -133,5 +158,9 @@ const pad_tree_node	*pad_core_tree_node(int index);		// NULL if out of range
 void	pad_core_update(const pad_state *st, int now_ms, pad_output *out);
 
 int	pad_output_is_held(const pad_output *out, int action);
+
+// The menu cursor's speed from the left stick, in screen widths per second: left_deadzone and curve,
+// the feel of flight, with menu_cursor_speed in place of left_sensitivity and no invert.
+void	pad_core_menu_cursor(const pad_state *st, float *x, float *y);
 
 #endif

@@ -4567,9 +4567,13 @@ void demo_maybe_show_trailer(int k)
 // generally are differences between game control keys and general UI keys, makes sense to
 // have seperate functions for each case.  If you are not checking a game control while in a
 // mission, you should probably be using game_check_key() instead.
+extern void pad_menu_poll();	// Claude: control pad on the menus, see PadMenuGame.h
+
 int game_poll()
 {
 	int k, state;
+
+	pad_menu_poll();	// Claude: before the first recorded read here
 
 	// Claude: An autotest keeps playing when its window is not in front.  os_foreground() is still read first, so the recording is unchanged.
 	if (!os_foreground() && !Autotest_rules) {		

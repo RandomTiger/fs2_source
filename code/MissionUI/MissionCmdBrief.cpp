@@ -756,6 +756,12 @@ void cmd_brief_close()
 	}
 }
 
+// Claude: for the pad's test
+int cmd_brief_test_stage()
+{
+	return Cur_stage;
+}
+
 void cmd_brief_do_frame(float frametime)
 {
 	char buf[40];
