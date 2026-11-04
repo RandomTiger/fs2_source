@@ -557,6 +557,7 @@ extern vector G3_user_clip_normal, G3_user_clip_point;
 namespace {
 void send_view()
 {
+	sync_offset();	// Claude: the mesh draws go through the same present offset as the polygons (GodotPlus)
 	fs2_sink_view v = {};
 	v.eye_pos[0] = Eye_position.x; v.eye_pos[1] = Eye_position.y; v.eye_pos[2] = Eye_position.z;
 	v.eye_rvec[0] = Eye_matrix.rvec.x; v.eye_rvec[1] = Eye_matrix.rvec.y; v.eye_rvec[2] = Eye_matrix.rvec.z;
@@ -565,7 +566,7 @@ void send_view()
 	v.scale[0] = Matrix_scale.x; v.scale[1] = Matrix_scale.y; v.scale[2] = Matrix_scale.z;
 	v.zoom = View_zoom;
 	v.canvas_w = Canvas_width; v.canvas_h = Canvas_height;
-	v.origin_x = gr_screen.offset_x + gr_screen.clip_left; v.origin_y = gr_screen.offset_y + gr_screen.clip_top;
+	v.origin_x = H.pdx + gr_screen.offset_x + gr_screen.clip_left; v.origin_y = H.pdy + gr_screen.offset_y + gr_screen.clip_top;
 	v.user_clip = G3_user_clip;
 	if (G3_user_clip) {
 		v.clip_normal[0] = G3_user_clip_normal.x; v.clip_normal[1] = G3_user_clip_normal.y; v.clip_normal[2] = G3_user_clip_normal.z;
