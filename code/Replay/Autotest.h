@@ -46,6 +46,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 void autotest_set_debugcam();	// -at_debugcam: Shift+Pause, the debug camera moved and turned, then Shift+Pause back (#125)
 void autotest_set_shots(char *dir);	// -at_shots: a screenshot of each screen of the tour
+void autotest_set_awards(char *which);	// -at_awards: the tour's debriefing shows awards (m medal, r rank, b badge; none named means all)
 
 // recording header
 void autotest_get_settings(int *on, int *time, int *speed);

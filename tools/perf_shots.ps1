@@ -2,7 +2,7 @@
 Gate C helper for the performance pass: replays one recording through the Godot host in a shown window (host renderer) and saves the
 window every -Every game frames as a numbered PNG (runner.gd FS2_SHOT_DIR), then prints one SHA-256 per shot. Run it before and after
 a fix and diff the two lists: identical lists = the drawn frames are bit-identical. The PNGs stay in -Out (never committed).
-  tools\perf_shots.ps1 -Set autotest -Mission sm2-07 -Run C:\Games\PerfG2_scratch -Out C:\Games\PerfG2_out\shots_before [-Every 300] [-Config r]
+  tools\perf_shots.ps1 -Set autotest -Mission sm2-07 -Run <scratch game folder> -Out <output folder> [-Every 300] [-Config r]
 Prints the list and writes <Out>\hashes.txt. One game at a time: run it only when no other game runs.
 #>
 param(
@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
-if (-not $env:GODOT_ENGINE_4_7) { $env:GODOT_ENGINE_4_7 = 'C:\dev\Tools\godot_4.7.2' }
+if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes)' }
 $godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe'
 $proj = Join-Path $repo 'godot'
 $rec = Join-Path $repo "recordings\$Set\$Mission.fs2rec"
