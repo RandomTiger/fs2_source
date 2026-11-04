@@ -121,6 +121,7 @@ struct Host {
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
+	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
 	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
@@ -1063,6 +1064,50 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
 
+// ---- R3: billboards (g3_draw_bitmap, g3_draw_laser) ---------------------------------------------------------------
+// The game keeps the trivial culls and hands the eye-space points over; the sink applies the game's own size, placement and pixel rules
+// (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 = the draw stays on the CPU path (counted).
+int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags)
+{
+	if (H.sink == nullptr || H.sink->billboard_draw == nullptr) { return 0; }
+	static const bool bb_off = getenv("FS2_BB_OFF") != nullptr;	// proof baseline: billboards stay on the CPU path
+	if (bb_off) { return 0; }
+	ensure_frame();
+	if (!drawing() || H.zmode == GR_ZBUFF_NONE) { H.bb_cpu++; H.bb_why[0]++; return 0; }
+	// flags the sink does not model stay on the CPU path
+	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
+		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 0; }
+	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
+
+	fs2_sink_billboard b = {};
+	b.kind = kind;
+	b.texture = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, false);
+	if (b.texture == 0) { return 1; }	// as tmapper_internal: no texture, no draw
+	int tint = 255;
+	if (filter) {
+		b.blend = FS2_SINK_BLEND_ADD;
+		if (gr_screen.current_alpha <= 1.0f) { tint = (int)(gr_screen.current_alpha * 255.0f); }
+	} else {
+		b.blend = FS2_SINK_BLEND_ALPHA;
+	}
+	b.tint[0] = b.tint[1] = b.tint[2] = (uint8_t)tint; b.tint[3] = 255;
+	// scalers and filter-blended draws read depth only
+	b.flags = (kind == FS2_SINK_BB_BITMAP || filter) ? FS2_SINK_DRAWF_ZREAD : (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
+	b.zbias = H.zbias;
+	b.p0[0] = p0[0]; b.p0[1] = p0[1]; b.p0[2] = p0[2];
+	if (p1 != nullptr) { b.p1[0] = p1[0]; b.p1[1] = p1[1]; b.p1[2] = p1[2]; }
+	b.rad = rad; b.rad_tail = rad_tail; b.max_len = max_len; b.orient = orient;
+	bm_get_info(gr_screen.current_bitmap, &b.bw, &b.bh);
+	b.clip[0] = gr_screen.clip_left; b.clip[1] = gr_screen.clip_top; b.clip[2] = gr_screen.clip_right; b.clip[3] = gr_screen.clip_bottom;
+
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	if (!H.sink->billboard_draw(H.sink->user, &b)) { H.bb_cpu++; H.bb_why[3]++; return 0; }
+	H.bb_sink++;
+	return 1;
+}
+
 // ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
 // Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
 // (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
@@ -1667,6 +1712,7 @@ void host_init()
 
 void host_cleanup()
 {
+	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d on the CPU path (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
@@ -1715,6 +1761,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.no_device = 0;
 	Backend.mesh_ready = h_mesh_ready;
 	Backend.mesh_create = h_mesh_create;
+	Backend.billboard = h_billboard;
 	Backend.mesh_draw = h_mesh_draw;
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_clip = h_mesh_clip;

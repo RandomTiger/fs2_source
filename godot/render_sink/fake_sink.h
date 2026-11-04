@@ -17,7 +17,7 @@
 namespace fs2sink {
 
 struct Cmd {
-	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip, MeshFog, MeshThrust, ArrayCreate, ArrayLayer, ArrayFree };
+	enum Kind { FrameBegin, FrameEnd, Clear, SetClip, TexCreate, TexFree, TexFreeAll, Draw, Capture, ReadRegion, Gamma, DepthBegin, DepthEnd, DepthClear, SetView, MeshCreate, MeshFree, MeshDraw, MeshState, MeshDrawLit, MeshClip, MeshFog, MeshThrust, Billboard, ArrayCreate, ArrayLayer, ArrayFree };
 	Kind kind;
 	int a = 0, b = 0, c = 0, d = 0;	// meaning per kind: Clip x,y,w,h; TexCreate id,w,h,format; Draw texture,blend,flags,ntris
 	std::vector<fs2_sink_vertex> verts;	// Draw only
@@ -64,6 +64,7 @@ public:
 		table.mesh_clip = &FakeSink::s_mesh_clip;
 		table.mesh_fog = &FakeSink::s_mesh_fog;
 		table.mesh_thrust = &FakeSink::s_mesh_thrust;
+		table.billboard_draw = &FakeSink::s_billboard_draw;
 		table.texture_array_create = &FakeSink::s_texture_array_create;
 		table.texture_layer = &FakeSink::s_texture_layer;
 		table.texture_array_free = &FakeSink::s_texture_array_free;
@@ -307,6 +308,15 @@ private:
 		FakeSink *s = static_cast<FakeSink *>(u);
 		s->need_frame("mesh_fog outside a frame");
 		s->add(Cmd::MeshFog).a = (fog != nullptr && fog->mode == FS2_SINK_FOG_LINEAR) ? 1 : 0;
+		return 1;
+	}
+	static int s_billboard_draw(void *u, const fs2_sink_billboard *b)
+	{
+		FakeSink *s = me(u);
+		s->need_frame("billboard_draw outside a frame");
+		if (!s->in_depth) { s->err("billboard_draw outside a depth run"); }
+		if (b == nullptr || (b->texture != 0 && s->textures.count(b->texture) == 0)) { s->err("billboard_draw with an unknown texture"); return 0; }
+		s->add(Cmd::Billboard).a = b->kind;
 		return 1;
 	}
 	static void s_mesh_draw_lit(void *u, int32_t id, const float *xform, const fs2_sink_mesh_light *light)

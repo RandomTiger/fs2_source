@@ -71,6 +71,22 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_clip = &GodotSink::s_mesh_clip;
 	sink.mesh_thrust = &GodotSink::s_mesh_thrust;
 	sink.mesh_fog = &GodotSink::s_mesh_fog;
+	sink.billboard_draw = &GodotSink::s_billboard_draw;
+	{
+		// the shared unit quad of the billboard draws, made here (no lazy creation): the vertex shader moves its four corners
+		RenderingServer *rs = RenderingServer::get_singleton();
+		PackedVector3Array qp; PackedVector2Array qu; PackedInt32Array qi;
+		qp.resize(4); qu.resize(4); qi.resize(6);
+		const float cx[4] = {0.0f, 1.0f, 1.0f, 0.0f}, cy[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+		for (int i = 0; i < 4; i++) { qp.ptrw()[i] = Vector3(cx[i], cy[i], 0.0f); qu.ptrw()[i] = Vector2(cx[i], cy[i]); }
+		const int ids[6] = {0, 1, 2, 0, 2, 3};
+		for (int i = 0; i < 6; i++) { qi.ptrw()[i] = ids[i]; }
+		Array qa; qa.resize(RenderingServer::ARRAY_MAX);
+		qa[RenderingServer::ARRAY_VERTEX] = qp; qa[RenderingServer::ARRAY_TEX_UV] = qu; qa[RenderingServer::ARRAY_INDEX] = qi;
+		bb_quad = rs->mesh_create();
+		rs->mesh_add_surface_from_arrays(bb_quad, RenderingServer::PRIMITIVE_TRIANGLES, qa);
+		rs->mesh_set_custom_aabb(bb_quad, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
+	}
 	batcher.set_emitter(this);
 	return true;
 }
@@ -1078,6 +1094,7 @@ void GodotSink::end_run()
 	run_batches.clear();
 	{ std::set<std::pair<int32_t, int>> seen; for (const MeshDraw &md : mesh_draws) { seen.insert(std::make_pair(md.id, md.state)); } stat_mesh_models += seen.size(); }
 	mesh_draws.clear();
+	bb_draws.clear();
 	cur_item = RID();
 	if (clipped) {
 		open_clip_item();
@@ -1512,6 +1529,11 @@ void GodotSink::gpu_frame_end()
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
+	if (b.key.texture <= -kBbBase) {
+		const size_t di = (size_t)(-(int64_t)b.key.texture - kBbBase - 1);
+		if (di < bb_draws.size()) { add_bb_to_layer(l, bb_draws[di], order); }
+		return;
+	}
 	if (b.key.texture < 0) {
 		const size_t di = (size_t)(-(int64_t)b.key.texture - 1);
 		if (di < mesh_draws.size()) { add_mesh_to_layer(l, mesh_draws[di], order); }
@@ -2024,6 +2046,143 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 		}
 		l.instances.push_back(inst);
 	}
+}
+
+// ---- v5 billboards (R3) -------------------------------------------------------------------------------------------------------------
+// g3_draw_bitmap and g3_draw_laser on the GPU: the vertex shader works out the four corners from the eye-space points with the game's own
+// formulas (docs/R3_billboards_design.md), in canvas pixels, snaps them to the 1/16 grid as the host does, and places them as the mesh shader
+// does (x = org.x + sx - cw/2, y = org.y + ch/2 - sy, w = 1; the perspective-correct uvs are done by hand with the game's per-end sw).
+RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const uint32_t skey = (uint32_t)(kind & 1) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u);
+	auto it = bb_shaders.find(skey);
+	if (it != bb_shaders.end()) { return it->second; }
+	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, ";
+	code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";
+	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
+	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
+	code += ";\nuniform sampler2D tex : ";
+	code += lin ? "filter_linear, repeat_disable;\n" : "filter_nearest, repeat_disable;\n";
+	// pA = p0 xyz, rad; pB = p1 xyz, rad_tail; bbp = max_len, orient, bw, bh; sc = Matrix_scale x, y; bcl = the scaler clip l, t, r, b; tintc = tint
+	code += "uniform float zbias = 0.0;\nuniform vec4 pA;\nuniform vec4 pB;\nuniform vec4 bbp;\nuniform vec4 sc;\nuniform vec4 bcl;\nuniform vec4 cfg;\nuniform vec4 org;\nuniform vec4 tintc;\nvarying vec3 pc;\n";
+	if (crect) { code += "uniform vec4 crc;\n"; }
+	code += "float snap16(float v) { return trunc(v * 16.0) / 16.0; }\n";
+	code += "void vertex() {\n\tvec2 q = VERTEX.xy;\n\tvec2 cwh = 2.0 * cfg.xy;\n\tfloat sx; float sy; float zq; float sw = 1.0; vec2 uv = q;\n\tbool skip = false;\n";
+	if (kind == FS2_SINK_BB_BITMAP) {
+		code += "\tfloat rad = pA.w;\n\tfloat width; float height;\n";
+		code += "\tif (bbp.z < bbp.w) { width = rad * 2.0; height = width * bbp.w / bbp.z; } else if (bbp.z > bbp.w) { height = rad * 2.0; width = height * bbp.z / bbp.w; } else { width = rad * 2.0; height = width; }\n";
+		code += "\tfloat z = pA.z;\n\tfloat w = width * cfg.x / z * sc.x;\n\tfloat h = height * cfg.y / z * sc.y;\n";
+		code += "\tfloat x0 = (cwh.x + pA.x * cwh.x / z) * 0.5 - w * 0.5;\n\tfloat y0 = (cwh.y - pA.y * cwh.y / z) * 0.5 - h * 0.5;\n\tfloat x1 = x0 + w;\n\tfloat y1 = y0 + h;\n";
+		// h_scaler: nothing for an empty, outside or sub-pixel quad (after the clip)
+		code += "\tif (y1 <= y0 || x1 <= x0 || x1 < bcl.x || x0 > bcl.z || y1 < bcl.y || y0 > bcl.w) { skip = true; }\n";
+		code += "\tif (int(min(x1, bcl.z)) <= int(max(x0, bcl.x)) || int(min(y1, bcl.w)) <= int(max(y0, bcl.y))) { skip = true; }\n";
+		// h_scaler's clip: the corner moves to the clip edge and the uv moves with it (the uv clamp below then sees the moved uv)
+		code += "\tfloat cx = clamp(x0 + q.x * w, bcl.x, bcl.z);\n\tfloat cy = clamp(y0 + q.y * h, bcl.y, bcl.w);\n";
+		code += "\tsx = snap16(cx);\n\tsy = snap16(cy);\n";
+		code += "\tint ori = int(bbp.y + 0.5);\n\tuv = vec2((cx - x0) / w, (cy - y0) / h);\n\tif ((ori & 1) != 0) { uv.x = 1.0 - uv.x; }\n\tif ((ori & 2) != 0) { uv.y = 1.0 - uv.y; }\n";
+		code += "\tzq = max(z - rad * 0.5, 0.0);\n";
+	} else {
+		code += "\tfloat sw0 = min(1.0 / pA.z, 1.0);\n\tfloat sw1 = min(1.0 / pB.z, 1.0);\n";
+		code += "\tfloat hx = (cwh.x + pA.x * cwh.x / pA.z) * 0.5;\n\tfloat hy = (cwh.y - pA.y * cwh.y / pA.z) * 0.5;\n";
+		code += "\tfloat tx = (cwh.x + pB.x * cwh.x / pB.z) * 0.5;\n\tfloat ty = (cwh.y - pB.y * cwh.y / pB.z) * 0.5;\n";
+		code += "\tfloat hr = pA.w * sc.x * cfg.x * sw0;\n\tfloat tr = pB.w * sc.x * cfg.x * sw1;\n";
+		code += "\tfloat len2 = sqrt((tx - hx) * (tx - hx) + (ty - hy) * (ty - hy));\n";
+		code += "\tif (bbp.x > 1.0 && len2 > bbp.x) {\n\t\tfloat ratio = bbp.x / len2;\n\t\ttx = hx + (tx - hx) * ratio;\n\t\tty = hy + (ty - hy) * ratio;\n\t\ttr = hr + (tr - hr) * ratio;\n";
+		code += "\t\tlen2 = sqrt((tx - hx) * (tx - hx) + (ty - hy) * (ty - hy));\n\t}\n";
+		code += "\tfloat max_r = max(max(hr, tr), 1.0);\n\tfloat h1; float h2; float a;\n";
+		code += "\tif (len2 < max_r) {\n\t\th1 = min(hr + (max_r - len2), max_r);\n\t\th2 = min(tr + (max_r - len2), max_r);\n\t\tlen2 = max_r;\n";
+		code += "\t\ta = abs(tx - hx) > 0.01 ? atan(ty - hy, tx - hx) : 0.0;\n\t} else {\n\t\th1 = hr;\n\t\th2 = tr;\n";
+		code += "\t\ta = (tx == hx && ty == hy) ? 0.0 : atan(ty - hy, tx - hx);\n\t}\n";
+		code += "\th1 = max(h1, 1.0);\n\th2 = max(h2, 1.0);\n\tfloat ca = cos(a);\n\tfloat sa = sin(a);\n";
+		code += "\tfloat mx = (tx + hx) * 0.5;\n\tfloat my = (ty + hy) * 0.5;\n\tfloat along = (q.x - 0.5) * len2;\n\tfloat acr = (q.y - 0.5) * (q.x < 0.5 ? h1 : h2);\n";
+		code += "\tsx = snap16(along * ca + acr * sa + mx);\n\tsy = snap16(along * sa - acr * ca + my);\n";
+		code += "\tzq = q.x < 0.5 ? pA.z : pB.z;\n\tsw = q.x < 0.5 ? sw0 : sw1;\n";
+	}
+	code += "\tfloat d = cfg.z + min(zq / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
+	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
+	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
+	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0));\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	code += kind == FS2_SINK_BB_BITMAP ? "\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
+	code += "void fragment() {\n";
+	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
+	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
+	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
+	code += "\tvec4 c = t;\n\tc.rgb *= tintc.rgb;\n";
+	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
+	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
+	RID sh = rs->shader_create();
+	rs->shader_set_code(sh, code);
+	bb_shaders[skey] = sh;
+	return sh;
+}
+
+int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (b == nullptr || !s->in_frame || !s->in_run || !s->have_view || s->textures.find(b->texture) == s->textures.end()) { return 0; }
+	if (s->clip_empty) { return 1; }	// everything is clipped away: deliberately drawn nothing
+	s->batcher.flush();
+	BbDraw d;
+	d.b = *b;
+	d.epoch = s->run_epoch;
+	d.crect = s->clipped;
+	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
+	d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y;
+	d.scale[0] = s->view.scale[0]; d.scale[1] = s->view.scale[1];
+	s->bb_draws.push_back(d);
+	Batch bt;
+	bt.key.texture = -(kBbBase + (int32_t)s->bb_draws.size());
+	bt.key.depth = 1; bt.key.zmode = 2; bt.key.epoch = d.epoch;
+	s->run_batches.push_back(bt);
+	return 1;
+}
+
+void GodotSink::add_bb_to_layer(Layer &l, const BbDraw &d, int order)
+{
+	auto ti = textures.find(d.b.texture);
+	if (ti == textures.end() || !bb_quad.is_valid()) { return; }
+	fs2perf::count(fs2perf::C_LAYER_BATCHES);
+	stat_bb_draws++;
+	RenderingServer *rs = RenderingServer::get_singleton();
+	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
+	const float origin = 29000.0f - 0.25f * (float)order;
+	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
+	const bool zr = (d.b.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (d.b.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
+	const int zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
+	const bool a8 = ti->second.format == FS2_SINK_TEX_A8;
+	const bool lin = (ti->second.flags & FS2_SINK_TEXF_LINEAR) != 0;
+	RID mat;
+	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
+	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect));
+	l.mesh_materials.push_back(mat);
+	rs->material_set_param(mat, "tex", ti->second.rid);
+	rs->material_set_param(mat, "zbias", (float)d.b.zbias);
+	rs->material_set_param(mat, "pA", Vector4(d.b.p0[0], d.b.p0[1], d.b.p0[2], d.b.rad));
+	rs->material_set_param(mat, "pB", Vector4(d.b.p1[0], d.b.p1[1], d.b.p1[2], d.b.rad_tail));
+	rs->material_set_param(mat, "bbp", Vector4(d.b.max_len, (float)d.b.orient, (float)d.b.bw, (float)d.b.bh));
+	rs->material_set_param(mat, "sc", Vector4(d.scale[0], d.scale[1], 0.0f, 0.0f));
+	rs->material_set_param(mat, "bcl", Vector4((float)d.b.clip[0], (float)d.b.clip[1], (float)d.b.clip[2], (float)d.b.clip[3]));
+	rs->material_set_param(mat, "tintc", Vector4(d.b.tint[0] / 255.0f, d.b.tint[1] / 255.0f, d.b.tint[2] / 255.0f, d.b.tint[3] / 255.0f));
+	const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
+	rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
+	rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
+	if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
+	RID inst;
+	if (kInstancePool && !spare_instances.empty()) {
+		inst = spare_instances.back();
+		spare_instances.pop_back();
+		rs->instance_set_base(inst, bb_quad);
+		rs->instance_set_scenario(inst, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+	} else {
+		inst = rs->instance_create2(bb_quad, l.scenario);
+		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+		rs->instance_set_pivot_data(inst, 0.0f, false);
+	}
+	rs->instance_geometry_set_material_override(inst, mat);
+	l.instances.push_back(inst);
 }
 
 } // namespace fs2sink

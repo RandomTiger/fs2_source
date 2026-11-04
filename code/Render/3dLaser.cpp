@@ -152,18 +152,24 @@ float g3_draw_laser(vector *headp, float head_width, vector *tailp, float tail_w
 	g3_rotate_vertex(&pt1,headp);
 
 	g3_project_vertex(&pt1);
-	if (pt1.flags & PF_OVERFLOW) 
+	if (pt1.flags & PF_OVERFLOW)
 		return 0.0f;
 
 	g3_rotate_vertex(&pt2,tailp);
 
 	g3_project_vertex(&pt2);
-	if (pt2.flags & PF_OVERFLOW) 
+	if (pt2.flags & PF_OVERFLOW)
 		return 0.0f;
 
 	if ( (pt1.codes & pt2.codes) != 0 )	{
 		// Both off the same side
 		return 0.0f;
+	}
+
+	// Claude: R3, the host's sink builds the ribbon on the GPU (same rules below); 0 = this draw stays here
+	if ( gr_host_billboard(1, &pt1.x, &pt2.x, head_width, tail_width, max_len, 0, tmap_flags) )	{
+		depth = (pt1.z+pt2.z)*0.5f;
+		return (depth < 0.0f) ? 0.0f : depth;
 	}
 
 	headx = pt1.sx;

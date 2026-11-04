@@ -563,8 +563,12 @@ int g3_draw_bitmap(vertex *pnt,int orient, float rad,uint tmap_flags)
 
 	Assert( G3_count == 1 );
 
-	if ( pnt->codes & (CC_BEHIND|CC_OFF_USER) ) 
+	if ( pnt->codes & (CC_BEHIND|CC_OFF_USER) )
 		return 1;
+
+	// Claude: R3, the host's sink sizes, places and clips the sprite on the GPU (same rules below); 0 = this draw stays here
+	if ( (pnt->z > 0.0f) && gr_host_billboard(0, &pnt->x, NULL, rad, 0.0f, 0.0f, orient, tmap_flags) )
+		return 0;
 
 	if (!(pnt->flags&PF_PROJECTED))
 		g3_project_vertex(pnt);

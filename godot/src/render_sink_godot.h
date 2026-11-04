@@ -77,6 +77,7 @@ public:
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
 	unsigned long long stat_mesh_draws = 0;	// mesh draws that reached a 3D layer, all frames (counted-shot proof)
+	unsigned long long stat_bb_draws = 0;	// billboard draws that reached a 3D layer, all frames (counted-shot proof)
 	unsigned long long stat_mesh_models = 0;	// distinct (model, state) per run summed: batching potential = draws vs this
 	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
@@ -276,6 +277,22 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
+	// v5 billboards (R3): one shared unit quad; the vertex shader places the corners (docs/R3_billboards_design.md)
+	struct BbDraw {
+		fs2_sink_billboard b = {};
+		int epoch = 0;
+		int cw = 0, ch = 0, ox = 0, oy = 0;
+		float scale[2] = {1.0f, 1.0f};	// Matrix_scale x, y
+		bool crect = false;
+		int cr[4] = {};
+	};
+	static constexpr int32_t kBbBase = 1 << 24;	// a batch whose key.texture is <= -kBbBase is billboard draw (-key.texture - kBbBase)
+	std::vector<BbDraw> bb_draws;
+	std::map<uint32_t, godot::RID> bb_shaders;
+	godot::RID bb_quad;
+	godot::RID billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect);
+	void add_bb_to_layer(Layer &l, const BbDraw &d, int order);
+	static int s_billboard_draw(void *u, const fs2_sink_billboard *b);
 	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect);
 	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);

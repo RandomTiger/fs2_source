@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define FS2_RENDER_SINK_VERSION 4
+#define FS2_RENDER_SINK_VERSION 5
 
 /* v3 (P1, GodotRender3D): the game camera, for a sink that draws meshes. Informational: no draw changes with it. */
 typedef struct fs2_sink_view {
@@ -138,6 +138,23 @@ typedef struct fs2_sink_draw {
 	float fog_near, fog_far;	/* fog distances in world units; vertex z is depth / 30000 (capped 0.98), so depth = z * 30000 */
 } fs2_sink_draw;
 
+/* v5 billboards. Points are eye space (the game's g3_rotate_vertex output: x right, y up, z forward), so no camera matrix is needed beyond the
+ * set_view scale and canvas. */
+#define FS2_SINK_BB_BITMAP	0	/* g3_draw_bitmap: p0 = centre, rad = half size, orient = flip bits (1: u, 2: v) */
+#define FS2_SINK_BB_RIBBON	1	/* g3_draw_laser: p0 = head, p1 = tail, rad = head width, rad_tail = tail width, max_len = pixel cap of the 2D length */
+typedef struct fs2_sink_billboard {
+	int32_t kind;			/* FS2_SINK_BB_* */
+	int32_t texture, blend;		/* as fs2_sink_draw; texture 0 = untextured (tint colour) */
+	uint32_t flags;			/* FS2_SINK_DRAWF_ZREAD / ZWRITE */
+	uint8_t tint[4];		/* r g b a */
+	int32_t zbias;
+	float p0[3], p1[3];
+	float rad, rad_tail, max_len;
+	int32_t orient;
+	int32_t bw, bh;			/* bitmap size in texels (bitmap kind: the aspect rule) */
+	int32_t clip[4];		/* gr_screen clip left, top, right, bottom, canvas-relative: the bitmap kind's scaler clips and drops tiny quads with them */
+} fs2_sink_billboard;
+
 typedef struct fs2_sink_mesh_fog {
 	int32_t mode;		/* FS2_SINK_FOG_* */
 	uint8_t rgb[4];		/* fog colour r g b (a unused) */
@@ -220,6 +237,12 @@ typedef struct fs2_render_sink {
 	 * has its z multiplied by t[0] before the transform (the flame's length). NULL = no scaling. A sink without it makes the host draw thrusters on
 	 * the CPU path. */
 	void (*mesh_thrust)(void *user, const float t[2]);
+
+	/* v5, optional (R3): a screen-aligned bitmap or a tracer ribbon, placed by eye-space points and sized and clipped by the sink on the GPU with the
+	 * game's own pixel rules (g3_draw_bitmap, g3_draw_laser; docs/R3_billboards_design.md). Only inside a depth run, after set_view. A sink without it
+	 * gets the screen-space triangles from the host as before. Returns 1 when drawn or deliberately culled, 0 when the sink cannot take this draw
+	 * (the host then draws it on the CPU path). */
+	int (*billboard_draw)(void *user, const fs2_sink_billboard *b);
 } fs2_render_sink;
 
 #ifdef __cplusplus
