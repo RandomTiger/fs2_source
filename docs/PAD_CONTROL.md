@@ -111,7 +111,7 @@ With North (360: Y) held, axes and the left trigger carry on, and buttons do thi
 While North is held the selected system's part of the ETS gauge is white. The selection starts on
 shields each mission.
 
-Not on the pad since #151, keyboard only: the squad menu, next or previous hostile, attacking me,
+Not on the pad since #151: the squad menu (voice can still open it, otherwise keyboard). Keyboard only: next or previous hostile, attacking me,
 next or previous subsystem, cargo, friendly, turret, and the one-shot match speed.
 
 ## On the menus (from Tom, #147)
