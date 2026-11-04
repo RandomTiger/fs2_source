@@ -147,6 +147,8 @@ private:
 		std::vector<godot::RID> instances;
 		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
 		std::vector<std::pair<int, godot::RID>> mesh_coltex;	// (rows, texture)
+		std::vector<godot::RID> bb_instances;	// billboard runs: one instance each, kept apart from `instances` (they carry a sorting offset)
+		std::vector<std::pair<int, godot::RID>> bb_multimeshes;	// (bucket, multimesh) of those runs, back to bb_mm_pool when the layer goes
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
 	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
@@ -291,7 +293,14 @@ private:
 	std::map<uint32_t, godot::RID> bb_shaders;
 	godot::RID bb_quad;
 	godot::RID billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect);
-	void add_bb_to_layer(Layer &l, const BbDraw &d, int order);
+	// batched instancing: adjacent billboard draws of one state are one multimesh, one material, one instance (per-draw data in the transform + custom data)
+	static constexpr int kBbBuckets = 5;
+	static constexpr int kBbBucketCap[kBbBuckets] = {8, 32, 128, 512, 2048};
+	std::vector<godot::RID> bb_mm_pool[kBbBuckets];
+	std::vector<godot::RID> spare_bb_instances;
+	std::vector<size_t> bb_run_idx;
+	bool bb_same_run(const BbDraw &a, const BbDraw &b) const;
+	void add_bb_run(Layer &l, const std::vector<size_t> &idx, int order);
 	static int s_billboard_draw(void *u, const fs2_sink_billboard *b);
 	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect);
 	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect);

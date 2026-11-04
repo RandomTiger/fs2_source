@@ -42,6 +42,7 @@ enum ZoneId {
 	Z_FLUSH,
 	Z_FOG_GET,	// fog lag: the readback of the older probe
 	Z_FOG_CAPTURE,	// fog lag: moving this frame's pre-render into a slot
+	Z_BB_RUN,	// billboard runs placed in a layer (add_bb_run)
 	Z_COUNT
 };
 extern const char *const zone_names[Z_COUNT];
@@ -70,6 +71,8 @@ enum CounterId {
 	C_FOG_LAG,	// fog reads answered from the probe of an earlier drawn frame
 	C_FOG_WAIT,	// lag reads whose probe had not been rendered yet (rendered first, counted)
 	C_MESH_DRAWS,	// v4 mesh draws that reached a 3D layer
+	C_BB_RUNS,	// billboard runs (one instance each)
+	C_BB_DRAWS,	// billboard draws in those runs
 	C_COUNT
 };
 extern const char *const counter_names[C_COUNT];

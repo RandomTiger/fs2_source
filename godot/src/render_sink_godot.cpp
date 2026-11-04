@@ -155,6 +155,8 @@ void GodotSink::shutdown()
 		for (RID &r : spare_instances) {
 			rs->free_rid(r);
 		}
+		for (RID &r : spare_bb_instances) { rs->free_rid(r); }
+		for (auto &pool : bb_mm_pool) { for (RID &r : pool) { rs->free_rid(r); } pool.clear(); }
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
@@ -186,6 +188,7 @@ void GodotSink::shutdown()
 	dying.clear();
 	tex_pool.clear();
 	spare_instances.clear();
+	spare_bb_instances.clear();
 	vp = nullptr;
 	in_frame = false;
 	warmed = false;
@@ -1044,6 +1047,7 @@ static Batch canvas_form(const Batch &b)
 	return c;
 }
 
+
 void GodotSink::end_run()
 {
 	fs2perf::Zone _pz(fs2perf::Z_RUN_END);
@@ -1073,6 +1077,22 @@ void GodotSink::end_run()
 		Layer l = acquire_layer();
 		fs2perf::count(fs2perf::C_LAYERS);
 		for (int i = first; i <= last; i++) {
+			if (run_batches[i].key.texture <= -kBbBase) {
+				// a run of adjacent billboard draws of one state is one instance (kept in game order inside it)
+				bb_run_idx.clear();
+				int j = i;
+				while (j <= last && run_batches[j].key.texture <= -kBbBase && (int)bb_run_idx.size() < kBbBucketCap[kBbBuckets - 1]) {
+					const size_t di = (size_t)(-(int64_t)run_batches[j].key.texture - kBbBase - 1);
+					if (di >= bb_draws.size()) { break; }
+					if (!bb_run_idx.empty() && !bb_same_run(bb_draws[bb_run_idx[0]], bb_draws[di])) { break; }
+					bb_run_idx.push_back(di);
+					j++;
+				}
+				if (j == i) { continue; }
+				add_bb_run(l, bb_run_idx, i - first);
+				i = j - 1;
+				continue;
+			}
 			add_to_layer(l, run_batches[i], i - first);
 		}
 		if (!composite_material.is_valid()) {
@@ -1156,6 +1176,11 @@ void GodotSink::release_layers(std::vector<Layer> &layers)
 			}
 		}
 		l.instances.clear();
+		for (RID &i : l.bb_instances) {
+			rs->instance_set_scenario(i, RID());
+			spare_bb_instances.push_back(i);
+		}
+		l.bb_instances.clear();
 		release_mesh_res(l, false);
 		rs->viewport_set_update_mode(l.viewport, RenderingServer::VIEWPORT_UPDATE_DISABLED);
 		spare_layers.push_back(l);
@@ -1170,6 +1195,8 @@ void GodotSink::free_layer(Layer &l)
 		rs->free_rid(i);
 	}
 	l.instances.clear();
+	for (RID &i : l.bb_instances) { rs->free_rid(i); }
+	l.bb_instances.clear();
 	release_mesh_res(l, true);
 	rs->free_rid(l.viewport);
 	rs->free_rid(l.camera);
@@ -1529,11 +1556,7 @@ void GodotSink::gpu_frame_end()
 // (all transparent) instances back to front by their origin, so each instance's origin carries the call order.
 void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 {
-	if (b.key.texture <= -kBbBase) {
-		const size_t di = (size_t)(-(int64_t)b.key.texture - kBbBase - 1);
-		if (di < bb_draws.size()) { add_bb_to_layer(l, bb_draws[di], order); }
-		return;
-	}
+	if (b.key.texture <= -kBbBase) { return; }	// billboard runs are placed by end_run (add_bb_run)
 	if (b.key.texture < 0) {
 		const size_t di = (size_t)(-(int64_t)b.key.texture - 1);
 		if (di < mesh_draws.size()) { add_mesh_to_layer(l, mesh_draws[di], order); }
@@ -1800,6 +1823,8 @@ void GodotSink::release_mesh_res(Layer &l, bool free_them)
 	for (auto &t : l.mesh_coltex) { if (free_them) { rs->free_rid(t.second); } else { mesh_col_pool[t.first].push_back(t.second); } }
 	l.mesh_materials.clear();
 	l.mesh_coltex.clear();
+	for (auto &m : l.bb_multimeshes) { if (free_them) { rs->free_rid(m.second); } else { bb_mm_pool[m.first].push_back(m.second); } }
+	l.bb_multimeshes.clear();
 }
 
 void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v, int nv, const fs2_sink_mesh_group *g, int ng,
@@ -2064,11 +2089,15 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
 	code += ";\nuniform sampler2D tex : ";
 	code += lin ? "filter_linear, repeat_disable;\n" : "filter_nearest, repeat_disable;\n";
-	// pA = p0 xyz, rad; pB = p1 xyz, rad_tail; bbp = max_len, orient, bw, bh; sc = Matrix_scale x, y; bcl = the scaler clip l, t, r, b; tintc = tint
-	code += "uniform float zbias = 0.0;\nuniform vec4 pA;\nuniform vec4 pB;\nuniform vec4 bbp;\nuniform vec4 sc;\nuniform vec4 bcl;\nuniform vec4 cfg;\nuniform vec4 org;\nuniform vec4 tintc;\nvarying vec3 pc;\n";
+	// one draw call per run of draws that share this state: per run bwh = bw, bh; sc = Matrix_scale x, y; bcl = the scaler clip l, t, r, b; cfg = canvas/2, dbase;
+	// per draw, in the instance's 3x4 transform (read back from MODEL_MATRIX, which is exact: the instance transform is the identity) and its custom data:
+	// pA = p0 xyz, rad; pB = p1 xyz, rad_tail; bbp = max_len, orient, bw, bh; zbias; tint
+	code += "uniform vec2 bwh;\nuniform vec4 sc;\nuniform vec4 bcl;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying flat vec4 tintv;\n";
 	if (crect) { code += "uniform vec4 crc;\n"; }
 	code += "float snap16(float v) { return trunc(v * 16.0) / 16.0; }\n";
-	code += "void vertex() {\n\tvec2 q = VERTEX.xy;\n\tvec2 cwh = 2.0 * cfg.xy;\n\tfloat sx; float sy; float zq; float sw = 1.0; vec2 uv = q;\n\tbool skip = false;\n";
+	code += "void vertex() {\n\tmat4 M = MODEL_MATRIX;\n\tvec4 pA = vec4(M[0][0], M[0][1], M[0][2], M[1][0]);\n\tvec4 pB = vec4(M[1][1], M[1][2], M[2][0], M[2][1]);\n";
+	code += "\tvec4 bbp = vec4(M[2][2], M[3][0], bwh.x, bwh.y);\n\tfloat zbias = M[3][1];\n\ttintv = INSTANCE_CUSTOM;\n";
+	code += "\tvec2 q = VERTEX.xy;\n\tvec2 cwh = 2.0 * cfg.xy;\n\tfloat sx; float sy; float zq; float sw = 1.0; vec2 uv = q;\n\tbool skip = false;\n";
 	if (kind == FS2_SINK_BB_BITMAP) {
 		code += "\tfloat rad = pA.w;\n\tfloat width; float height;\n";
 		code += "\tif (bbp.z < bbp.w) { width = rad * 2.0; height = width * bbp.w / bbp.z; } else if (bbp.z > bbp.w) { height = rad * 2.0; width = height * bbp.z / bbp.w; } else { width = rad * 2.0; height = width; }\n";
@@ -2108,7 +2137,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
 	code += "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
 	if (a8) { code += "\tt = vec4(1.0, 1.0, 1.0, t.r);\n"; }
-	code += "\tvec4 c = t;\n\tc.rgb *= tintc.rgb;\n";
+	code += "\tvec4 c = t;\n\tc.rgb *= tintv.rgb;\n";
 	if (blend == FS2_SINK_BLEND_OPAQUE) { code += "\tc.a = 1.0;\n"; } else if (blend == FS2_SINK_BLEND_ADD) { code += "\tc.a = 0.0;\n"; }
 	code += "\tALBEDO = clamp(c.rgb, 0.0, 1.0);\n\tALPHA = c.a;\n}\n";
 	RID sh = rs->shader_create();
@@ -2138,13 +2167,33 @@ int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
 	return 1;
 }
 
-void GodotSink::add_bb_to_layer(Layer &l, const BbDraw &d, int order)
+bool GodotSink::bb_same_run(const BbDraw &a, const BbDraw &b) const
 {
+	const unsigned zm = FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE;
+	return a.b.kind == b.b.kind && a.b.blend == b.b.blend && a.b.texture == b.b.texture && (a.b.flags & zm) == (b.b.flags & zm)
+		&& a.b.bw == b.b.bw && a.b.bh == b.b.bh && std::memcmp(a.b.clip, b.b.clip, sizeof(a.b.clip)) == 0
+		&& a.epoch == b.epoch && a.cw == b.cw && a.ch == b.ch && a.ox == b.ox && a.oy == b.oy
+		&& a.scale[0] == b.scale[0] && a.scale[1] == b.scale[1]
+		&& a.crect == b.crect && (!a.crect || std::memcmp(a.cr, b.cr, sizeof(a.cr)) == 0);
+}
+
+// One run of billboard draws of one state: one pooled multimesh (bucket sized, visible_instances = the run), one material, one instance. The per-draw
+// values ride in each instance's 3x4 transform and custom data (see billboard_shader); the draw order inside the run is the instance order.
+void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
+{
+	fs2perf::Zone _pz(fs2perf::Z_BB_RUN);
+	const BbDraw &d = bb_draws[idx[0]];
 	auto ti = textures.find(d.b.texture);
 	if (ti == textures.end() || !bb_quad.is_valid()) { return; }
+	const int n = (int)idx.size();
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
-	stat_bb_draws++;
+	stat_bb_draws += (unsigned long long)n;
+	fs2perf::count(fs2perf::C_BB_RUNS);
+	fs2perf::count(fs2perf::C_BB_DRAWS, (uint64_t)n);
 	RenderingServer *rs = RenderingServer::get_singleton();
+	int bucket = 0;
+	while (bucket < kBbBuckets - 1 && kBbBucketCap[bucket] < n) { bucket++; }
+	const int cap = kBbBucketCap[bucket];
 	const int epoch = d.epoch < MAX_EPOCH ? d.epoch : MAX_EPOCH;
 	const float origin = 29000.0f - 0.25f * (float)order;
 	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
@@ -2152,37 +2201,57 @@ void GodotSink::add_bb_to_layer(Layer &l, const BbDraw &d, int order)
 	const int zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
 	const bool a8 = ti->second.format == FS2_SINK_TEX_A8;
 	const bool lin = (ti->second.flags & FS2_SINK_TEXF_LINEAR) != 0;
+	// per-draw data: transform rows r0..r2 (flat k = column * 3 + row, buffer index row * 4 + column), then the tint as custom data
+	constexpr int kStride = 16;
+	PackedFloat32Array buf;
+	buf.resize((int64_t)cap * kStride);
+	float *w = buf.ptrw();
+	std::memset(w, 0, sizeof(float) * (size_t)cap * kStride);
+	for (int i = 0; i < n; i++) {
+		const fs2_sink_billboard &b = bb_draws[idx[(size_t)i]].b;
+		float *e = w + (size_t)i * kStride;
+		const float v[12] = { b.p0[0], b.p0[1], b.p0[2], b.rad, b.p1[0], b.p1[1], b.p1[2], b.rad_tail, b.max_len, (float)b.orient, (float)b.zbias, 0.0f };
+		for (int k = 0; k < 12; k++) { e[(k % 3) * 4 + (k / 3)] = v[k]; }
+		e[12] = b.tint[0] / 255.0f; e[13] = b.tint[1] / 255.0f; e[14] = b.tint[2] / 255.0f; e[15] = b.tint[3] / 255.0f;
+	}
+	RID mm;
+	if (!bb_mm_pool[bucket].empty()) { mm = bb_mm_pool[bucket].back(); bb_mm_pool[bucket].pop_back(); }
+	else {
+		mm = rs->multimesh_create();
+		rs->multimesh_set_mesh(mm, bb_quad);
+		rs->multimesh_allocate_data(mm, cap, RenderingServer::MULTIMESH_TRANSFORM_3D, false, true);
+	}
+	rs->multimesh_set_buffer(mm, buf);
+	rs->multimesh_set_visible_instances(mm, n);
+	l.bb_multimeshes.push_back(std::make_pair(bucket, mm));
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect));
 	l.mesh_materials.push_back(mat);
 	rs->material_set_param(mat, "tex", ti->second.rid);
-	rs->material_set_param(mat, "zbias", (float)d.b.zbias);
-	rs->material_set_param(mat, "pA", Vector4(d.b.p0[0], d.b.p0[1], d.b.p0[2], d.b.rad));
-	rs->material_set_param(mat, "pB", Vector4(d.b.p1[0], d.b.p1[1], d.b.p1[2], d.b.rad_tail));
-	rs->material_set_param(mat, "bbp", Vector4(d.b.max_len, (float)d.b.orient, (float)d.b.bw, (float)d.b.bh));
+	rs->material_set_param(mat, "bwh", Vector2((float)d.b.bw, (float)d.b.bh));
 	rs->material_set_param(mat, "sc", Vector4(d.scale[0], d.scale[1], 0.0f, 0.0f));
 	rs->material_set_param(mat, "bcl", Vector4((float)d.b.clip[0], (float)d.b.clip[1], (float)d.b.clip[2], (float)d.b.clip[3]));
-	rs->material_set_param(mat, "tintc", Vector4(d.b.tint[0] / 255.0f, d.b.tint[1] / 255.0f, d.b.tint[2] / 255.0f, d.b.tint[3] / 255.0f));
 	const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
-	rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, origin));
+	rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, 0.0f));
 	rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
 	if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
 	RID inst;
-	if (kInstancePool && !spare_instances.empty()) {
-		inst = spare_instances.back();
-		spare_instances.pop_back();
-		rs->instance_set_base(inst, bb_quad);
+	if (kInstancePool && !spare_bb_instances.empty()) {
+		inst = spare_bb_instances.back();
+		spare_bb_instances.pop_back();
+		rs->instance_set_base(inst, mm);
 		rs->instance_set_scenario(inst, l.scenario);
-		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
 	} else {
-		inst = rs->instance_create2(bb_quad, l.scenario);
-		rs->instance_set_transform(inst, Transform3D(Basis(), Vector3(0.0f, 0.0f, -origin)));
+		inst = rs->instance_create2(mm, l.scenario);
+		rs->instance_set_transform(inst, Transform3D());
 		rs->instance_geometry_set_cast_shadows_setting(inst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
-		rs->instance_set_pivot_data(inst, 0.0f, false);
+		rs->instance_set_custom_aabb(inst, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
 	}
+	// Godot sorts by depth + this offset; the instance is at the origin, so the offset is the old per-instance origin distance
+	rs->instance_set_pivot_data(inst, origin, false);
 	rs->instance_geometry_set_material_override(inst, mat);
-	l.instances.push_back(inst);
+	l.bb_instances.push_back(inst);
 }
 
 } // namespace fs2sink
