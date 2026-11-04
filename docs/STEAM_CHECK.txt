@@ -60,6 +60,28 @@ tools\godot_touch_check.ps1.
   C2  A tap on the touchscreen opens the main hall door or presses the menu button tapped, windowed and fullscreen.
   C3  A tap on a bar beside the picture does nothing worse than act at the picture's nearest edge.
 
+Tap log: why a tap got lost (#146)
+----------------------------------
+Off by default. To turn it on, in the game's Properties > Launch Options (keep any other options after %command%):
+    FS2_TAP_LOG=1 %command%
+It appends to fs2_tap_log.txt in the game's data folder (next to the .vp files and FS2Godot.exe), flushed each line, with a
+"# ... session start" line per run. It changes nothing the game sees. Remove the option to turn it off.
+One line per mouse button press and release, written when the host hands it to the game:
+  time ms          wall time; milliseconds since Godot started
+  src dev          touch = Godot's mouse made from a touch (dev=-1); mouse = anything else. Under Proton or Steam Input a
+                   finger may arrive as a plain mouse, so src=mouse does not prove no finger was used.
+  btn              left, right, middle
+  screen view      position in the Godot viewport, and that viewport's size
+  game game_screen the position the game is given, and the game's screen size
+  frames held_ms   (release) game frames started and milliseconds since the press. frames=0 means the game ran no frame with the button down.
+  longest_ms       (release) longest game frame during the tap, counting the one in progress
+  recent_ms        the last six game frames, oldest first. Several game frames can run in one Godot frame, so short and long ones mix.
+  fallback         (release) yes = let through by the 40 ms limit, not by a game frame
+  waited_ms queue  how long the event waited in the host's queue; events still queued behind it
+A "stall" line means a tap arrived while older events had waited 500 ms or more: the game was not taking input. That tap's own
+line comes only when the game next takes it. A tap with no line at all never reached the host as a mouse button.
+The game's screen is not logged: note the time and the screen as you test (pilot screen, main hall, command briefing).
+
 Recording the results
 ---------------------
 One line per case: date, route (M1-M4), renderer, windowed/fullscreen, A or B item, pass/fail, and a note for any fault.
