@@ -136,7 +136,6 @@ private:
 	static void s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t, const uint8_t *pixels)
 	{
 		FakeSink *s = me(u);
-		s->need_frame("texture_create outside a frame");
 		if (id == 0 || w <= 0 || h <= 0 || pixels == nullptr) { s->err("texture_create with bad arguments"); }
 		s->textures.insert(id);
 		Cmd &c = s->add(Cmd::TexCreate);
@@ -263,7 +262,6 @@ private:
 		const uint32_t *idx, int ni)
 	{
 		FakeSink *s = me(u);
-		s->need_frame("mesh_create outside a frame");
 		if (id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0 || ni % 3 != 0) { s->err("mesh_create with bad arguments"); return; }
 		for (int i = 0; i < ni; i++) {
 			if (idx[i] >= (uint32_t)nv) { s->err("mesh_create index out of range"); return; }

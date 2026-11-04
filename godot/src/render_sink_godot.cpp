@@ -431,7 +431,7 @@ void GodotSink::age_dying(bool force_all)
 void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t flags, const uint8_t *pixels)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
-	if (!s->in_frame || id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {
+	if (id == 0 || w <= 0 || h <= 0 || pixels == nullptr) {	// legal outside a frame too: level load uploads before the first frame
 		return;
 	}
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
@@ -1784,7 +1784,7 @@ void GodotSink::s_mesh_create(void *u, int32_t id, const fs2_sink_mesh_vertex *v
 	const uint32_t *idx, int ni)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
-	if (!s->in_frame || id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0) { return; }
+	if (id == 0 || v == nullptr || nv <= 0 || g == nullptr || ng <= 0 || idx == nullptr || ni <= 0) { return; }	// legal outside a frame (level load)
 	RenderingServer *rs = RenderingServer::get_singleton();
 	auto old = s->mesh_data.find(id);
 	if (old != s->mesh_data.end()) { s->free_mesh_data(old->second); s->mesh_data.erase(old); }

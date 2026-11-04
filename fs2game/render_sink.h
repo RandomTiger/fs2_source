@@ -157,7 +157,9 @@ typedef struct fs2_render_sink {
 	/* Scissor for later draws, in screen pixels. w<=0 or h<=0 means nothing is visible. */
 	void (*set_clip)(void *user, int x, int y, int w, int h);
 
-	/* pixels are tightly packed (w*bytes_per_pixel per row) and copied by the sink before the call returns */
+	/* pixels are tightly packed (w*bytes_per_pixel per row) and copied by the sink before the call returns.
+	 * texture_create and mesh_create are also legal outside a frame (between frames, at level load), so fixed data is uploaded once
+	 * at load and never at a draw; every other call is inside a frame only. */
 	void (*texture_create)(void *user, int32_t id, int w, int h, int format, uint32_t texflags, const uint8_t *pixels);
 	void (*texture_free)(void *user, int32_t id);
 	void (*texture_free_all)(void *user);

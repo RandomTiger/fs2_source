@@ -118,6 +118,8 @@ struct Host {
 	float fog_near = 0.0f, fog_far = 0.0f;
 	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
 	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
+	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
+	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
 	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
@@ -337,7 +339,7 @@ void legacy_d3d_texel_shift(std::vector<uint8_t> &px, int w, int h)
 // type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
 int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
 {
-	if (!drawing() || bitmap_id < 0) { return 0; }
+	if ((!drawing() && !H.load_mode) || bitmap_id < 0) { return 0; }
 	const bool aa = (type == TCACHE_TYPE_AABITMAP);
 	int kind = TK_NORMAL;
 	if (aa) { kind = TK_AA; }
@@ -430,7 +432,7 @@ int glow_shivan_class(int bitmap_handle)
 // of the bitmap's size, glow off). The answer is cached either way.
 int glow_tex_get(int bitmap_id)
 {
-	if (!drawing() || bitmap_id < 0 || Cmdline_no_ship_glow) { return 0; }
+	if ((!drawing() && !H.load_mode) || bitmap_id < 0 || Cmdline_no_ship_glow) { return 0; }
 	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), TK_GLOW };
 	auto found = H.tex.find(key);
 	if (found != H.tex.end()) { return found->second.sink_id; }
@@ -1136,7 +1138,7 @@ static void mesh_sink_groups(const Host::HostMesh &m, const std::vector<int> &te
 }
 
 // load hooks: a model was paged in (its meshes are built on the host now), and level paging is done (the sink copies are made now,
-// in a frame, so the first draw of a ship does not stall on texture uploads). The copies are made for the usual state; a draw in
+// outside a frame, so the first draw of a ship does not stall on texture uploads). The copies are made for the usual state; a draw in
 // another z mode, zbias or cull remakes only the group state (mesh_state), never the geometry.
 void h_model_page_in(int modelnum)
 {
@@ -1147,8 +1149,8 @@ void h_level_loaded()
 {
 	if (!h_mesh_ready()) { return; }
 	model_interp_mesh_preload_all();
-	ensure_frame();
-	if (!drawing()) { return; }
+	if (H.sink == nullptr) { return; }
+	H.load_mode = true;
 	for (auto &e : H.meshes) {
 		Host::HostMesh &m = e.second;
 		if (m.sink_made || m.cpu_only) { continue; }
@@ -1173,6 +1175,7 @@ void h_level_loaded()
 		m.zmode = GR_ZBUFF_FULL; m.zbias = 0; m.cull = 1; m.tiled = 0;
 		m.tex = tex; m.blend = blend;
 	}
+	H.load_mode = false;
 }
 
 // common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid.
@@ -1222,6 +1225,8 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 		if (m.sink_made && H.sink->mesh_state) {
 			H.sink->mesh_state(H.sink->user, key, sg.data(), (int)sg.size());	// the geometry stays; only how it is drawn changes
 		} else {
+			// load created every sink copy it could; reaching here means a mesh load could not make (no texture then). Counted, never expected.
+			if (H.mesh_sink_late++ == 0) { fprintf(stderr, "render3d: LATE sink mesh at a draw (key %d): the level load did not make it\n", key); }
 			H.sink->mesh_create(H.sink->user, key, m.v.data(), (int)m.v.size(), sg.data(), (int)sg.size(), m.idx.data(), (int)m.idx.size());
 		}
 		m.sink_made = true;
@@ -1644,7 +1649,7 @@ void host_init()
 
 void host_cleanup()
 {
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
