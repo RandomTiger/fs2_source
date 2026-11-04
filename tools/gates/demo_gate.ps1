@@ -29,4 +29,6 @@ $fails = @($r | Where-Object { $_ -match '^FAIL ' })
 if ($fails.Count -or ($r -match '^SKIP')) { $bad += 'replays' }
 $t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
 "tools: $t"; if ($t -notmatch '^PASS') { $bad += 'tools' }
+$s = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo	ools\stale_pilot_check.ps1" | Select-Object -Last 1
+"stale pilot: $s"; if ($s -notmatch '^PASS') { $bad += 'stale pilot' }
 if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }

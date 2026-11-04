@@ -23,6 +23,8 @@ Autotest never saves the pilot file, so the pilot's skill level, stats and setti
 
 No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
 
+`tools\stale_pilot_check.ps1` (FS2 demo and retail installs, Release and Debug, part of `tools\gates\demo_gate.ps1`) proves a version 140 pilot with the wrong medal count is refused, and the same bytes load on the data set they fit (#156). It does not cover a pilot an old build already damaged.
+
 Base-layer worktrees (`VS2022`, `OriginalSourceBugFixes`, `RecordPlayback`) and `Enhanced` must not share a players folder: Enhanced writes pilot version 141, which a base build refuses (not listed, not loaded, left as it is, #114).
 
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
