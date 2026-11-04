@@ -293,6 +293,7 @@
  *
 */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "PsTypes.h"
 #include "Freespace.h"
 #include "SystemVars.h"
@@ -1179,7 +1180,7 @@ void hud_show_asteroid_brackets()
 // Draw radar gauge on the HUD
 void hud_show_radar()
 {
-	if ( hud_disabled() ) {
+	if ( hud_disabled() || !Render_show[RS_HUD] ) {	// Claude: GodotOptions, the show check
 		return;
 	}
 
@@ -1213,14 +1214,18 @@ void hud_update_radar()
 // Render model of target in the target view box
 void hud_show_target_model()
 {
-	if ( hud_disabled() ) {
+	if ( hud_disabled() || !Render_show[RS_HUD] ) {	// Claude: GodotOptions, the show check
 		return;
 	}
 
 	// display the miniature model of the target in the target box and shade
 	if ( Game_detail_flags & DETAIL_FLAG_HUD )	{
 		if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW | VM_WARP_CHASE | VM_PADLOCK_ANY)))
+		{
+			gr_virtual_hud_double_begin();	// Claude: GodotOptions
 			hud_render_target_model();
+			gr_virtual_hud_double_end();	// Claude: GodotOptions
+		}
 	}
 }
 

@@ -42,6 +42,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "object.h"
 #include "timer.h"
 #include "Systemvars.h"
@@ -205,6 +206,10 @@ void mflash_create(vector *gun_pos, vector *gun_dir, int mflash_type)
 	mflash_info *mi;
 	particle_info p;
 	int idx;
+
+	if (!Render_show[RS_MFLASH]) {	// Claude: GodotOptions, the console
+		return;
+	}
 
 	// standalone server should never create trails
 	if(Game_mode & GM_STANDALONE_SERVER){

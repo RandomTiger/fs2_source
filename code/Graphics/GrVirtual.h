@@ -63,6 +63,15 @@ void gr_virtual_hud_begin();
 void gr_virtual_hud_end();
 void gr_virtual_hud_gauge(int gauge_index);
 void gr_virtual_set_anchor(int anchor);
+
+// GodotOptions: the double size HUD. Inside begin/end, and in a base clip, gauge draws double around their anchor point
+// (the screen corner, edge or centre they hold to), so a gauge grows into the screen. Projected gauges stay where they are:
+// they mark places in the 3D view. gr_virtual_hud_scale gives the scale for the next draw and that point, in base pixels.
+void gr_virtual_set_hud_double(int on);
+void gr_virtual_hud_double_begin();
+void gr_virtual_hud_double_end();
+int gr_virtual_hud_scale(int *pivot_x, int *pivot_y);
+void gr_virtual_caption_scale(int pivot_y);	// draws double around the middle of the screen at this height, -1 ends it
 int gr_virtual_gauge_anchor(int gauge_index);	// the table entry, HUD_ANCHOR_TOP_LEFT for an unknown gauge
 
 // Mission frame, full view: widen the clip to the whole virtual canvas. gr_screen.offset_x/y go negative by the

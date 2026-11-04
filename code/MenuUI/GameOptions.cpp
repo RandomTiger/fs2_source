@@ -32,6 +32,7 @@
 #include "player.h"
 #include "MissionCampaign.h"
 #include "Scoring.h"
+#include "cmdline.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -81,6 +82,67 @@ static void game_options_load()
 			Game_options_gr = GR_640;
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------
+// GodotOptions: the options of GameOptionList.h. One table: the command line (cmdline.cpp), the screen's rows and the console's
+// commands all go through game_option_set.
+
+typedef struct go_option {
+	char *name, *key, *label;
+	int dflt, host_only;
+} go_option;
+
+#define GO_OPTION(id, name, key, label, dflt, host_only) { name, key, label, dflt, host_only },
+static go_option Go_options[GO_OPT_COUNT] = {
+#include "GameOptionList.h"
+};
+#undef GO_OPTION
+
+static int Go_option_value[GO_OPT_COUNT];
+
+// what a change does beyond the value: only what cannot read game_option as it goes
+static void go_option_apply(int id)
+{
+	if (id == GO_OPT_HUD_DOUBLE) {
+		gr_virtual_set_hud_double(Go_option_value[id]);
+	}
+}
+
+void game_options_settings_init()
+{
+	int i;
+
+	for (i = 0; i < GO_OPT_COUNT; i++) {
+		Go_option_value[i] = Go_options[i].dflt;
+		if (game_options_keys_active()) {
+			Go_option_value[i] = os_config_read_uint(NULL, Go_options[i].key, Go_options[i].dflt) ? 1 : 0;
+		}
+		if (Cmdline_game_option[i] >= 0) {
+			Go_option_value[i] = Cmdline_game_option[i];
+		}
+		go_option_apply(i);
+	}
+}
+
+int game_option(int id)
+{
+	return Go_option_value[id];
+}
+
+void game_option_set(int id, int value)
+{
+	Go_option_value[id] = value ? 1 : 0;
+	if (game_options_keys_active()) {
+		os_config_write_uint(NULL, Go_options[id].key, Go_option_value[id]);
+	}
+	go_option_apply(id);
+}
+
+// a row on the screen: live play only, so a compared run sees the screen it always did; a host only option needs the host
+static int go_option_on_screen(int id)
+{
+	return game_options_keys_active() && (!Go_options[id].host_only || gr_live_mode_change());
 }
 
 static void game_options_write_flight()
@@ -194,7 +256,8 @@ int game_options_gr_mode(int mode)
 #define GO_ITEM_GR			1
 #define GO_ITEM_BACK		2
 #define GO_ITEM_RES			3		// value: an index in Go_res
-#define GO_MAX_ITEMS		16
+#define GO_ITEM_OPTION		4		// Claude: GodotOptions, value: option id * 2 + the choice
+#define GO_MAX_ITEMS		24		// Claude: GodotOptions, was 16
 
 typedef struct go_item {
 	int kind, value;
@@ -462,6 +525,12 @@ static int game_options_res_y()
 	return gr_screen.max_h * (Game_profile->gr_mode_choice ? 56 : 42) / 100;
 }
 
+// Claude: GodotOptions, the line of the nth option row
+static int go_option_row_y(int row)
+{
+	return gr_screen.max_h * (72 + row * 6) / 100;
+}
+
 // lays the screen out for this art mode: fractions of the screen, so GR_640 and GR_1024 match
 static void game_options_layout()
 {
@@ -486,6 +555,13 @@ static void game_options_layout()
 			game_options_add(GO_ITEM_RES, i, cx + i * step * 3 / 2, yr, Go_res[i].text);
 		} else {
 			game_options_add(GO_ITEM_RES, i, cx + (i - 2) * step, yr + lh, Go_res[i].text);
+		}
+	}
+	for (i = 0, yr = 0; i < GO_OPT_COUNT; i++) {	// Claude: GodotOptions
+		if (go_option_on_screen(i)) {
+			game_options_add(GO_ITEM_OPTION, i * 2 + 1, cx, go_option_row_y(yr), "On");
+			game_options_add(GO_ITEM_OPTION, i * 2, cx + step, go_option_row_y(yr), "Off");
+			yr++;
 		}
 	}
 	game_options_add(GO_ITEM_BACK, 0, w * 8 / 100, h * 90 / 100, "Back");
@@ -515,6 +591,9 @@ static int game_options_item_current(go_item *it)
 	}
 	if (it->kind == GO_ITEM_RES) {
 		return it->value == Go_res_shown;
+	}
+	if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
+		return game_option(it->value / 2) == (it->value & 1);
 	}
 	return 0;
 }
@@ -559,6 +638,8 @@ static void game_options_pick(go_item *it)
 		game_options_gr_choose(it->value);	// Claude: GodotOptions. 'it' is stale after this
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
+	} else if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
+		game_option_set(it->value / 2, it->value & 1);
 	}
 }
 
@@ -728,6 +809,12 @@ void game_options_screen_do_frame(float /*frametime*/)
 	gr_string(gr_screen.max_w * 12 / 100, game_options_res_y(), "Resolution");
 	if (!gr_live_mode_change()) {
 		gr_string(gr_screen.max_w / 2, game_options_res_y() + (gr_get_font_height() + 6) * 2, "Takes effect next time the game starts");
+	}
+
+	for (i = 0, w = 0; i < GO_OPT_COUNT; i++) {	// Claude: GodotOptions
+		if (go_option_on_screen(i)) {
+			gr_string(gr_screen.max_w * 12 / 100, go_option_row_y(w++), Go_options[i].label);
+		}
 	}
 
 	for (i = 0; i < Go_num_items; i++) {
@@ -984,6 +1071,110 @@ static void go_console_unlock_missions(char *out, int out_size)
 	go_console_print(out, out_size, line);
 }
 
+// Claude: GodotOptions, on, off, or empty to toggle; returns 0 or 1, or -1 for something else
+static int go_console_on_off(const char *arg, int now)
+{
+	if (arg[0] == 0) {
+		return !now;
+	}
+	if (!stricmp(arg, "on") || !strcmp(arg, "1")) {
+		return 1;
+	}
+	if (!stricmp(arg, "off") || !strcmp(arg, "0")) {
+		return 0;
+	}
+	return -1;
+}
+
+// the word at the start of line, whole: the rest of the line, or NULL
+static const char *go_console_word(const char *line, const char *word)
+{
+	size_t n = strlen(word);
+
+	if (strnicmp(line, word, n) || ((line[n] != 0) && (line[n] != ' '))) {
+		return NULL;
+	}
+	line += n;
+	while (*line == ' ') {
+		line++;
+	}
+	return line;
+}
+
+// Claude: GodotOptions, an option of GameOptionList.h: 1 if the line was one
+static int go_console_option(const char *line, char *out, int out_size)
+{
+	char text[64];
+	const char *arg;
+	int i, v;
+
+	for (i = 0; i < GO_OPT_COUNT; i++) {
+		arg = go_console_word(line, Go_options[i].name);
+		if (arg) {
+			v = go_console_on_off(arg, game_option(i));
+			if (v < 0) {
+				sprintf(text, "usage: %s, %s on, %s off", Go_options[i].name, Go_options[i].name, Go_options[i].name);
+			} else {
+				game_option_set(i, v);
+				sprintf(text, "%s %s", Go_options[i].name, v ? "on" : "off");
+			}
+			go_console_print(out, out_size, text);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// Claude: GodotOptions, the show command (RenderShow.h)
+#define RS_ITEM(id, name) name,
+static char *Render_show_names[RS_COUNT] = {
+#include "RenderShowList.h"
+};
+#undef RS_ITEM
+
+static void go_console_show(const char *arg, char *out, int out_size)
+{
+	char text[64];
+	const char *rest;
+	int i, v;
+
+	if (arg[0] == 0) {
+		for (i = 0; i < RS_COUNT; i++) {
+			sprintf(text, "%-16s%s\n", Render_show_names[i], Render_show[i] ? "on" : "OFF");
+			go_console_print(out, out_size, text);
+		}
+		return;
+	}
+	rest = go_console_word(arg, "all");
+	if (rest) {
+		v = go_console_on_off(rest, 1);
+		if ((rest[0] == 0) || (v < 0)) {
+			go_console_print(out, out_size, "usage: show all on, show all off");
+			return;
+		}
+		for (i = 0; i < RS_COUNT; i++) {
+			Render_show[i] = v;
+		}
+		go_console_print(out, out_size, v ? "show all on" : "show all off");
+		return;
+	}
+	for (i = 0; i < RS_COUNT; i++) {
+		rest = go_console_word(arg, Render_show_names[i]);
+		if (rest) {
+			v = go_console_on_off(rest, Render_show[i]);
+			if (v < 0) {
+				break;
+			}
+			Render_show[i] = v;
+			sprintf(text, "show %s %s", Render_show_names[i], v ? "on" : "off");
+			go_console_print(out, out_size, text);
+			return;
+		}
+	}
+	go_console_print(out, out_size, "usage: show (lists them), show <name>, show <name> on, show <name> off, show all on, show all off");
+}
+
+
 int game_options_console_command(const char *line, char *out, int out_size)
 {
 	out[0] = 0;
@@ -999,6 +1190,13 @@ int game_options_console_command(const char *line, char *out, int out_size)
 			line++;
 		}
 		go_console_resolution(line, out, out_size);
+		return 1;
+	}
+	if (go_console_option(line, out, out_size)) {	// Claude: GodotOptions
+		return 1;
+	}
+	if (go_console_word(line, "show")) {	// Claude: GodotOptions
+		go_console_show(go_console_word(line, "show"), out, out_size);
 		return 1;
 	}
 	if (!stricmp(line, "unlock missions")) {

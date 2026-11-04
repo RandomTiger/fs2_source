@@ -131,15 +131,22 @@ struct Host {
 	bool glow_hold = false;			// a ship poly's lit draw is being made: it does not flush the queue
 	// GodotResolution: the present offset (GrVirtual.h) the sink's clip and draws were sent with this frame
 	int pdx = 0, pdy = 0;
+	int ps = 1, ppx = 0, ppy = 0;	// GodotOptions: the double size HUD, the scale and its point (GrVirtual.h)
 	std::vector<fs2_sink_vertex> shift_v;
 } H;
 
 // GodotResolution: v moved by the present offset, in H.shift_v (v itself when the offset is 0)
 const fs2_sink_vertex *present(const fs2_sink_vertex *v, int nv)
 {
-	if (H.pdx == 0 && H.pdy == 0) { return v; }
+	if (H.pdx == 0 && H.pdy == 0 && H.ps == 1) { return v; }
 	H.shift_v.assign(v, v + nv);
-	for (fs2_sink_vertex &s : H.shift_v) { s.x += (float)H.pdx; s.y += (float)H.pdy; }
+	for (fs2_sink_vertex &s : H.shift_v) {
+		if (H.ps != 1) {	// GodotOptions
+			s.x = (float)H.ppx + (s.x - (float)H.ppx) * (float)H.ps;
+			s.y = (float)H.ppy + (s.y - (float)H.ppy) * (float)H.ps;
+		}
+		s.x += (float)H.pdx; s.y += (float)H.pdy;
+	}
 	return H.shift_v.data();
 }
 
@@ -199,6 +206,18 @@ void send_clip()
 {
 	glow_flush();		// queued glow polys belong to the clip (and present offset) they were drawn under
 	gr_virtual_offset(&H.pdx, &H.pdy);
+	H.ps = gr_virtual_hud_scale(&H.ppx, &H.ppy);	// GodotOptions
+	if (H.ps != 1) {
+		int x0 = H.pdx + H.ppx + (gr_screen.offset_x + gr_screen.clip_left - H.ppx) * H.ps;
+		int y0 = H.pdy + H.ppy + (gr_screen.offset_y + gr_screen.clip_top - H.ppy) * H.ps;
+		int x1 = x0 + gr_screen.clip_width * H.ps, y1 = y0 + gr_screen.clip_height * H.ps;
+		x0 = x0 < 0 ? 0 : x0;
+		y0 = y0 < 0 ? 0 : y0;
+		x1 = x1 > gr_virtual_w() ? gr_virtual_w() : x1;
+		y1 = y1 > gr_virtual_h() ? gr_virtual_h() : y1;
+		H.sink->set_clip(H.sink->user, x0, y0, x1 > x0 ? x1 - x0 : 0, y1 > y0 ? y1 - y0 : 0);
+		return;
+	}
 	H.sink->set_clip(H.sink->user, H.pdx + gr_screen.offset_x + gr_screen.clip_left, H.pdy + gr_screen.offset_y + gr_screen.clip_top,
 		gr_screen.clip_width, gr_screen.clip_height);
 }
@@ -206,9 +225,10 @@ void send_clip()
 // GodotResolution: a HUD gauge's anchor moved the present offset since the clip was sent; send it again
 void sync_offset()
 {
-	int dx, dy;
+	int dx, dy, px, py, s;
 	gr_virtual_offset(&dx, &dy);
-	if (dx != H.pdx || dy != H.pdy) { send_clip(); }
+	s = gr_virtual_hud_scale(&px, &py);	// GodotOptions
+	if (dx != H.pdx || dy != H.pdy || s != H.ps || px != H.ppx || py != H.ppy) { send_clip(); }
 }
 
 // GodotResolution: gr_virtual_wide_clip changed gr_screen's clip behind the gf_ table

@@ -123,7 +123,8 @@
  * Lots of nebula work. Put in ship contrails.
  * 
  * 5     11/05/98 5:55p Dave
- * Big pass at reducing #includes
+ * Big pass at reducing #include "RenderShow.h"	// Claude: GodotOptions
+#includes
  * 
  * 4     10/13/98 9:29a Dave
  * Started neatening up freespace.h. Many variables renamed and
@@ -737,6 +738,11 @@ void stars_draw_sun( int show_sun )
 			local_scale = 1.0f + (SUPERNOVA_SUN_SCALE * supernova_pct_complete());
 		}
 
+		// Claude: GodotOptions, the console: its light stays, only the sun and so its glare go
+		if (!Render_show[RS_SUNS]) {
+			continue;
+		}
+
 		// draw the sun itself, keep track of how many we drew
 		gr_set_bitmap(bm->bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 0.999f);
 		g3_rotate_faraway_vertex(&sun_vex, &sun_pos);
@@ -789,6 +795,10 @@ void stars_draw_sun_glow(int sun_n)
 // draw bitmaps
 void stars_draw_bitmaps( int show_bitmaps )
 {
+	if (!Render_show[RS_BACKGROUNDS]) {	// Claude: GodotOptions, the console: planets and the like
+		return;
+	}
+
 	int idx;
 	int star_index;	
 
@@ -1035,6 +1045,10 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 	int i;
 	float vdist;
 
+	// Claude: GodotOptions, the console
+	show_nebulas = show_nebulas && Render_show[RS_NEBULA];
+	show_subspace = show_subspace && Render_show[RS_SUBSPACE];
+
 
 	int gr_zbuffering_save = gr_zbuffer_get();
 	gr_zbuffer_set(GR_ZBUFF_NONE);
@@ -1067,7 +1081,7 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 		Neb2_render_mode = neb_save;
 	}
 
-	if (show_stars && ( Game_detail_flags & DETAIL_FLAG_STARS) && !(The_mission.flags & MISSION_FLAG_FULLNEB) && (supernova_active() < 3))	{
+	if (show_stars && Render_show[RS_STARS] && ( Game_detail_flags & DETAIL_FLAG_STARS) && !(The_mission.flags & MISSION_FLAG_FULLNEB) && (supernova_active() < 3))	{
 		//Num_stars = 1;
 	
 		star *sp;
@@ -1192,7 +1206,7 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 #endif
 	
 
-	if ( (Game_detail_flags & DETAIL_FLAG_MOTION) && (!Fred_running) && (supernova_active() < 3) )	{
+	if ( Render_show[RS_MOTION_DEBRIS] && (Game_detail_flags & DETAIL_FLAG_MOTION) && (!Fred_running) && (supernova_active() < 3) )	{	// Claude: GodotOptions, the show check
 
 		gr_set_color( 0, 0, 0 );
 
@@ -1358,6 +1372,10 @@ void stars_page_in()
 // background nebula models and planets
 void stars_draw_background()
 {				
+	if (!Render_show[RS_BACKGROUNDS]) {	// Claude: GodotOptions, the console: the background model
+		return;
+	}
+
 	if((Nmodel_num < 0) || (Nmodel_bitmap < 0)){
 		return;
 	}

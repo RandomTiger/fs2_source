@@ -76,4 +76,18 @@ int game_options_pilot_button_leaving();
 // the Godot host's console (fs2_console_command): "resolution ..." and "unlock missions".  Returns 0 for any other line.
 int game_options_console_command(const char *line, char *out, int out_size);
 
+// GodotOptions: an option from one line of GameOptionList.h has its command line, its Options screen row and its console
+// command from this one table. The key is read at the start; the command line, if given, wins for that run and is not saved.
+// A compared run (autotest, record, replay) ignores the key, so only an explicit command line changes it.
+#define GO_OPTION(id, name, key, label, dflt, host_only) id,
+enum {
+#include "GameOptionList.h"
+	GO_OPT_COUNT
+};
+#undef GO_OPTION
+
+void game_options_settings_init();
+int game_option(int id);
+void game_option_set(int id, int value);
+
 #endif

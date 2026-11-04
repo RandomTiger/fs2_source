@@ -141,6 +141,7 @@
  */
 
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "pstypes.h"
 #include "object.h"
 #include "3d.h"
@@ -237,6 +238,22 @@ int obj_in_view_cone( object * objp )
 
 // Sorts all the objects by Z and renders them
 extern int Fred_active;
+// Claude: GodotOptions, the console's show command: an object type that is off never reaches the sort
+static int obj_render_show(object *objp)
+{
+	switch (objp->type) {
+	case OBJ_SHIP: return Render_show[RS_SHIPS];
+	case OBJ_WEAPON: return Render_show[RS_WEAPONS];
+	case OBJ_DEBRIS: return Render_show[RS_DEBRIS];
+	case OBJ_ASTEROID: return Render_show[RS_ASTEROIDS];
+	case OBJ_FIREBALL: return Render_show[RS_FIREBALLS];
+	case OBJ_SHOCKWAVE: return Render_show[RS_SHOCKWAVES];
+	case OBJ_CMEASURE: return Render_show[RS_CMEASURES];
+	case OBJ_JUMP_NODE: return Render_show[RS_JUMPNODES];
+	}
+	return 1;
+}
+
 void obj_render_all(void (*render_function)(object *objp) )
 {
 	object *objp;
@@ -246,7 +263,7 @@ void obj_render_all(void (*render_function)(object *objp) )
 	objp = Objects;
 	Num_sorted_objects = 0;
 	for (i=0;i<=Highest_object_index;i++,objp++) {
-		if ( (objp->type != OBJ_NONE) && (objp->flags&OF_RENDERS) )	{
+		if ( (objp->type != OBJ_NONE) && (objp->flags&OF_RENDERS) && obj_render_show(objp) )	{	// Claude: GodotOptions, the show check
 			// Claude: OF_WAS_RENDERED is set by the logic phase now (game_view_update_was_rendered)
 
 			if ( obj_in_view_cone(objp) )	{

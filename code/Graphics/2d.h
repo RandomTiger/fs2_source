@@ -746,10 +746,11 @@ static inline void gr_set_bitmap( int bitmap_num, int alphablend=GR_ALPHABLEND_N
 
 #define gr_get_region		GR_CALL(gr_screen.gf_get_region)
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #define gr_fog_set2			GR_CALL(gr_screen.gf_fog_set)
 static inline void gr_fog_set(int fog_mode, int r, int g, int b, float fog_near = -1.0f, float fog_far = -1.0f)	// Claude: was static; inline keeps it out of the warning for every file that does not call it (C4505)
 {
-	gr_fog_set2(fog_mode, r, g, b, fog_near, fog_far);
+	gr_fog_set2(Render_show[RS_FOG] ? fog_mode : GR_FOGMODE_NONE, r, g, b, fog_near, fog_far);	// Claude: GodotOptions, the console's "show fog"
 }
 
 #define gr_get_pixel			GR_CALL(gr_screen.gf_get_pixel)

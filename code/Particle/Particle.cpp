@@ -160,6 +160,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "PsTypes.h"
 #include "Freespace.h"
 #include "LinkList.h"
@@ -301,6 +302,10 @@ void particle_create( particle_info *pinfo )
 {
 	int particle_num;
 	particle *p;
+
+	if (!Render_show[RS_PARTICLES]) {	// Claude: GodotOptions, the console: none are made
+		return;
+	}
 
 #ifndef NDEBUG
 	if ( next_message == -1 )	{
@@ -505,6 +510,10 @@ void particle_render_all()
 	ubyte flags;
 	float pct_complete;
 	float alpha;
+
+	if (!Render_show[RS_PARTICLES]) {	// Claude: GodotOptions, those made before it went off
+		return;
+	}
 	vertex pos;
 	vector ts, te, temp;
 	int rotate = 1;

@@ -71,6 +71,7 @@
  * $NoKeywords: $
  */
 
+#include "RenderShow.h"	// Claude: GodotOptions
 #include "Neb.h"
 #include "vecmat.h"
 #include "3d.h"
@@ -964,6 +965,10 @@ static void neb2_player_sub(int update)	// Claude: was neb2_render_player
 	if(update && Neb2_regen){	// Claude: logic phase only
 		neb2_regen();
 		Neb2_regen = 0;
+	}
+
+	if (!update && !Render_show[RS_POOFS]) {	// Claude: GodotOptions, the console: drawing only, the poofs still move
+		return;
 	}
 
 	// don't render in lame mode
