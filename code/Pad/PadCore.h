@@ -51,6 +51,7 @@ typedef struct pad_settings {
 	float	trigger_threshold;	// 0..1, a trigger counts as a pressed button above this
 	int	double_tap_ms;			// max gap between taps, and max length of the first tap
 	float	throttle_rate;			// throttle change per second at full left trigger, in percent
+	float	menu_cursor_speed;	// on the menus, the cursor at full left stick, in screen widths per second
 } pad_settings;
 
 #define PAD_MAX_OUT		32
@@ -133,5 +134,9 @@ const pad_tree_node	*pad_core_tree_node(int index);		// NULL if out of range
 void	pad_core_update(const pad_state *st, int now_ms, pad_output *out);
 
 int	pad_output_is_held(const pad_output *out, int action);
+
+// The menu cursor's speed from the left stick, in screen widths per second: left_deadzone and curve,
+// the feel of flight, with menu_cursor_speed in place of left_sensitivity and no invert.
+void	pad_core_menu_cursor(const pad_state *st, float *x, float *y);
 
 #endif

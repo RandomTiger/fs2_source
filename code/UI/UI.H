@@ -952,6 +952,8 @@ public:
 	void draw_XSTR_forced(UI_GADGET *owner, int frame);
 	int get_current_hotspot();
 	void destroy();
+	int mouse_over_gadget();	// Claude: control pad
+	int gadget_target(UI_GADGET *g, int *px, int *py);	// Claude: control pad test
 	ushort *get_mask_data(int *w, int *h) { *w = mask_w; *h = mask_h; return mask_data; }
 	void render_tooltip(char *str);
 	void set_ignore_gadgets(int state);

@@ -1668,3 +1668,14 @@ void techroom_do_frame(float frametime)
 
 	gr_flip();
 }
+
+// Claude: for the pad's test
+int techroom_test_cur_entry()
+{
+	return Cur_entry;
+}
+
+int techroom_test_sim_tab_xy(int *x, int *y)
+{
+	return Ui_window.gadget_target(&Buttons[gr_screen.res][SIMULATOR_TAB].button, x, y);
+}

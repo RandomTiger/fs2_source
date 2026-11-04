@@ -1903,3 +1903,13 @@ void sim_room_unload_mission_icons()
 		}
 	}
 }
+// Claude: for the pad's test
+int sim_room_test_selected_line()
+{
+	return Selected_line;
+}
+
+int sim_room_test_missions_tab_xy(int *x, int *y)
+{
+	return Ui_window.gadget_target(&Buttons[gr_screen.res][MISSION_TAB].button, x, y);
+}

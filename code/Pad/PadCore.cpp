@@ -51,6 +51,7 @@ void pad_core_default_settings(pad_settings *s)
 	s->trigger_threshold = 0.3f;
 	s->double_tap_ms = 250;
 	s->throttle_rate = 100.0f;
+	s->menu_cursor_speed = 1.0f;
 }
 
 int pad_core_parse_settings(pad_settings *s, const char *text)
@@ -103,6 +104,7 @@ int pad_core_parse_settings(pad_settings *s, const char *text)
 		else if (!stricmp(name, "trigger_threshold"))	s->trigger_threshold = value;
 		else if (!stricmp(name, "double_tap_ms"))			s->double_tap_ms = (int) value;
 		else if (!stricmp(name, "throttle_rate"))			s->throttle_rate = value;
+		else if (!stricmp(name, "menu_cursor_speed"))	s->menu_cursor_speed = value;
 		else count--;
 	}
 
@@ -170,6 +172,13 @@ static void pad_shape_stick(float x, float y, float deadzone, float curve, float
 
 	*ox = pad_clamp1(x / mag * m);
 	*oy = pad_clamp1(y / mag * m);
+}
+
+void pad_core_menu_cursor(const pad_state *st, float *x, float *y)
+{
+	pad_shape_stick(st->axis[PAD_LEFT_X], st->axis[PAD_LEFT_Y], Pad_settings.left_deadzone, Pad_settings.curve, 1.0f, x, y);
+	*x *= Pad_settings.menu_cursor_speed;
+	*y *= Pad_settings.menu_cursor_speed;
 }
 
 static float pad_shape_trigger(float t, float deadzone)

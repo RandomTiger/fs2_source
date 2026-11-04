@@ -31,16 +31,18 @@ $summary = Join-Path $out 'summary.txt'
 
 foreach ($m in $Missions) {
 	$t = $Time
+	$extra = ''
 	$file = Join-Path $repo "data\missions\$m.fs2"
 	if (Test-Path $file) {
 		$notes = [regex]::Match((Get-Content -Raw $file), '(?s)\$Notes:(.*?)\$End Notes:').Groups[1].Value
+		if ($notes -match '-at_padmenu') { $extra = ' -at_padmenu' }
 		$found = [regex]::Match($notes, '-at_time (\d+)')
 		if ($found.Success) { $t = [int]$found.Groups[1].Value }
 	}
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$npc = if ($NoPlayerNpc) { '' } else { ' -playernpc' }
 	$p = Start-Process (Join-Path $GameDir (Get-FS2Exe r)) -WorkingDirectory $GameDir -Wait -PassThru `
-		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
+		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc$extra -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$line = "$m ($t s$npc) record exit=$($p.ExitCode) " + (Get-Content (Join-Path $rec "$m.fs2rec.record.log") -Tail 1)
 	foreach ($c in 'r', 'd') {

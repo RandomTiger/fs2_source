@@ -8,6 +8,9 @@
 
 struct control_info;
 
+// pad.cfg read and the core set up, if not yet. For the menu layer (PadMenuGame.cpp), which runs first.
+void	pad_game_settings_read();
+
 // Once per game frame, from game_process_keys() before button_info_do().
 // Polls the pad, sets button_info bits for one-shot actions and handles pause.
 void	pad_frame();

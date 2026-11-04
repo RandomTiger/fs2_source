@@ -312,6 +312,9 @@ int snazzy_menu_do(ubyte *data, int mask_w, int mask_h, int num_regions, MENU_RE
 		}	// end for
 	}
 
+	extern void pad_menu_note_region(int region);	// Claude: control pad, see PadMenuGame.h
+	pad_menu_note_region(mouse_on_choice);
+
 	gr_set_color_fast(&Color_white);
 	gr_set_font( FONT1 );
 

@@ -8,6 +8,7 @@
 #include "PadGame.h"
 #include "PadCore.h"
 #include "PadXInput.h"
+#include "PadMenuGame.h"
 
 #include "Physics.h"
 #include "Player.h"
@@ -325,6 +326,13 @@ static void pad_test_frame(pad_output *live)
 	}
 }
 
+void pad_game_settings_read()
+{
+	if (!Pad_game_inited) {
+		pad_game_init();
+	}
+}
+
 // from_frame: pad_frame's update, the one the test script drives (pad_pause_pressed updates too, while paused)
 static void pad_game_update(int from_frame)
 {
@@ -346,12 +354,7 @@ static void pad_game_update(int from_frame)
 		// the clock read in here is covered by the pad's own entry
 		replay_push();
 
-		// a legacy joystick took input at startup (no pad then): the pad stays off, never both
-		if (joy_num_sticks > 0) {
-			memset(&st, 0, sizeof(st));
-		} else {
-			pad_backend_poll(&st);
-		}
+		pad_menu_read_for_flight(&st);
 		pad_core_update(&st, timer_get_milliseconds(), &live);
 
 		replay_pop();

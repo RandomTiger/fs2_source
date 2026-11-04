@@ -54,6 +54,7 @@ int  autotest_load_pilot();				// GS_EVENT_GAME_INIT: 1 if autotest loaded the p
 void autotest_drive_state(int state);	// each frame from game_do_state, after replay_drive_state
 void autotest_frame();						// start of game_do_frame
 int  autotest_popup(char *text);			// 1 if the popup must be answered with its first choice and not shown
+int  autotest_popup_loading(char *text);	// the same, for a popup that ends by itself
 int  autotest_report(char *kind, char *text, char *file, int line);	// Assert / Error / Warning / Int3: 1 if logged, no dialog
 int  autotest_exit_code(int code);		// the process exit code
 void autotest_main_hall_click(int *code, int *action);	// main_hall_do: the menu tour clicks a region
@@ -64,5 +65,7 @@ void autotest_poll_done();				// end of os_poll, for the stuck dump
 int  autotest_mission_note(char *note);	// 1 under autotest rules, in gameplay, if the mission notes have note
 float autotest_mission_seconds();		// mission seconds since gameplay started, -1 before
 void autotest_check(int ok, char *what);	// logs a known answer; a wrong one fails the run
+void autotest_set_padmenu();			// -at_padmenu: the pad's menu test, see PadMenuTest.cpp
+int  autotest_popups_by_hand();		// the mission has the pad's menu test, whose script answers its in-flight popups
 
 #endif

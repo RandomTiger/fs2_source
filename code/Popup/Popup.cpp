@@ -1062,7 +1062,7 @@ int popup_do_with_condition(popup_info *pi, int flags, int(*condition)())
 	int test;
 
 	// Claude: An autotest answers with the first choice, so nothing waits for a player.
-	if (autotest_popup(pi->raw_text)) {
+	if (autotest_popup_loading(pi->raw_text)) {
 		for (int i = 0; i < pi->nchoices; i++) {	// as popup_close does
 			if (pi->button_text[i] != NULL) {
 				free(pi->button_text[i]);
