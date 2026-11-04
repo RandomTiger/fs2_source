@@ -1619,6 +1619,53 @@ void stars_project_2d_onto_sphere( vector *pnt, float rho, float phi, float thet
 	pnt->x = rho * (float)cos(a);
 }
 
+// Claude: #152. In Direct3D, a background bitmap triangle is not clipped to the screen edges, because that clip makes
+// nebulas and planets jump as they cross an edge. The hardware trims it instead. Only a cut at a near plane stays,
+// since a point behind the eye cannot be projected.
+#define PERSPECTIVE_BITMAP_NEAR_Z	10.0f
+static void perspective_bitmap_draw_tri(vertex **tri, uint flags)
+{
+	vertex out[4];
+	vertex *list[4];
+	int i, n = 0;
+
+	if(gr_screen.mode != GR_DIRECT3D){
+		g3_draw_poly(3, tri, flags);
+		return;
+	}
+
+	for(i=0; i<3; i++){
+		vertex *cur = tri[i];
+		vertex *next = tri[(i+1)%3];
+
+		if(cur->z >= PERSPECTIVE_BITMAP_NEAR_Z){
+			out[n++] = *cur;
+		}
+		if((cur->z >= PERSPECTIVE_BITMAP_NEAR_Z) != (next->z >= PERSPECTIVE_BITMAP_NEAR_Z)){
+			float r = (PERSPECTIVE_BITMAP_NEAR_Z - cur->z) / (next->z - cur->z);
+			out[n] = *cur;
+			out[n].x = cur->x + (next->x - cur->x) * r;
+			out[n].y = cur->y + (next->y - cur->y) * r;
+			out[n].z = PERSPECTIVE_BITMAP_NEAR_Z;
+			out[n].u = cur->u + (next->u - cur->u) * r;
+			out[n].v = cur->v + (next->v - cur->v) * r;
+			n++;
+		}
+	}
+	if(n < 3){
+		return;
+	}
+	for(i=0; i<n; i++){
+		out[i].flags = 0;
+		g3_project_vertex(&out[i]);
+		if(out[i].flags & PF_OVERFLOW){
+			return;
+		}
+		list[i] = &out[i];
+	}
+	gr_tmapper(n, list, flags);
+}
+
 // draw a perspective bitmap based on angles and radius
 float p_phi = 10.0f;
 float p_theta = 10.0f;
@@ -1715,7 +1762,7 @@ int g3_draw_perspective_bitmap(angles *a, float scale_x, float scale_y, int div_
 			g3_rotate_faraway_vertex(verts[0], &s_points[idx][s_idx]);			
 			g3_rotate_faraway_vertex(verts[1], &s_points[idx+1][s_idx]);			
 			g3_rotate_faraway_vertex(verts[2], &s_points[idx+1][s_idx+1]);						
-			g3_draw_poly(3, verts, tmap_flags);
+			perspective_bitmap_draw_tri(verts, tmap_flags);	// Claude: #152
 
 			// poly 2			
 			v[0].flags = 0;
@@ -1727,7 +1774,7 @@ int g3_draw_perspective_bitmap(angles *a, float scale_x, float scale_y, int div_
 			g3_rotate_faraway_vertex(verts[0], &s_points[idx][s_idx]);			
 			g3_rotate_faraway_vertex(verts[1], &s_points[idx+1][s_idx+1]);			
 			g3_rotate_faraway_vertex(verts[2], &s_points[idx][s_idx+1]);						
-			g3_draw_poly(3, verts, tmap_flags);
+			perspective_bitmap_draw_tri(verts, tmap_flags);	// Claude: #152
 		}
 	}
 
