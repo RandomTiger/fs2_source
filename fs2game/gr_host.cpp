@@ -1386,7 +1386,7 @@ void h_level_loaded()
 	H.load_mode = false;
 }
 
-// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time, -1 mesh invalid.
+// common to both draws: 1 ready (frame open, sink copy current, view sent), 0 draw on the CPU path this time (fog off in a scripted run), 2 nothing to draw (skipped frame or a counted fault), -1 mesh invalid.
 // thr_bitmap >= 0: an engine thruster, every group drawn with that bitmap, additive, depth read only (the poly path's filter blend).
 static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_bitmap = -1, bool flat_all = false, bool bg = false)
 {
@@ -1394,12 +1394,13 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	if (it == H.meshes.end()) { return -1; }
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
-	if (m.cpu_only) { H.mesh_fb[0]++; return 0; }
-	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 0; }
-	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 0; }
+	static const int force_fb = getenv("FS2_MESH_FORCE_FB") ? atoi(getenv("FS2_MESH_FORCE_FB")) : 0;	// test only: 1 sends every mesh draw down the polygon path (the forced-path pixel pair, D-20261105-165753)
+	if (force_fb == 1 || m.cpu_only) { H.mesh_fb[0]++; return 2; }	// a fault: counted, nothing drawn (D-20261105-165753); only the fog-off scripted case keeps the polygon path
+	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 2; }
+	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 2; }
 	ensure_frame();
 	if (H.frame == FRAME_SKIPPED) { H.mesh_skipped++; return 2; }	// the sink dropped this frame: nothing shows, so no polygon path either
-	if (!drawing()) { H.mesh_fb[3]++; return 0; }
+	if (!drawing()) { H.mesh_fb[3]++; return 2; }
 
 	// the sink copy: made, or remade when the state or a texture it was made with has changed
 	const int zmode = bg ? -2 : H.zmode;		// the background draw is its own state: no depth, no cull
@@ -1417,7 +1418,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
 		const bool tex_had = H.tex.count(TexKey{ bmp, bm_get_signature(bmp), tkind }) != 0;
 		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
-		if (tex[i] == 0) { H.mesh_fb[4]++; return 0; }
+		if (tex[i] == 0) { H.mesh_fb[4]++; return 2; }
 		if (!tex_had && H.mesh_tex_late++ == 0) { fprintf(stderr, "render3d: LATE mesh texture at a draw (bitmap %d, kind %d, thruster %d, mesh key %d)\n", bmp, tkind, thr_bitmap, key); }
 		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
 		auto f = H.tex.find(k);
