@@ -356,7 +356,9 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	}
 	bm_unlock(bitmap_id);
 
-	HostTex &t = H.tex[key];
+	// the first bm_lock of a bitmap with no data gives it a new signature (bm_free_data): keep the texture under that one,
+	// or the next draw misses the cache and uploads the same picture again (#177)
+	HostTex &t = H.tex[TexKey{ bitmap_id, bm_get_signature(bitmap_id), kind }];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
 	// UI text and 2D bitmaps keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
