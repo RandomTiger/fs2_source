@@ -453,7 +453,9 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	std::vector<uint8_t> px;
 	int w, h, format;
 	if (!tex_pixels(bitmap_id, type, bitmap_2d, px, w, h, format)) { return 0; }
-	HostTex &t = H.tex[key];
+	// the first bm_lock of a bitmap with no data gives it a new signature (bm_free_data): keep the texture under that one,
+	// or the next draw misses the cache and uploads the same picture again (#177)
+	HostTex &t = H.tex[TexKey{ bitmap_id, bm_get_signature(bitmap_id), kind }];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
 	t.opaque = (format == FS2_SINK_TEX_RGBA8);
