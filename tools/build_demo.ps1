@@ -38,7 +38,7 @@ foreach ($c in $Configs) {
 	& $msb (Join-Path $repo 'Freespace2.vcxproj') /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$repo\" `
 		"/p:ForceImportBeforeCppTargets=$PSScriptRoot\fs2demo.props" "/p:IntDir=$int" /m /v:q /nologo > (Join-Path $logs "$c.txt") 2>&1
 	$code = $LASTEXITCODE
-	$demo = (Test-Path $exe) -and (Select-String $exe -Pattern 'Freespace 2 Demo' -SimpleMatch -Quiet)
+	$demo = (Test-Path $exe) -and (Select-String $exe -Pattern 'FS2_DEMO_BUILD_MARKER' -SimpleMatch -Quiet)	# compiled only under FS2_DEMO (#155)
 	"$c exit $code, demo exe: $demo"
 	if ($code -or -not $demo) { $failed += $c }
 }

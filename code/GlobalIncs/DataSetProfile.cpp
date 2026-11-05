@@ -57,6 +57,11 @@ const data_set_profile *Game_profile = &Data_set_profiles[DATA_SET_FS2_RETAIL];
 
 void data_set_profile_apply(int data_set)
 {
+#ifdef FS2_DEMO
+	// Claude: only tools\build_demo.ps1 looks for this text, to tell a demo exe from a retail one; the read keeps it in the exe (#155)
+	static const char * volatile build_marker = "FS2_DEMO_BUILD_MARKER";
+	(void)build_marker;
+#endif
 	if ((data_set < 0) || (data_set >= NUM_DATA_SETS)) {
 		data_set = DATA_SET_FS2_RETAIL;
 	}
