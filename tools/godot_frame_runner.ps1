@@ -19,11 +19,13 @@ while (Get-Process ($FS2ProcessNames + 'Godot*') -ErrorAction SilentlyContinue) 
 $env:FS2_DLL = $dll; $env:FS2_ROOT = $env:PATH_FS2
 $env:FS2_CMD = "-window -autotest -replay `"$Rec`" -trace `"$Trace`" -shot_frames $Frames -shot_dir `"$ShotDir`""
 $env:FS2_GR_HOST = '1'; $env:FS2_SKIP_STALE = '0'
-$nebfog = $env:FS2_NEBFOG; if (-not $nebfog) { $env:FS2_NEBFOG = 'gpu' }	# scripted runs default to no nebula fog; a picture compare needs it as a player sees it
+$nebfog = $env:FS2_NEBFOG; if (-not $nebfog) { $env:FS2_NEBFOG = 'gpu' }	# a picture compare needs fog as a player sees it
+$bbrot = $env:FS2_BB_ROT; if (-not $bbrot) { $env:FS2_BB_ROT = '0' }	# a picture compare against the native poly path: rotated puffs stay on the poly path
 Push-Location $env:PATH_FS2
 $p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $ShotDir 'godot.out.txt') -RedirectStandardError (Join-Path $ShotDir 'godot.err.txt'); $null = $p.Handle
 if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $code = 'TIMEOUT' } else { $code = $p.ExitCode }
 Pop-Location
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_GR_HOST, Env:FS2_SKIP_STALE -ErrorAction SilentlyContinue
 if (-not $nebfog) { Remove-Item Env:FS2_NEBFOG -ErrorAction SilentlyContinue }
+if (-not $bbrot) { Remove-Item Env:FS2_BB_ROT -ErrorAction SilentlyContinue }
 return $code
