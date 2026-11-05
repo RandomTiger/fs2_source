@@ -1544,7 +1544,7 @@ void message_queue_process()
 
 	// Claude: GodotOptions, the Subtitles option: with it off, a line its voice is speaking goes to the message log only
 	if ( (Playing_messages[Num_messages_playing].wave >= 0) && (Master_voice_volume > 0.0f) && !game_option_voiced_text_shown() ) {
-		char line[HUD_MSG_LENGTH_MAX];
+		char line[2048];	// the size HUD_sourced_printf formats into
 
 		sprintf( line, NOX("%s: %s"), q->who_from, buf );
 		hud_add_msg_to_scrollback( line, q->source, timestamp() );
