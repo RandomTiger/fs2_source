@@ -60,4 +60,4 @@ if (-not $bad) {
 		if ($sf -or $ends -ne 2 -or (($m | Select-Object -Last 1) -ne 'DONE pass=2 fail=0')) { $bad += 'fs1 tour' }
 	} else { $bad += 'tour not run' }
 }
-if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
+if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
