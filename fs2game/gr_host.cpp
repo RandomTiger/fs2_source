@@ -128,6 +128,7 @@ struct Host {
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
 	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
+	int beam_offered = 0, beam_gpu = 0;	// beams handed to the sink / drawn by it (R3 row 1); declined = offered - drawn, must be 0
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
@@ -1183,7 +1184,7 @@ void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts
 // ---- R3: billboards (g3_draw_bitmap, g3_draw_laser) ---------------------------------------------------------------
 // The game keeps the trivial culls and hands the eye-space points over; the sink applies the game's own size, placement and pixel rules
 // (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 only with FS2_BB_OFF (proof baseline, draw stays on the CPU path); faults are counted and draw nothing.
-int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
+static int h_billboard_in(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
 	if (H.sink == nullptr || H.sink->billboard_draw == nullptr) { return 0; }
 	static const bool bb_off = getenv("FS2_BB_OFF") != nullptr;	// proof baseline: billboards stay on the CPU path
@@ -1195,7 +1196,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
 		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 1; }
 	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
-	if (kind == FS2_SINK_BB_QUAD) { static const bool beam_on = getenv("FS2_BEAM_GPU") == nullptr || atoi(getenv("FS2_BEAM_GPU")) != 0; if (!beam_on || !filter) { return 0; } }	// beams draw on the GPU; FS2_BEAM_GPU=0 (pixel-comparison runs) keeps them on the poly path; the one caller is filter blended
+	if (kind == FS2_SINK_BB_QUAD && (!filter || (orient & 1))) { return 0; }	// the one caller is filter blended; orient bit 0 = a user clip plane is on (the sink has no such clip: declined and counted)
 	if (kind == FS2_SINK_BB_ROTATED) { static const bool rot_on = getenv("FS2_BB_ROT") == nullptr || atoi(getenv("FS2_BB_ROT")) != 0; if (!rot_on || !filter) { return 0; } }	// rotated puffs draw on the GPU; FS2_BB_ROT=0 (pixel-comparison runs) keeps them on the poly path; every caller is filter blended, any other blend stays on the poly path
 
 	fs2_sink_billboard b = {};
@@ -1241,6 +1242,19 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	if (!H.sink->billboard_draw(H.sink->user, &b)) { H.bb_cpu++; H.bb_why[3]++; return 1; }	// counted fault, nothing is drawn
 	H.bb_sink++;
 	return 1;
+}
+
+static int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
+{
+	if (kind != FS2_SINK_BB_QUAD) { return h_billboard_in(kind, p0, p1, rad, rad_tail, max_len, orient, flags, rgb); }
+	static const bool beam_on = getenv("FS2_BEAM_GPU") == nullptr || atoi(getenv("FS2_BEAM_GPU")) != 0;	// beams draw on the GPU; FS2_BEAM_GPU=0 (pixel-comparison runs) keeps them on the poly path
+	if (!beam_on) { return 0; }
+	const int before = H.bb_sink, idle = H.bb_why[0];
+	const int r = h_billboard_in(kind, p0, p1, rad, rad_tail, max_len, orient, flags, rgb);
+	if (H.bb_why[0] != idle) { return r; }	// no frame is being drawn (a skipped frame): nothing to draw on either path, not an offer
+	H.beam_offered++;
+	if (H.bb_sink != before) { H.beam_gpu++; }
+	return r;
 }
 
 // ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
@@ -1866,6 +1880,7 @@ void host_init()
 void host_cleanup()
 {
 	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: beams: %d offered, %d drawn on the GPU, %d declined\n", H.beam_offered, H.beam_gpu, H.beam_offered - H.beam_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();

@@ -2224,9 +2224,11 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\tsx = snap16((cwh.x + ex * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ey * cwh.y / z) * 0.5);\n\tzq = z;\n";
 	} else if (kind == FS2_SINK_BB_QUAD) {
 		// beam_render: corners = the end centre +- the facing vector (beam_calc_facing_pts: cross(fvec, eye - pos), worked out in the unscaled view: eye space is divided by Matrix_scale (sc.xy, max_len = z), the eye is the origin) times the half width, scaled back;
-		// q.x picks the end, q.y the side. Perspective-correct uvs with the game's per-vertex sw.
-		code += "\tvec3 S = vec3(sc.x, sc.y, bbp.x);\n\tvec3 fv = normalize((pB.xyz - pA.xyz) / S);\n\tvec3 cp = q.x < 0.5 ? pA.xyz : pB.xyz;\n\tfloat hw = q.x < 0.5 ? pA.w : pB.w;\n";
-		code += "\tvec3 ev = cp + normalize(cross(fv, -cp / S)) * S * ((2.0 * q.y - 1.0) * hw);\n\tfloat z = ev.z;\n";
+		// q.x picks the end, q.y the side. A corner nearer than the 0.1 near plane slides along its long edge to the plane (u moves with it); both ends nearer = nothing. Perspective-correct uvs with the game's per-vertex sw.
+		code += "\tvec3 S = vec3(sc.x, sc.y, bbp.x);\n\tvec3 fv = normalize((pB.xyz - pA.xyz) / S);\n\tfloat sd = (2.0 * q.y - 1.0);\n";
+		code += "\tvec3 eA = pA.xyz + normalize(cross(fv, -pA.xyz / S)) * S * (sd * pA.w);\n\tvec3 eB = pB.xyz + normalize(cross(fv, -pB.xyz / S)) * S * (sd * pB.w);\n";
+		code += "\tvec3 ev = q.x < 0.5 ? eA : eB;\n\tvec3 eo = q.x < 0.5 ? eB : eA;\n\tuv.x = q.x;\n";
+		code += "\tif (ev.z < 0.1) {\n\t\tif (eo.z < 0.1) { skip = true; } else { float tc = (0.1 - ev.z) / (eo.z - ev.z); ev = mix(ev, eo, tc); uv.x = q.x < 0.5 ? tc : 1.0 - tc; }\n\t}\n\tfloat z = max(ev.z, 0.1);\n";
 		code += "\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
 	} else {
 		code += "\tfloat sw0 = min(1.0 / pA.z, 1.0);\n\tfloat sw1 = min(1.0 / pB.z, 1.0);\n";
