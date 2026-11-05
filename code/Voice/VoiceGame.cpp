@@ -130,6 +130,11 @@ void voice_game_close()
 	Voice_need_next = 0;
 }
 
+int voice_game_enabled()
+{
+	return Voice_enabled;
+}
+
 // the ships and wings the player can name now
 static int voice_build_targets()
 {
