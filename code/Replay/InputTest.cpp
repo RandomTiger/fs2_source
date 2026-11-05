@@ -343,7 +343,7 @@ static void joy_test_check(int step)
 // the scripted pad, standing in for the pad backend (PadGame.cpp, through InputTestPad.h)
 
 // the script, in gameplay frames from the first one; a frame's state is what that frame's pad_frame polls
-#define PAD_TEST_TAP			20			// D-pad Up (Shield to top, press; South is push-to-talk since #118) and the right shoulder (Fire secondary, hold) down for this frame only
+#define PAD_TEST_TAP			20			// D-pad Up (Shield to top, press; South is push-to-talk since #118) and North (Fire secondary, hold) down for this frame only
 #define PAD_TEST_LOW_START		35			// the right trigger at 0.2, under the 0.3 threshold...
 #define PAD_TEST_HOLD_START		40			// ...then fully down (Fire primary, hold) from here...
 #define PAD_TEST_HOLD_END		60			// ...to here, where it comes up
@@ -374,7 +374,7 @@ static void pad_test_script(int step, pad_state *st)
 
 	if (step == PAD_TEST_TAP) {
 		st->button[PAD_DPAD_UP] = 1;
-		st->button[PAD_RSHOULDER] = 1;
+		st->button[PAD_NORTH] = 1;
 	}
 	if ((step >= PAD_TEST_LOW_START) && (step < PAD_TEST_HOLD_START)) {
 		st->axis[PAD_TRIGGER_RIGHT] = 0.2f;
