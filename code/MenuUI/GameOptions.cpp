@@ -130,6 +130,11 @@ int game_option(int id)
 	return Go_option_value[id];
 }
 
+int game_option_voiced_text_shown()
+{
+	return Go_option_value[GO_OPT_SUBTITLES] || !game_options_keys_active();
+}
+
 void game_option_set(int id, int value)
 {
 	Go_option_value[id] = value ? 1 : 0;

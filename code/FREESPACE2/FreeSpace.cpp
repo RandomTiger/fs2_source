@@ -4055,27 +4055,10 @@ int game_actually_playing()
 		return 1;
 }
 
-// Claude: GodotOptions, the Subtitles option: over the HUD and not part of it, so it stays when the HUD is off
-static void game_render_caption()
-{
-	if ( game_option(GO_OPT_SUBTITLES) ) {
-		int bottom = gr_screen.max_h * 74 / 100;	// just above the radar
-		int scale = gr_live_mode_change() ? 2 : 1;	// only the Godot host scales a draw
-
-		gr_virtual_set_anchor(HUD_ANCHOR_CENTRE);
-		if ( scale > 1 ) {
-			gr_virtual_caption_scale(bottom);
-		}
-		message_caption_draw(scale, bottom);
-		gr_virtual_caption_scale(-1);
-	}
-}
-
 // Draw the 2D HUD gauges
 void game_render_hud_2d()
 {
 	if ( !(Game_detail_flags & DETAIL_FLAG_HUD) || !Render_show[RS_HUD] ) {	// Claude: GodotOptions, the show check
-		game_render_caption();	// Claude: GodotOptions
 		return;
 	}
 	
@@ -4083,7 +4066,6 @@ void game_render_hud_2d()
 	HUD_render_2d(flFrametime);
 	gr_virtual_hud_double_end();	// Claude: GodotOptions
 	gr_reset_clip();
-	game_render_caption();	// Claude: GodotOptions
 }
 
 // Draw the 3D-dependant HUD gauges
