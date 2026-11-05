@@ -21,12 +21,12 @@ foreach ($e in 'r', 'd') { if (Test-Path "$fs2\$(Get-FS2Exe $e $Repo)") { Copy-I
 if (-not $bad) {
 	$m = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\fs1demo_run.ps1" -Configs r,d -GameDir $dd -Out "$out\missions"
 	$m
-	if (($m | Select-Object -Last 1) -ne 'PASS') { $bad += 'demo missions' }
+	if ("$($m | Select-Object -Last 1)" -ne 'PASS') { $bad += 'demo missions' }
 	$t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\menu_tour_all.ps1" -Sets fs1demo -Configs r,d -NoBuild -Fs1DemoDir $dd -Out "$out\tour"
 	$t | Where-Object { $_ -match "(FAIL|SKIP)" -or $_ -match ' exit=' -or $_ -match '^DONE' }
 	$sf = @($t | Where-Object { $_ -match "Screen '[^']+': FAIL" }).Count
 	$ends = @($t | Where-Object { $_ -match '^fs1demo (r|d) exit=0 Menu tour: \d+ screens, \d+ passed, 0 failed, \d+ skipped' }).Count
 	"tour: screen FAIL lines $sf, builds finished clean $ends of 2"
-	if ($sf -or $ends -ne 2 -or (($t | Select-Object -Last 1) -ne 'DONE pass=2 fail=0')) { $bad += 'fs1demo tour' }
+	if ($sf -or $ends -ne 2 -or ("$($t | Select-Object -Last 1)" -ne 'DONE pass=2 fail=0')) { $bad += 'fs1demo tour' }
 }
 if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
