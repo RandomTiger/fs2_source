@@ -58,6 +58,11 @@ typedef struct host_hooks {
 	// the player's choice back through Host_dropdown_chosen from inside poll_events.
 	void		(*dropdown_show)(int x, int y, int w, int h, const char *const *labels, int count, int selected);
 	void		(*dropdown_hide)();
+
+	// GodotOptions (fs2_api v11): one button of the host's own in the bottom left of the window, in the black column beside the
+	// picture, optional and null by default; null means the screen draws its own. text shows it, NULL takes it away. The host
+	// hands a click back through Host_side_button_pressed from inside poll_events.
+	void		(*side_button)(const char *text);
 } host_hooks;
 
 // The table in use. It starts as the Windows one (host_hooks_windows), so tools that never set it still run.
@@ -69,6 +74,9 @@ void host_hooks_set(const host_hooks *h);
 // GodotOptions: the drop-down item the player chose (the host's dropdown_show), or -1. The host sets it from inside
 // poll_events; the screen that showed the drop-down takes it and sets it back to -1.
 extern int Host_dropdown_chosen;
+
+// GodotOptions: 1 when the player clicked the host's side button. The screen that showed it takes it and sets it back to 0.
+extern int Host_side_button_pressed;
 
 // The Windows implementations (HostHooksWin32.cpp), and the headless host's: the same time counter, no
 // events, always in the foreground, the mouse at rest at (0, 0), a joystick driver with no stick attached, and no pad

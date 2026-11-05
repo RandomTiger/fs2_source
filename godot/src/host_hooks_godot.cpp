@@ -8,6 +8,7 @@
 
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
+#include <godot_cpp/classes/button.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event_joypad_button.hpp>
 #include <godot_cpp/classes/input_event_joypad_motion.hpp>
@@ -340,6 +341,8 @@ static int Dd_x = 0, Dd_y = 0, Dd_w = 0, Dd_h = 0;
 static int Dd_selected = -1;		// the entry the game has lit; a different selection on the button is the player's pick
 static bool Console_cursor = false;	// the console is open
 static bool Dd_cursor_shown = false;	// the OS cursor is shown over the button and its list (the game's own is drawn under them)
+static Button *Side_button = NULL;	// GodotOptions (v11): the button in the black column, bottom left of the window
+static bool Side_held = false;		// it was held down at the last poll
 
 static Ref<StyleBoxFlat> dd_box(const Color &bg, const Color &border)
 {
@@ -353,7 +356,7 @@ static Ref<StyleBoxFlat> dd_box(const Color &bg, const Color &border)
 }
 
 // plain, in the game's colours: near-black boxes, a green edge, grey-white text that goes white (on dark green) under the cursor
-static void dd_style(OptionButton *b)
+static void dd_style_button(Button *b)
 {
 	const Color bg(0.02f, 0.03f, 0.02f), edge(0.18f, 0.45f, 0.18f), edge_lit(0.35f, 0.8f, 0.35f), lit(0.05f, 0.25f, 0.05f);
 	const Color text(0.78f, 0.78f, 0.78f), text_lit(1.0f, 1.0f, 1.0f);
@@ -367,6 +370,13 @@ static void dd_style(OptionButton *b)
 	b->add_theme_color_override("font_pressed_color", text_lit);
 	b->add_theme_color_override("font_hover_pressed_color", text_lit);
 	b->add_theme_color_override("font_focus_color", text);
+}
+
+static void dd_style(OptionButton *b)
+{
+	const Color bg(0.02f, 0.03f, 0.02f), lit(0.05f, 0.25f, 0.05f), edge(0.18f, 0.45f, 0.18f);
+	const Color text(0.78f, 0.78f, 0.78f), text_lit(1.0f, 1.0f, 1.0f);
+	dd_style_button(b);
 	PopupMenu *p = b->get_popup();
 	p->add_theme_stylebox_override("panel", dd_box(bg, edge));
 	p->add_theme_stylebox_override("hover", dd_box(lit, lit));
@@ -387,6 +397,14 @@ void attach_dropdown(Node *parent)
 	}
 	Dd_button->set_visible(false);
 	Dd_selected = -1;
+	if (Side_button == NULL) {
+		Side_button = memnew(Button);
+		Side_button->set_focus_mode(Control::FOCUS_NONE);	// the game's keys never drive it
+		dd_style_button(Side_button);
+		parent->add_child(Side_button);
+	}
+	Side_button->set_visible(false);
+	Side_held = false;
 }
 
 static bool dd_shown(void)
@@ -437,6 +455,96 @@ static void dd_layout(void)
 	Dd_button->set_size(Vector2((float)Dd_w * s, bh));
 	Dd_button->add_theme_font_size_override("font_size", fs);
 	Dd_button->get_popup()->add_theme_font_size_override("font_size", fs);
+}
+
+// ---- GodotOptions: the side button (v11). The base screen's rectangle in viewport pixels: the column is what lies left of it. ----
+static void base_rect(Viewport *vp, float *left, float *top, float *right, float *bottom)
+{
+	const Vector2 vs = vp->get_visible_rect().size;
+	int gw, gh, cw, ch, cx, cy;
+	game_screen(&gw, &gh);
+	game_canvas(&cw, &ch, &cx, &cy);
+	float s = 1.0f;
+	if (cw > 0 && ch > 0) {
+		s = vs.x / (float)cw;
+		if (vs.y / (float)ch < s) {
+			s = vs.y / (float)ch;
+		}
+	}
+	const float ox = (vs.x - (float)cw * s) * 0.5f, oy = (vs.y - (float)ch * s) * 0.5f;
+	*left = ox + (float)cx * s;
+	*top = oy + (float)cy * s;
+	*right = *left + (float)gw * s;
+	*bottom = *top + (float)gh * s;
+}
+
+static bool side_shown(void)
+{
+	return Side_button != NULL && Side_button->is_visible();
+}
+
+// the word sized like the drop-down's, the margin from the window's corner. With no column to sit in (a picture that fills the
+// window) it sits over the picture's corner, above the line a data set's copyright can reach down to.
+static void side_layout(void)
+{
+	Viewport *vp = Side_button->get_viewport();
+	if (vp == NULL) {
+		return;
+	}
+	float left, top, right, bottom;
+	base_rect(vp, &left, &top, &right, &bottom);
+	const float margin = 16.0f;
+	const float picture_h = bottom - top;
+	int fs = (int)(picture_h * 0.02f + 0.5f);
+	if (fs < 12) {
+		fs = 12;
+	}
+	Side_button->add_theme_font_size_override("font_size", fs);
+	Side_button->reset_size();
+	const Vector2 size = Side_button->get_size();
+	float y = vp->get_visible_rect().size.y - size.y - margin;
+	if (left < size.x + margin * 2.0f) {
+		y -= picture_h * 18.0f / 480.0f;
+	}
+	Side_button->set_position(Vector2(margin, y));
+}
+
+static void h_side_button(const char *text)
+{
+	if (Side_button == NULL) {
+		return;
+	}
+	Side_held = false;
+	if (text == NULL) {
+		Side_button->set_visible(false);
+		return;
+	}
+	Side_button->set_text(String::utf8(text));
+	Side_button->set_visible(true);
+	side_layout();
+}
+
+// once per poll while it shows: follow the window, hand over a click. True when the OS cursor should show: the game's own cannot
+// leave the picture, so outside it the player needs this one to reach the button.
+static bool side_poll(void)
+{
+	if (!side_shown()) {
+		return false;
+	}
+	side_layout();
+	const bool held = Side_button->is_pressed();
+	if (Side_held && !held && Side_button->is_hovered() && Api->input_side_button != NULL) {
+		Api->input_side_button();
+	}
+	Side_held = held;
+	Viewport *vp = Side_button->get_viewport();
+	if (vp == NULL) {
+		return false;
+	}
+	float left, top, right, bottom;
+	base_rect(vp, &left, &top, &right, &bottom);
+	const Vector2 m = vp->get_mouse_position();
+	return m.x < left || m.x >= right || m.y < top || m.y >= bottom || Side_button->is_hovered();
 }
 
 static void h_dd_show(int x, int y, int w, int h, const char *const *labels, int count, int selected)
@@ -490,7 +598,8 @@ static void h_dd_hide(void)
 static void dd_poll(void)
 {
 	if (!dd_shown()) {
-		dd_cursor(Console_cursor);
+		const bool side = side_poll();
+		dd_cursor(side || Console_cursor);
 		return;
 	}
 	dd_layout();
@@ -508,6 +617,7 @@ void fill_dropdown(fs2_dropdown_hooks *h)
 {
 	h->show = h_dd_show;
 	h->hide = h_dd_hide;
+	h->side_button = h_side_button;
 }
 
 void console_cursor(bool on)
@@ -518,10 +628,17 @@ void console_cursor(bool on)
 void hide_dropdown(void)
 {
 	h_dd_hide();
+	h_side_button(NULL);
 }
 
 bool dropdown_takes(const Ref<InputEvent> &ev)
 {
+	if (side_shown()) {
+		InputEventMouseButton *side_mb = Object::cast_to<InputEventMouseButton>(ev.ptr());
+		if (side_mb != NULL && (Side_held || Side_button->get_global_rect().has_point(side_mb->get_position()))) {
+			return true;
+		}
+	}
 	if (!dd_shown()) {
 		return false;
 	}

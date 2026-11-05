@@ -53,7 +53,7 @@ static unsigned long long Api_sound_window = 0;
 static int Api_sound_logged = 0;
 
 // v9: the host's drop-down widget (fs2_set_dropdown_hooks); both null = none, the game draws its own choices
-static fs2_dropdown_hooks Api_dropdown = { NULL, NULL };
+static fs2_dropdown_hooks Api_dropdown = { NULL, NULL, NULL };
 
 static uintptr_t api_sound_window(void)
 {
@@ -188,7 +188,9 @@ int fs2_init(const char *cmdline, const char *root_dir)
 	Host_hooks.sound_window = Api_sound_window ? api_sound_window : NULL;	// v7: after the table copy, so it holds for any table
 	Host_hooks.dropdown_show = Api_dropdown.show;	// v9: likewise; null for a host that gave none
 	Host_hooks.dropdown_hide = Api_dropdown.hide;
+	Host_hooks.side_button = Api_dropdown.side_button;	// v11
 	Host_dropdown_chosen = -1;
+	Host_side_button_pressed = 0;
 	Api_sound_logged = 0;
 
 	replay_wait_for_restart();
@@ -353,6 +355,7 @@ int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks)
 	if ( (hooks == NULL) || (hooks->show == NULL) || (hooks->hide == NULL) ) {
 		Api_dropdown.show = NULL;
 		Api_dropdown.hide = NULL;
+		Api_dropdown.side_button = NULL;
 		return 0;
 	}
 	Api_dropdown = *hooks;
@@ -362,6 +365,11 @@ int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks)
 void fs2_input_dropdown(int index)
 {
 	Host_dropdown_chosen = (index < 0) ? -1 : index;
+}
+
+void fs2_input_side_button(void)
+{
+	Host_side_button_pressed = 1;
 }
 
 void fs2_set_fiber(int mode)

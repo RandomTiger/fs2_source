@@ -70,6 +70,8 @@ int game_options_tour_step(int step);
 void game_options_pilot_button_init();
 // draws it and takes a click on it; call once a frame, before the flip
 void game_options_pilot_button_do();
+// takes the host's button away; call when the screen closes
+void game_options_pilot_button_close();
 // 1 if the screen is closing because the button was clicked: Back returns to the pilot screen
 int game_options_pilot_button_leaving();
 

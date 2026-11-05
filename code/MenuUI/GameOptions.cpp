@@ -33,6 +33,7 @@
 #include "MissionCampaign.h"
 #include "Scoring.h"
 #include "cmdline.h"
+#include "Timer.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -850,83 +851,82 @@ void game_options_screen_do_frame(float /*frametime*/)
 }
 
 // ---------------------------------------------------------------------------------------------------
-// the pilot screen's Options button: bottom right, the Options tab's four-diamond icon from this data set's own art.
-// Data with no such art (a demo) gets the word instead.
+// the pilot screen's Options button: the word, bottom left. The black column beside the picture is outside what the game can draw
+// on or point at, so a host with a side button (HostHooks.h side_button, the Godot host) puts it there. A host without one
+// (native D3D) gets the word drawn in the picture's bottom left corner.
 
 #define GO_BUTTON_MARGIN	8
+#define GO_BUTTON_STALE_MS	250		// a host click older than this came while a popup held the screen: not meant for the button
 
-static int Go_button_frame[2] = { -1, -1 };		// normal, under the mouse
 static int Go_button_on = 0;
+static int Go_button_host = 0;			// the host's button is up
 static int Go_button_was_down = 0;
+static int Go_button_last_do = 0;
+
+static void game_options_pilot_button_click()
+{
+	Go_from_pilot_screen = 1;
+	gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+	gameseq_post_event(GS_EVENT_GAME_OPTIONS);
+}
 
 void game_options_pilot_button_init()
 {
-	char name[MAX_FILENAME_LEN];
-	char *root;
-	int first, nframes = 0;
-
 	Go_button_on = game_options_keys_active();
 	Go_from_pilot_screen = 0;
-	Go_button_frame[0] = Go_button_frame[1] = -1;
 	Go_button_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
-	if (!Go_button_on) {
-		return;
-	}
-
-	root = Cfile_fs1_data ? "OP_00" : ((gr_screen.res == GR_1024) ? "2_OPT_00" : "OPT_00");
-	sprintf(name, "%s0001", root);
-	Go_button_frame[0] = bm_load(name);
-	sprintf(name, "%s0002", root);
-	Go_button_frame[1] = bm_load(name);
-	if (Go_button_frame[0] < 0) {
-		first = bm_load_animation(root, &nframes);
-		if (first >= 0) {
-			Go_button_frame[0] = first;
-			Go_button_frame[1] = (nframes > 1) ? first + 1 : -1;
-		}
-	}
-	if (Go_button_frame[1] < 0) {
-		Go_button_frame[1] = Go_button_frame[0];
+	Go_button_host = 0;
+	Go_button_last_do = timer_get_milliseconds();
+	Host_side_button_pressed = 0;
+	if (Go_button_on && (Host_hooks.side_button != NULL)) {
+		Go_button_host = 1;
+		Host_hooks.side_button("OPTIONS");
 	}
 }
 
 void game_options_pilot_button_do()
 {
-	int w = 0, h = 0, x, y, mx, my, over, down;
+	int w = 0, h = 0, x, y, mx, my, over, down, now;
 
 	if (!Go_button_on) {
 		return;
 	}
-	if (Go_button_frame[0] >= 0) {
-		bm_get_info(Go_button_frame[0], &w, &h);
-	} else {
-		gr_set_font(FONT1);
-		gr_get_string_size(&w, &h, "OPTIONS");
+	if (Go_button_host) {
+		now = timer_get_milliseconds();
+		if (Host_side_button_pressed && ((now - Go_button_last_do) < GO_BUTTON_STALE_MS) && !Go_from_pilot_screen) {
+			game_options_pilot_button_click();
+		}
+		Host_side_button_pressed = 0;
+		Go_button_last_do = now;
+		return;
 	}
-	x = gr_screen.max_w - w - GO_BUTTON_MARGIN;
+	gr_set_font(FONT1);
+	gr_get_string_size(&w, &h, "OPTIONS");
+	x = GO_BUTTON_MARGIN;
 	y = gr_screen.max_h - h - GO_BUTTON_MARGIN;
 	if (Cfile_fs1_data) {
-		y -= (18 * gr_screen.max_h) / 480;	// FS1's copyright line runs this far right: sit above it
+		y -= (18 * gr_screen.max_h) / 480;	// FS1's copyright line runs this far out: sit above it
 	}
 
 	mouse_get_pos(&mx, &my);
 	down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
 	over = (mx >= x - 4) && (mx < x + w + 4) && (my >= y - 4) && (my < y + h + 4);
 
-	if (Go_button_frame[0] >= 0) {
-		gr_set_bitmap(Go_button_frame[over ? 1 : 0]);
-		gr_bitmap(x, y);
-	} else {
-		gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
-		gr_string(x, y, "OPTIONS");
-	}
+	gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
+	gr_string(x, y, "OPTIONS");
 
 	if (over && !down && Go_button_was_down && !Go_from_pilot_screen) {
-		Go_from_pilot_screen = 1;
-		gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
-		gameseq_post_event(GS_EVENT_GAME_OPTIONS);
+		game_options_pilot_button_click();
 	}
 	Go_button_was_down = down;
+}
+
+void game_options_pilot_button_close()
+{
+	if (Go_button_host) {
+		Host_hooks.side_button(NULL);
+		Go_button_host = 0;
+	}
 }
 
 int game_options_pilot_button_leaving()
