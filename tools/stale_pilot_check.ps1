@@ -26,9 +26,9 @@ $name = 'AutotestStale'
 $bad = @()
 
 function Get-RecordedPilot([string]$File) {
-	# the version 3 replay_header (code/Replay/Replay.cpp): version at 8, loadout_size at 772, pilot_size at 796, 828 long
+	# the version 3 or 4 replay_header (code/Replay/Replay.cpp; version 4 changes only the stream): version at 8, loadout_size at 772, pilot_size at 796, 828 long
 	$d = [IO.File]::ReadAllBytes($File)
-	if ([BitConverter]::ToInt32($d, 8) -ne 3) { throw "$File is not a version 3 recording" }
+	if (@(3, 4) -notcontains [BitConverter]::ToInt32($d, 8)) { throw "$File is not a version 3 or 4 recording" }
 	$start = 828 + [BitConverter]::ToInt32($d, 772)
 	$size = [BitConverter]::ToInt32($d, 796)
 	if (($size -le 0) -or (($start + $size) -gt $d.Length)) { throw "$File has no pilot at byte $start" }
