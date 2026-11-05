@@ -27,6 +27,8 @@
 #include "GrInternal.h"
 #include "bmpman.h"
 #include "Font.h"
+#include "AnimPlay.h"
+#include "PackUnpack.h"
 #include "cmdline.h"
 #include "Mouse.h"
 // Line.h's INT_CLIPLINE scales with the Win32 MulDiv; this is the same (rounds to nearest, halves away from zero)
@@ -123,6 +125,8 @@ struct Host {
 	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
+	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
+	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
@@ -274,7 +278,7 @@ void ensure_frame()
 		if (H.flush_pending) {
 			// bitmap textures only: a screen saved with save_screen survives a flush, as in D3D
 			for (auto &kv : H.tex) { if (kv.second.sink_id != 0) { H.sink->texture_free(H.sink->user, kv.second.sink_id); } }
-			H.tex.clear();
+			H.tex.clear(); H.head_layer.clear();
 			H.flush_pending = false;
 		}
 		for (int id : H.release_pending) { H.sink->texture_free(H.sink->user, id); }
@@ -435,6 +439,14 @@ static bool tex_pixels(int bitmap_id, int type, bool bitmap_2d, std::vector<uint
 	return true;
 }
 
+// Talking heads (see head_preload): a frame's pixels hashed, with its size
+static uint64_t pixel_hash(const std::vector<uint8_t> &px, int w, int h)
+{
+	uint64_t x = 1469598103934665603ull ^ ((uint64_t)w << 32) ^ (uint64_t)h;
+	for (uint8_t c : px) { x = (x ^ c) * 1099511628211ull; }
+	return x;
+}
+
 // Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
 // type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
 int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
@@ -453,6 +465,10 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	std::vector<uint8_t> px;
 	int w, h, format;
 	if (!tex_pixels(bitmap_id, type, bitmap_2d, px, w, h, format)) { return 0; }
+	if (kind == TK_AA && !H.head_layer.empty() && w == 160 && h == 120) {	// a talking head frame decoded at play: its layer from level load
+		auto hl = H.head_layer.find(pixel_hash(px, w, h));
+		if (hl != H.head_layer.end()) { H.head_hits++; return hl->second; }
+	}
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
@@ -502,6 +518,56 @@ static void tex_get_anim(int handle, int nframes)
 		t.type = TCACHE_TYPE_NORMAL; t.w = w; t.h = h;
 		t.opaque = opaque[(size_t)f] != 0;
 		H.sink->texture_layer(H.sink->user, t.sink_id, array_id, f);
+	}
+}
+
+
+// ---- talking heads at level load ---------------------------------------------------------------------------------
+// A head is not a BmpMan level bitmap: the game decodes its ANI at play time into a fresh 160x120 user bitmap per frame (anim_show_next_frame),
+// so a head frame has no stable handle. At load each head the messages can play (bm_page_in_listed, message_page_in_heads) is decoded with
+// the game's own decode (init_anim_instance, anim_get_next_raw_buffer, a user bitmap as the play path makes it, tex_pixels as bitmap_piece
+// asks for it), uploaded as one exact-size array, and each layer is filed under a hash of its pixels. A play-time frame that hashes the same
+// takes that layer (tex_get). Decode only: no game state, rand or clock; the anim is released again so play loads it as before.
+
+static void head_preload(const char *name)
+{
+	if (H.sink->texture_array_create == nullptr || H.sink->texture_layer == nullptr) { return; }
+	anim *a = anim_load((char *)name, 0);
+	if (a == nullptr) { return; }
+	const int bpp = 8;	// a head plays with the HUD colour (aa_color): 8-bit alpha frames, no palette translation
+	anim_instance *inst = init_anim_instance(a, bpp);
+	std::vector<uint8_t> all;
+	std::vector<uint64_t> hashes;
+	int w = 0, h = 0, format = 0, nframes = 0;
+	bool ok = (inst != nullptr);
+	while (ok) {
+		ubyte *buf = anim_get_next_raw_buffer(inst, 0, 1, bpp);
+		if (buf == nullptr) { break; }
+		const int bm = bm_create(8, a->width, a->height, buf, BMP_AABITMAP);
+		if (bm < 0) { ok = false; break; }
+		std::vector<uint8_t> px;
+		int fw, fh, ff;
+		const bool got = tex_pixels(bm, TCACHE_TYPE_AABITMAP, false, px, fw, fh, ff);
+		bm_release(bm);
+		if (!got || ff != FS2_SINK_TEX_A8 || (nframes > 0 && (fw != w || fh != h))) { ok = false; break; }
+		w = fw; h = fh; format = ff;
+		hashes.push_back(pixel_hash(px, w, h));
+		all.insert(all.end(), px.begin(), px.end());
+		nframes++;
+	}
+	if (inst != nullptr) { free_anim_instance(inst); }
+	anim_free(a);
+	if (!ok || nframes == 0) { return; }
+	const int array_id = H.next_sink_id++;
+	H.sink->texture_array_create(H.sink->user, array_id, w, h, nframes, format, 0, all.data());
+	for (int f = 0; f < nframes; f++) {
+		if (H.head_layer.count(hashes[(size_t)f]) != 0) { continue; }	// the same picture as a frame already filed (a repeated key frame)
+		HostTex &t = H.tex[TexKey{ -(1000 + H.head_frames), 0, TK_AA }];	// a handle no bitmap has: freed with the others on a flush
+		t.sink_id = H.next_sink_id++;
+		t.type = TCACHE_TYPE_AABITMAP; t.w = w; t.h = h; t.opaque = false;
+		H.sink->texture_layer(H.sink->user, t.sink_id, array_id, f);
+		H.head_layer[hashes[(size_t)f]] = t.sink_id;
+		H.head_frames++;
 	}
 }
 
@@ -1244,7 +1310,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 }
 
 // ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
-// Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
+// Switch: FS2_RENDER3D (default on; FS2_RENDER3D=0 turns it off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
 // (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
 // in an accepted frame, when the textures can be uploaded, and again when the draw state (z mode, zbias, cull) or a texture
 // changes. Groups are drawn opaque when the texture has no alpha below 255, else alpha blended; polygons that glow stay CPU.
@@ -1253,7 +1319,7 @@ bool mesh_switch()
 	static int on = -1;
 	if (on < 0) {
 		const char *e = getenv("FS2_RENDER3D");
-		on = (e != nullptr) ? (e[0] - '0') : 0;
+		on = (e != nullptr) ? (e[0] - '0') : 1;
 	}
 	return on == 1;
 }
@@ -1333,7 +1399,7 @@ void h_level_loaded()
 	if (H.sink == nullptr) { return; }
 	if (H.flush_pending) {		// a flush or gamma change before the load: do it now, or the first frame drops what the load uploads
 		for (auto &kv : H.tex) { if (kv.second.sink_id != 0) { H.sink->texture_free(H.sink->user, kv.second.sink_id); } }
-		H.tex.clear();
+		H.tex.clear(); H.head_layer.clear();
 		H.flush_pending = false;
 	}
 	H.load_mode = true;
@@ -1367,7 +1433,12 @@ void h_level_loaded()
 	std::vector<bm_level_bitmap> list((size_t)(nlist > 0 ? nlist : 0));
 	if (nlist > 0) { bm_get_level_bitmaps(list.data(), nlist); }
 	for (auto &b : list) {
-		if (b.handle < 0 || (b.flags & (BM_LEVEL_AABITMAP | BM_LEVEL_LISTED))) { continue; }
+		if (b.flags & BM_LEVEL_LISTED) { head_preload(b.filename); continue; }		// a talking head (or another file the level plays outside BmpMan): decoded now
+		if (b.handle < 0) { continue; }
+		if (b.flags & BM_LEVEL_AABITMAP) {		// HUD bitmaps and ANIs: the alpha kind the 2D draws ask for, every frame at load
+			for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, TCACHE_TYPE_AABITMAP, false); }
+			continue;
+		}
 		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
 		tex_get_anim(b.handle, b.nframes);		// the kind a billboard draws, whole, at load
 	}
@@ -1866,11 +1937,11 @@ void host_init()
 void host_cleanup()
 {
 	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
-	H.tex.clear();
+	H.tex.clear(); H.head_layer.clear();
 	H.meshes.clear();
 	H.release_pending.clear();
 	H.capture_pending.clear();
