@@ -4,8 +4,8 @@ _process. Passes when the game ends with exit 0 and Godot's window kept processi
 the gap between Godot frames and every window event; this script resizes the window and takes a screenshot during the mission and
 logs what Windows reports for the window (the hung reading is logged only, it does not fail the run). Runs on the scratch pilot AutotestPilot, not a real pilot. Exits non-zero when the game does or autotest.log says FAIL. Proof goes to <Out>: smoke.out.txt, smoke_during.png, smoke.txt.
 Usage: tools\godot_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Seconds 90] [-Out dir] [-HostRenderer]
-The default form draws through the null renderer, so it tests the fiber and the window only. -HostRenderer draws through the host renderer. With 3D on (FS2_RENDER3D unset or anything but 0) it
-fails unless the game reports billboards on the sink and 0 faults; 3D on without the switch is refused, so the null renderer form needs FS2_RENDER3D=0, as nothing would read it (#188).
+The default form draws through the null renderer, so it tests the fiber and the window only. -HostRenderer draws through the host renderer with the game's default 3D, and
+fails unless the game reports billboards on the sink and 0 faults (#188, #191).
 #>
 param([string]$Config = 'r', [string]$Mission = 'sm1-01', [int]$Seconds = 90, [string]$Out,
 	[string]$GameDir = $env:PATH_FS2, [string]$Godot, [switch]$HostRenderer)
@@ -18,8 +18,6 @@ function Get-Render3DFault([string]$ErrFile) {
 	if ($f -ne 0) { return "$f render3d faults" }
 	return ''
 }
-$want3D = $env:FS2_RENDER3D -ne '0'	# the game's default is on: unset is on too (#191)
-if ($want3D -and -not $HostRenderer) { Write-Output 'FAIL: 3D on (FS2_RENDER3D is not 0) does nothing without -HostRenderer: the null renderer never reads it (#188)'; exit 2 }
 if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64.exe' }
 $repo = Split-Path $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
@@ -76,7 +74,7 @@ $res += ($o | Select-String 'smoke: t=' | Select-Object -First 1 | % { $_.Line }
 $res += ($o | Select-String 'smoke: t=' | Select-Object -Last 1 | % { $_.Line })
 $res += "autotest.log: " + ((Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'PASS|FAIL|Asserts' | Select-Object -Last 2 | % { $_.Line }) -join ' | ')
 $res += (Select-String "$Out\smoke.err.txt" -Pattern 'render3d: billboards' -ErrorAction SilentlyContinue | Select-Object -Last 1 | % { $_.Line })
-$fault3D = if ($want3D) { Get-Render3DFault "$Out\smoke.err.txt" } else { '' }
+$fault3D = if ($HostRenderer) { Get-Render3DFault "$Out\smoke.err.txt" } else { '' }
 if ($fault3D) { $res += "FAIL: $fault3D" }
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_SMOKE -ErrorAction SilentlyContinue
 $env:FS2_GR_HOST = $oldHost	# empty removes it
