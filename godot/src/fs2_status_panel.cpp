@@ -7,12 +7,16 @@
 #include <string.h>
 #include <wchar.h>
 
+#include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/color.hpp>
 
 using namespace godot;
 
 static const float PANEL_MARGIN = 16.0f;
+static const float PANEL_PIXEL_SCALE_HEIGHT = 480.0f;	// one font pixel per this much window height, whole steps so the font stays sharp
 
 // The name of the game DLL gives the branch, FS2game_<Layer>_64r.dll or _64d.dll. Any other name is shown whole, never guessed at.
 static String panel_branch(const wchar_t *file_name)
@@ -76,7 +80,7 @@ static bool panel_mouse_found()
 	return found;
 }
 
-void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll)
+void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *))
 {
 	wchar_t path[MAX_PATH];
 	const DWORD len = GetModuleFileNameW(dll, path, MAX_PATH);
@@ -88,16 +92,50 @@ void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll)
 		version = panel_branch(slash != NULL ? slash + 1 : path) + "\n" + panel_build_time(path);
 	}
 	screen = on_screen;
-	label = memnew(Label);
-	label->set_position(Vector2(PANEL_MARGIN, PANEL_MARGIN));
-	label->add_theme_color_override("font_color", Color(0.75f, 0.75f, 0.75f));
-	label->set_visible(false);
-	screen->add_child(label);
+	font_text = text_in_font;
+	text_rect = memnew(TextureRect);
+	text_rect->set_position(Vector2(PANEL_MARGIN, PANEL_MARGIN));
+	text_rect->set_self_modulate(Color(0.75f, 0.75f, 0.75f));
+	text_rect->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+	text_rect->set_stretch_mode(TextureRect::STRETCH_SCALE);
+	text_rect->set_texture_filter(CanvasItem::TEXTURE_FILTER_NEAREST);
+	text_rect->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+	text_rect->set_visible(false);
+	screen->add_child(text_rect);
+}
+
+// The picture of the text, from the game's font. The fonts load during the game's start-up, so until then there is nothing yet and the next look tries again.
+void Fs2StatusPanel::set_text(const String &text)
+{
+	const CharString chars = text.ascii();
+	int w = 0, h = 0;
+
+	if (text == shown_text || !font_text(chars.get_data(), NULL, &w, &h) || w <= 0 || h <= 0) {
+		return;
+	}
+	PackedByteArray coverage;
+	coverage.resize((int64_t)w * h);
+	font_text(chars.get_data(), coverage.ptrw(), &w, &h);
+
+	PackedByteArray rgba;
+	rgba.resize((int64_t)w * h * 4);
+	uint8_t *out = rgba.ptrw();
+	const uint8_t *in = coverage.ptr();
+	for (int64_t i = 0; i < (int64_t)w * h; i++) {
+		out[(i * 4) + 0] = 255;
+		out[(i * 4) + 1] = 255;
+		out[(i * 4) + 2] = 255;
+		out[(i * 4) + 3] = in[i];
+	}
+	text_rect->set_texture(ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, rgba)));
+	text_w = w;
+	text_h = h;
+	shown_text = text;
 }
 
 void Fs2StatusPanel::refresh()
 {
-	if (label == nullptr) {
+	if (text_rect == nullptr) {
 		return;
 	}
 	const unsigned long long now = Time::get_singleton()->get_ticks_usec();
@@ -105,13 +143,14 @@ void Fs2StatusPanel::refresh()
 		int pads = 0, sticks = 0;
 		next_refresh_usec = now + 1000000;
 		fs2host::device_counts(&pads, &sticks);
-		label->set_text(String("Version:\n") + version + "\n\nStatus:\nMouse: " + (panel_mouse_found() ? "Detected" : "Undetected") +
+		set_text(String("Version:\n") + version + "\n\nStatus:\nMouse: " + (panel_mouse_found() ? "Detected" : "Undetected") +
 			"\nJoystick: " + (sticks > 0 ? "Detected" : "Undetected") +
 			"\nJoypad: " + (pads > 0 ? "Detected" : "Undetected"));
 	}
 	const Vector2 window = screen->get_window_size();
-	const int font_size = (int)(window.y / 60.0f);
-	label->add_theme_font_size_override("font_size", font_size < 12 ? 12 : font_size);
+	int scale = (int)((window.y / PANEL_PIXEL_SCALE_HEIGHT) + 0.5f);
+	scale = scale < 1 ? 1 : scale;
+	text_rect->set_size(Vector2((float)(text_w * scale), (float)(text_h * scale)));
 	// a picture wide enough to leave no room for the text hides it rather than covering the game
-	label->set_visible(label->get_minimum_size().x + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width());
+	text_rect->set_visible(text_w > 0 && (float)(text_w * scale) + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width());
 }

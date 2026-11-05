@@ -6,8 +6,8 @@
 
 #include <windows.h>
 
-#include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/texture_rect.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 namespace godot {
@@ -15,16 +15,22 @@ namespace godot {
 class Fs2Screen;
 
 class Fs2StatusPanel {
-	Label *label = nullptr;
+	TextureRect *text_rect = nullptr;
 	Fs2Screen *screen = nullptr;
 	String version;
+	String shown_text;
+	int (*font_text)(const char *, unsigned char *, int *, int *) = nullptr;
+	int text_w = 0, text_h = 0;
 	unsigned long long next_refresh_usec = 0;
 
 public:
-	// Adds the text under the screen node. dll is the game DLL actually loaded.
-	void create(Fs2Screen *on_screen, HMODULE dll);
+	// Adds the text under the screen node. dll is the game DLL actually loaded, text_in_font its fs2_font_text: the text is the game's own font.
+	void create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *));
 	// Call each Godot frame: the devices are looked at about once a second, the column's width every time.
 	void refresh();
+
+private:
+	void set_text(const String &text);
 };
 
 } // namespace godot

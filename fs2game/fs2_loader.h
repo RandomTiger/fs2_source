@@ -28,8 +28,9 @@ struct Fs2Api {
 	void	(*input_focus)(int);
 	void	(*input_close)(void);
 	void	(*screen_size)(int *, int *);
+	int	(*font_text)(const char *, unsigned char *, int *, int *);
 
-	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), set_window_handle(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL) {}
+	Fs2Api() : module(NULL), api_version(NULL), set_hooks(NULL), set_render_sink(NULL), set_input_script_sink(NULL), init(NULL), frame(NULL), shutdown(NULL), set_fatal_return(NULL), set_fiber(NULL), set_host_pacing(NULL), set_window_handle(NULL), last_error(NULL), input_key(NULL), input_mouse_button(NULL), input_focus(NULL), input_close(NULL), screen_size(NULL), font_text(NULL) {}
 
 	// 1 on success. The DLL's own folder is searched for anything it depends on.
 	int load(const char *dll_path)
@@ -55,7 +56,8 @@ struct Fs2Api {
 		input_focus = (void (*)(int))GetProcAddress(module, "fs2_input_focus");
 		input_close = (void (*)(void))GetProcAddress(module, "fs2_input_close");
 		screen_size = (void (*)(int *, int *))GetProcAddress(module, "fs2_screen_size");
-		if ( !input_key || !input_mouse_button || !input_focus || !input_close || !screen_size ) {
+		font_text = (int (*)(const char *, unsigned char *, int *, int *))GetProcAddress(module, "fs2_font_text");
+		if ( !input_key || !input_mouse_button || !input_focus || !input_close || !screen_size || !font_text ) {
 			FreeLibrary(module);
 			module = NULL;
 			return 0;
