@@ -3,10 +3,23 @@ Windowed Godot smoke test (G3): a visible Godot window runs a live autotest miss
 _process. Passes when the game ends with exit 0 and Godot's window kept processing events meanwhile: runner.gd (FS2_SMOKE=1) logs
 the gap between Godot frames and every window event; this script resizes the window and takes a screenshot during the mission and
 logs what Windows reports for the window (the hung reading is logged only, it does not fail the run). Runs on the scratch pilot AutotestPilot, not a real pilot. Exits non-zero when the game does or autotest.log says FAIL. Proof goes to <Out>: smoke.out.txt, smoke_during.png, smoke.txt.
-Usage: tools\godot_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Seconds 90] [-Out dir]
+Usage: tools\godot_smoke.ps1 [-Config r|d] [-Mission sm1-01] [-Seconds 90] [-Out dir] [-HostRenderer]
+The default form draws through the null renderer, so it tests the fiber and the window only. -HostRenderer draws through the host renderer. With FS2_RENDER3D=1 it
+fails unless the game reports billboards on the sink and 0 faults; FS2_RENDER3D=1 without the switch is refused, as nothing would read it (#188).
 #>
 param([string]$Config = 'r', [string]$Mission = 'sm1-01', [int]$Seconds = 90, [string]$Out,
-	[string]$GameDir = $env:PATH_FS2, [string]$Godot)
+	[string]$GameDir = $env:PATH_FS2, [string]$Godot, [switch]$HostRenderer)
+# the game's render3d line in its stderr: empty when it is good, else why not (#188)
+function Get-Render3DFault([string]$ErrFile) {
+	$m = Select-String $ErrFile -Pattern 'render3d: billboards: (\d+) on the sink, (\d+) faults' -ErrorAction SilentlyContinue | Select-Object -Last 1
+	if (-not $m) { return 'no render3d line in the game''s stderr' }
+	$n = [int]$m.Matches[0].Groups[1].Value; $f = [int]$m.Matches[0].Groups[2].Value
+	if ($n -le 0) { return "no billboards reached the sink ($n)" }
+	if ($f -ne 0) { return "$f render3d faults" }
+	return ''
+}
+$want3D = $env:FS2_RENDER3D -eq '1'
+if ($want3D -and -not $HostRenderer) { Write-Output 'FAIL: FS2_RENDER3D=1 does nothing without -HostRenderer: the null renderer never reads it (#188)'; exit 2 }
 if (-not $Godot) { if (-not $env:GODOT_ENGINE_4_7) { throw 'GODOT_ENGINE_4_7 is not set (folder holding the Godot 4.7.2 exes), and no -Godot given' }; $Godot = Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64.exe' }
 $repo = Split-Path $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
@@ -44,8 +57,11 @@ public static class W32 {
 "@
 [void][W32]::SetProcessDPIAware()	# real pixels, or a scaled desktop gives the window's rectangle and the resize in other units (#228)
 $env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'; $env:FS2_SMOKE = '1'
-$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot AutotestPilot -at_time $Seconds"
+$oldHost = $env:FS2_GR_HOST
+if ($HostRenderer) { $env:FS2_GR_HOST = '1' }
+$env:FS2_CMD = "-window -autotest $(if (-not $HostRenderer) { '-headless ' })-at_mission $Mission -at_pilot AutotestPilot -at_time $Seconds"
 Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
+Remove-Item "$Out\smoke.err.txt" -ErrorAction SilentlyContinue	# an old render3d line must not pass this run
 Set-Location $GameDir
 $p = Start-Process $Godot -ArgumentList "--path `"$(Join-Path $repo 'godot')`" --windowed --resolution 800x450" -PassThru -RedirectStandardOutput "$Out\smoke.out.txt" -RedirectStandardError "$Out\smoke.err.txt"
 $null = $p.Handle
@@ -79,7 +95,11 @@ $res += ($o | Select-String 'game finished' | % { $_.Line })
 $res += ($o | Select-String 'smoke: t=' | Select-Object -First 1 | % { $_.Line })
 $res += ($o | Select-String 'smoke: t=' | Select-Object -Last 1 | % { $_.Line })
 $res += "autotest.log: " + ((Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'PASS|FAIL|Asserts' | Select-Object -Last 2 | % { $_.Line }) -join ' | ')
+$res += (Select-String "$Out\smoke.err.txt" -Pattern 'render3d: billboards' -ErrorAction SilentlyContinue | Select-Object -Last 1 | % { $_.Line })
+$fault3D = if ($want3D) { Get-Render3DFault "$Out\smoke.err.txt" } else { '' }
+if ($fault3D) { $res += "FAIL: $fault3D" }
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_SMOKE -ErrorAction SilentlyContinue
+$env:FS2_GR_HOST = $oldHost	# empty removes it
 Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 $res | Set-Content "$Out\smoke.txt"; $res
-if ($h -eq [IntPtr]::Zero -or $code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern '\bFAIL\b' -CaseSensitive -Quiet)) { exit 1 }
+if ($h -eq [IntPtr]::Zero -or $fault3D -or $code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern '\bFAIL\b' -CaseSensitive -Quiet)) { exit 1 }
