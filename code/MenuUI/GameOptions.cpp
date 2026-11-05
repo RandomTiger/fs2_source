@@ -104,7 +104,7 @@ static int Go_option_value[GO_OPT_COUNT];
 // what a change does beyond the value: only what cannot read game_option as it goes
 static void go_option_apply(int id)
 {
-	if (id == GO_OPT_HUD_DOUBLE) {
+	if (id == GO_OPT_BIG_HUD) {
 		gr_virtual_set_hud_double(Go_option_value[id]);
 	}
 }
@@ -133,6 +133,18 @@ int game_option(int id)
 int game_option_voiced_text_shown()
 {
 	return Go_option_value[GO_OPT_SUBTITLES] || !game_options_keys_active();
+}
+
+// Claude: GodotOptions, with subtitles off the head box and directives move up into the empty space, and the lines
+// left at the top start beside the head box (Tom, 2026-11-05). Compared runs always show the line, so stay classic.
+int game_option_hud_lift()
+{
+	return game_option_voiced_text_shown() ? 0 : ((gr_screen.res == GR_640) ? 30 : 48);
+}
+
+int game_option_hud_lines_x()
+{
+	return game_option_voiced_text_shown() ? 0 : 170;
 }
 
 void game_option_set(int id, int value)

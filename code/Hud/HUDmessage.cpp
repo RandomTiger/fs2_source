@@ -511,6 +511,7 @@ struct scrollback_buttons {
 
 int Scroll_time_id;
 
+#include "GameOptions.h"	// Claude: GodotOptions, the Subtitles option
 int MSG_WINDOW_X_START = 5;
 int MSG_WINDOW_Y_START = 5;
 int MSG_WINDOW_WIDTH;		// initialed in hud_init_msg_window()
@@ -678,7 +679,7 @@ void hud_show_msg_window()
 	hud_set_default_color();
 	gr_set_font(FONT1);
 
-	HUD_set_clip(MSG_WINDOW_X_START,MSG_WINDOW_Y_START, MSG_WINDOW_WIDTH, MSG_WINDOW_HEIGHT+2);
+	HUD_set_clip(MSG_WINDOW_X_START + game_option_hud_lines_x(),MSG_WINDOW_Y_START, MSG_WINDOW_WIDTH - game_option_hud_lines_x(), MSG_WINDOW_HEIGHT+2);  // Claude: GodotOptions, moved up with subtitles off
 
 	if ( OLD_ACTIVE_BUFFER_LINES != ACTIVE_BUFFER_LINES ) {
 		// the size of the message window has changed, the best thing to do is to put all
@@ -988,7 +989,7 @@ void hud_sourced_print(int source, char *msg)
 	x = 0;
 	t = timestamp();
 	str = msg;
-	while ((ptr = split_str_once(str, MSG_WINDOW_WIDTH - x - 7)) != NULL) {		// the 7 is a fudge hack
+	while ((ptr = split_str_once(str, MSG_WINDOW_WIDTH - game_option_hud_lines_x() - x - 7)) != NULL) {		// the 7 is a fudge hack
 		HUD_printf_line(str, source, t, x);
 		str = ptr;
 		x = offset;

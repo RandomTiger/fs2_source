@@ -10,4 +10,4 @@
 // No include guard: included once per use, with GO_OPTION defined.
 
 GO_OPTION(GO_OPT_SUBTITLES, "subtitles", "Subtitles", "Subtitles", 0, 0)
-GO_OPTION(GO_OPT_HUD_DOUBLE, "hud_double", "HudDouble", "Double size HUD", 0, 1)
+GO_OPTION(GO_OPT_BIG_HUD, "big_hud", "BigHud", "Big HUD", 0, 1)
