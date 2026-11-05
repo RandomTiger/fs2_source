@@ -61,8 +61,7 @@ of FS2 (and the recorder, later) sees no difference:
 4. `check_control()` (ControlsConfig.cpp): return 1 if the pad holds that action.
 5. `read_keyboard_controls()` (PlayerControl.cpp): add the pad's analog values.
 6. `joy_init()` (Joy.cpp): legacy joystick off while an XInput pad is connected.
-7. HUD render (HUD.cpp): `pad_hud_render()` draws the open pad tree options.
-   `hud_show_ets()` (HUDets.cpp): `pad_ets_recolor()` draws the system North + D-pad changes.
+7. `hud_show_ets()` (HUDets.cpp): `pad_ets_recolor()` draws the system North + D-pad changes.
    HUDtarget.cpp: `hud_pad_*` tell South what a press would pick without changing it.
 8. Squad menu (HUDsquadmsg.cpp): a block of `hud_squadmsg_pad_*` functions (open, close,
    move, select, back) and a ">" on the highlighted row.
@@ -139,39 +138,6 @@ A recording keeps the events like a person's. A replay runs none of this and get
 stream. The test is `-at_padmenu` with mission AutotestPadMenu (`PadMenuTest.cpp`): a script feeds a
 fake pad below the layer, and is run when the recording is made, never in a replay.
 
-## Pad tree (from Tom), no longer bound
-No button opens the tree since #151. The code (`PadCore`, `PadHud.cpp`) stays and old recordings
-still draw it: whether to delete it is undecided (#151).
-
-Players won't remember dozens of combinations, so the less-used actions live in a
-tree driven by a held face button and the D-pad.
-
-- Hold a face button: its category opens. The D-pad's four directions show four options.
-- An option is a leaf (does the action) or a branch (shows four more options).
-- On every level below the top, one direction (Left) is reserved for back. The top
-  level has all four. Releasing the face button closes the tree at any depth.
-- With no face button held, the D-pad is shields as normal.
-- Sticks and triggers keep working while the tree is open, so the player keeps flying.
-- Muscle memory: the action fires on the D-pad press, and the HUD only draws the
-  options after a short delay (~200 ms). A practised player clicks through without
-  waiting and never sees it pop up.
-- Tap vs hold: a quick tap of the same face button can still do one direct action
-  (e.g. tap = target next hostile, hold = targeting tree).
-
-Categories:
-| Category | Notes |
-|---|---|
-| Commands | Drives the existing squad message menu. That menu has more than four items per page, so here Up/Down move through it, Right selects, Left goes back. It reuses the game's own menu and HUD. |
-| Targeting | Hostile, subsystem, cargo, turret, friendly branches. |
-| Weapons | Cycle primary, cycle secondary, missile link, etc. |
-| (4th face button) | South: voice push-to-talk, so no fourth category for now (ETS / power was the idea). |
-
-Which face button opens which category is just a table entry in `pad.cfg`. Default
-(arbitrary): West = Targeting, North = Weapons, East = Commands. South is voice push-to-talk.
-
-The tree is data (`PadCore`), so it ports to Godot as is. Only the HUD drawing
-(`PadHud.cpp`, new file) is FS2-specific.
-
 ## What fits and what doesn't
 Tier 1, needed to play: on the base layer or a one-button layer.
 - Flight: yaw, pitch, roll, throttle up, stop, afterburner, match speed.
@@ -181,7 +147,7 @@ Tier 1, needed to play: on the base layer or a one-button layer.
 - Squad message menu, with pad navigation of the menu while it is open (a layer).
 - Pause. Jump out at mission end (`END_MISSION`).
 
-Tier 2, useful: in the pad tree.
+Tier 2, useful: no pad slot yet.
 - ETS up/down for weapons/shields/engines, equalise.
 - Target next/prev friendly, escort, next bomb, newest ship, target's target, stop targeting.
 - Subsystem targeting: prev subsystem, subsystem in reticle, stop targeting subsystem.

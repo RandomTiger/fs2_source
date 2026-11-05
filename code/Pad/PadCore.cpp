@@ -32,17 +32,6 @@ static pad_input_track			Pad_track[PAD_NUM_INPUTS];
 static int							Pad_last_update_ms = 0;
 static int							Pad_have_update = 0;
 
-static const pad_tree_category	*Pad_tree_categories = NULL;
-static int							Pad_tree_num_categories = 0;
-static const pad_tree_node		*Pad_tree_nodes = NULL;
-static int							Pad_tree_num_nodes = 0;
-static int							Pad_tree_category = -1;		// open category, -1 = closed
-static int							Pad_tree_stack[PAD_TREE_MAX_DEPTH];
-static int							Pad_tree_depth = 0;
-static int							Pad_tree_open_ms = 0;
-
-static const int					Pad_tree_dpad[PAD_TREE_NUM_DIRS] = { PAD_DPAD_UP, PAD_DPAD_RIGHT, PAD_DPAD_DOWN, PAD_DPAD_LEFT };
-
 void pad_core_default_settings(pad_settings *s)
 {
 	s->invert_pitch = 0;
@@ -140,24 +129,6 @@ void pad_core_set_modifiers(const pad_modifier *modifiers, int count)
 	Pad_num_modifiers = count;
 }
 
-void pad_core_set_tree(const pad_tree_category *categories, int num_categories, const pad_tree_node *nodes, int num_nodes)
-{
-	Pad_tree_categories = categories;
-	Pad_tree_num_categories = num_categories;
-	Pad_tree_nodes = nodes;
-	Pad_tree_num_nodes = num_nodes;
-	Pad_tree_category = -1;
-	Pad_tree_depth = 0;
-}
-
-const pad_tree_node *pad_core_tree_node(int index)
-{
-	if ((index < 0) || (index >= Pad_tree_num_nodes)) {
-		return NULL;
-	}
-	return &Pad_tree_nodes[index];
-}
-
 static float pad_clamp1(float v)
 {
 	if (v > 1.0f) return 1.0f;
@@ -229,84 +200,11 @@ static void pad_add(int *list, int *num, int action)
 	}
 }
 
-// opens, walks and closes the pad tree from this update's face button and D-pad edges
-static void pad_tree_update(int now_ms, pad_output *out)
-{
-	const pad_tree_category *cat;
-	int i;
-
-	// release the face button: close at any depth
-	if (Pad_tree_category >= 0) {
-		cat = &Pad_tree_categories[Pad_tree_category];
-		if (!Pad_track[cat->button].down) {
-			if (cat->close_action >= 0) {
-				pad_add(out->fired, &out->num_fired, cat->close_action);
-			}
-			Pad_tree_category = -1;
-			Pad_tree_depth = 0;
-		}
-	}
-
-	// press a face button: open its category
-	if (Pad_tree_category < 0) {
-		for (i = 0; i < Pad_tree_num_categories; i++) {
-			cat = &Pad_tree_categories[i];
-			if ((cat->button >= 0) && (cat->button < PAD_NUM_BUTTONS) && Pad_track[cat->button].pressed
-				&& (cat->root >= 0) && (cat->root < Pad_tree_num_nodes)) {
-				Pad_tree_category = i;
-				Pad_tree_stack[0] = cat->root;
-				Pad_tree_depth = 1;
-				Pad_tree_open_ms = now_ms;
-				if (cat->open_action >= 0) {
-					pad_add(out->fired, &out->num_fired, cat->open_action);
-				}
-				break;
-			}
-		}
-	}
-
-	if (Pad_tree_category < 0) {
-		return;
-	}
-
-	// D-pad: one direction per update
-	for (i = 0; i < PAD_TREE_NUM_DIRS; i++) {
-		const pad_tree_option *opt;
-
-		if (!Pad_track[Pad_tree_dpad[i]].pressed) {
-			continue;
-		}
-
-		if ((i == PAD_TREE_LEFT) && (Pad_tree_depth > 1)) {
-			Pad_tree_depth--;
-			break;
-		}
-
-		opt = &Pad_tree_nodes[Pad_tree_stack[Pad_tree_depth - 1]].option[i];
-		if ((opt->child >= 0) && (opt->child < Pad_tree_num_nodes)) {
-			if (Pad_tree_depth < PAD_TREE_MAX_DEPTH) {
-				Pad_tree_stack[Pad_tree_depth++] = opt->child;
-			}
-		} else if (opt->action >= 0) {
-			pad_add(out->fired, &out->num_fired, opt->action);
-		}
-		break;
-	}
-
-	out->tree_category = Pad_tree_category;
-	out->tree_node = Pad_tree_stack[Pad_tree_depth - 1];
-	out->tree_depth = Pad_tree_depth;
-	out->tree_show = (now_ms - Pad_tree_open_ms) >= PAD_TREE_SHOW_MS;
-}
-
-// the layer this update, once the tree has had its turn
+// the layer this update
 static int pad_current_layer()
 {
 	int i;
 
-	if (Pad_tree_category >= 0) {
-		return PAD_LAYER_TREE;
-	}
 	if (Pad_layer == PAD_LAYER_BASE) {
 		for (i = 0; i < Pad_num_modifiers; i++) {
 			if (Pad_track[Pad_modifiers[i].input].down) {
@@ -373,14 +271,9 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 		Pad_settings_set = 1;
 	}
 
-	out->tree_category = -1;
-	out->tree_node = -1;
-
 	if (!st->connected) {
 		memset(Pad_track, 0, sizeof(Pad_track));
 		Pad_have_update = 0;
-		Pad_tree_category = -1;
-		Pad_tree_depth = 0;
 		return;
 	}
 
@@ -420,7 +313,6 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 		t->down = down;
 	}
 
-	pad_tree_update(now_ms, out);
 	layer = pad_current_layer();
 	pad_latch_layer(layer, stale, now_ms);
 
