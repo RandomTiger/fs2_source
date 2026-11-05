@@ -271,6 +271,7 @@
 #include "Autotest.h"
 #include "Font.h"	// Claude: message_training_update measures the text with the HUD font
 
+#include "GameOptions.h"	// Claude: GodotOptions, the Subtitles option
 #define MAX_TRAINING_MSG_LINES		10
 //#define TRAINING_MSG_WINDOW_X			174
 //#define TRAINING_MSG_WINDOW_Y			40
@@ -423,25 +424,26 @@ void training_obj_display()
 		offset = Training_obj_num_lines - end;
 	}
 
+	int lift = game_option_hud_lift();  // Claude: GodotOptions, moved up with subtitles off
 	// draw top of objective display
 	// hud_set_default_color();
 	hud_set_gauge_color(HUD_DIRECTIVES_VIEW);
 
-	GR_AABITMAP(Directive_gauge[0].first_frame, Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TOP][0]+fl2i(HUD_offset_x), Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TOP][1]+fl2i(HUD_offset_y));
+	GR_AABITMAP(Directive_gauge[0].first_frame, Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TOP][0]+fl2i(HUD_offset_x), Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TOP][1]+fl2i(HUD_offset_y)-lift);
 	// gr_set_bitmap(Directive_gauge[0].first_frame);
 	// gr_aabitmap(Directive_coords[DIRECTIVE_COORDS_TOP][0]+fl2i(HUD_offset_x), Directive_coords[DIRECTIVE_COORDS_TOP][1]+fl2i(HUD_offset_y));
 
 	// print out title
-	emp_hud_printf(Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TITLE][0]+fl2i(HUD_offset_x), Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TITLE][1]+fl2i(HUD_offset_y), EG_OBJ_TITLE, XSTR( "directives", 422));
+	emp_hud_printf(Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TITLE][0]+fl2i(HUD_offset_x), Directive_coords[gr_screen.res][DIRECTIVE_COORDS_TITLE][1]+fl2i(HUD_offset_y)-lift, EG_OBJ_TITLE, XSTR( "directives", 422));
 	// gr_printf(Directive_coords[DIRECTIVE_COORDS_TITLE][0]+fl2i(HUD_offset_x), Directive_coords[DIRECTIVE_COORDS_TITLE][1]+fl2i(HUD_offset_y), XSTR( "directives", 422));
 	
 	bx = DIRECTIVE_X+fl2i(HUD_offset_x);
-	by = Directive_coords[gr_screen.res][DIRECTIVE_COORDS_MIDDLE][1]+fl2i(HUD_offset_y);
+	by = Directive_coords[gr_screen.res][DIRECTIVE_COORDS_MIDDLE][1]+fl2i(HUD_offset_y)-lift;
 
 	y_count = 0;
 	for (i=0; i<end; i++) {
 		x = DIRECTIVE_X + 3 + fl2i(HUD_offset_x);
-		y = Training_obj_window_coords[gr_screen.res][1] + fl2i(HUD_offset_y) + y_count * height + height / 2 + 1;
+		y = Training_obj_window_coords[gr_screen.res][1] + fl2i(HUD_offset_y) - lift + y_count * height + height / 2 + 1;
 		z = TRAINING_OBJ_LINES_MASK(i + offset);
 
 		c = &Color_normal;
@@ -519,7 +521,7 @@ void training_obj_display()
 		y_count++;
 
 		if ( second_line ) {
-			y = Training_obj_window_coords[gr_screen.res][1] + fl2i(HUD_offset_y) + y_count * height + height / 2 + 1;
+			y = Training_obj_window_coords[gr_screen.res][1] + fl2i(HUD_offset_y) - lift + y_count * height + height / 2 + 1;
 			
 			emp_hud_string(x+12, y, EG_OBJ1 + i + 1, second_line);
 			// gr_printf(x+12, y, second_line);

@@ -80,5 +80,6 @@ $fault3D = if ($want3D) { Get-Render3DFault "$Out\smoke.err.txt" } else { '' }
 if ($fault3D) { $res += "FAIL: $fault3D" }
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_SMOKE -ErrorAction SilentlyContinue
 $env:FS2_GR_HOST = $oldHost	# empty removes it
+Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 $res | Set-Content "$Out\smoke.txt"; $res
 if ($fault3D -or $code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern '\bFAIL\b' -CaseSensitive -Quiet)) { exit 1 }

@@ -1233,7 +1233,7 @@ void message_play_anim( message_q *q )
 
 			// figure out anim start frame
 			anim_start_frame = message_calc_anim_start_frame(Message_wave_duration, anim_info->anim_data, is_death_scream);
-			anim_play_init(&aps, anim_info->anim_data, Head_coords[gr_screen.res][0], Head_coords[gr_screen.res][1]);
+			anim_play_init(&aps, anim_info->anim_data, Head_coords[gr_screen.res][0], Head_coords[gr_screen.res][1] - game_option_hud_lift());  // Claude: GodotOptions, moved up with subtitles off
 			aps.start_at = anim_start_frame;
 			
 			// aps.color = &HUD_color_defaults[HUD_color_alpha];

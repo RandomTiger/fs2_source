@@ -1402,6 +1402,8 @@ void hud_show_mission_time()
 }
 
 // If a head animation is playing, then blit a border around it
+#include "GameOptions.h"	// Claude: GodotOptions, the Subtitles option
+
 void hud_maybe_blit_head_border()
 {
 	if ( Head_frame_gauge.first_frame == -1 ){
@@ -1413,10 +1415,10 @@ void hud_maybe_blit_head_border()
 		// hud_set_default_color();
 		hud_set_gauge_color(HUD_TALKING_HEAD);
 
-		GR_AABITMAP(Head_frame_gauge.first_frame, Head_frame_coords[gr_screen.res][0], Head_frame_coords[gr_screen.res][1]);		
+		GR_AABITMAP(Head_frame_gauge.first_frame, Head_frame_coords[gr_screen.res][0], Head_frame_coords[gr_screen.res][1] - game_option_hud_lift());  // Claude: GodotOptions, moved up with subtitles off		
 
 		// draw title
-		gr_string(Head_message_coords[gr_screen.res][0], Head_message_coords[gr_screen.res][1], XSTR("message", 217));
+		gr_string(Head_message_coords[gr_screen.res][0], Head_message_coords[gr_screen.res][1] - game_option_hud_lift(), XSTR("message", 217));  // Claude: GodotOptions, moved up with subtitles off
 	}
 }
 
@@ -1431,9 +1433,9 @@ void hud_maybe_clear_head_area()
 	if ( message_anim_is_playing() ) {
 		// clear
 		if (gr_screen.res == GR_640) {
-			HUD_set_clip(7, 45, 160, 120);		// these coords are set in MissionMessage.cpp
+			HUD_set_clip(7, 45 - game_option_hud_lift(), 160, 120);		// these coords are set in MissionMessage.cpp
 		} else {
-			HUD_set_clip(7, 66, 160, 120);
+			HUD_set_clip(7, 66 - game_option_hud_lift(), 160, 120);  // Claude: GodotOptions, moved up with subtitles off
 		}
 		gr_clear();
 		HUD_reset_clip();
