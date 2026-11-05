@@ -1349,6 +1349,7 @@ void beam_move_all_post()
 #define R_VERTICES()		do { g3_rotate_vertex(verts[0], &bottom1); g3_rotate_vertex(verts[1], &bottom2);	g3_rotate_vertex(verts[2], &top2); g3_rotate_vertex(verts[3], &top1); } while(0);
 #define P_VERTICES()		do { for(idx=0; idx<4; idx++){ g3_project_vertex(verts[idx]); } } while(0);
 int poly_beam = 0;
+extern vector Matrix_scale;
 void beam_render(beam_weapon_info *bwi, vector *start, vector *shot, float shrink)
 {		
 	int idx, s_idx;
@@ -1386,6 +1387,19 @@ void beam_render(beam_weapon_info *bwi, vector *start, vector *shot, float shrin
 
 		// set the right texture with additive alpha, and draw the poly
 		gr_set_bitmap(bwi->sections[s_idx].texture, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 0.9999f);		
+		// Claude: R3, the host's sink rebuilds the quad on the GPU from the eye-space centres and half widths (same facing rule as beam_calc_facing_pts, worked out in the unscaled view: max_len carries Matrix_scale.z); 0 = this draw stays here. Not when any corner is behind the eye or a user clip is on, nothing to draw when all are off the same side
+		{
+			const int cc_or = verts[0]->codes | verts[1]->codes | verts[2]->codes | verts[3]->codes;
+			const int cc_and = verts[0]->codes & verts[1]->codes & verts[2]->codes & verts[3]->codes;
+			if ( !cc_and && !(cc_or & (CC_BEHIND|CC_OFF_USER)) ) {
+				const float c1[3] = { (verts[0]->x + verts[3]->x) * 0.5f, (verts[0]->y + verts[3]->y) * 0.5f, (verts[0]->z + verts[3]->z) * 0.5f };
+				const float c2[3] = { (verts[1]->x + verts[2]->x) * 0.5f, (verts[1]->y + verts[2]->y) * 0.5f, (verts[1]->z + verts[2]->z) * 0.5f };
+				const float hw1 = bwi->sections[s_idx].width * scale * shrink * 0.5f;
+				if ( gr_host_billboard(3, c1, c2, hw1, hw1 * scale, Matrix_scale.z, 0, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT, -1) ) {
+					continue;
+				}
+			}
+		}
 		g3_draw_poly( 4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);			
 	}		
 	

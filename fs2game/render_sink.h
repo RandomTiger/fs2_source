@@ -143,6 +143,7 @@ typedef struct fs2_sink_draw {
 #define FS2_SINK_BB_BITMAP	0	/* g3_draw_bitmap: p0 = centre, rad = half size, orient = flip bits (1: u, 2: v) */
 #define FS2_SINK_BB_RIBBON	1	/* g3_draw_laser: p0 = head, p1 = tail, rad = head width, rad_tail = tail width, max_len = pixel cap of the 2D length */
 #define FS2_SINK_BB_ROTATED	2	/* v6, g3_draw_rotated_bitmap: p0 = centre, rad = size of the shorter side (not half), angle = roll in radians (viewer bank already added, wrapped to 0..2pi); constant per-quad sw, always uv 0..1 */
+#define FS2_SINK_BB_QUAD	3	/* v7, beam_render: p0 / p1 = eye-space centres of the start and end, rad / rad_tail = half widths there, max_len = Matrix_scale.z (eye space is Matrix_scaled); the quad's corners are centre +- normalize(cross(p1 - p0, -centre)) * half width, perspective-correct uvs 0..1 (start = u 0, end = u 1, v 1 = the + side) */
 typedef struct fs2_sink_billboard {
 	int32_t kind;			/* FS2_SINK_BB_* */
 	int32_t texture, blend;		/* as fs2_sink_draw; texture 0 = untextured (tint colour) */

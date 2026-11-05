@@ -1195,6 +1195,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
 		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 1; }
 	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
+	if (kind == FS2_SINK_BB_QUAD) { static const bool beam_on = getenv("FS2_BEAM_GPU") == nullptr || atoi(getenv("FS2_BEAM_GPU")) != 0; if (!beam_on || !filter) { return 0; } }	// beams draw on the GPU; FS2_BEAM_GPU=0 (pixel-comparison runs) keeps them on the poly path; the one caller is filter blended
 	if (kind == FS2_SINK_BB_ROTATED) { static const bool rot_on = getenv("FS2_BB_ROT") == nullptr || atoi(getenv("FS2_BB_ROT")) != 0; if (!rot_on || !filter) { return 0; } }	// rotated puffs draw on the GPU; FS2_BB_ROT=0 (pixel-comparison runs) keeps them on the poly path; every caller is filter blended, any other blend stays on the poly path
 
 	fs2_sink_billboard b = {};
