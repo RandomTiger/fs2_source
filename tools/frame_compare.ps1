@@ -3,7 +3,7 @@ Pixel compare of in-mission frames (docs/VISUAL_COMPARE.md).
 
 Capture: replays each case of tools\frame_cases.json with -shot_frames and saves <Out>\<case>\frame_<F>.bmp.
   tools\frame_compare.ps1 -Capture <Out> [-Config r|d] [-Cases a,b] [-Runner <script>]
-  Each replay must say REPLAY OK and its trace must match the recorded one, or the case is marked BAD in <Out>\capture.txt.
+  Each replay must say REPLAY OK, its trace must match the recorded one and the game must exit 0, or the case is marked BAD in <Out>\capture.txt (shots stay on disk).
   -Runner replaces the native exe: a script taking -Rec -Trace -Frames -ShotDir that replays the recording in another
   renderer and returns the game's exit code (the Godot branch has tools\godot_frame_runner.ps1).
 
@@ -65,7 +65,7 @@ if ($Capture) {
 		$diff = 'NO TRACE'
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		$shots = @($c.frames | Where-Object { Test-Path (Join-Path $od ('frame_{0:D6}.bmp' -f $_)) }).Count
-		$ok = ($res -match 'REPLAY OK') -and ($diff -match '^MATCH') -and ($shots -eq @($c.frames).Count)
+		$ok = ($res -match 'REPLAY OK') -and ($diff -match '^MATCH') -and ($shots -eq @($c.frames).Count) -and ("$code" -eq '0')	# exit 2 is an Assert, Int3 or Warning; the line names the code (#193)
 		$line = "{0} {1} exit={2} {3} / {4} / shots {5} of {6}" -f $(if ($ok) { 'OK ' } else { 'BAD' }), $c.name, $code, $res, $diff, $shots, @($c.frames).Count
 		$line | Add-Content $summary
 		$line
