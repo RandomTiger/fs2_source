@@ -1297,7 +1297,11 @@ void h_level_loaded()
 	std::vector<bm_level_bitmap> list((size_t)(nlist > 0 ? nlist : 0));
 	if (nlist > 0) { bm_get_level_bitmaps(list.data(), nlist); }
 	for (auto &b : list) {
-		if (b.handle < 0 || (b.flags & (BM_LEVEL_AABITMAP | BM_LEVEL_LISTED))) { continue; }
+		if (b.handle < 0 || (b.flags & BM_LEVEL_LISTED)) { continue; }
+		if (b.flags & BM_LEVEL_AABITMAP) {		// HUD bitmaps and ANIs: the alpha kind the 2D draws ask for, every frame at load
+			for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, TCACHE_TYPE_AABITMAP, false); }
+			continue;
+		}
 		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
 		tex_get_anim(b.handle, b.nframes);		// the kind a billboard draws, whole, at load
 	}
