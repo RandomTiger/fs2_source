@@ -37,6 +37,8 @@ foreach ($m in $Missions) {
 	$line = Select-String "$out\e.txt" -Pattern 'render3d: mesh draws on the polygon path:' | Select-Object -Last 1
 	if (-not $line) { "$m FAIL: no counter line"; $fail++; continue }
 	$nz = [regex]::Matches($line.Line, '(cpu_only|no z|fog unsupported|no frame|texture|fog state) (\d+)') | Where-Object { [int]$_.Groups[2].Value -ne 0 }
-	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } else { "$m OK (all fallback counters 0)" }
+	$bl = Select-String "$out\e.txt" -Pattern 'render3d: beams: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
+	$bd = if ($bl) { [int]$bl.Matches[0].Groups[3].Value } else { 0 }	# beams the sink declined (R3 row 1) fail the run
+	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } elseif ($bd -ne 0) { "$m FAIL: $bd beams declined"; $fail++ } else { "$m OK (all fallback counters 0)" }
 }
 exit $fail
