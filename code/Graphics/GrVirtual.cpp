@@ -9,6 +9,7 @@
 #include "HUDgauges.h"
 #include "Autotest.h"
 #include "Replay.h"
+#include "cmdline.h"
 
 // The HUD anchor table, indexed by the HUDgauges.h gauge index. Chosen from where each gauge sits on the retail
 // 1024x768 / 640x480 layout; docs/STATUS.md lists it. Gauges drawn by projection into the 3D view (lead indicator,
@@ -98,7 +99,15 @@ void gr_virtual_read_config()
 {
 	Display_mode = GR_DISPLAY_CLASSIC;
 	Display_w = Display_h = 0;
-	char *s = os_config_read_string(NULL, "DisplayResolution", NULL);
+	// Claude: GodotOptions, -resolution holds for the start of this run and is not saved; a later choice in the game then stands
+	static int cmdline_used = 0;
+	char *s;
+	if (!cmdline_used && (Cmdline_resolution != NULL)) {
+		s = Cmdline_resolution;
+	} else {
+		s = os_config_read_string(NULL, "DisplayResolution", NULL);
+	}
+	cmdline_used = 1;
 	if (s == NULL) {
 		return;
 	}

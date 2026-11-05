@@ -271,6 +271,8 @@ cmdline_parm autotest_awards_arg("-at_awards", NULL);	// Claude: the tour's debr
 cmdline_parm ini_arg("-ini", NULL);				// Claude: settings file instead of fs2.ini, see OsRegistry.h
 cmdline_parm dataset_arg("-dataset", NULL);		// Claude: fs2demo, fs1demo or retail, see DataSetInstall.h
 char *Cmdline_dataset = NULL;						// Claude
+cmdline_parm resolution_arg("-resolution", NULL);	// Claude: GodotOptions, classic, desktop or <W>x<H> for this run, see GrVirtual.h
+char *Cmdline_resolution = NULL;					// Claude
 cmdline_parm gr_switch_test_arg("-gr_switch_test", NULL);	// Claude: GodotResolution, switch GR mode 640 and back on the first main hall entry
 int Cmdline_gr_switch_test = 0;						// Claude: GodotResolution
 cmdline_parm playernpc_arg("-playernpc", NULL);	// Claude: the AI flies the player ship, see Autotest.h
@@ -764,6 +766,9 @@ int parse_cmdline(char *cmdline)
 	}
 	if(dataset_arg.found()){	// Claude
 		Cmdline_dataset = dataset_arg.str();	// Claude
+	}
+	if(resolution_arg.found()){	// Claude: GodotOptions
+		Cmdline_resolution = resolution_arg.str();	// Claude
 	}	// Claude
 	if(gr_switch_test_arg.found()){	// Claude: GodotResolution
 		Cmdline_gr_switch_test = 1;	// Claude: GodotResolution

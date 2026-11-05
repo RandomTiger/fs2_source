@@ -16,6 +16,9 @@ D-20261102-204801..808. `origin/GodotResolution` is merged in (c1c5a68); its own
 - Resolution row: Classic, named by its size (1024x768 (4:3) or 640x480 (4:3)) / Desktop / two wide entries where the mode changes live: each GR height at the window's shape, e.g. 1138x480 (wide) and 1820x768 (wide), the mode plus Desktop / up to 3 common sizes that fit the monitor / the monitor's size (and the size in
   force if none of those). Writes `DisplayResolution`; live where `gr_live_mode_change()` (Godot host: the window follows
   `fs2_display_request`); else "Takes effect next time the game starts" (native D3D).
+- Resolution list in live play with the host's drop-down (#198): 640x480 (4:3) and 1024x768 (4:3), Desktop, each height at the
+  monitor's shape (wide), then the monitor's own display modes from Windows that fit it. Compared runs and the drawn row keep the
+  short common list. Launch: `-resolution classic|desktop|<W>x<H>` for that run, not saved. Console: `resolution`.
 - GR row (FS2 retail): live via `game_switch_gr_mode` where the backend says live; the next-start notice only where not.
   The screen lays itself out again in the new mode; reopening it lights the switched mode (9cf65dc).
 - Flight row: `joy_reassign()` (Joy.cpp) re-runs `joy_init` on a changed choice, no restart. On native backends it
