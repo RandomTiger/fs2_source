@@ -18,6 +18,8 @@ typedef struct pad_input_track {
 	int	press_layer;	// the layer that was current when the current or last press went down
 	int	long_ms;			// when the long hold's time started: the press, or the last layer change
 	int	long_fired;		// the long hold has fired for this press
+	int	release_seen;	// release_ms is a real release, not the stale reset's stand-in
+	int	again;			// the current or last press came within PAD_REPRESS_MS of a release
 } pad_input_track;
 
 static pad_settings				Pad_settings;
@@ -296,6 +298,8 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 			t->down = down;
 			t->second = 0;
 			t->release_ms = now_ms - Pad_settings.double_tap_ms - 1;
+			t->release_seen = 0;
+			t->again = 0;
 			continue;
 		}
 
@@ -303,10 +307,12 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 			// second tap: the last press was a short tap, ended recently, and was not itself a second tap
 			int last_len = t->release_ms - t->press_ms;
 			t->second = !t->second && (last_len <= Pad_settings.double_tap_ms) && ((now_ms - t->release_ms) <= Pad_settings.double_tap_ms);
+			t->again = t->release_seen && ((now_ms - t->release_ms) <= PAD_REPRESS_MS);
 			t->press_ms = now_ms;
 			t->pressed = 1;
 		} else if (!down && t->down) {
 			t->release_ms = now_ms;
+			t->release_seen = 1;
 			t->released = 1;
 		}
 
@@ -341,6 +347,12 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 		switch (b->gesture) {
 		case PAD_G_PRESS:
 			if (t->pressed) pad_add(out->fired, &out->num_fired, b->action);
+			break;
+		case PAD_G_PRESS_FRESH:
+			if (t->pressed && !t->again) pad_add(out->fired, &out->num_fired, b->action);
+			break;
+		case PAD_G_PRESS_AGAIN:
+			if (t->pressed && t->again) pad_add(out->fired, &out->num_fired, b->action);
 			break;
 		case PAD_G_RELEASE:
 			if (t->released) pad_add(out->fired, &out->num_fired, b->action);

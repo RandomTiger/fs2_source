@@ -2696,6 +2696,19 @@ void hud_pad_reticle_fresh()
 	hud_reticle_clear_list(&Reticle_save_list);
 }
 
+// Claude: the pad's East button: the nearest hostile, or the next after the current target. The game's next-hostile
+// list goes back to the closest once TL_RESET has passed since its last press; here the pad decides which it is, so the
+// clock is renewed first.
+void hud_pad_target_hostile(int next)
+{
+	Tl_hostile_reset_timestamp = timestamp(TL_RESET);
+	if (next) {
+		hud_target_next_list();
+	} else {
+		hud_target_closest(opposing_team_mask(Player_ship->team));
+	}
+}
+
 // Claude: the subsystem hud_target_subsystem_in_reticle would pick on the current target, NULL if none
 ship_subsys *hud_pad_subsystem_in_reticle()
 {
