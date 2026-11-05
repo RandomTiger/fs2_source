@@ -395,13 +395,14 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	else if (bitmap_2d) { kind = TK_2D; }
 	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
 	else if (repeat) { kind = TK_REPEAT; }
-	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
+	TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
 	auto found = H.tex.find(key);
 	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
 
 	std::vector<uint8_t> px;
 	int w, h, format;
 	if (!tex_pixels(bitmap_id, type, bitmap_2d, px, w, h, format)) { return 0; }
+	key.signature = (uint32_t)bm_get_signature(bitmap_id);		// loading the pixels bumps it: the entry goes under the one the next lookup will use
 	if (kind == TK_AA && !H.head_layer.empty() && w == 160 && h == 120) {	// a talking head frame decoded at play: its layer from level load
 		auto hl = H.head_layer.find(pixel_hash(px, w, h));
 		if (hl != H.head_layer.end()) { H.head_hits++; return hl->second; }
@@ -1371,6 +1372,14 @@ void h_level_loaded()
 		}
 		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
 		tex_get_anim(b.handle, b.nframes);		// the kind a billboard draws, whole, at load
+	}
+	for (int i = 0; i < Num_fonts; i++) {		// the font atlases: made at init, outside the level list, drawn with the alpha kind
+		if (Fonts[i].bitmap_id >= 0) { tex_get(Fonts[i].bitmap_id, TCACHE_TYPE_AABITMAP, false); }
+	}
+	if (Gr_cursor >= 0) {		// the game's own cursor: loaded at init, outside the level list, drawn by h_flip with the xparent kind
+		int cf = 1;
+		bm_get_info(Gr_cursor, nullptr, nullptr, nullptr, &cf);
+		for (int f = 0; f < cf; f++) { tex_get(Gr_cursor + f, TCACHE_TYPE_XPARENT, false); }
 	}
 	H.load_mode = false;
 }
