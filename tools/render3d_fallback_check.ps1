@@ -6,6 +6,7 @@ One game at a time: run it only when no other game runs. Exit 0 = pass.
 #>
 param(
 	[Parameter(Mandatory)][string]$Run,
+	[string]$Fog = '',
 	[string]$Set = 'autotest',
 	[string[]]$Missions = @('AutotestWeapons', 'AutotestNebActive'),
 	[string]$Config = 'r',
@@ -26,7 +27,7 @@ foreach ($m in $Missions) {
 	$rec = Join-Path $repo "recordings\$Set\$m.fs2rec"
 	if (-not (Test-Path $rec)) { throw "Missing $rec" }
 	$out = Join-Path $env:TEMP "r3d_fb_$m"; Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $out | Out-Null
-	$env:PATH_FS2 = $Run; $env:FS2_DLL = $dll; $env:FS2_ROOT = $Run; $env:FS2_GR_HOST = '1'; $env:FS2_NEBFOG = 'gpu'
+	$env:PATH_FS2 = $Run; $env:FS2_DLL = $dll; $env:FS2_ROOT = $Run; $env:FS2_GR_HOST = '1'; if ($Fog) { $env:FS2_NEBFOG = $Fog } else { Remove-Item Env:FS2_NEBFOG -ErrorAction SilentlyContinue }
 	$env:FS2_CMD = "-window -autotest -replay `"$rec`""
 	Push-Location $Run
 	$p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput "$out\o.txt" -RedirectStandardError "$out\e.txt"; $null = $p.Handle
