@@ -1,5 +1,5 @@
 /*
- * Claude: included by PadGame.cpp only, after PadXInput.h.  Sends its pad backend reads to InputTest.cpp,
+ * Claude: included by PadGame.cpp and PadMenuGame.cpp, after PadXInput.h.  Sends their pad backend reads to InputTest.cpp,
  * which passes them straight on to the backend unless -at_input pad is on (see InputTest.h).
  */
 

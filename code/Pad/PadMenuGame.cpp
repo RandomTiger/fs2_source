@@ -14,6 +14,7 @@
 #include "PadCore.h"
 #include "PadGame.h"
 #include "PadXInput.h"
+#include "../Replay/InputTestPad.h"	// Claude: -at_input pad: flight reads the pad here since the menu layer
 
 #include "2d.h"
 #include "GameSequence.h"
