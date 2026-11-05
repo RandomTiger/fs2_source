@@ -26,9 +26,12 @@ enum {
 	PAD_G_DOUBLE_TAP_HOLD,	// held:  second tap of a double tap is down
 	PAD_G_HOLD_PAST_TAP,		// held:  input has been down longer than a tap (double_tap_ms), so a tap does nothing
 	PAD_G_LONG_HOLD,			// fired: input held PAD_LONG_HOLD_MS in the row's layer; once per press, an early release cancels
+	PAD_G_PRESS_FRESH,		// fired: input goes down, its last release more than PAD_REPRESS_MS ago
+	PAD_G_PRESS_AGAIN,		// fired: input goes down within PAD_REPRESS_MS of its last release
 };
 
 #define PAD_LONG_HOLD_MS	1000
+#define PAD_REPRESS_MS		500
 
 // A binding is live when its layer is the current layer, or PAD_LAYER_ANY. A press belongs to the
 // layer that was current when it went down, and a row on a named layer ignores a press from another:

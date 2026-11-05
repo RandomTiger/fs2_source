@@ -1544,6 +1544,30 @@ void game_do_end_mission_popup()
 	}
 }
 
+// Claude: PadControl (Tom, #199): the pad's pause button opens this box, the keyboard's pause keeps the pause screen. The choices do
+// what the end mission popup's do. Multiplayer, and a player dead or warping out, keep the pause button's normal action.
+void game_do_pad_pause_popup()
+{
+	int choice;
+
+	if ((Game_mode & GM_MULTIPLAYER) || (Game_mode & GM_DEAD_DIED) || (Player->control_mode != PCM_NORMAL)) {
+		game_process_pause_key();
+		return;
+	}
+	game_stop_time();
+	game_stop_looped_sounds();
+	snd_stop_all();
+
+	choice = popup(PF_BODY_BIG, 3, XSTR("&Resume", -1), XSTR("Re&start", -1), XSTR("&Quit to Menu", -1), XSTR("Paused", -1));
+	if (choice == 1) {
+		gameseq_post_event(GS_EVENT_ENTER_GAME);
+	} else if (choice == 2) {
+		gameseq_post_event(GS_EVENT_END_GAME);
+	}
+	game_start_time();
+	game_flush();
+}
+
 // handle pause keypress
 void game_process_pause_key()
 {
