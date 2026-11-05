@@ -354,6 +354,11 @@ void pad_menu_test_frame()
 		WAIT(TALK);
 		RELEASE(PAD_WEST);
 		WAIT(!TALK);
+		Test_pad.button[PAD_NORTH] = 1;
+		WAIT(MISSILE);
+		RELEASE(PAD_NORTH);
+		WAIT(!MISSILE);
+		test_check(1, "flight: North, released since the menu, fires when pressed again");
 
 		// East: the nearest hostile; again within half a second of the release, the next hostile; later, the nearest again
 		Test_v0 = pad_game_east_count(0);
@@ -410,6 +415,20 @@ void pad_menu_test_frame()
 		WAIT(!popup_active());
 		POLLS(3);
 		test_check(STATE == GS_STATE_GAME_PLAY, "pause box: East resumes");
+		test_release_all();
+		POLLS(TEST_HOLD);
+
+		// North down before a menu opens is not the menu's: it still fires once the menu has gone
+		Test_pad.button[PAD_NORTH] = 1;
+		WAIT(MISSILE);
+		TAP(PAD_START);
+		WAIT(popup_active());
+		POLLS(TEST_HOLD);
+		TAP(PAD_EAST);
+		WAIT(!popup_active());
+		POLLS(3);
+		WAIT(MISSILE);
+		test_check(1, "pause box: North down before it still fires after");
 		test_release_all();
 		POLLS(TEST_HOLD);
 

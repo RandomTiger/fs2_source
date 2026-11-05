@@ -131,8 +131,10 @@ one key: no repeat while held.
 
 A button only counts if it goes down on a menu. It then does not do its flight action until it has
 been released once, so South that closes a popup does not target (D-20261104-065940). A button
-held from flight into a menu keeps its flight action and does nothing on the menu. Sticks and
-triggers are not held back like this.
+held from flight into a menu keeps its flight action and does nothing on the menu. North has no
+menu action but is held back the same way, so a missile does not fire from a press on a menu
+(D-20261105-211449). West, the stick clicks, sticks and triggers are not held back like this: the
+right trigger still fires when held from a menu into flight.
 
 A recording keeps the events like a person's. A replay runs none of this and gets them from the
 stream. The test is `-at_padmenu` with mission AutotestPadMenu (`PadMenuTest.cpp`): a script feeds a
