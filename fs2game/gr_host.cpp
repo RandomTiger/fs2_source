@@ -123,6 +123,7 @@ struct Host {
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
 	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
+	int mesh_skipped = 0;	// mesh draws dropped because the sink skipped the frame
 	int mesh_fb[6] = {};	// mesh draws that fell back to the polygon path, by reason: cpu_only, no z, fog unsupported, no frame, texture, fog state
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
@@ -1397,6 +1398,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 0; }
 	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 0; }
 	ensure_frame();
+	if (H.frame == FRAME_SKIPPED) { H.mesh_skipped++; return 2; }	// the sink dropped this frame: nothing shows, so no polygon path either
 	if (!drawing()) { H.mesh_fb[3]++; return 0; }
 
 	// the sink copy: made, or remade when the state or a texture it was made with has changed
@@ -1469,7 +1471,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 int h_mesh_draw(int key, const float *xform, const unsigned char *rgb, int nv, int tiled)
 {
 	const int p = mesh_prepare(key, xform, nv, tiled);
-	if (p != 1) { return p; }
+	if (p != 1) { return p == 2 ? 1 : p; }
 	H.mesh_rgba.resize((size_t)nv * 4);
 	for (int i = 0; i < nv; i++) {
 		H.mesh_rgba[(size_t)i * 4 + 0] = (uint8_t)H.gamma_lookup[rgb[i * 3 + 0]];
@@ -1487,7 +1489,7 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 	if (H.sink->mesh_draw_lit == nullptr) { return 0; }
 	static_assert(sizeof(gr_host_mesh_light) == sizeof(fs2_sink_mesh_light), "mesh light layouts differ");
 	const int p = mesh_prepare(key, xform, nv, tiled);
-	if (p != 1) { return p; }
+	if (p != 1) { return p == 2 ? 1 : p; }
 	fs2_sink_mesh_light sl;
 	memcpy(&sl, light, sizeof(sl));
 	sl.inv_gamma = H.inv_gamma;
@@ -1503,7 +1505,7 @@ int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, 
 	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
 	const float ts[2] = { scale, min_dist };
 	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
-	if (p != 1) { return p; }
+	if (p != 1) { return p == 2 ? 1 : p; }
 	if (flat) {
 		H.mesh_rgba.resize((size_t)nv * 4);
 		for (int i = 0; i < nv; i++) {
@@ -1528,7 +1530,7 @@ int h_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gr
 	ensure_frame();
 	if (!drawing()) { return 1; }	// outside a frame the polygon path draws nothing either (tmapper_internal)
 	const int p = mesh_prepare(key, xform, nv, tiled, bitmap, false, true);
-	if (p != 1) { return p; }
+	if (p != 1) { return p == 2 ? 1 : p; }
 	const uint8_t g = (uint8_t)H.gamma_lookup[gray];
 	H.mesh_rgba.resize((size_t)nv * 4);
 	for (int i = 0; i < nv; i++) {
@@ -1862,7 +1864,7 @@ void host_init()
 void host_cleanup()
 {
 	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
-	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5]); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
