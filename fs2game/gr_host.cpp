@@ -124,6 +124,7 @@ struct Host {
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
 	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
+	int mesh_fb[6] = {};	// mesh draws that fell back to the polygon path, by reason: cpu_only, no z, fog unsupported, no frame, texture, fog state
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
 	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
@@ -458,13 +459,14 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	else if (bitmap_2d) { kind = TK_2D; }
 	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
 	else if (repeat) { kind = TK_REPEAT; }
-	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
+	TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
 	auto found = H.tex.find(key);
 	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
 
 	std::vector<uint8_t> px;
 	int w, h, format;
 	if (!tex_pixels(bitmap_id, type, bitmap_2d, px, w, h, format)) { return 0; }
+	key.signature = (uint32_t)bm_get_signature(bitmap_id);		// loading the pixels bumps it: the entry goes under the one the next lookup will use
 	if (kind == TK_AA && !H.head_layer.empty() && w == 160 && h == 120) {	// a talking head frame decoded at play: its layer from level load
 		auto hl = H.head_layer.find(pixel_hash(px, w, h));
 		if (hl != H.head_layer.end()) { H.head_hits++; return hl->second; }
@@ -1442,6 +1444,14 @@ void h_level_loaded()
 		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
 		tex_get_anim(b.handle, b.nframes);		// the kind a billboard draws, whole, at load
 	}
+	for (int i = 0; i < Num_fonts; i++) {		// the font atlases: made at init, outside the level list, drawn with the alpha kind
+		if (Fonts[i].bitmap_id >= 0) { tex_get(Fonts[i].bitmap_id, TCACHE_TYPE_AABITMAP, false); }
+	}
+	if (Gr_cursor >= 0) {		// the game's own cursor: loaded at init, outside the level list, drawn by h_flip with the xparent kind
+		int cf = 1;
+		bm_get_info(Gr_cursor, nullptr, nullptr, nullptr, &cf);
+		for (int f = 0; f < cf; f++) { tex_get(Gr_cursor + f, TCACHE_TYPE_XPARENT, false); }
+	}
 	H.load_mode = false;
 }
 
@@ -1453,9 +1463,11 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	if (it == H.meshes.end()) { return -1; }
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
-	if (m.cpu_only || (H.zmode == GR_ZBUFF_NONE && !bg) || (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr)) { return 0; }
+	if (m.cpu_only) { H.mesh_fb[0]++; return 0; }
+	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 0; }
+	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 0; }
 	ensure_frame();
-	if (!drawing()) { return 0; }
+	if (!drawing()) { H.mesh_fb[3]++; return 0; }
 
 	// the sink copy: made, or remade when the state or a texture it was made with has changed
 	const int zmode = bg ? -2 : H.zmode;		// the background draw is its own state: no depth, no cull
@@ -1473,7 +1485,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 		const int tkind = tiled ? TK_REPEAT : TK_NORMAL;
 		const bool tex_had = H.tex.count(TexKey{ bmp, bm_get_signature(bmp), tkind }) != 0;
 		tex[i] = tex_get(bmp, TCACHE_TYPE_NORMAL, tiled != 0);
-		if (tex[i] == 0) { return 0; }
+		if (tex[i] == 0) { H.mesh_fb[4]++; return 0; }
 		if (!tex_had && H.mesh_tex_late++ == 0) { fprintf(stderr, "render3d: LATE mesh texture at a draw (bitmap %d, kind %d, thruster %d, mesh key %d)\n", bmp, tkind, thr_bitmap, key); }
 		const TexKey k = { bmp, bm_get_signature(bmp), tkind };
 		auto f = H.tex.find(k);
@@ -1519,7 +1531,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 			H.mesh_fog_sent = f;
 			H.mesh_fog_valid = true;
 		}
-		if (f.mode != FS2_SINK_FOG_NONE && !H.mesh_fog_ok) { return 0; }
+		if (f.mode != FS2_SINK_FOG_NONE && !H.mesh_fog_ok) { H.mesh_fb[5]++; return 0; }
 	}
 	return 1;
 }
@@ -1937,6 +1949,7 @@ void host_init()
 void host_cleanup()
 {
 	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5]); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
