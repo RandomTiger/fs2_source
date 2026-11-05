@@ -1240,7 +1240,7 @@ int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad
 }
 
 // ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
-// Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
+// Switch: FS2_RENDER3D (default on; FS2_RENDER3D=0 turns it off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
 // (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
 // in an accepted frame, when the textures can be uploaded, and again when the draw state (z mode, zbias, cull) or a texture
 // changes. Groups are drawn opaque when the texture has no alpha below 255, else alpha blended; polygons that glow stay CPU.
@@ -1249,7 +1249,7 @@ bool mesh_switch()
 	static int on = -1;
 	if (on < 0) {
 		const char *e = getenv("FS2_RENDER3D");
-		on = (e != nullptr) ? (e[0] - '0') : 0;
+		on = (e != nullptr) ? (e[0] - '0') : 1;
 	}
 	return on == 1;
 }
