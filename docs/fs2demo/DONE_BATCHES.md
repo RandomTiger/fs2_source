@@ -23,7 +23,7 @@ the message. The proposal as approved is below. What the runs found besides it:
   - separate `IntDir`/`OutDir` per variant, `/t:Rebuild` and `/nodeReuse:false`;
   - `code.lib` deleted before each build.
 
-  Check the result: only the demo exe contains the string "Freespace 2 Demo".
+  Check the result: only the demo exe contains the string "FS2_DEMO_BUILD_MARKER" (#155; "Freespace 2 Demo" is in every exe, in the data set profile table).
 - **Pre-existing, not batch 1.** In the Debug build of `cc1a303` without the batch, the `AutotestAI`
   replay reports two "Null vector in vector normalize" Warnings (exit 2). Its trace still matches.
 

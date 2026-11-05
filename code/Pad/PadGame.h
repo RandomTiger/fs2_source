@@ -34,9 +34,6 @@ int	pad_pause_pressed();
 // (it would otherwise read the same pad, with the D-pad as view controls).
 int	pad_owns_joystick();
 
-// From the HUD render (PadHud.cpp): draws the open pad tree options.
-void	pad_hud_render();
-
 // From hud_show_ets(): 1 while North is held and this gauge (0 weapons, 1 shields, 2 engines) is the system
 // North + D-pad changes. pad_ets_recolor (PadHud.cpp) sets its colour; a gauge not highlighted is left alone.
 int	pad_ets_highlight(int gauge);

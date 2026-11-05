@@ -29,4 +29,4 @@ if (-not $bad) {
 	"tour: screen FAIL lines $sf, builds finished clean $ends of 2"
 	if ($sf -or $ends -ne 2 -or (($t | Select-Object -Last 1) -ne 'DONE pass=2 fail=0')) { $bad += 'fs1demo tour' }
 }
-if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
+if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
