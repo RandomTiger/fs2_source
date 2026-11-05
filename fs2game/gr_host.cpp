@@ -639,6 +639,12 @@ void send_view()
 	v.zoom = View_zoom;
 	v.canvas_w = Canvas_width; v.canvas_h = Canvas_height;
 	v.origin_x = H.pdx + gr_screen.offset_x + gr_screen.clip_left; v.origin_y = H.pdy + gr_screen.offset_y + gr_screen.clip_top;
+	if (H.ps != 1) {
+		// Claude: Big HUD, a HUD view (the target monitor) scales about the same pivot as its gauge, so the model stays centred in its box (#187)
+		v.canvas_w = (int)(Canvas_width * H.ps + 0.5f); v.canvas_h = (int)(Canvas_height * H.ps + 0.5f);
+		v.origin_x = H.pdx + H.ppx + (int)((gr_screen.offset_x + gr_screen.clip_left - H.ppx) * H.ps);
+		v.origin_y = H.pdy + H.ppy + (int)((gr_screen.offset_y + gr_screen.clip_top - H.ppy) * H.ps);
+	}
 	v.user_clip = G3_user_clip;
 	if (G3_user_clip) {
 		v.clip_normal[0] = G3_user_clip_normal.x; v.clip_normal[1] = G3_user_clip_normal.y; v.clip_normal[2] = G3_user_clip_normal.z;
@@ -1608,6 +1614,12 @@ void h_zbuffer_clear(int mode)
 			glow_flush();
 			if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; }
 			sync_offset();	// GodotResolution: the clip rect in the canvas
+			if (H.ps != 1) {
+				// Claude: Big HUD, clear the box at its drawn size (#187)
+				const int cx = H.pdx + H.ppx + (int)((gr_screen.offset_x + gr_screen.clip_left - H.ppx) * H.ps);
+				const int cy = H.pdy + H.ppy + (int)((gr_screen.offset_y + gr_screen.clip_top - H.ppy) * H.ps);
+				H.sink->depth_clear(H.sink->user, cx > 0 ? cx : 0, cy > 0 ? cy : 0, (int)(gr_screen.clip_width * H.ps + 0.99f), (int)(gr_screen.clip_height * H.ps + 0.99f));
+			} else
 			H.sink->depth_clear(H.sink->user, H.pdx + gr_screen.clip_left + gr_screen.offset_x, H.pdy + gr_screen.clip_top + gr_screen.offset_y,
 				gr_screen.clip_width, gr_screen.clip_height);
 		}
