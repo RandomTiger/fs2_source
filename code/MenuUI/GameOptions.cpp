@@ -104,7 +104,7 @@ static int Go_option_value[GO_OPT_COUNT];
 // what a change does beyond the value: only what cannot read game_option as it goes
 static void go_option_apply(int id)
 {
-	if (id == GO_OPT_HUD_DOUBLE) {
+	if (id == GO_OPT_BIG_HUD) {
 		gr_virtual_set_hud_double(Go_option_value[id]);
 	}
 }
