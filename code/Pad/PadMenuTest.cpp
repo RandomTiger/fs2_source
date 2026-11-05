@@ -21,6 +21,7 @@
 #include "Popup.h"
 #include "PopupDead.h"
 #include "Replay.h"
+#include "Timer.h"
 
 extern int Popup_default_choice;
 extern int Popupdead_default_choice;
@@ -50,6 +51,7 @@ static int Test_since = 0;
 static int Test_until = 0;
 static int Test_bad = 0;
 static int Test_events = 0;
+static int Test_east_ms = 0;
 static int Test_v0, Test_v1;
 static int Test_south = 0;				// pad_game_south_count() before what is checked (South targets in flight, West talks: #151)
 static int Test_x = 0, Test_y = 0;
@@ -326,9 +328,9 @@ void pad_menu_test_frame()
 		TAP(PAD_DPAD_LEFT);
 		test_check(brief_test_stage() == 0, "tactical briefing: D-pad left stops at the first stage");
 
-		// South and RB go down on a menu and are held into the mission
+		// South and North go down on a menu and are held into the mission
 		Test_pad.button[PAD_SOUTH] = 1;
-		Test_pad.button[PAD_RSHOULDER] = 1;
+		Test_pad.button[PAD_NORTH] = 1;
 		POLLS(5);
 		test_check(STATE == GS_STATE_BRIEFING, "tactical briefing: South on nothing stays in the briefing");
 		Test_south = SOUTHS;
@@ -337,7 +339,7 @@ void pad_menu_test_frame()
 
 		WAIT(STATE == GS_STATE_GAME_PLAY);
 		POLLS(3);
-		ALWAYS(30, (SOUTHS == Test_south) && !MISSILE, "flight: South and RB held from a menu do nothing");
+		ALWAYS(30, (SOUTHS == Test_south) && !MISSILE, "flight: South and North held from a menu do nothing");
 		Test_events = pad_menu_events();
 		test_release_all();
 		POLLS(TEST_HOLD);
@@ -353,12 +355,25 @@ void pad_menu_test_frame()
 		RELEASE(PAD_WEST);
 		WAIT(!TALK);
 
+		// East: the nearest hostile; again within half a second of the release, the next hostile; later, the nearest again
+		Test_v0 = pad_game_east_count(0);
+		Test_v1 = pad_game_east_count(1);
+		TAP(PAD_EAST);
+		test_check((pad_game_east_count(0) == Test_v0 + 1) && (pad_game_east_count(1) == Test_v1), "flight: East takes the nearest hostile");
+		TAP(PAD_EAST);
+		test_check((pad_game_east_count(0) == Test_v0 + 1) && (pad_game_east_count(1) == Test_v1 + 1), "flight: East again at once takes the next hostile");
+		Test_east_ms = timer_get_milliseconds();
+		WAIT((timer_get_milliseconds() - Test_east_ms) > 700);
+		TAP(PAD_EAST);
+		test_check((pad_game_east_count(0) == Test_v0 + 2) && (pad_game_east_count(1) == Test_v1 + 1), "flight: East after a wait takes the nearest again");
+		POLLS(TEST_HOLD);
+
 		// in flight the layer sends nothing and leaves the cursor alone
 		Test_events = pad_menu_events();
 		Test_v0 = Test_x;
 		Test_v1 = Test_y;
 		Test_pad.button[PAD_WEST] = 1;
-		Test_pad.button[PAD_RSHOULDER] = 1;
+		Test_pad.button[PAD_NORTH] = 1;
 		Test_pad.button[PAD_DPAD_LEFT] = 1;
 		Test_pad.axis[PAD_LEFT_X] = 1.0f;
 		POLLS(3);
@@ -367,8 +382,9 @@ void pad_menu_test_frame()
 		POLLS(TEST_HOLD);
 		test_check(pad_menu_events() == Test_events, "flight: release sends nothing either");
 
-		// pause: RB, down from flight, still does its flight action after; East is Back; South is inert
-		Test_pad.button[PAD_RSHOULDER] = 1;
+		// pause: North, down from flight, still does its flight action after, and LB, a menu button down from flight, is not sent; East is Back; South is inert
+		Test_pad.button[PAD_NORTH] = 1;
+		Test_pad.button[PAD_LSHOULDER] = 1;
 		WAIT(MISSILE);
 		TAP(PAD_START);
 		WAIT(STATE == GS_STATE_GAME_PAUSED);
@@ -376,12 +392,12 @@ void pad_menu_test_frame()
 		Test_events = pad_menu_events();
 		TAP(PAD_SOUTH);
 		test_check(STATE == GS_STATE_GAME_PAUSED, "pause: South changes nothing");
-		test_check(pad_menu_events() == Test_events + 4, "pause: South is sent, RB held from flight is not");
+		test_check(pad_menu_events() == Test_events + 4, "pause: South is sent, LB held from flight is not");
 		TAP(PAD_EAST);
 		WAIT(STATE == GS_STATE_GAME_PLAY);
 		POLLS(3);
 		WAIT(MISSILE);
-		test_check(1, "pause: RB held from flight still fires after");
+		test_check(1, "pause: North held from flight still fires after");
 		test_release_all();
 		POLLS(TEST_HOLD);
 
