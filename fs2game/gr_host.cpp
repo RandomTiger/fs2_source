@@ -120,8 +120,10 @@ struct Host {
 	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
 	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
+	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
+	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
 	// depth shadow (see top): host only, the game reads none of it
 	int zmode = GR_ZBUFF_NONE;		// the mode D3D would have (gr_zbuffering_mode)
 	bool zglobal = false;			// gr_zbuffer_clear(TRUE) seen since the last clear(FALSE) / flip
@@ -395,21 +397,10 @@ void legacy_d3d_texel_shift(std::vector<uint8_t> &px, int w, int h)
 	px.swap(out);
 }
 
-// Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
-// type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
-int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
+// The pixels of a bitmap as the sink takes them, for the kind of texture asked (see tex_get). False when BmpMan cannot lock it.
+static bool tex_pixels(int bitmap_id, int type, bool bitmap_2d, std::vector<uint8_t> &px, int &w, int &h, int &format)
 {
-	if ((!drawing() && !H.load_mode) || bitmap_id < 0) { return 0; }
 	const bool aa = (type == TCACHE_TYPE_AABITMAP);
-	int kind = TK_NORMAL;
-	if (aa) { kind = TK_AA; }
-	else if (bitmap_2d) { kind = TK_2D; }
-	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
-	else if (repeat) { kind = TK_REPEAT; }
-	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
-	auto found = H.tex.find(key);
-	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
-
 	// the flags D3D's texture loaders ask bm_lock for (d3d_create_texture; a 2D bitmap's tiles as d3d_create_texture_sectioned)
 	ubyte flags = 0;
 	ubyte bpp = 16;			// the game's convention: ask for 16, BmpMan upgrades to 32 for gr_screen.texture_bpp == 32
@@ -418,12 +409,10 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	else if (type == TCACHE_TYPE_XPARENT) { flags = BMP_TEX_XPARENT; }
 	else { flags = BMP_TEX_OTHER | BMP_TEX_XPARENT; }		// TCACHE_TYPE_NORMAL
 	bitmap *bmp = bm_lock(bitmap_id, bpp, flags);
-	if (bmp == nullptr) { return 0; }
+	if (bmp == nullptr) { return false; }
 
-	int w = bmp->w, h = bmp->h;
+	w = bmp->w; h = bmp->h;
 	const uint8_t *src = (const uint8_t *)bmp->data;
-	std::vector<uint8_t> px;
-	int format;
 	if (aa) {
 		px.resize(fs2host::a8_bytes(w, h));
 		aa_to_a8(src, w, h, w, px.data());
@@ -439,6 +428,27 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	}
 	bm_unlock(bitmap_id);
 
+	return true;
+}
+
+// Upload a bitmap as the kind asked for. Only legal in an accepted frame. Returns the sink id or 0.
+// type is a TCACHE_TYPE_*; repeat = wrap u and v (TILED polys); bitmap_2d = the whole bitmap, unfiltered (TMAP_FLAG_BITMAP_2D).
+int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false)
+{
+	if ((!drawing() && !H.load_mode) || bitmap_id < 0) { return 0; }
+	const bool aa = (type == TCACHE_TYPE_AABITMAP);
+	int kind = TK_NORMAL;
+	if (aa) { kind = TK_AA; }
+	else if (bitmap_2d) { kind = TK_2D; }
+	else if (type == TCACHE_TYPE_XPARENT) { kind = TK_XPARENT; }
+	else if (repeat) { kind = TK_REPEAT; }
+	const TexKey key = { bitmap_id, bm_get_signature(bitmap_id), kind };
+	auto found = H.tex.find(key);
+	if (found != H.tex.end() && found->second.sink_id != 0) { return found->second.sink_id; }
+
+	std::vector<uint8_t> px;
+	int w, h, format;
+	if (!tex_pixels(bitmap_id, type, bitmap_2d, px, w, h, format)) { return 0; }
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = type; t.w = w; t.h = h;
@@ -451,6 +461,44 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
 	H.sink->texture_create(H.sink->user, t.sink_id, w, h, format, tf, px.data());
 	return t.sink_id;
+}
+
+// An animation at level load, the kind a billboard draws (TK_NORMAL): the frame count is known, so the sink gets one array of exactly that many
+// layers, each loaded from its frame's own pixels, and every frame's texture id names its layer. Frames already uploaded, a sink without the array
+// entries, or frames that differ in size or fail to lock fall back to one tex_get per frame.
+static void tex_get_anim(int handle, int nframes)
+{
+	bool arrays = nframes > 1 && H.sink->texture_array_create != nullptr && H.sink->texture_layer != nullptr;
+	for (int f = 0; arrays && f < nframes; f++) {
+		if (H.tex.count(TexKey{ handle + f, bm_get_signature(handle + f), TK_NORMAL }) != 0) { arrays = false; }
+	}
+	std::vector<uint8_t> all;
+	std::vector<char> opaque;
+	int w = 0, h = 0, format = 0;
+	for (int f = 0; arrays && f < nframes; f++) {
+		std::vector<uint8_t> px;
+		int fw, fh, ff;
+		if (!tex_pixels(handle + f, TCACHE_TYPE_NORMAL, false, px, fw, fh, ff)) { arrays = false; break; }
+		if (f == 0) { w = fw; h = fh; format = ff; }
+		else if (fw != w || fh != h || ff != format) { arrays = false; break; }
+		bool op = (ff == FS2_SINK_TEX_RGBA8);
+		for (size_t i = 3; op && i < px.size(); i += 4) { if (px[i] != 255) { op = false; } }
+		opaque.push_back(op ? 1 : 0);
+		all.insert(all.end(), px.begin(), px.end());
+	}
+	if (!arrays) {
+		for (int f = 0; f < nframes; f++) { tex_get(handle + f, TCACHE_TYPE_NORMAL, false); }
+		return;
+	}
+	const int array_id = H.next_sink_id++;
+	H.sink->texture_array_create(H.sink->user, array_id, w, h, nframes, format, FS2_SINK_TEXF_LINEAR, all.data());
+	for (int f = 0; f < nframes; f++) {
+		HostTex &t = H.tex[TexKey{ handle + f, bm_get_signature(handle + f), TK_NORMAL }];
+		t.sink_id = H.next_sink_id++;
+		t.type = TCACHE_TYPE_NORMAL; t.w = w; t.h = h;
+		t.opaque = opaque[(size_t)f] != 0;
+		H.sink->texture_layer(H.sink->user, t.sink_id, array_id, f);
+	}
 }
 
 // ---- ship glow: the glow texture ------------------------------------------------------------------------------
@@ -1129,6 +1177,68 @@ void tmapper_internal(int nv, vertex *verts[], uint flags, bool is_scaler = fals
 
 void h_tmapper(int nv, vertex *verts[], uint flags) { tmapper_internal(nv, verts, flags); }
 
+// ---- R3: billboards (g3_draw_bitmap, g3_draw_laser) ---------------------------------------------------------------
+// The game keeps the trivial culls and hands the eye-space points over; the sink applies the game's own size, placement and pixel rules
+// (docs/R3_billboards_design.md). Same state rules as tmapper_internal. 0 only with FS2_BB_OFF (proof baseline, draw stays on the CPU path); faults are counted and draw nothing.
+int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
+{
+	if (H.sink == nullptr || H.sink->billboard_draw == nullptr) { return 0; }
+	static const bool bb_off = getenv("FS2_BB_OFF") != nullptr;	// proof baseline: billboards stay on the CPU path
+	if (bb_off) { return 0; }
+	ensure_frame();
+	if (!drawing()) { H.bb_why[0]++; return 0; }	// as tmapper_internal: outside an open frame nothing is drawn on either path
+	const bool zbuffering = H.zmode != GR_ZBUFF_NONE;
+	// flags the sink does not model: a counted fault, nothing is drawn (D-20261104-174832)
+	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
+		| TMAP_FLAG_TILED | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 1; }
+	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
+	if (kind == FS2_SINK_BB_ROTATED) { static const bool rot_on = getenv("FS2_BB_ROT") != nullptr; if (!rot_on || !filter) { return 0; } }	// rotated puffs on the GPU are opt-in until they match retail (shots 7.7%); every caller is filter blended, any other blend stays on the poly path
+
+	fs2_sink_billboard b = {};
+	b.kind = kind;
+	const bool bb_had = H.tex.count(TexKey{ gr_screen.current_bitmap, bm_get_signature(gr_screen.current_bitmap), TK_NORMAL }) != 0;
+	b.texture = tex_get(gr_screen.current_bitmap, TCACHE_TYPE_NORMAL, false);
+	if (b.texture == 0) { return 1; }	// as tmapper_internal: no texture, no draw
+	if (!bb_had && H.bb_tex_late++ == 0) { {
+		const int bid = gr_screen.current_bitmap;
+		const int n = bm_get_level_bitmaps(nullptr, 0);
+		std::vector<bm_level_bitmap> l((size_t)(n > 0 ? n : 0));
+		if (n > 0) { bm_get_level_bitmaps(l.data(), n); }
+		int fl = -99; const char *fn = "(not in list)";
+		for (auto &b : l) { if (bid >= b.handle && bid < b.handle + b.nframes) { fl = b.flags; fn = b.filename; break; } }
+		fprintf(stderr, "render3d: LATE billboard texture at a draw (bitmap %d, level flags %d, %s)\n", bid, fl, fn);
+	} }
+	// rgb >= 0: constant vertex colour (g3_draw_laser_rgb: RGB|GOURAUD), through the gamma table as tmapper_internal does
+	int tint_r = 255, tint_g = 255, tint_b = 255;
+	if (rgb >= 0) { tint_r = H.gamma_lookup[rgb & 255]; tint_g = H.gamma_lookup[(rgb >> 8) & 255]; tint_b = H.gamma_lookup[(rgb >> 16) & 255]; }
+	if (filter) {
+		b.blend = FS2_SINK_BLEND_ADD;
+		if (gr_screen.current_alpha <= 1.0f && rgb < 0) {	// RGB|GOURAUD vertex colours replace the alpha-scaled tint in tmapper_internal
+			const int a = (int)(gr_screen.current_alpha * 255.0f);
+			tint_r = tint_r * a / 255; tint_g = tint_g * a / 255; tint_b = tint_b * a / 255;
+		}
+	} else {
+		b.blend = FS2_SINK_BLEND_ALPHA;
+	}
+	b.tint[0] = (uint8_t)tint_r; b.tint[1] = (uint8_t)tint_g; b.tint[2] = (uint8_t)tint_b; b.tint[3] = 255;
+	// scalers and filter-blended draws read depth only
+	b.flags = !zbuffering ? 0 : (kind == FS2_SINK_BB_BITMAP || filter) ? FS2_SINK_DRAWF_ZREAD : (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE);
+	b.zbias = H.zbias;
+	b.p0[0] = p0[0]; b.p0[1] = p0[1]; b.p0[2] = p0[2];
+	if (p1 != nullptr && kind == FS2_SINK_BB_ROTATED) { b.angle = p1[0]; }	// g3_draw_rotated_bitmap passes its roll angle as p1[0]
+	else if (p1 != nullptr) { b.p1[0] = p1[0]; b.p1[1] = p1[1]; b.p1[2] = p1[2]; }
+	b.rad = rad; b.rad_tail = rad_tail; b.max_len = max_len; b.orient = orient;
+	bm_get_info(gr_screen.current_bitmap, &b.bw, &b.bh);
+	b.clip[0] = gr_screen.clip_left; b.clip[1] = gr_screen.clip_top; b.clip[2] = gr_screen.clip_right; b.clip[3] = gr_screen.clip_bottom;
+
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	if (!H.sink->billboard_draw(H.sink->user, &b)) { H.bb_cpu++; H.bb_why[3]++; return 1; }	// counted fault, nothing is drawn
+	H.bb_sink++;
+	return 1;
+}
+
 // ---- render 3D: model meshes (P3b) ------------------------------------------------------------------------------
 // Switch: FS2_RENDER3D=1 (default off). The model builder (ModelInterp.cpp) hands over a submodel's triangles once
 // (h_mesh_create keeps them on the host) and asks for a draw per frame (h_mesh_draw). The sink copy is made on the first draw
@@ -1255,6 +1365,7 @@ void h_level_loaded()
 	for (auto &b : list) {
 		if (b.handle < 0 || (b.flags & (BM_LEVEL_AABITMAP | BM_LEVEL_LISTED))) { continue; }
 		for (int f = 0; f < b.nframes; f++) { tex_get(b.handle + f, (b.flags & BM_LEVEL_XPARENT) ? TCACHE_TYPE_XPARENT : TCACHE_TYPE_NORMAL, false); }
+		tex_get_anim(b.handle, b.nframes);		// the kind a billboard draws, whole, at load
 	}
 	H.load_mode = false;
 }
@@ -1750,7 +1861,8 @@ void host_init()
 
 void host_cleanup()
 {
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
@@ -1798,6 +1910,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.no_device = 0;
 	Backend.mesh_ready = h_mesh_ready;
 	Backend.mesh_create = h_mesh_create;
+	Backend.billboard = h_billboard;
 	Backend.mesh_draw = h_mesh_draw;
 	Backend.mesh_draw_lit = h_mesh_draw_lit;
 	Backend.mesh_clip = h_mesh_clip;

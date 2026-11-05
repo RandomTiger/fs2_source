@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 #include <godot_cpp/variant/rid.hpp>
 
@@ -77,6 +78,7 @@ public:
 	// Measurement only (R1-feel): microseconds spent in the sink (frame_end and draw_tris)
 	unsigned long long stat_sink_usec = 0;
 	unsigned long long stat_mesh_draws = 0;	// mesh draws that reached a 3D layer, all frames (counted-shot proof)
+	unsigned long long stat_bb_draws = 0;	// billboard draws that reached a 3D layer, all frames (counted-shot proof)
 	unsigned long long stat_mesh_models = 0;	// distinct (model, state) per run summed: batching potential = draws vs this
 	unsigned long long stat_reorder_saved = 0;	// layer batches removed by the opaque regrouping (P3a)
 
@@ -108,12 +110,38 @@ private:
 		godot::RID rid;
 		int w = 0, h = 0, format = 0;
 		uint32_t flags = 0;
+		int arr = -1, layer = 0;	// a layer of texture array chunk `arr` (billboards), or -1
 	};
 	struct Dying {
 		godot::RID rid;
 		int age = 0;
 		int w = 0, h = 0, format = 0;
+		int arr = -1, layer = 0;
 	};
+	// Texture arrays for billboards: textures up to kArrMaxDim a side also live as a layer of a Texture2DArray chunk of their (w, h, format, linear)
+	// group, built at texture_create time (never at draw time), so one billboard run can span every texture of a chunk. A freed texture's layer is
+	// reusable after the same two frame_ends as its RID.
+	struct ArrChunk {
+		godot::RID rid;
+		int w = 0, h = 0, format = 0;
+		bool lin = false;
+		std::vector<int> free_layers;
+	};
+	static constexpr int kArrCap = 64;
+	static constexpr int kArrMaxDim = 512;
+	std::vector<ArrChunk> arr_chunks;
+	// Animations (texture_array_create): one exact-size chunk per ANI, its layers claimed by texture_layer. The images wait here until every layer
+	// has its standalone texture (the draws that are not billboards sample those).
+	struct AnimArr {
+		int chunk = -1;	// -1: not an array (too big, or arrays off)
+		int claimed = 0;
+		int w = 0, h = 0, format = 0;
+		uint32_t flags = 0;
+		std::vector<godot::Ref<godot::Image>> imgs;
+	};
+	std::map<int32_t, AnimArr> anim_arrays;
+	bool arr_off = false;	// FS2_BB_ARR_OFF=1: billboards keep one texture per run (proof baseline)
+	bool arr_alloc(int w, int h, int format, bool lin, int &chunk, int &layer);
 	// Pool of dead textures (perf group 2 fix 2): a texture that has aged out is kept, not freed, and the next create of the
 	// same size and format re-uploads into it (texture_2d_update) instead of making a new GPU texture. Nebula missions free
 	// and re-create 48-80 bitmaps every drawn frame. kTexPoolMax bounds it; the oldest entry is freed beyond that.
@@ -146,6 +174,8 @@ private:
 		std::vector<godot::RID> instances;
 		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
 		std::vector<std::pair<int, godot::RID>> mesh_coltex;	// (rows, texture)
+		std::vector<godot::RID> bb_instances;	// billboard runs: one instance each, kept apart from `instances` (they carry a sorting offset)
+		std::vector<std::pair<int, godot::RID>> bb_multimeshes;	// (bucket, multimesh) of those runs, back to bb_mm_pool when the layer goes
 	};
 	std::vector<Layer> pending_layers, shown_layers, spare_layers;
 	std::vector<godot::RID> spare_instances;	// recycled mesh instances (perf group 2 fix 3): out of any scenario until reused
@@ -196,6 +226,9 @@ private:
 	static void s_texture_create(void *u, int32_t id, int w, int h, int format, uint32_t flags, const uint8_t *pixels);
 	static void s_texture_free(void *u, int32_t id);
 	static void s_texture_free_all(void *u);
+	static void s_texture_array_create(void *u, int32_t array_id, int w, int h, int nlayers, int format, uint32_t flags, const uint8_t *pixels);
+	static void s_texture_layer(void *u, int32_t id, int32_t array_id, int layer);
+	static void s_texture_array_free(void *u, int32_t array_id);
 	static void s_draw_tris(void *u, const fs2_sink_draw *d, const fs2_sink_vertex *v, int nv, const uint16_t *idx, int ni);
 	static int s_capture(void *u, int32_t id);
 	static int s_read_region(void *u, int x, int y, int w, int h, uint8_t *out);
@@ -276,6 +309,30 @@ private:
 	std::map<int32_t, MeshData> mesh_data;
 	std::vector<MeshDraw> mesh_draws;
 	std::map<uint32_t, godot::RID> mesh_shaders;
+	// v5 billboards (R3): one shared unit quad; the vertex shader places the corners (docs/R3_billboards_design.md)
+	struct BbDraw {
+		fs2_sink_billboard b = {};
+		int epoch = 0;
+		int cw = 0, ch = 0, ox = 0, oy = 0;
+		float scale[2] = {1.0f, 1.0f};	// Matrix_scale x, y
+		bool crect = false;
+		int cr[4] = {};
+		int arr = -1, layer = 0;	// texture array chunk and layer, resolved at draw time
+	};
+	static constexpr int32_t kBbBase = 1 << 24;	// a batch whose key.texture is <= -kBbBase is billboard draw (-key.texture - kBbBase)
+	std::vector<BbDraw> bb_draws;
+	std::map<uint32_t, godot::RID> bb_shaders;
+	godot::RID bb_quad;
+	godot::RID billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr);
+	// batched instancing: adjacent billboard draws of one state are one multimesh, one material, one instance (per-draw data in the transform + custom data)
+	static constexpr int kBbBuckets = 5;
+	static constexpr int kBbBucketCap[kBbBuckets] = {8, 32, 128, 512, 2048};
+	std::vector<godot::RID> bb_mm_pool[kBbBuckets];
+	std::vector<godot::RID> spare_bb_instances;
+	std::vector<size_t> bb_run_idx;
+	bool bb_same_run(const BbDraw &a, const BbDraw &b) const;
+	void add_bb_run(Layer &l, const std::vector<size_t> &idx, int order);
+	static int s_billboard_draw(void *u, const fs2_sink_billboard *b);
 	godot::RID mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect);
 	godot::RID mesh_group_material(const MeshGroupState &st, const godot::RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect);
 	static MeshGroupState mesh_group_state(const fs2_sink_mesh_group &g);

@@ -3489,6 +3489,45 @@ int Game_subspace_effect = 0;
 DCF_BOOL( subspace, Game_subspace_effect );
 
 // Does everything needed to render a frame
+// test switch (FS2_BB_SYNTH=1): a fixed set of sprites and ribbons at several angles, drawn through g3_draw_bitmap / g3_draw_laser, to compare the
+// CPU and sink billboard paths in the same frame (R3 proof, D-20261104-134130). Points are given in eye space and moved to the world.
+static void bb_synth_draw(vector *eye_pos, matrix *eye_orient)
+{
+	static int on = -1;
+	if (on < 0) { const char *e = getenv("FS2_BB_SYNTH"); on = (e != NULL && e[0] == '1') ? 1 : 0; }
+	if (!on) { return; }
+	int lb = -1, gb = -1;
+	for (int i = 0; i < Num_weapon_types; i++) { if (Weapon_info[i].laser_bitmap >= 0 && Weapon_info[i].laser_glow_bitmap >= 0) { lb = Weapon_info[i].laser_bitmap; gb = Weapon_info[i].laser_glow_bitmap; break; } }
+	if (lb < 0) { return; }
+	// x right, y up, z forward; a sprite: x y z radius orient; a ribbon: head xyz, tail xyz, head width, tail width
+	static const float spr[][5] = {
+		{0, 0, 100, 10, 0}, {30, 20, 80, 6, 1}, {-60, -30, 120, 12, 2}, {95, 0, 100, 8, 3}, {0, -70, 100, 8, 0}, {0, 0, 3, 1, 0}, {0, 0, 0.5f, 0.4f, 0}, {5, 5, 4000, 300, 0}, {-100, 40, 90, 15, 0}, {0, 0, -50, 10, 0}};
+	static const float rib[][8] = {
+		{0, 0, 100, 0, 0, 160, 1.5f, 1.0f}, {-40, 0, 100, 40, 10, 100, 1.5f, 1.0f}, {0, -30, 60, 0, 30, 200, 2.0f, 1.0f}, {90, 20, 100, 60, 25, 100, 1.5f, 1.0f},
+		{0, 0, 2, 0, 5, 150, 1.5f, 1.0f}, {0, 0, 100, 0, 0, 100.5f, 1.5f, 1.0f}, {20, 0, -50, 20, 0, 80, 1.5f, 1.0f}, {0, 0, 3000, 100, 50, 3000, 20.0f, 10.0f}};
+	{
+		int zb = gr_zbuffer_get();
+		gr_zbuffer_set(GR_ZBUFF_READ);
+		for (size_t i = 0; i < sizeof(spr) / sizeof(spr[0]); i++) {
+			vector l, w, r; vertex v;
+			l.x = spr[i][0]; l.y = spr[i][1]; l.z = spr[i][2];
+			vm_vec_unrotate(&r, &l, eye_orient); vm_vec_add(&w, eye_pos, &r);
+			g3_rotate_vertex(&v, &w);
+			gr_set_bitmap(gb, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 0.99999f);
+			g3_draw_bitmap(&v, (int)spr[i][4], spr[i][3], TMAP_FLAG_TEXTURED);
+		}
+		for (size_t i = 0; i < sizeof(rib) / sizeof(rib[0]); i++) {
+			vector h, t, wh, wt, r;
+			h.x = rib[i][0]; h.y = rib[i][1]; h.z = rib[i][2]; t.x = rib[i][3]; t.y = rib[i][4]; t.z = rib[i][5];
+			vm_vec_unrotate(&r, &h, eye_orient); vm_vec_add(&wh, eye_pos, &r);
+			vm_vec_unrotate(&r, &t, eye_orient); vm_vec_add(&wt, eye_pos, &r);
+			gr_set_bitmap(lb, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 0.99999f);
+			g3_draw_laser(&wh, rib[i][6], &wt, rib[i][7]);
+		}
+		gr_zbuffer_set(zb);
+	}
+}
+
 void game_render_frame( vector * eye_pos, matrix * eye_orient )
 {
 	int dont_offset;
@@ -3521,6 +3560,7 @@ void game_render_frame( vector * eye_pos, matrix * eye_orient )
 	particle_render_all();					// render particles after everything else.
 	trail_render_all();						// render missilie trails after everything else.	
 	mflash_render_all();						// render all muzzle flashes	
+	bb_synth_draw(eye_pos, eye_orient);
 
 	//	Why do we not show the shield effect in these modes?  Seems ok.
 	//if (!(Viewer_mode & (VM_EXTERNAL | VM_SLEWED | VM_CHASE | VM_DEAD_VIEW))) {
