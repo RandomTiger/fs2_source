@@ -87,7 +87,7 @@ in Descent"); that is too coarse for a thumbstick.
 | Left shoulder + right stick click | press | auto match target speed on/off |
 | South (360: A) | press | target the ship in the reticle; if it is the target, the subsystem in the reticle; if that is selected, no subsystem |
 | West (360: X) | hold | voice push-to-talk, as the `PushToTalk` key (`docs/VOICE_CONTROL.md`); works while the squad menu is up |
-| Special button | press | pause |
+| Special button | press | a box: Resume, Restart, Quit to Menu (keyboard pause keeps the pause screen; multiplayer, dead or warping out keep plain pause) |
 | East (360: B) | press | the nearest hostile; pressed within 0.5 s of its last release, the next hostile instead |
 
 Speed mode starts once LB has been down longer than `double_tap_ms`, so a tap or a double tap

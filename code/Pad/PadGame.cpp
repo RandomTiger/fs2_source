@@ -487,7 +487,7 @@ void pad_frame()
 		int action = Pad_game_out.fired[i];
 
 		switch (action) {
-		case PAD_ACTION_PAUSE:			game_process_pause_key();		break;
+		case PAD_ACTION_PAUSE:			game_do_pad_pause_popup();		break;	// Claude: #199
 		case PAD_ACTION_MENU_OPEN:		hud_squadmsg_pad_open();		break;
 		case PAD_ACTION_MENU_CLOSE:	hud_squadmsg_pad_close();		break;
 		case PAD_ACTION_MENU_UP:		hud_squadmsg_pad_move(-1);		break;

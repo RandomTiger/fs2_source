@@ -386,7 +386,7 @@ void pad_menu_test_frame()
 		Test_pad.button[PAD_NORTH] = 1;
 		Test_pad.button[PAD_LSHOULDER] = 1;
 		WAIT(MISSILE);
-		TAP(PAD_START);
+		Test_key = KEY_PAUSE;	// the pause screen, from the keyboard; the pad's own button opens the box, below
 		WAIT(STATE == GS_STATE_GAME_PAUSED);
 		POLLS(TEST_HOLD);
 		Test_events = pad_menu_events();
@@ -398,6 +398,18 @@ void pad_menu_test_frame()
 		POLLS(3);
 		WAIT(MISSILE);
 		test_check(1, "pause: North held from flight still fires after");
+		test_release_all();
+		POLLS(TEST_HOLD);
+
+		// the pad's pause button opens the box, not the pause screen; East resumes (#199)
+		TAP(PAD_START);
+		WAIT(popup_active());
+		POLLS(TEST_HOLD);
+		test_check(STATE == GS_STATE_GAME_PLAY, "pause box: the pad's pause button opens it over flight");
+		TAP(PAD_EAST);
+		WAIT(!popup_active());
+		POLLS(3);
+		test_check(STATE == GS_STATE_GAME_PLAY, "pause box: East resumes");
 		test_release_all();
 		POLLS(TEST_HOLD);
 
