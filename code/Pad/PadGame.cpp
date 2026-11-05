@@ -91,55 +91,6 @@ static const pad_modifier Pad_game_modifiers[] = {
 	{ PAD_NORTH,	PAD_LAYER_MOD },
 };
 
-// Pad tree: hold a face button, the D-pad picks. Options are Up, Right, Down, Left.
-// Below the root, Left is Back (set by the core).
-enum {
-	PAD_NODE_TARGETING,
-	PAD_NODE_HOSTILE,
-	PAD_NODE_SUBSYSTEM,
-	PAD_NODE_OTHER,
-	PAD_NODE_WEAPONS,
-	PAD_NODE_COMMANDS,
-	PAD_NUM_NODES
-};
-
-static const pad_tree_node Pad_game_nodes[PAD_NUM_NODES] = {
-	{ "Targeting", {
-		{ "Match speed",		MATCH_TARGET_SPEED,						-1 },
-		{ "Hostile",			-1,											PAD_NODE_HOSTILE },
-		{ "Subsystem",			-1,											PAD_NODE_SUBSYSTEM },
-		{ "Other",				-1,											PAD_NODE_OTHER } } },
-	{ "Hostile", {
-		{ "Next",				TARGET_NEXT_CLOSEST_HOSTILE,			-1 },
-		{ "Attacking me",		TARGET_CLOSEST_SHIP_ATTACKING_SELF,	-1 },
-		{ "Previous",			TARGET_PREV_CLOSEST_HOSTILE,			-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Subsystem", {
-		{ "Next",				TARGET_NEXT_SUBOBJECT,					-1 },
-		{ "In reticle",		TARGET_SUBOBJECT_IN_RETICLE,			-1 },
-		{ "Previous",			TARGET_PREV_SUBOBJECT,					-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Other", {
-		{ "Next cargo",		TARGET_NEXT_UNINSPECTED_CARGO,		-1 },
-		{ "Next friendly",	TARGET_NEXT_CLOSEST_FRIENDLY,			-1 },
-		{ "Next turret",		TARGET_NEXT_LIVE_TURRET,				-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Weapons", {
-		{ "Cycle primary",	CYCLE_NEXT_PRIMARY,						-1 },
-		{ "Missile link",		CYCLE_NUM_MISSLES,						-1 },
-		{ "Cycle secondary",	CYCLE_SECONDARY,							-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Commands", {
-		{ "Up",					PAD_ACTION_MENU_UP,						-1 },
-		{ "Select",				PAD_ACTION_MENU_SELECT,					-1 },
-		{ "Down",				PAD_ACTION_MENU_DOWN,					-1 },
-		{ "Back",				PAD_ACTION_MENU_BACK,					-1 } } },
-};
-
-// No face button opens the tree any more (#151): whether to delete it is undecided. The nodes stay, for
-// old recordings that hold a tree open, whose HUD draws from them. The rows were West Targeting,
-// North Weapons and East Commands (PAD_ACTION_MENU_OPEN, PAD_ACTION_MENU_CLOSE).
-
 static int				Pad_game_inited = 0;
 static pad_output		Pad_game_out;
 
@@ -164,11 +115,11 @@ static void pad_game_init()
 	pad_core_set_settings(&s);
 	pad_core_set_bindings(Pad_game_bindings, sizeof(Pad_game_bindings) / sizeof(Pad_game_bindings[0]));
 	pad_core_set_modifiers(Pad_game_modifiers, sizeof(Pad_game_modifiers) / sizeof(Pad_game_modifiers[0]));
-	pad_core_set_tree(NULL, 0, Pad_game_nodes, PAD_NUM_NODES);
 }
 
 // The recorder keeps the pad's output, not its raw state, so a replay does not depend on
 // pad.cfg or the core. Floats are kept as fixed point; live play uses the same rounded values.
+// Slots 8 to 11 held the old pad tree: always these values now, ignored on read, so recordings stay valid.
 #define PAD_REPLAY_HEADER		12
 #define PAD_REPLAY_MAX_INTS	(PAD_REPLAY_HEADER + 2 * PAD_MAX_OUT)
 #define PAD_REPLAY_SCALE		10000.0f
@@ -195,10 +146,10 @@ static int pad_game_pack(const pad_output *out, int *vals)
 	vals[5] = pad_game_fixed(out->roll);
 	vals[6] = pad_game_fixed(out->throttle_rate);
 	vals[7] = pad_game_fixed(out->throttle_max_rate);
-	vals[8] = out->tree_category;
-	vals[9] = out->tree_node;
-	vals[10] = out->tree_depth;
-	vals[11] = out->tree_show;
+	vals[8] = -1;
+	vals[9] = -1;
+	vals[10] = 0;
+	vals[11] = 0;
 
 	n = PAD_REPLAY_HEADER;
 	for (i = 0; i < out->num_fired; i++) {
@@ -215,8 +166,6 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 	int i, p;
 
 	memset(out, 0, sizeof(*out));
-	out->tree_category = -1;
-	out->tree_node = -1;
 
 	if ((n < PAD_REPLAY_HEADER) || !vals[0]) {
 		return;
@@ -233,10 +182,6 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 	out->roll = vals[5] / PAD_REPLAY_SCALE;
 	out->throttle_rate = vals[6] / PAD_REPLAY_SCALE;
 	out->throttle_max_rate = vals[7] / PAD_REPLAY_SCALE;
-	out->tree_category = vals[8];
-	out->tree_node = vals[9];
-	out->tree_depth = vals[10];
-	out->tree_show = vals[11];
 
 	p = PAD_REPLAY_HEADER;
 	for (i = 0; i < out->num_fired; i++) {
@@ -336,8 +281,6 @@ static void pad_test_frame(pad_output *live)
 	if (live) {
 		memset(live, 0, sizeof(*live));
 		live->connected = 1;
-		live->tree_category = -1;
-		live->tree_node = -1;
 	}
 
 	if ((Pad_test_next < PAD_TEST_STEPS) && (autotest_mission_seconds() >= Pad_test_steps[Pad_test_next].time)) {

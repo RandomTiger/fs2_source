@@ -1624,9 +1624,6 @@ void HUD_render_2d(float frametime)
 	// display supernova warning
 	hud_maybe_display_supernova();
 
-	// Claude: control pad tree options
-	pad_hud_render();
-
 	// check to see if we are in messaging mode.  If so, send the key to the code
 	// to deal with the message.  hud_sqaudmsg_do_frame will return 0 if the key
 	// wasn't used in messaging mode, otherwise 1.  In the event the key was used,
