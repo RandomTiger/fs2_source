@@ -135,6 +135,18 @@ int game_option_voiced_text_shown()
 	return Go_option_value[GO_OPT_SUBTITLES] || !game_options_keys_active();
 }
 
+// Claude: GodotOptions, with subtitles off the head box and directives move up into the empty space, and the lines
+// left at the top start beside the head box (Tom, 2026-11-05). Compared runs always show the line, so stay classic.
+int game_option_hud_lift()
+{
+	return game_option_voiced_text_shown() ? 0 : ((gr_screen.res == GR_640) ? 30 : 48);
+}
+
+int game_option_hud_lines_x()
+{
+	return game_option_voiced_text_shown() ? 0 : 170;
+}
+
 void game_option_set(int id, int value)
 {
 	Go_option_value[id] = value ? 1 : 0;
