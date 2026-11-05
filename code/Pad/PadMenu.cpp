@@ -57,6 +57,19 @@ void pad_menu_update(const pad_state *st, int active, pad_menu_output *out)
 		}
 	}
 
+	// North has no menu action, but its flight action is Fire Secondary: a press that goes down on a
+	// menu is held back from flight as well. Down before the menu opened, it keeps acting (D-20261105-211449).
+	{
+		int down = st->connected && st->button[PAD_NORTH];
+
+		if (!down) {
+			Pad_menu_taken[PAD_NORTH] = 0;
+		} else if (active && !Pad_menu_was_down[PAD_NORTH]) {
+			Pad_menu_taken[PAD_NORTH] = 1;
+		}
+		Pad_menu_was_down[PAD_NORTH] = down;
+	}
+
 	for (i = 0; i < PAD_MENU_NUM; i++) {
 		out->pressed[i] = now_down[i] && !Pad_menu_action_down[i];
 		out->released[i] = !now_down[i] && Pad_menu_action_down[i];
@@ -78,5 +91,8 @@ void pad_menu_mask(pad_state *st)
 		if (Pad_menu_taken[b]) {
 			st->button[b] = 0;
 		}
+	}
+	if (Pad_menu_taken[PAD_NORTH]) {
+		st->button[PAD_NORTH] = 0;
 	}
 }
