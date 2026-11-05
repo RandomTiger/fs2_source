@@ -163,6 +163,11 @@ void GodotSink::shutdown()
 		}
 		for (RID &r : spare_bb_instances) { rs->free_rid(r); }
 		for (auto &pool : bb_mm_pool) { for (RID &r : pool) { rs->free_rid(r); } pool.clear(); }
+		for (RID &r : mesh_mat_pool) { rs->free_rid(r); }
+		mesh_mat_pool.clear();
+		if (bb_quad.is_valid()) { rs->free_rid(bb_quad); bb_quad = RID(); }
+		for (auto &pool : mesh_col_pool) { for (RID &r : pool.second) { rs->free_rid(r); } }
+		mesh_col_pool.clear();
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
