@@ -463,6 +463,7 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 		return;
 	}
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
+	if (s->in_frame) { fs2perf::count(fs2perf::C_TEX_LATE); }
 	fs2perf::count(fs2perf::C_TEX_CREATE);
 	fs2perf::count(fs2perf::C_TEX_BYTES, (uint64_t)w * h * (format == FS2_SINK_TEX_A8 ? 1 : 4));
 	s->batcher.flush(); // pending draws resolve their texture id at emit: they must see the old one
@@ -549,6 +550,7 @@ void GodotSink::s_texture_array_create(void *u, int32_t array_id, int w, int h, 
 	if (array_id == 0 || w <= 0 || h <= 0 || nlayers <= 0 || pixels == nullptr || s->anim_arrays.count(array_id) != 0) { return; }
 	const bool as_array = !s->arr_off && w <= kArrMaxDim && h <= kArrMaxDim;	// otherwise the frames become single textures, as texture_create would make them
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
+	if (s->in_frame) { fs2perf::count(fs2perf::C_TEX_LATE); }
 	s->batcher.flush();
 	const bool a8 = (format == FS2_SINK_TEX_A8);
 	const int64_t fb = (int64_t)w * h * (a8 ? 1 : 4);
@@ -580,6 +582,7 @@ void GodotSink::s_texture_layer(void *u, int32_t id, int32_t array_id, int layer
 	auto it = s->anim_arrays.find(array_id);
 	if (id == 0 || it == s->anim_arrays.end() || layer < 0 || layer >= (int)it->second.imgs.size() || s->textures.count(id) != 0) { return; }
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
+	if (s->in_frame) { fs2perf::count(fs2perf::C_TEX_LATE); }
 	fs2perf::count(fs2perf::C_TEX_CREATE);
 	AnimArr &a = it->second;
 	Tex t;
@@ -1142,7 +1145,6 @@ static Batch canvas_form(const Batch &b)
 	c.z.clear(); c.fogv.clear(); c.key.fog = 0;
 	return c;
 }
-
 
 void GodotSink::end_run()
 {

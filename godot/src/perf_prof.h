@@ -75,6 +75,7 @@ enum CounterId {
 	C_BB_DRAWS,	// billboard draws in those runs
 	C_BB_NOARR,	// billboard draws whose texture is not in a texture array
 	C_ARR_BYTES,	// texture array chunks created (bytes)
+	C_TEX_LATE,	// texture or array creates while a frame was open (must stay 0: everything is preloaded at level load)
 	C_COUNT
 };
 extern const char *const counter_names[C_COUNT];
