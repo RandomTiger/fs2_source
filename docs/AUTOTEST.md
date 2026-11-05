@@ -23,6 +23,8 @@ Autotest never saves the pilot file, so the pilot's skill level, stats and setti
 
 No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
 
+`tools\stale_pilot_check.ps1` (FS2 demo and retail installs, Release and Debug, part of `tools\gates\demo_gate.ps1`) proves a version 140 pilot with the wrong medal count is refused, and the same bytes load on the data set they fit (#156). It does not cover a pilot an old build already damaged.
+
 Base-layer worktrees (`VS2022`, `OriginalSourceBugFixes`, `RecordPlayback`) and `Enhanced` must not share a players folder: Enhanced writes pilot version 141, which a base build refuses (not listed, not loaded, left as it is, #114).
 
 The `-at_` flags do nothing without `-autotest`. An invalid value stops the run with exit code 2.
@@ -55,7 +57,7 @@ Visits every single-player screen and quits: the main hall, the Vasudan (Bastion
 - `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
 - `-at_awards` makes the debriefing's award panel show: `m` a medal, `r` a promotion, `b` a badge, any mix, none named means all three. A mission outside a campaign can earn none of them, so once the screen is open the tour gives them to the player and draws the panel again, and takes them back when the stop ends. The stats and the pilot file end as they began. The log names them, `Menu tour: awards medal 'X', rank 'Y', badge 'Z'`, or says `Menu tour: awards SKIP nothing to award` if the loaded tables have none. The screens and their order are the same, and with the option off nothing differs. Not for a run whose trace is compared. `tools\gates\awards_check.ps1` runs it (D-20261104-044841, #135).
 - The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
-- `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build.
+- `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build. It always uses the scratch pilot, so real pilots in the folder cannot change the result, and deletes that pilot before and after each build's run (#141).
 
 ## Debug camera test
 Shift+Pause in a single-player mission pauses with a free camera (W/S/A/D move, mouse looks, Shift faster, Shift+Pause or Esc leaves); plain Pause is unchanged (#125). `-at_debugcam` with `-at_mission` tests it: 5 s into the mission it presses Shift+Pause, holds W then D, moves the mouse, checks the view moved and turned, presses Shift+Pause again and lets the mission play on. It logs `Debug camera test: PASS` or `FAILED: debug camera test: <why>`. The keys and cursor go through the recorder, so add `-record`/`-trace` and the recording replays it. With `-at_shots` it saves `debugcam\before`, `start`, `moved` and `after`.

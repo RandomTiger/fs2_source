@@ -16,7 +16,7 @@ if ($env:PATH_FS1 -and (Test-Path $env:PATH_FS1)) { foreach ($e in 'r', 'd') { C
 foreach ($c in "Release","Debug") { "$c warnings: " + @(Select-String "$env:TEMP\fs2build\$c.log" -Pattern "warning [A-Z]+[0-9]+").Count }
 # the demo replays run the exe in PATH_FS2DEMO, which every branch builds into: build it here so no other branch's exe is tested
 $d = & powershell -NoProfile -ExecutionPolicy Bypass -File "$r\tools\build_demo.ps1" | Select-Object -Last 3
-"demo build: $($d -join ' / ')"; if (($d | Select-Object -Last 1) -notmatch 'PASS') { $bad += 'demo build' }
+"demo build: $($d -join ' / ')"; if ("$($d | Select-Object -Last 1)" -notmatch 'PASS') { $bad += 'demo build' }	# as a string: an empty pipeline in ( ) -notmatch is false, so no output used to pass (#126)
 if ($Full) { $m = @() } else { $m = @(Get-ChildItem "$r\recordings\autotest" -Filter 'Autotest*.fs2rec' | ForEach-Object { $_.BaseName }) + @('sm1-01','sm3-06') }
 $ma = if ($m) { @('-Missions', ($m -join ',')) } else { @() }
 Remove-Item "$env:TEMP\w_$Label\summary.txt" -ErrorAction SilentlyContinue	# replay_check appends; old FAIL lines would show again

@@ -511,9 +511,11 @@ static void autotest_main_menu()
 			autotest_logf("FAILED: mission '%s' did not start\n", Autotest_current);
 		}
 
+		// Claude: every run reads the pad menu script's end checks, not only a recording (#154)
+		pad_menu_test_check_finished();
+
 		// a recording holds one mission
 		if (Replay_mode == REPLAY_RECORD) {
-			pad_menu_test_check_finished();
 			gameseq_post_event(GS_EVENT_QUIT_GAME);
 			return;
 		}
