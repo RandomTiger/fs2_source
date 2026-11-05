@@ -39,10 +39,10 @@ other pads can come later behind the same interface.
 **Core** turns the state into actions through a data table:
 `(input, gesture, layer) -> action`.
 - Gestures: press, release, hold, double tap, double tap and hold, hold past a tap, long hold.
-- Layers: the "interaction mode state". A held modifier (North) switches which table rows are
-  live. A press belongs to the layer it went down in: RT pressed with North does not start
-  firing when North comes up, it needs a new press. RT held before North stops firing under
-  North and carries on after.
+- Layers: the "interaction mode state". A held modifier (RB) switches which table rows are
+  live. A press belongs to the layer it went down in: RT pressed with RB does not start
+  firing when RB comes up, it needs a new press. RT held before RB stops firing under
+  RB and carries on after.
 - Analog: radial deadzone, response curve, sensitivity, invert, per stick or axis.
 - Output: analog values (yaw, pitch, roll, throttle rate) plus actions this frame,
   each either held (continuous) or fired once (trigger).
@@ -61,7 +61,7 @@ of FS2 (and the recorder, later) sees no difference:
 4. `check_control()` (ControlsConfig.cpp): return 1 if the pad holds that action.
 5. `read_keyboard_controls()` (PlayerControl.cpp): add the pad's analog values.
 6. `joy_init()` (Joy.cpp): legacy joystick off while an XInput pad is connected.
-7. `hud_show_ets()` (HUDets.cpp): `pad_ets_recolor()` draws the system North + D-pad changes.
+7. `hud_show_ets()` (HUDets.cpp): `pad_ets_recolor()` draws the system RB + D-pad changes.
    HUDtarget.cpp: `hud_pad_*` tell South what a press would pick without changing it.
 8. Squad menu (HUDsquadmsg.cpp): a block of `hud_squadmsg_pad_*` functions (open, close,
    move, select, back) and a ">" on the highlighted row.
@@ -77,7 +77,7 @@ in Descent"); that is too coarse for a thumbstick.
 | Left stick X / Y | analog | yaw / pitch |
 | Right stick X | analog | roll |
 | Right trigger | hold | fire primary |
-| Right shoulder | hold | fire secondary |
+| North (360: Y) | hold | fire secondary |
 | D-pad up/down/left/right | press | shield to front/rear/left/right (`SHIELD_XFER_*`) |
 | Left trigger | analog hold | raise throttle, rate scaled by pressure |
 | Left trigger | double tap and hold | afterburner |
@@ -87,8 +87,8 @@ in Descent"); that is too coarse for a thumbstick.
 | Left shoulder + right stick click | press | auto match target speed on/off |
 | South (360: A) | press | target the ship in the reticle; if it is the target, the subsystem in the reticle; if that is selected, no subsystem |
 | West (360: X) | hold | voice push-to-talk, as the `PushToTalk` key (`docs/VOICE_CONTROL.md`); works while the squad menu is up |
-| Special button | press | pause |
-| East (360: B) | | nothing in flight |
+| Special button | press | a box: Resume, Restart, Quit to Menu (keyboard pause keeps the pause screen; multiplayer, dead or warping out keep plain pause) |
+| East (360: B) | press | the nearest hostile; pressed within 0.5 s of its last release, the next hostile instead |
 
 Speed mode starts once LB has been down longer than `double_tap_ms`, so a tap or a double tap
 does not stop the roll. Stick centred leaves speed matching on; moving it ends matching, as the
@@ -97,20 +97,20 @@ left trigger does.
 South always means the top object under the reticle, the one a fresh press of the game's control
 takes. The game's cycling through what is under the reticle on repeat presses does not apply.
 
-With North (360: Y) held, axes and the left trigger carry on, and buttons do this or nothing:
+With the right shoulder held, axes and the left trigger carry on, and buttons do this or nothing:
 
-| With North | Gesture | Action |
+| With RB | Gesture | Action |
 |---|---|---|
-| Right shoulder | press | one step of: bank 1 single, bank 1 double, bank 2 single, bank 2 double. One bank: single, double |
+| North (360: Y) | press | one step of: bank 1 single, bank 1 double, bank 2 single, bank 2 double. One bank: single, double |
 | Right trigger | press | next primary (`CYCLE_NEXT_PRIMARY`) |
 | Left shoulder | hold 1 second | jump out (`END_MISSION`, as Alt-J); an early release cancels, once per hold |
 | D-pad left / right | press | energy system to change: shields (not on a ship without them), weapons, engines |
 | D-pad up / down | press | raise / lower it (`INCREASE_*`, `DECREASE_*`) |
 
-While North is held the selected system's part of the ETS gauge is white. The selection starts on
+While RB is held the selected system's part of the ETS gauge is white. The selection starts on
 shields each mission.
 
-Not on the pad since #151: the squad menu (voice can still open it, otherwise keyboard). Keyboard only: next or previous hostile, attacking me,
+Not on the pad since #151: the squad menu (voice can still open it, otherwise keyboard). Keyboard only: previous hostile, attacking me,
 next or previous subsystem, cargo, friendly, turret, and the one-shot match speed.
 
 ## On the menus (from Tom, #147)
@@ -131,8 +131,10 @@ one key: no repeat while held.
 
 A button only counts if it goes down on a menu. It then does not do its flight action until it has
 been released once, so South that closes a popup does not target (D-20261104-065940). A button
-held from flight into a menu keeps its flight action and does nothing on the menu. Sticks and
-triggers are not held back like this.
+held from flight into a menu keeps its flight action and does nothing on the menu. North has no
+menu action but is held back the same way, so a missile does not fire from a press on a menu
+(D-20261105-211449). West, the stick clicks, sticks and triggers are not held back like this: the
+right trigger still fires when held from a menu into flight.
 
 A recording keeps the events like a person's. A replay runs none of this and gets them from the
 stream. The test is `-at_padmenu` with mission AutotestPadMenu (`PadMenuTest.cpp`): a script feeds a

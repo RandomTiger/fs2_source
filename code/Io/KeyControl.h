@@ -68,6 +68,7 @@ void button_info_do(button_info *bi);
 void button_info_clear(button_info *bi);
 void process_set_of_keys(int key, int count, int *list);
 void game_process_pause_key();
+void game_do_pad_pause_popup();	// Claude: PadControl, the pad's pause button in flight
 void button_strip_noncritical_keys(button_info *bi);
 
 

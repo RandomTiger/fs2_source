@@ -36,12 +36,14 @@ extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is read
 #define PAD_ACTION_MENU_BACK		1007
 #define PAD_ACTION_TALK			1008			// held: voice push-to-talk
 #define PAD_ACTION_TARGET			1009			// South: ship in reticle, then its subsystem, then no subsystem
-#define PAD_ACTION_SECONDARY_STEP	1010		// North + RB: one step of bank 1 single, double, bank 2 single, double
+#define PAD_ACTION_SECONDARY_STEP	1010		// RB + North: one step of bank 1 single, double, bank 2 single, double
 #define PAD_ACTION_ETS_SHOW		1011			// held: draw the selected system on the ETS gauge
-#define PAD_ACTION_ETS_PREV		1012			// North + D-pad: the energy system to change, and change it
+#define PAD_ACTION_ETS_PREV		1012			// RB + D-pad: the energy system to change, and change it
 #define PAD_ACTION_ETS_NEXT		1013
 #define PAD_ACTION_ETS_UP			1014
 #define PAD_ACTION_ETS_DOWN		1015
+#define PAD_ACTION_TARGET_NEAREST	1016		// East: the nearest hostile
+#define PAD_ACTION_TARGET_NEXT	1017			// East again within PAD_REPRESS_MS of its release: the next hostile
 
 // HUDsquadmsg.cpp
 extern void hud_squadmsg_pad_open();
@@ -56,16 +58,17 @@ extern int hud_squadmsg_voice_row(int row, char **text, int *order, int *active)
 extern object *hud_pad_reticle_top();
 extern void hud_pad_reticle_fresh();
 extern ship_subsys *hud_pad_subsystem_in_reticle();
+extern void hud_pad_target_hostile(int next);
 
 // Flight layout (#151). Everything else stays on the keyboard for now. Layers keep a press to the
-// layer it went down in (PadCore.h), so the base action of a button pressed with North never happens.
+// layer it went down in (PadCore.h), so the base action of a button pressed with RB never happens.
 static const pad_binding Pad_game_bindings[] = {
-	// North: axes, and so the left trigger, carry on under it
-	{ PAD_NORTH,				PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_ETS_SHOW },
+	// RB: axes, and so the left trigger, carry on under it
+	{ PAD_RSHOULDER,			PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_ETS_SHOW },
 	{ PAD_INPUT_LTRIGGER,	PAD_G_DOUBLE_TAP_HOLD,	PAD_LAYER_ANY,		AFTERBURNER },
 
 	{ PAD_INPUT_RTRIGGER,	PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_PRIMARY },
-	{ PAD_RSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_SECONDARY },
+	{ PAD_NORTH,				PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_SECONDARY },
 	{ PAD_DPAD_UP,				PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_TOP },
 	{ PAD_DPAD_DOWN,			PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_BOTTOM },
 	{ PAD_DPAD_LEFT,			PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_LEFT },
@@ -75,10 +78,12 @@ static const pad_binding Pad_game_bindings[] = {
 	{ PAD_RSTICK,				PAD_G_PRESS,				PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE,					PAD_CHORD_WITHOUT(PAD_LSHOULDER) },
 	{ PAD_RSTICK,				PAD_G_PRESS,				PAD_LAYER_BASE,	TOGGLE_AUTO_MATCH_TARGET_SPEED,		PAD_CHORD_WITH(PAD_LSHOULDER) },
 	{ PAD_SOUTH,				PAD_G_PRESS,				PAD_LAYER_BASE,	PAD_ACTION_TARGET },
+	{ PAD_EAST,					PAD_G_PRESS_FRESH,		PAD_LAYER_BASE,	PAD_ACTION_TARGET_NEAREST },
+	{ PAD_EAST,					PAD_G_PRESS_AGAIN,		PAD_LAYER_BASE,	PAD_ACTION_TARGET_NEXT },
 	{ PAD_WEST,					PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_TALK },	// voice push-to-talk, also while the squad menu is up
 	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_BASE,	PAD_ACTION_PAUSE },
 
-	{ PAD_RSHOULDER,			PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_SECONDARY_STEP },
+	{ PAD_NORTH,				PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_SECONDARY_STEP },
 	{ PAD_INPUT_RTRIGGER,	PAD_G_PRESS,				PAD_LAYER_MOD,		CYCLE_NEXT_PRIMARY },
 	{ PAD_LSHOULDER,			PAD_G_LONG_HOLD,			PAD_LAYER_MOD,		END_MISSION },
 	{ PAD_DPAD_LEFT,			PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_ETS_PREV },
@@ -88,7 +93,7 @@ static const pad_binding Pad_game_bindings[] = {
 };
 
 static const pad_modifier Pad_game_modifiers[] = {
-	{ PAD_NORTH,	PAD_LAYER_MOD },
+	{ PAD_RSHOULDER,	PAD_LAYER_MOD },
 };
 
 static int				Pad_game_inited = 0;
@@ -371,7 +376,7 @@ static int pad_game_south_control()
 	return TARGET_SUBOBJECT_IN_RETICLE;
 }
 
-// North + RB: bank 1 single, bank 1 double, bank 2 single, bank 2 double, back to the start. The game's
+// RB + North: bank 1 single, bank 1 double, bank 2 single, bank 2 double, back to the start. The game's
 // controls change the bank and the link, and refuse with their own messages. With no banks, CYCLE_SECONDARY
 // says so; with one bank it only alternates single and double.
 static void pad_game_secondary_step()
@@ -393,7 +398,7 @@ static void pad_game_secondary_step()
 	button_info_set(&Player->bi, CYCLE_NUM_MISSLES);
 }
 
-// The energy system North + D-pad changes. Only the pad's recorded actions change it, so it replays,
+// The energy system RB + D-pad changes. Only the pad's recorded actions change it, so it replays,
 // and only those controls read it; the gauge just draws it.
 enum { PAD_ETS_SHIELDS, PAD_ETS_WEAPONS, PAD_ETS_ENGINES, PAD_ETS_NUM };
 
@@ -441,6 +446,26 @@ int pad_ets_highlight(int gauge)
 }
 
 static int Pad_game_south_presses = 0;
+static int Pad_game_east_presses[2] = { 0, 0 };
+
+// East: the nearest hostile (next 0), or the next one after the current target (next 1). As the game's targeting
+// keys: a damaged sensor refuses it with the game's message. Not while dead.
+static void pad_game_target_hostile(int next)
+{
+	if ((Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ai == NULL) || (Game_mode & GM_DEAD)) {
+		return;
+	}
+	Pad_game_east_presses[next]++;
+	control_used(TARGET_NEXT_CLOSEST_HOSTILE);
+	if (hud_sensors_ok(Player_ship)) {
+		hud_pad_target_hostile(next);
+	}
+}
+
+int pad_game_east_count(int next)
+{
+	return Pad_game_east_presses[next];
+}
 
 int pad_game_south_count()
 {
@@ -463,7 +488,7 @@ void pad_frame()
 		int action = Pad_game_out.fired[i];
 
 		switch (action) {
-		case PAD_ACTION_PAUSE:			game_process_pause_key();		break;
+		case PAD_ACTION_PAUSE:			game_do_pad_pause_popup();		break;	// Claude: #199
 		case PAD_ACTION_MENU_OPEN:		hud_squadmsg_pad_open();		break;
 		case PAD_ACTION_MENU_CLOSE:	hud_squadmsg_pad_close();		break;
 		case PAD_ACTION_MENU_UP:		hud_squadmsg_pad_move(-1);		break;
@@ -471,6 +496,8 @@ void pad_frame()
 		case PAD_ACTION_MENU_SELECT:	hud_squadmsg_pad_select();		break;
 		case PAD_ACTION_MENU_BACK:		hud_squadmsg_pad_back();		break;
 		case PAD_ACTION_SECONDARY_STEP:	pad_game_secondary_step();	break;
+		case PAD_ACTION_TARGET_NEAREST:	pad_game_target_hostile(0);	break;
+		case PAD_ACTION_TARGET_NEXT:		pad_game_target_hostile(1);	break;
 		case PAD_ACTION_ETS_PREV:		pad_ets_step(1);					break;	// reversed at Tom's request: left steps up the list (#151)
 		case PAD_ACTION_ETS_NEXT:		pad_ets_step(-1);					break;
 		case PAD_ACTION_ETS_UP:			pad_ets_change(1);				break;
