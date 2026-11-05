@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 8
+#define FS2_API_VERSION 9
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -140,6 +140,8 @@ FS2_API void fs2_screen_size(int *w, int *h);
 // size in *w and *h; with pixels not NULL also fills w * h bytes of coverage, 0 to 255, row by row. Returns 0, with both sizes 0,
 // while the fonts are not loaded. Reads only: it changes no game state.
 FS2_API int fs2_font_text(const char *text, unsigned char *pixels, int *w, int *h);
+// 1 while voice control is open and live, 0 otherwise. Reads only: it changes no game state.
+FS2_API int fs2_voice_enabled(void);
 
 // Shut the game down. Returns the game's exit code (0 is a pass for -autotest).
 FS2_API int fs2_shutdown(void);

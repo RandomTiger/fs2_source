@@ -20,12 +20,13 @@ class Fs2StatusPanel {
 	String version;
 	String shown_text;
 	int (*font_text)(const char *, unsigned char *, int *, int *) = nullptr;
+	int (*voice_enabled)(void) = nullptr;
 	int text_w = 0, text_h = 0;
 	unsigned long long next_refresh_usec = 0;
 
 public:
 	// Adds the text under the screen node. dll is the game DLL actually loaded, text_in_font its fs2_font_text: the text is the game's own font.
-	void create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *));
+	void create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void));
 	// Call each Godot frame: the devices are looked at about once a second, the column's width every time.
 	void refresh();
 

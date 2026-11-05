@@ -22,6 +22,7 @@
 #include "Font.h"
 #include "fs2_api.h"
 #include "InputTest.h"
+#include "../code/Voice/VoiceGame.h"
 #include "OsApi.h"
 #include "Sound.h"
 #include "ds.h"
@@ -386,6 +387,11 @@ int fs2_font_text(const char *text, unsigned char *pixels, int *w, int *h)
 		x += font_text_advance(f, s[0], s[1]);
 	}
 	return 1;
+}
+
+int fs2_voice_enabled(void)
+{
+	return voice_game_enabled();
 }
 
 void fs2_set_window_handle(unsigned long long handle)

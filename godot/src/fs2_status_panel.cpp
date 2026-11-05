@@ -80,7 +80,7 @@ static bool panel_mouse_found()
 	return found;
 }
 
-void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *))
+void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void))
 {
 	wchar_t path[MAX_PATH];
 	const DWORD len = GetModuleFileNameW(dll, path, MAX_PATH);
@@ -93,6 +93,7 @@ void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_fon
 	}
 	screen = on_screen;
 	font_text = text_in_font;
+	voice_enabled = voice_is_enabled;
 	text_rect = memnew(TextureRect);
 	text_rect->set_position(Vector2(PANEL_MARGIN, PANEL_MARGIN));
 	text_rect->set_self_modulate(Color(0.75f, 0.75f, 0.75f));
@@ -145,7 +146,8 @@ void Fs2StatusPanel::refresh()
 		fs2host::device_counts(&pads, &sticks);
 		set_text(String("Version:\n") + version + "\n\nStatus:\nMouse: " + (panel_mouse_found() ? "Detected" : "Undetected") +
 			"\nJoystick: " + (sticks > 0 ? "Detected" : "Undetected") +
-			"\nJoypad: " + (pads > 0 ? "Detected" : "Undetected"));
+			"\nJoypad: " + (pads > 0 ? "Detected" : "Undetected") +
+			"\nVoice Control: " + (voice_enabled() ? "Enabled" : "Disabled"));
 	}
 	const Vector2 window = screen->get_window_size();
 	int scale = (int)((window.y / PANEL_PIXEL_SCALE_HEIGHT) + 0.5f);
