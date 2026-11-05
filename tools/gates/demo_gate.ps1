@@ -31,4 +31,4 @@ $t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_ch
 "tools: $t"; if ($t -notmatch '^PASS') { $bad += 'tools' }
 $s = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\stale_pilot_check.ps1" | Select-Object -Last 1
 "stale pilot: $s"; if ($s -notmatch '^PASS') { $bad += 'stale pilot' }
-if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
+if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
