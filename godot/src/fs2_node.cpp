@@ -117,12 +117,12 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 			api.set_window_handle(0);
 		}
 	}
-	// D-20261030-063743: nebula fog state. gpu for live shown play only; every scripted, trace-compared or gate run (-replay, -autotest, -record,
-	// -at_*) and every headless run keeps off, so no baseline moves. FS2_NEBFOG=off|same|lag|gpu overrides (gate C gpu runs, measurements).
+	// D-20261030-063743, amended by D-20261105-171137: nebula fog state. gpu in every run that draws (shown, with the 3D switch on), scripted or not,
+	// so no model needs the polygon path; headless runs and the 3D-off side keep off, so traces and the switch-off referee do not move.
+	// FS2_NEBFOG=off|same|lag|gpu overrides (named in any report that uses it).
 	{
 		const String cmd_padded = String(" ") + cmdline + " ";
-		const bool scripted = cmd_padded.contains(" -replay ") || cmd_padded.contains(" -autotest ") || cmd_padded.contains(" -record ") ||
-			cmd_padded.contains(" -at_") || cmd_padded.contains(" -headless ");
+		const bool scripted = cmd_padded.contains(" -headless ") || OS::get_singleton()->get_environment("FS2_RENDER3D") == "0";
 		DisplayServer *nds = DisplayServer::get_singleton();
 		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
 		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
