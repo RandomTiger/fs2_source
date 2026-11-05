@@ -614,6 +614,9 @@ static int Medal_bitmap;
 static int Badge_bitmap;
 static int Wings_bitmap;
 static int Crest_bitmap;
+static int Fs1_medal_text_bitmap = -1;	// Claude: FS1 data: the "Medal:", "Rank:" and "Badge:" pictures
+static int Fs1_rank_text_bitmap = -1;	// Claude
+static int Fs1_badge_text_bitmap = -1;	// Claude
 //static int Rank_text_bitmap;
 //static int Medal_text_bitmap;
 //static int Badge_text_bitmap;
@@ -1113,6 +1116,23 @@ void debrief_buttons_init()
 	}
 }
 
+// Claude: FS1 data: the awards as retail FS1 draws them (retail FS1 exe): each picture has its own place, in this order, and
+// the names are in the pictures (#135, #149)
+static void debrief_fs1_draw_awards()
+{
+	const struct { int bitmap, x, y; } pics[] = {
+		{ Award_bg_bitmap, 391, 134 }, { Rank_bitmap, 448, 168 }, { Medal_bitmap, 448, 145 }, { Badge_bitmap, 405, 166 }, { Wings_bitmap, 405, 166 },
+		{ Fs1_rank_text_bitmap, 402, 231 }, { Fs1_medal_text_bitmap, 403, 211 }, { Fs1_badge_text_bitmap, 402, 243 } };
+	int i;
+
+	for (i=0; i<(int)(sizeof(pics) / sizeof(pics[0])); i++) {
+		if (pics[i].bitmap >= 0) {
+			gr_set_bitmap(pics[i].bitmap);
+			gr_bitmap(pics[i].x, pics[i].y);
+		}
+	}
+}
+
 // --------------------------------------------------------------------------------------
 //	debrief_ui_init()
 //
@@ -1251,12 +1271,16 @@ void debrief_award_init()
 {
 	char buf[80];
 	int i;
+	int wings_medal = Cfile_fs1_data ? 15 : 13;	// Claude: FS1's table has the wings at 15 (retail FS1 exe)
 
 	Rank_bitmap = -1; 
 	Medal_bitmap = -1;
 	Badge_bitmap = -1;
 	Wings_bitmap = -1;
 	Crest_bitmap = -1;
+	Fs1_medal_text_bitmap = -1;	// Claude
+	Fs1_rank_text_bitmap = -1;	// Claude
+	Fs1_badge_text_bitmap = -1;	// Claude
 	Promoted = -1;
 
 	// be sure there are no old award texts floating around
@@ -1264,9 +1288,9 @@ void debrief_award_init()
 
 	// handle medal earned
 	if (Player->stats.m_medal_earned != -1) {
-		if (Player->stats.m_medal_earned == 13) {  // special hack for the wings..
+		if (Player->stats.m_medal_earned == wings_medal) {  // special hack for the wings..	// Claude: was 13, FS1's wings are 15
 			int ver;
-			if ( Player->stats.medals[13] > 1 ) {
+			if ( Player->stats.medals[wings_medal] > 1 ) {	// Claude: was 13
 				ver = 1;
 			} else {
 				ver = 0;
@@ -1313,6 +1337,19 @@ void debrief_award_init()
 		debrief_choose_badge_voice();
 
 		debrief_add_award_text(Medals[Badge_index[i]].name);
+	}
+
+	// Claude: FS1 data: each award has its label picture, wings sharing the badge's (retail FS1 exe)
+	if ( Cfile_fs1_data ) {
+		if (Medal_bitmap >= 0) {
+			Fs1_medal_text_bitmap = bm_load(NOX("DebriefText01"));
+		}
+		if (Rank_bitmap >= 0) {
+			Fs1_rank_text_bitmap = bm_load(NOX("DebriefText02"));
+		}
+		if ((Badge_bitmap >= 0) || (Wings_bitmap >= 0)) {
+			Fs1_badge_text_bitmap = bm_load(NOX("DebriefText03"));
+		}
 	}
 
 	if ((Rank_bitmap >= 0) || (Medal_bitmap >= 0) || (Badge_bitmap >= 0) || (Wings_bitmap >= 0) || (Crest_bitmap >= 0)) {
@@ -2430,6 +2467,18 @@ void debrief_close()
 		bm_unload(Crest_bitmap);
 	}
 
+	if (Fs1_medal_text_bitmap >= 0) {	// Claude
+		bm_unload(Fs1_medal_text_bitmap);
+	}
+
+	if (Fs1_rank_text_bitmap >= 0) {	// Claude
+		bm_unload(Fs1_rank_text_bitmap);
+	}
+
+	if (Fs1_badge_text_bitmap >= 0) {	// Claude
+		bm_unload(Fs1_badge_text_bitmap);
+	}
+
 	Debrief_ui_window.destroy();
 	common_free_interface_palette();		// restore game palette
 	show_stats_close();
@@ -2688,7 +2737,9 @@ void debrief_do_frame(float frametime)
 	} 
 
 	// draw the damn awarded stuff, G
-	if ( Award_active && (Award_bg_bitmap >= 0) ) {
+	if ( Award_active && (Award_bg_bitmap >= 0) && Cfile_fs1_data ) {	// Claude
+		debrief_fs1_draw_awards();
+	} else if ( Award_active && (Award_bg_bitmap >= 0) ) {
 		gr_set_bitmap(Award_bg_bitmap);
 		gr_bitmap(Debrief_award_wnd_coords[gr_screen.res][0], Debrief_award_wnd_coords[gr_screen.res][1]);
 		if (Rank_bitmap >= 0) {
@@ -2717,8 +2768,7 @@ void debrief_do_frame(float frametime)
 		}
 
 		//  draw medal/badge/rank labels
-		if ( !Cfile_fs1_data )	// Claude: FS1's award pictures have the name drawn in, so a printed label doubles it (#135)
-			debrief_draw_award_text();
+		debrief_draw_award_text();
 
 /*		if (Rank_text_bitmap >= 0) {
 			gr_set_bitmap(Rank_text_bitmap);
