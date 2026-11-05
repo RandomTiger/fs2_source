@@ -29,6 +29,9 @@ void push_input(const godot::Ref<godot::InputEvent> &event, float viewport_w, fl
 void push_focus(bool got);
 void push_close();
 
+// How many connected devices the pad hook would take as a pad, and how many are other joysticks. The input test's synthetic device is not counted.
+void device_counts(int *pads, int *sticks);
+
 // Measurement only (R1-feel): how many events the game has taken from the queue, and when it took the last (ticks_usec).
 unsigned long long consumed_count(void);
 long long consumed_usec(void);
