@@ -2254,9 +2254,9 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\t\tif (ia != ib) { if (n == kk) { float t = (0.1 - C[i].z) / (C[j].z - C[i].z); ev = mix(C[i], C[j], t); eu = mix(U[i], U[j], t); } n++; }\n\t}\n";
 		code += "\tuv = eu;\n\tfloat z = max(ev.z, 0.1);\n\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
 	} else if (kind == FS2_SINK_BB_TRI3) {
-		// trail_render, the tail triangle: as QUAD4 with three corners (corner i = M[i].xyz) and their own uvs (u0 v0 u1 = M[3].xyz, v1 u2 v2 = INSTANCE_COLOR.xyz); tint r in custom.x, g in custom.w, b in colour.w (trails: grey), zbias, layer in the custom data. Clipped to the 0.1 near plane into a fan of up to four slots.
-		code += "\ttintv = vec4(INSTANCE_CUSTOM.x, INSTANCE_CUSTOM.w, INSTANCE_COLOR.w, 1.0);\n\tzbias = INSTANCE_CUSTOM.y;\n\tlyr = INSTANCE_CUSTOM.z;\n";
-		code += "\tvec3 C[3] = vec3[3](M[0].xyz, M[1].xyz, M[2].xyz);\n\tvec2 U[3] = vec2[3](vec2(M[3][0], M[3][1]), vec2(M[3][2], INSTANCE_COLOR.x), vec2(INSTANCE_COLOR.y, INSTANCE_COLOR.z));\n";
+		// trail_render, the tail triangle: as QUAD4 with three corners (corner i = M[i].xyz) and their own uvs (u0 v0 u1 = M[3].xyz, v1 u2 v2 = COLOR.xyz); tint r in custom.x, g in custom.w, b in colour.w (trails: grey), zbias, layer in the custom data. Clipped to the 0.1 near plane into a fan of up to four slots.
+		code += "\ttintv = vec4(INSTANCE_CUSTOM.x, INSTANCE_CUSTOM.w, COLOR.w, 1.0);\n\tzbias = INSTANCE_CUSTOM.y;\n\tlyr = INSTANCE_CUSTOM.z;\n";
+		code += "\tvec3 C[3] = vec3[3](M[0].xyz, M[1].xyz, M[2].xyz);\n\tvec2 U[3] = vec2[3](vec2(M[3][0], M[3][1]), vec2(M[3][2], COLOR.x), vec2(COLOR.y, COLOR.z));\n";
 		code += "\tint cnt = 0;\n\tfor (int i = 0; i < 3; i++) {\n\t\tint j = (i + 1) % 3;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { cnt++; }\n\t\tif (ia != ib) { cnt++; }\n\t}\n";
 		code += "\tint kk = min(int(VERTEX.x + 0.5), max(cnt - 1, 0));\n\tvec3 ev = C[0];\n\tvec2 eu = U[0];\n\tint n = 0;\n\tif (cnt == 0) { skip = true; }\n";
 		code += "\tfor (int i = 0; i < 3; i++) {\n\t\tint j = (i + 1) % 3;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { if (n == kk) { ev = C[i]; eu = U[i]; } n++; }\n";

@@ -575,6 +575,17 @@ void render_shield_triangle(gshield_tri *trip, matrix *orient, vector *pos, ubyt
 MONITOR(NumShieldRend);
 
 //	Render a shield mesh in the global array Shield_hits[]
+// Claude: test-only override of Detail.shield_effects (steward D-20261106-030446): FS2_SHIELD_DETAIL=1 draws the low-detail shield quad so a pixel compare can exercise render_low_detail_shield_bitmap. Unset = the game setting
+static int shield_detail_level()
+{
+	static int d = -2;
+	if ( d == -2 ){
+		const char *e = getenv("FS2_SHIELD_DETAIL");
+		d = e ? atoi(e) : -1;
+	}
+	return (d >= 0) ? d : Detail.shield_effects;
+}
+
 void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 {
 	int		i;
@@ -603,7 +614,7 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 	}
 
 	//	At detail levels 1, 3, animations play at double speed to reduce load.
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 3)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 3)) {
 		Shield_hits[shield_num].start_time -= Frametime;
 	}
 
@@ -660,7 +671,7 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 	}
 	gr_set_bitmap(bitmap_id, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, alpha );
 
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 2)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 2)) {
 		if ( bitmap_id != - 1 ) {
 			render_low_detail_shield_bitmap(&Global_tris[Shield_hits[shield_num].tri_list[0]], orient, centerp, Shield_hits[shield_num].rgb[0], Shield_hits[shield_num].rgb[1], Shield_hits[shield_num].rgb[2]);
 		}
@@ -956,7 +967,7 @@ void create_shield_explosion(int objnum, int model_num, matrix *orient, vector *
 
 	//nprintf(("AI", "Frame %i: Creating explosion on %i.\n", Framecount, objnum));
 
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 2)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 2)) {
 		create_shield_low_detail(objnum, model_num, orient, centerp, tcp, tr0, shieldp);
 		return;
 	}
