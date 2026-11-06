@@ -135,6 +135,22 @@ DCF(norm,"normalize a zero length vector")
 	}
 }
 
+// Claude: R3 row 6, one warp cone face on the GPU (TRI3, orient bit 3; no CORRECT flag, so the sink maps the uvs affine as the poly path does). 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_WARP_GPU=0, user clip plane)
+extern int G3_user_clip;
+static int warp_gpu_tri(vertex *a, vertex *b, vertex *c)
+{
+	if ( a->codes & b->codes & c->codes ){
+		return 1;
+	}
+	const vertex *v[3] = { a, b, c };
+	float p[9], uv[6];
+	for(int i=0; i<3; i++){
+		p[i*3] = v[i]->x; p[i*3+1] = v[i]->y; p[i*3+2] = v[i]->z;
+		uv[i*2] = v[i]->u; uv[i*2+1] = v[i]->v;
+	}
+	return gr_host_billboard(5, p, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 8, TMAP_FLAG_TEXTURED, -1);
+}
+
 void draw_face( vertex *v1, vertex *v2, vertex *v3 )
 {
 	vector norm;
@@ -151,6 +167,7 @@ void draw_face( vertex *v1, vertex *v2, vertex *v3 )
 		vertlist[2] = v3;
 	}
 
+	if ( !warp_gpu_tri( vertlist[0], vertlist[1], vertlist[2] ) )
 	g3_draw_poly( 3, vertlist, TMAP_FLAG_TEXTURED );
 
 }

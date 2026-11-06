@@ -757,6 +757,30 @@ ubyte Interp_subspace_r = 255;
 ubyte Interp_subspace_g = 255;
 ubyte Interp_subspace_b = 255;
 
+// Claude: R3 row 6, a subspace tunnel poly (hull: TEXTURED|TILED|CORRECT; thruster glow: TEXTURED only = affine uvs) as a fan of TRI3 triangles on the GPU (orient bit 4). The host reads the tiled / affine bits from the flags. 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_WARP_GPU=0, user clip plane)
+extern int G3_user_clip;
+static int subspace_gpu_poly(int nv, vertex **v, uint flags)
+{
+	for(int i=1; i+1<nv; i++){
+		vertex *a = v[0], *b = v[i], *c = v[i+1];
+		if ( a->codes & b->codes & c->codes ){
+			continue;
+		}
+		const vertex *t[3] = { a, b, c };
+		float p[9], uv[6];
+		for(int k=0; k<3; k++){
+			p[k*3] = t[k]->x; p[k*3+1] = t[k]->y; p[k*3+2] = t[k]->z;
+			uv[k*2] = t[k]->u; uv[k*2+1] = t[k]->v;
+		}
+		if ( !gr_host_billboard(5, p, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 16, flags, -1) ){
+			if ( i == 1 ){
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 void model_interp_tmappoly(ubyte * p,polymodel * pm)
 {
 	vertex *Interp_list[TMAP_MAX_VERTS];
@@ -893,6 +917,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 		} else if (Interp_thrust_scale_subobj)	{
 			if ((Interp_thrust_bitmap>-1)	&& (Interp_thrust_scale > 0.0f) && !Pofview_running) {
 				gr_set_bitmap( Interp_thrust_bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, 1.2f );
+				if ( !(Interp_subspace && subspace_gpu_poly( nv, Interp_list, TMAP_FLAG_TEXTURED )) )
 				g3_draw_poly( nv, Interp_list, TMAP_FLAG_TEXTURED );		
 			} else if(!Pofview_running){
 				if ( !(Interp_flags & MR_SHOW_OUTLINE_PRESET) )	{
@@ -934,6 +959,7 @@ void model_interp_tmappoly(ubyte * p,polymodel * pm)
 			}
 
 			if ( Interp_subspace )	{
+				if ( !subspace_gpu_poly( nv, Interp_list, TMAP_FLAG_TEXTURED|TMAP_FLAG_TILED|TMAP_FLAG_CORRECT ) )
 				g3_draw_poly( nv, Interp_list, TMAP_FLAG_TEXTURED|TMAP_FLAG_TILED|TMAP_FLAG_CORRECT );		
 			} else {				
 				if(Interp_flags & MR_ALL_XPARENT){
