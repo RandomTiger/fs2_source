@@ -841,6 +841,26 @@ static int h_pad_poll(fs2_pad_state *out)
 	return 1;
 }
 
+void device_counts(int *pads, int *sticks)
+{
+	Input *in = Input::get_singleton();
+	TypedArray<int> connected = in->get_connected_joypads();
+
+	*pads = 0;
+	*sticks = 0;
+	for (int i = 0; i < connected.size(); i++) {
+		int d = connected[i];
+		if (Synth_kind != 0 && d == SYNTH_DEVICE) {
+			continue;
+		}
+		if (in->is_joy_known(d)) {
+			(*pads)++;
+		} else {
+			(*sticks)++;
+		}
+	}
+}
+
 // The input test's script, as synthetic events. Only what changed is sent; events from outside the main loop reach the Input
 // state only after a flush.
 static float Synth_axis[6];

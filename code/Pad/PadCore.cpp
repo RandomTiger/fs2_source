@@ -15,6 +15,11 @@ typedef struct pad_input_track {
 	int	press_ms;		// when the current or last press started
 	int	release_ms;		// when the last press ended
 	int	second;			// the current or last press is the second tap of a double tap
+	int	press_layer;	// the layer that was current when the current or last press went down
+	int	long_ms;			// when the long hold's time started: the press, or the last layer change
+	int	long_fired;		// the long hold has fired for this press
+	int	release_seen;	// release_ms is a real release, not the stale reset's stand-in
+	int	again;			// the current or last press came within PAD_REPRESS_MS of a release
 } pad_input_track;
 
 static pad_settings				Pad_settings;
@@ -22,20 +27,12 @@ static int							Pad_settings_set = 0;
 static const pad_binding		*Pad_bindings = NULL;
 static int							Pad_num_bindings = 0;
 static int							Pad_layer = PAD_LAYER_BASE;
+static const pad_modifier		*Pad_modifiers = NULL;
+static int							Pad_num_modifiers = 0;
+static int							Pad_last_layer = PAD_LAYER_BASE;
 static pad_input_track			Pad_track[PAD_NUM_INPUTS];
 static int							Pad_last_update_ms = 0;
 static int							Pad_have_update = 0;
-
-static const pad_tree_category	*Pad_tree_categories = NULL;
-static int							Pad_tree_num_categories = 0;
-static const pad_tree_node		*Pad_tree_nodes = NULL;
-static int							Pad_tree_num_nodes = 0;
-static int							Pad_tree_category = -1;		// open category, -1 = closed
-static int							Pad_tree_stack[PAD_TREE_MAX_DEPTH];
-static int							Pad_tree_depth = 0;
-static int							Pad_tree_open_ms = 0;
-
-static const int					Pad_tree_dpad[PAD_TREE_NUM_DIRS] = { PAD_DPAD_UP, PAD_DPAD_RIGHT, PAD_DPAD_DOWN, PAD_DPAD_LEFT };
 
 void pad_core_default_settings(pad_settings *s)
 {
@@ -51,6 +48,7 @@ void pad_core_default_settings(pad_settings *s)
 	s->trigger_threshold = 0.3f;
 	s->double_tap_ms = 250;
 	s->throttle_rate = 100.0f;
+	s->menu_cursor_speed = 1.0f;
 }
 
 int pad_core_parse_settings(pad_settings *s, const char *text)
@@ -103,6 +101,7 @@ int pad_core_parse_settings(pad_settings *s, const char *text)
 		else if (!stricmp(name, "trigger_threshold"))	s->trigger_threshold = value;
 		else if (!stricmp(name, "double_tap_ms"))			s->double_tap_ms = (int) value;
 		else if (!stricmp(name, "throttle_rate"))			s->throttle_rate = value;
+		else if (!stricmp(name, "menu_cursor_speed"))	s->menu_cursor_speed = value;
 		else count--;
 	}
 
@@ -126,22 +125,10 @@ void pad_core_set_layer(int layer)
 	Pad_layer = layer;
 }
 
-void pad_core_set_tree(const pad_tree_category *categories, int num_categories, const pad_tree_node *nodes, int num_nodes)
+void pad_core_set_modifiers(const pad_modifier *modifiers, int count)
 {
-	Pad_tree_categories = categories;
-	Pad_tree_num_categories = num_categories;
-	Pad_tree_nodes = nodes;
-	Pad_tree_num_nodes = num_nodes;
-	Pad_tree_category = -1;
-	Pad_tree_depth = 0;
-}
-
-const pad_tree_node *pad_core_tree_node(int index)
-{
-	if ((index < 0) || (index >= Pad_tree_num_nodes)) {
-		return NULL;
-	}
-	return &Pad_tree_nodes[index];
+	Pad_modifiers = modifiers;
+	Pad_num_modifiers = count;
 }
 
 static float pad_clamp1(float v)
@@ -170,6 +157,13 @@ static void pad_shape_stick(float x, float y, float deadzone, float curve, float
 
 	*ox = pad_clamp1(x / mag * m);
 	*oy = pad_clamp1(y / mag * m);
+}
+
+void pad_core_menu_cursor(const pad_state *st, float *x, float *y)
+{
+	pad_shape_stick(st->axis[PAD_LEFT_X], st->axis[PAD_LEFT_Y], Pad_settings.left_deadzone, Pad_settings.curve, 1.0f, x, y);
+	*x *= Pad_settings.menu_cursor_speed;
+	*y *= Pad_settings.menu_cursor_speed;
 }
 
 static float pad_shape_trigger(float t, float deadzone)
@@ -208,74 +202,63 @@ static void pad_add(int *list, int *num, int action)
 	}
 }
 
-// opens, walks and closes the pad tree from this update's face button and D-pad edges
-static void pad_tree_update(int now_ms, pad_output *out)
+// the layer this update
+static int pad_current_layer()
 {
-	const pad_tree_category *cat;
 	int i;
 
-	// release the face button: close at any depth
-	if (Pad_tree_category >= 0) {
-		cat = &Pad_tree_categories[Pad_tree_category];
-		if (!Pad_track[cat->button].down) {
-			if (cat->close_action >= 0) {
-				pad_add(out->fired, &out->num_fired, cat->close_action);
-			}
-			Pad_tree_category = -1;
-			Pad_tree_depth = 0;
-		}
-	}
-
-	// press a face button: open its category
-	if (Pad_tree_category < 0) {
-		for (i = 0; i < Pad_tree_num_categories; i++) {
-			cat = &Pad_tree_categories[i];
-			if ((cat->button >= 0) && (cat->button < PAD_NUM_BUTTONS) && Pad_track[cat->button].pressed
-				&& (cat->root >= 0) && (cat->root < Pad_tree_num_nodes)) {
-				Pad_tree_category = i;
-				Pad_tree_stack[0] = cat->root;
-				Pad_tree_depth = 1;
-				Pad_tree_open_ms = now_ms;
-				if (cat->open_action >= 0) {
-					pad_add(out->fired, &out->num_fired, cat->open_action);
-				}
-				break;
+	if (Pad_layer == PAD_LAYER_BASE) {
+		for (i = 0; i < Pad_num_modifiers; i++) {
+			if (Pad_track[Pad_modifiers[i].input].down) {
+				return Pad_modifiers[i].layer;
 			}
 		}
 	}
+	return Pad_layer;
+}
 
-	if (Pad_tree_category < 0) {
-		return;
-	}
+// a press belongs to the layer it went down in.  A tap in another layer does not start a double tap
+static void pad_latch_layer(int layer, int stale, int now_ms)
+{
+	int i;
 
-	// D-pad: one direction per update
-	for (i = 0; i < PAD_TREE_NUM_DIRS; i++) {
-		const pad_tree_option *opt;
+	for (i = 0; i < PAD_NUM_INPUTS; i++) {
+		pad_input_track *t = &Pad_track[i];
 
-		if (!Pad_track[Pad_tree_dpad[i]].pressed) {
-			continue;
+		if (!t->down) {
+			t->long_fired = 0;
 		}
-
-		if ((i == PAD_TREE_LEFT) && (Pad_tree_depth > 1)) {
-			Pad_tree_depth--;
-			break;
-		}
-
-		opt = &Pad_tree_nodes[Pad_tree_stack[Pad_tree_depth - 1]].option[i];
-		if ((opt->child >= 0) && (opt->child < Pad_tree_num_nodes)) {
-			if (Pad_tree_depth < PAD_TREE_MAX_DEPTH) {
-				Pad_tree_stack[Pad_tree_depth++] = opt->child;
+		if (t->pressed) {
+			if (t->press_layer != layer) {
+				t->second = 0;
 			}
-		} else if (opt->action >= 0) {
-			pad_add(out->fired, &out->num_fired, opt->action);
+			t->long_fired = 0;
 		}
-		break;
+		if (t->pressed || stale) {
+			t->press_layer = layer;
+		}
+		if (t->pressed || stale || (layer != Pad_last_layer)) {
+			t->long_ms = now_ms;
+		}
 	}
+	Pad_last_layer = layer;
+}
 
-	out->tree_category = Pad_tree_category;
-	out->tree_node = Pad_tree_stack[Pad_tree_depth - 1];
-	out->tree_depth = Pad_tree_depth;
-	out->tree_show = (now_ms - Pad_tree_open_ms) >= PAD_TREE_SHOW_MS;
+static int pad_chord_ok(const pad_binding *b)
+{
+	const pad_input_track *t;
+	int input, live;
+
+	if (b->chord == 0) {
+		return 1;
+	}
+	input = ((b->chord > 0) ? b->chord : -b->chord) - 1;
+	if ((input < 0) || (input >= PAD_NUM_INPUTS)) {
+		return 0;
+	}
+	t = &Pad_track[input];
+	live = t->down && ((b->layer == PAD_LAYER_ANY) || (t->press_layer == b->layer));
+	return (b->chord > 0) ? live : !live;
 }
 
 void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
@@ -290,14 +273,9 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 		Pad_settings_set = 1;
 	}
 
-	out->tree_category = -1;
-	out->tree_node = -1;
-
 	if (!st->connected) {
 		memset(Pad_track, 0, sizeof(Pad_track));
 		Pad_have_update = 0;
-		Pad_tree_category = -1;
-		Pad_tree_depth = 0;
 		return;
 	}
 
@@ -320,6 +298,8 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 			t->down = down;
 			t->second = 0;
 			t->release_ms = now_ms - Pad_settings.double_tap_ms - 1;
+			t->release_seen = 0;
+			t->again = 0;
 			continue;
 		}
 
@@ -327,23 +307,25 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 			// second tap: the last press was a short tap, ended recently, and was not itself a second tap
 			int last_len = t->release_ms - t->press_ms;
 			t->second = !t->second && (last_len <= Pad_settings.double_tap_ms) && ((now_ms - t->release_ms) <= Pad_settings.double_tap_ms);
+			t->again = t->release_seen && ((now_ms - t->release_ms) <= PAD_REPRESS_MS);
 			t->press_ms = now_ms;
 			t->pressed = 1;
 		} else if (!down && t->down) {
 			t->release_ms = now_ms;
+			t->release_seen = 1;
 			t->released = 1;
 		}
 
 		t->down = down;
 	}
 
-	pad_tree_update(now_ms, out);
-	layer = (Pad_tree_category >= 0) ? PAD_LAYER_TREE : Pad_layer;
+	layer = pad_current_layer();
+	pad_latch_layer(layer, stale, now_ms);
 
 	// bindings
 	for (i = 0; i < Pad_num_bindings; i++) {
 		const pad_binding *b = &Pad_bindings[i];
-		const pad_input_track *t;
+		pad_input_track *t;
 
 		if ((b->layer != PAD_LAYER_ANY) && (b->layer != layer)) {
 			continue;
@@ -353,9 +335,24 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 		}
 
 		t = &Pad_track[b->input];
+
+		// the long hold counts time in this layer, so it may start under a press from another
+		if ((b->layer != PAD_LAYER_ANY) && (b->gesture != PAD_G_LONG_HOLD) && (t->press_layer != b->layer)) {
+			continue;
+		}
+		if (!pad_chord_ok(b)) {
+			continue;
+		}
+
 		switch (b->gesture) {
 		case PAD_G_PRESS:
 			if (t->pressed) pad_add(out->fired, &out->num_fired, b->action);
+			break;
+		case PAD_G_PRESS_FRESH:
+			if (t->pressed && !t->again) pad_add(out->fired, &out->num_fired, b->action);
+			break;
+		case PAD_G_PRESS_AGAIN:
+			if (t->pressed && t->again) pad_add(out->fired, &out->num_fired, b->action);
 			break;
 		case PAD_G_RELEASE:
 			if (t->released) pad_add(out->fired, &out->num_fired, b->action);
@@ -364,10 +361,19 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 			if (t->down) pad_add(out->held, &out->num_held, b->action);
 			break;
 		case PAD_G_DOUBLE_TAP:
-			if (t->released && t->second) pad_add(out->fired, &out->num_fired, b->action);
+			if (t->released && t->second && ((t->release_ms - t->press_ms) <= Pad_settings.double_tap_ms)) pad_add(out->fired, &out->num_fired, b->action);
 			break;
 		case PAD_G_DOUBLE_TAP_HOLD:
 			if (t->down && t->second) pad_add(out->held, &out->num_held, b->action);
+			break;
+		case PAD_G_HOLD_PAST_TAP:
+			if (t->down && ((now_ms - t->press_ms) > Pad_settings.double_tap_ms)) pad_add(out->held, &out->num_held, b->action);
+			break;
+		case PAD_G_LONG_HOLD:
+			if (t->down && !t->long_fired && ((now_ms - t->long_ms) >= PAD_LONG_HOLD_MS)) {
+				t->long_fired = 1;
+				pad_add(out->fired, &out->num_fired, b->action);
+			}
 			break;
 		}
 	}
@@ -384,6 +390,12 @@ void pad_core_update(const pad_state *st, int now_ms, pad_output *out)
 
 	out->throttle_max_rate = Pad_settings.throttle_rate;
 	out->throttle_rate = pad_shape_trigger(st->axis[PAD_TRIGGER_LEFT], Pad_settings.trigger_deadzone) * Pad_settings.throttle_rate;
+
+	// speed mode: the right stick is the throttle, up raises (+y is down)
+	if (pad_output_is_held(out, PAD_CORE_ACTION_SPEED_MODE)) {
+		out->roll = 0.0f;
+		out->throttle_rate -= y * Pad_settings.throttle_rate;
+	}
 }
 
 int pad_output_is_held(const pad_output *out, int action)

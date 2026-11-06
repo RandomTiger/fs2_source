@@ -2442,6 +2442,9 @@ int object_targetable_in_reticle(object *target_objp)
 //
 #define TARGET_IN_RETICLE_DISTANCE	10000.0f
 
+static int Reticle_pad_peek = 0;			// Claude: the pad asks what is under the reticle, see hud_pad_reticle_top
+static object *Reticle_pad_peek_obj = NULL;
+
 void hud_target_in_reticle_new()
 {
 	vector	terminus;
@@ -2575,6 +2578,24 @@ void hud_target_in_reticle_old()
 		}
 	}
 
+	// Claude: the pad only asks, and nothing is targeted
+	if ( Reticle_pad_peek ) {
+		reticle_list *rl;
+
+		// as hud_reticle_pick_target: with both in the list, debris and asteroids do not count
+		Reticle_pad_peek_obj = NULL;
+		for ( rl = GET_FIRST(&Reticle_cur_list); rl != END_OF_LIST(&Reticle_cur_list); rl = GET_NEXT(rl) ) {
+			if ( Reticle_pad_peek_obj == NULL ) {
+				Reticle_pad_peek_obj = rl->objp;
+			}
+			if ( (rl->objp->type != OBJ_DEBRIS) && (rl->objp->type != OBJ_ASTEROID) ) {
+				Reticle_pad_peek_obj = rl->objp;
+				break;
+			}
+		}
+		return;
+	}
+
 	target_obj = hud_reticle_pick_target();
 	if ( target_obj != NULL ) {
 		set_target_objnum( Player_ai, OBJ_INDEX(target_obj) );
@@ -2651,6 +2672,73 @@ void hud_target_subsystem_in_reticle()
 	else {
 		snd_play( &Snds[SND_TARGET_FAIL]);
 	}
+}
+
+// Claude: for the pad's South button (#151), which has to know what a press means before it changes the target.
+// The object at the top of what is under the reticle, whatever repeat presses have already been through.
+// Changes nothing: the scan's list is scratch, each press clears it first.
+object *hud_pad_reticle_top()
+{
+	int save_timestamp = Reticle_save_timestamp;
+
+	Reticle_pad_peek = 1;
+	hud_target_in_reticle_new();
+	Reticle_pad_peek = 0;
+
+	hud_reticle_clear_list(&Reticle_cur_list);
+	Reticle_save_timestamp = save_timestamp;
+
+	return Reticle_pad_peek_obj;
+}
+
+// Claude: forget the objects repeat presses have been through, so the next press takes the top one
+void hud_pad_reticle_fresh()
+{
+	hud_reticle_clear_list(&Reticle_save_list);
+}
+
+// Claude: the pad's East button: the nearest hostile, or the next after the current target. The game's next-hostile
+// list goes back to the closest once TL_RESET has passed since its last press; here the pad decides which it is, so the
+// clock is renewed first.
+void hud_pad_target_hostile(int next)
+{
+	Tl_hostile_reset_timestamp = timestamp(TL_RESET);
+	if (next) {
+		hud_target_next_list();
+	} else {
+		hud_target_closest(opposing_team_mask(Player_ship->team));
+	}
+}
+
+// Claude: the subsystem hud_target_subsystem_in_reticle would pick on the current target, NULL if none
+ship_subsys *hud_pad_subsystem_in_reticle()
+{
+	object *targetp;
+	ship_subsys *subsys;
+	ship_subsys *nearest_subsys = NULL;
+	vector subobj_pos, vec_to_target;
+	float dot, best_dot = -1.0f;
+
+	if ( Player_ai->target_objnum == -1 ) {
+		return NULL;
+	}
+	targetp = &Objects[Player_ai->target_objnum];
+	if ( targetp->type != OBJ_SHIP ) {
+		return NULL;
+	}
+
+	for ( subsys = GET_FIRST(&Ships[targetp->instance].subsys_list); subsys != END_OF_LIST(&Ships[targetp->instance].subsys_list); subsys = GET_NEXT(subsys) ) {
+		get_subsystem_world_pos(targetp, subsys, &subobj_pos);
+		vm_vec_normalized_dir(&vec_to_target, &subobj_pos, &Eye_position);
+		dot = vm_vec_dot(&Player_obj->orient.fvec, &vec_to_target);
+		if ( dot > best_dot ) {
+			best_dot = dot;
+			if ( best_dot > MIN_DOT_FOR_TARGET ) {
+				nearest_subsys = subsys;
+			}
+		}
+	}
+	return nearest_subsys;
 }
 
 #define T_LENGTH					8

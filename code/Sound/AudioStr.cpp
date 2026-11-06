@@ -339,6 +339,7 @@ public:
 	long	Get_Default_Volume() { return m_lDefaultVolume; }
 	unsigned int Get_Bytes_Committed(void);
 	int	Is_looping() { return m_bLooping; }
+	int	Is_closing() { return m_bDestroy_when_faded; }	// Claude: closed, fading out; the audio timer thread frees it
 	int	status;
 	int	type;
 	UINT m_bits_per_sample_uncompressed;
@@ -1920,6 +1921,14 @@ void audiostream_pause_all()
 	for ( i = 0; i < MAX_AUDIO_STREAMS; i++ ) {
 		if ( Audio_streams[i].status == ASF_FREE )
 			continue;
+
+		// Claude: The audio timer thread frees a closed stream when its fade-out ends, so whether one is still here depends on thread timing.  Pausing only affects sound, so keep its reads out of the recording.
+		if ( Audio_streams[i].Is_closing() ) {
+			replay_push();
+			audiostream_pause(i);
+			replay_pop();
+			continue;
+		}
 
 		audiostream_pause(i);
 	}
