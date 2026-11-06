@@ -1086,8 +1086,11 @@ void aabitmap_piece(int x, int y, int w, int h, int sx, int sy)
 	bm_get_info(gr_screen.current_bitmap, &bw, &bh, nullptr);
 	const color &c = gr_screen.current_color;
 	const int cc[4] = { c.red, c.green, c.blue, c.alpha };
+	// #213: scaled by a fraction, a pixel centre can land on the piece's edge and round into the neighbouring glyph of the font bitmap; 1/8 texel in keeps it inside
+	int spx, spy;
+	const float in = (gr_virtual_hud_scale(&spx, &spy) != 1) ? 0.125f : 0.0f;
 	quad((float)(x + gr_screen.offset_x), (float)(y + gr_screen.offset_y), (float)(x + w + gr_screen.offset_x), (float)(y + h + gr_screen.offset_y),
-		(float)sx / bw, (float)sy / bh, (float)(sx + w) / bw, (float)(sy + h) / bh, id, FS2_SINK_BLEND_ALPHA, cc, cc, cc, cc);
+		((float)sx + in) / bw, ((float)sy + in) / bh, ((float)(sx + w) - in) / bw, ((float)(sy + h) - in) / bh, id, FS2_SINK_BLEND_ALPHA, cc, cc, cc, cc);
 }
 
 void h_aabitmap_ex(int x, int y, int w, int h, int sx, int sy) { aabitmap_piece(x, y, w, h, sx, sy); }
