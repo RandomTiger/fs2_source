@@ -6,7 +6,7 @@ Read from code, not measured. Already on the GPU: model meshes, thruster mesh, n
 | # | Class | Where | Size | Risk |
 |---|---|---|---|---|
 | 1 | Beams (DONE 2026-11-05, 6f94544; off: `FS2_BEAM_GPU=0`) | `Weapon/Beam.cpp:1352` | M | done |
-| 2 | Trails | `Weapon/Trails.cpp:318-340`, per-vertex alpha | M | low |
+| 2 | Trails (DONE 2026-11-06, a956a75, `FS2_SINK_BB_QUAD4` + `FS2_SINK_BB_TRI3`; off: `FS2_TRAILS_GPU=0`) | `Weapon/Trails.cpp` | M | done |
 | 3 | Shockwaves, rotated puffs | `g3_draw_rotated_bitmap` (`3ddraw.cpp:708`); DONE 2026-11-05: `FS2_SINK_BB_ROTATED` on by default (off: `FS2_BB_ROT=0`, used by the frame runner for pixel compares) | S-M | done |
 | 4 | Shield hits | `Ship/Shield.cpp:477-540`, gouraud tinted quads | M | ship-relative transform |
 | 5 | Lightning (DONE 2026-11-05, 5f157ea, `FS2_SINK_BB_QUAD4`; off: `FS2_LIGHTNING_GPU=0`) | `Nebula/NebLightning.cpp` | S | done |
