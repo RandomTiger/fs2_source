@@ -46,6 +46,7 @@ static const char *Voice_func_phrases[VOICE_NUM_FUNCS][4] = {
 	{ "dual missile", NULL },
 	{ "cycle missile", NULL },
 	{ "support", "rearm", "repair", NULL },
+	{ "abort", "abort rearm", NULL },
 };
 
 #define VOICE_ALL_FIGHTERS_PHRASE	"all fighters"
