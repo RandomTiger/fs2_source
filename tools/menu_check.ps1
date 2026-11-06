@@ -38,7 +38,7 @@ foreach ($e in $Configs) {
 	$log = Join-Path $GameDir 'autotest.log'
 	Remove-Item $log -ErrorAction SilentlyContinue
 	# the scratch pilot, so the result never depends on a real pilot in this folder (#141)
-	Get-ChildItem 'data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
+	Get-ChildItem 'data\players', 'fs1demo\data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
 	$gameArgs = '-window -autotest -at_menus -at_pilot AutotestPilot'
 	if ($Mission) { $gameArgs += " -at_mission $Mission" }
 	if ($PSBoundParameters.ContainsKey('Awards')) { $gameArgs += " -at_awards $Awards" }
@@ -51,7 +51,7 @@ foreach ($e in $Configs) {
 	if (-not $p.WaitForExit(900000)) { Stop-Process $p -Force }
 	$p.WaitForExit()
 	# it goes again, so it never shows on the player's pilot screen and each run starts from a new one
-	Get-ChildItem 'data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
+	Get-ChildItem 'data\players', 'fs1demo\data\players' -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force
 	$tour = 'NO LOG'
 	if (Test-Path $log) {
 		Copy-Item $log (Join-Path $Out "menus_$e.autotest.log")

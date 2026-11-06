@@ -435,6 +435,15 @@ int fs2_voice_enabled(void)
 	return voice_game_enabled();
 }
 
+int fs2_left_column_shown(void)
+{
+	if (gameseq_get_depth() < 0) {	// no state yet: the game is still starting
+		return 0;
+	}
+	const int state = gameseq_get_state();
+	return (state == GS_STATE_INITIAL_PLAYER_SELECT || state == GS_STATE_MAIN_MENU) ? 1 : 0;
+}
+
 void fs2_set_window_handle(unsigned long long handle)
 {
 	Api_sound_window = handle;
