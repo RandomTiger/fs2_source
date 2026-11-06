@@ -109,6 +109,28 @@ public:
 		fog_ex = 32.0f / (float)(sw > 0 ? sw : 1);
 		fog_ey = 32.0f / (float)(sh > 0 ? sh : 1);
 	}
+	// R3 row 9: a poly marked fog_rgb[3] == 1 that was drawn on the mesh path (mesh_fog_mark): its cells become the colour state, nothing is drawn
+	void note_marked(const float *xy, int n)
+	{
+		if (!fog_gpu || n < 3 || n > 32) { return; }
+		fog_last.clear();
+		fog_last_off = (float)(ftab.size() / 2);
+		for (int i = 0; i < n; i++) {
+			uint8_t xs, ys;
+			mark_cell(xy[i * 2], xy[i * 2 + 1], xs, ys);
+			ftab.push_back(xs); ftab.push_back(ys);
+			fog_last.push_back(xs); fog_last.push_back(ys);
+		}
+		fog_last_frame = fog_frame;
+	}
+	// the cells (x, y pairs, up to 32) of the colour state now, and whether they are of the frame before (look up on its pre-render, as the table's w)
+	int fog_stale(uint8_t *cells, bool &prev_frame) const
+	{
+		const int n = (int)(fog_last.size() / 2) < 32 ? (int)(fog_last.size() / 2) : 32;
+		for (int i = 0; i < n * 2; i++) { cells[i] = fog_last[(size_t)i]; }
+		prev_frame = fog_last_frame != fog_frame && fog_last_frame + 1 == fog_frame;
+		return n;
+	}
 	float fog_cell_x() const { return fog_ex; }	// 32 / screen width and height: the scale to the pre-render's cells
 	float fog_cell_y() const { return fog_ey; }
 	const std::vector<uint8_t> &fog_table() const { return ftab; }	// x y per entry, cell coordinates 0..31
@@ -173,6 +195,17 @@ private:
 	bool fog_gpu = false;
 	float fog_ex = 0.0f, fog_ey = 0.0f;
 	std::vector<uint8_t> ftab;
+	// the 32x32 start cell of neb2_get_pixel(int(x), int(y)) for a draw vertex (scale, the ys-- quirk and the clamp)
+	void mark_cell(float vx, float vy, uint8_t &xs8, uint8_t &ys8) const
+	{
+		const float fx = vx - FS2_SINK_D3D_PIXEL_CENTRE, fy = vy - FS2_SINK_D3D_PIXEL_CENTRE;	// the game's pixel: the host moved the vertex by +0.5 after its own lookup (gr_host.cpp tmapper_internal, #133)
+		const int ix = (fx > -1e9f && fx < 1e9f) ? (int)fx : 0, iy = (fy > -1e9f && fy < 1e9f) ? (int)fy : 0;
+		int xs = (int)(fog_ex * (float)ix), ys = (int)(fog_ey * (float)iy);
+		if (ys >= 31) { ys--; }
+		xs = xs < 0 ? 0 : (xs > 31 ? 31 : xs);
+		ys = ys < 0 ? 0 : (ys > 31 ? 31 : ys);
+		xs8 = (uint8_t)xs; ys8 = (uint8_t)ys;
+	}
 	// fog gpu, the colour state (D-20261030-052453): the cells of the last poly marked fog_rgb[3] == 1, the frame it was drawn in and its
 	// table range; a fog-on poly without the mark reuses them. In a later frame they are copied once into that frame's table with fogv.w = 1
 	// (looked up on the frame before's pre-render); a mark older than the frame before is looked up on this frame's (not exact, never seen;
@@ -233,14 +266,10 @@ private:
 				tab_nv = (float)nv;
 				if (!overlay) { fog_last.clear(); }
 				for (int i = 0; i < nv; i++) {
-					const float fx = v[i].x - FS2_SINK_D3D_PIXEL_CENTRE, fy = v[i].y - FS2_SINK_D3D_PIXEL_CENTRE;	// the game's pixel: the host moved the vertex by +0.5 after its own lookup (gr_host.cpp tmapper_internal, #133)
-					const int ix = (fx > -1e9f && fx < 1e9f) ? (int)fx : 0, iy = (fy > -1e9f && fy < 1e9f) ? (int)fy : 0;
-					int xs = (int)(fog_ex * (float)ix), ys = (int)(fog_ey * (float)iy);
-					if (ys >= 31) { ys--; }
-					xs = xs < 0 ? 0 : (xs > 31 ? 31 : xs);
-					ys = ys < 0 ? 0 : (ys > 31 ? 31 : ys);
-					ftab.push_back((uint8_t)xs); ftab.push_back((uint8_t)ys);
-					if (!overlay) { fog_last.push_back((uint8_t)xs); fog_last.push_back((uint8_t)ys); }
+					uint8_t xs, ys;
+					mark_cell(v[i].x, v[i].y, xs, ys);
+					ftab.push_back(xs); ftab.push_back(ys);
+					if (!overlay) { fog_last.push_back(xs); fog_last.push_back(ys); }
 				}
 				// an overlay (glow) draw has its own cells but is not "the last marked poly": the unmarked draws after it keep the lit polys' colour
 				if (!overlay) {

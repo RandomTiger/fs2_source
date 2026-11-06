@@ -10,6 +10,7 @@
 		{ "name": "AutotestWeapons", "recording": "recordings/autotest/AutotestWeapons.fs2rec", "frames": [1500, 3000, 4500], "what": "lasers, missiles, beams" },
 		{ "name": "AutotestDamage", "recording": "recordings/autotest/AutotestDamage.fs2rec", "frames": [1500, 3000, 4500], "what": "hits, explosions, debris" },
 		{ "name": "AutotestNebActive", "recording": "recordings/autotest/AutotestNebActive.fs2rec", "frames": [2000, 4000], "what": "fighting in nebula" },
+		{ "name": "AutotestNebFlames", "recording": "recordings/autotest/AutotestNebFlames.fs2rec", "frames": [20, 60, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1300, 1400, 1500, 1600, 1700], "what": "28 ships at 100-3500 m in nebula, engine flames (R3 row 9)" },
 		{ "name": "sm1-05", "recording": "recordings/autotest/sm1-05.fs2rec", "frames": [1500, 3000], "what": "campaign dogfight, busy HUD" },
 		{ "name": "AutotestHudJitter", "recording": "recordings/autotest/AutotestHudJitter.fs2rec", "frames": [300, 709, 1568, 2008], "what": "EMP HUD jitter (300 = no EMP baseline)" }
 	]

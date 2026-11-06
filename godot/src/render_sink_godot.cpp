@@ -77,6 +77,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_thrust = &GodotSink::s_mesh_thrust;
 	sink.mesh_fog = &GodotSink::s_mesh_fog;
 	sink.billboard_draw = &GodotSink::s_billboard_draw;
+	sink.mesh_fog_mark = &GodotSink::s_mesh_fog_mark;
 	{
 		// the shared unit quad of the billboard draws, made here (no lazy creation): the vertex shader moves its four corners
 		RenderingServer *rs = RenderingServer::get_singleton();
@@ -1772,10 +1773,11 @@ void GodotSink::add_to_layer(Layer &l, const Batch &b, int order)
 // position is the game's projection (sx = (W + x*W/z)/2), the depth is legacy_depth with the sw clamp (z >= 1) and the z cap (0.98), and the
 // position is output homogeneous (w = eye z), so the GPU clips at w > 0 and the fragment shader discards below the near plane (eye z 0.1) and interpolates the UVs
 // perspective-correct; colour and fog stay linear in screen space (the game's Gouraud), carried as value * z and divided by the interpolated z.
-RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect)
+RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool cull, bool lit, bool uclip, bool fog, bool ovl, bool thr, bool crect, bool stale)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
+	stale = stale && fog && g_nebfog == kNebFogGpu;
+	const uint32_t skey = (stale ? 16384u : 0u) | (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1799,7 +1801,14 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 			// neb2_get_pixel (Neb.cpp 1229-1343) for the vertex's projected screen cell, on the 32x32 pre-render `bg`: the same integer average
 			// over the cell and its neighbours as the poly path's fog gpu takes per poly vertex
 			code += "uniform sampler2D bg : filter_nearest, repeat_disable;\n";
-			code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
+			if (stale) {
+				// R3 row 9: the colour the last marked poly left (scell = its start cells, sinfo = count, 1 = of the frame before): the integer average
+				// over its vertices of nbget, as the poly path (GrD3DRender.cpp 962-980); the pre-render of the frame before when it is that old
+				code += "uniform sampler2D bgp : filter_nearest, repeat_disable;\nuniform vec4 scell[16];\nuniform vec2 sinfo;\n";
+				code += "ivec3 nbpx(int x, int y) { return ivec3(round((sinfo.y > 0.5 ? texelFetch(bgp, ivec2(x, y), 0) : texelFetch(bg, ivec2(x, y), 0)).rgb * 255.0)); }\n";
+			} else {
+				code += "ivec3 nbpx(int x, int y) { return ivec3(round(texelFetch(bg, ivec2(x, y), 0).rgb * 255.0)); }\n";
+			}
 			code += "ivec3 nbget(int xs, int ys) {\n\tivec3 s = nbpx(xs, ys);\n\tint n = 1;\n";
 			code += "\tif (xs > 0) { s += nbpx(xs - 1, ys); n++; }\n";
 			code += "\tif (xs < 31) { s += nbpx(xs + 1, ys); n++; }\n";
@@ -1832,23 +1841,35 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	if (thr) { code += "\tif (p.z < thr.y) { p.z *= thr.x; }\n"; }
 	code += "\tvec3 e =vec3(dot(r0.xyz, p) + r0.w, dot(r1.xyz, p) + r1.w, dot(r2.xyz, p) + r2.w);\n";
 	code += "\tfloat z = max(e.z, 1.0);\n\tfloat d = cfg.z + min(z / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
-	code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x * e.z + cfg.x * e.x, org.y * e.z + cfg.y * e.y, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
+	if (thr && stale) {	// the polygon path snaps screen positions to the 1/16 pixel grid (tmapper_internal): so does the flame; y is flipped, hence ceil
+		code += "\tvec2 sp = vec2(floor((org.x + cfg.x * e.x / z) * 16.0), ceil((org.y + cfg.y * e.y / z) * 16.0)) / 16.0;\n";
+		code += "\tPOSITION = PROJECTION_MATRIX * vec4(sp.x * e.z, sp.y * e.z, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
+	} else {
+		code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x * e.z + cfg.x * e.x, org.y * e.z + cfg.y * e.y, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
+	}
 	if (!rpt) {	// LEGACY PIXEL COMPATIBILITY (#133): D3D clamps untiled uvs per vertex to [2/w, 1-2/w] (gr_host.cpp tmapper_internal, flCAP)
 		code += "\tvec2 ts = vec2(textureSize(tex, 0));\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { pc.xy = clamp(UV, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
 	}
+	if (thr && stale) { code += "\tpc = vec3(pc.xy * e.z, e.z);\n"; }	// the polygon path draws a thruster without TMAP_FLAG_CORRECT: uvs affine in screen space
 	if (uclip) { code += "\tcz = dot(clipp.xyz, e) + clipp.w;\n"; }
 	if (fog) {
 		// linear in the eye depth, as the poly path (gr_d3d_stuff_fog_value): depth = the capped vertex z * 30000
 		code += "\tfgf = clamp((fogp.y - min(z / 30000.0, 0.98) * 30000.0) / (fogp.y - fogp.x), 0.0, 1.0) * e.z;\n";
 		if (fgpu) {
 			// the game-screen pixel of the vertex, truncated as the host passes (int)x, (int)y, then the start cell as Neb.cpp 1252-1273
-			code += "\tint xs = int(fogp.z * float(int(cfg.x * (1.0 + e.x / z))));\n\tint ys = int(fogp.w * float(int(cfg.y * (1.0 - e.y / z))));\n";
-			code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0 * e.z;\n";
+			if (stale) {
+				code += "\tivec3 tot = ivec3(0);\n\tint sn = int(sinfo.x + 0.5);\n\tfor (int i = 0; i < 32; i++) {\n\t\tif (i >= sn) { break; }\n";
+				code += "\t\tvec4 sc = scell[i >> 1];\n\t\tvec2 c2 = (i & 1) == 0 ? sc.xy : sc.zw;\n\t\ttot += nbget(int(c2.x + 0.5), int(c2.y + 0.5));\n\t}\n";
+				code += "\tint sd = max(sn, 1);\n\tfgc = vec3(float(tot.x / sd), float(tot.y / sd), float(tot.z / sd)) / 255.0 * e.z;\n";
+			} else {
+				code += "\tint xs = int(fogp.z * float(int(cfg.x * (1.0 + e.x / z))));\n\tint ys = int(fogp.w * float(int(cfg.y * (1.0 - e.y / z))));\n";
+				code += "\tif (ys >= 31) { ys--; }\n\txs = clamp(xs, 0, 31);\n\tys = clamp(ys, 0, 31);\n\tfgc = vec3(nbget(xs, ys)) / 255.0 * e.z;\n";
+			}
 		} else {
 			code += "\tfgc = fogc.rgb * e.z;\n";
 		}
 	}
-	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tvcol = texelFetch(cols, ivec2(ci & 255, ci >> 8), 0).rgb * e.z;\n}\n";
+	code += ovl ? "\tvcol = vec3(e.z);\n}\n" : lit ? "\tvcol = light_vertex(p, CUSTOM1.xyz) * e.z;\n}\n" : "\tint ci = int(CUSTOM0.x + 0.5);\n\tivec2 csz = textureSize(cols, 0);\n\tvcol = texelFetch(cols, ivec2(min(ci & 255, csz.x - 1), min(ci >> 8, csz.y - 1)), 0).rgb * e.z;\n}\n";
 	code += "void fragment() {\n";
 	code += "\tif (wv < 0.1) { discard; }\n";	// the near plane, eye z 0.1 (Tom's order; the GPU itself clips at w > 0, the host no longer clips)
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
@@ -1906,7 +1927,7 @@ void GodotSink::s_mesh_state(void *u, int32_t id, const fs2_sink_mesh_group *g, 
 }
 
 // A material for one group of one draw: the group's shader and texture, and the draw's colour table.
-RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect)
+RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bool lit, bool uclip, bool fog, bool thr, bool crect, bool stale)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	bool a8 = false;
@@ -1925,7 +1946,7 @@ RID GodotSink::mesh_group_material(const MeshGroupState &mg, const RID &cols, bo
 	const bool lin = (tflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (tflags & FS2_SINK_TEXF_REPEAT) != 0;
 	// a glow overlay (FS2_SINK_DRAWF_OVERLAY, the ship glow pass) is unlit and a hair nearer than the lit group it covers, as the poly path's overlay draws
 	const bool ovl = (mg.g.flags & FS2_SINK_DRAWF_OVERLAY) != 0;
-	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl, thr, crect));
+	rs->material_set_shader(mat, mesh_shader(mg.g.blend, mg.zmode, a8, lin, rpt, (mg.g.flags & FS2_SINK_DRAWF_CULL) != 0, lit && !ovl, uclip, fog, ovl, thr, crect, stale));
 	rs->material_set_param(mat, "tex", tex);
 	rs->material_set_param(mat, "cols", cols);
 	rs->material_set_param(mat, "zbias", (float)mg.g.zbias + (ovl ? 1.0f : 0.0f));	// 0.05 depth units a step: the poly path's overlay shift
@@ -2030,12 +2051,21 @@ void GodotSink::s_mesh_draw(void *u, int32_t id, const float *xform, const uint8
 	if (d.thr) { d.thrv[0] = s->mesh_thr[0]; d.thrv[1] = s->mesh_thr[1]; }
 	d.fog = s->mesh_fog_state.mode == FS2_SINK_FOG_LINEAR;
 	d.fogv = s->mesh_fog_state;
+	if (d.fog && d.fogv.rgb[3] == 1 && g_nebfog == kNebFogGpu) { d.stale = true; d.sn = s->batcher.fog_stale(d.scell, d.sprev); }
 	if (s->have_view) { d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y; }
 	s->mesh_draws.push_back(d);
 	Batch b;
 	b.key.texture = -(int32_t)s->mesh_draws.size();
 	b.key.depth = 1; b.key.zmode = 2; b.key.epoch = d.epoch;
 	s->run_batches.push_back(b);
+}
+
+// R3 row 9: a poly marked fog_rgb[3] == 1 drawn on the host's mesh path; it only sets the colour state of the fogged draws after it
+void GodotSink::s_mesh_fog_mark(void *u, const float *xy, int n)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	if (!s->in_frame || xy == nullptr || g_nebfog != kNebFogGpu) { return; }
+	s->batcher.note_marked(xy, n);
 }
 
 // the thruster scale for the draws that follow; NULL clears it
@@ -2130,7 +2160,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 	}
 	for (size_t gi = 0; gi < it->second.groups.size(); gi++) {
 		MeshGroup &mg = it->second.groups[gi];
-		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog, d.thr, d.crect);
+		const RID mat = mesh_group_material(states[gi], cols, d.lit, d.clip, d.fog, d.thr, d.crect, d.stale);
 		l.mesh_materials.push_back(mat);
 		const float gorigin = (states[gi].g.flags & FS2_SINK_DRAWF_OVERLAY) ? origin - 0.1f : origin;	// the overlay sorts after the lit group (back to front by origin)
 		RID inst;
@@ -2163,6 +2193,14 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 			rs->material_set_param(mat, "fogp", Vector4(d.fogv.fog_near, d.fogv.fog_far, batcher.fog_cell_x(), batcher.fog_cell_y()));
 			rs->material_set_param(mat, "fogc", Vector4(d.fogv.rgb[0] / 255.0f, d.fogv.rgb[1] / 255.0f, d.fogv.rgb[2] / 255.0f, 0.0f));
 			if (g_nebfog == kNebFogGpu) { rs->material_set_param(mat, "bg", gpu_bg_texture((int)(committed & 1))); }	// this frame's pre-render, as the poly materials
+			if (d.stale) {
+				rs->material_set_param(mat, "bgp", gpu_bg_texture((int)((committed & 1) ^ 1)));	// the frame before's pre-render (cells of a mark that old)
+				PackedVector4Array sc;
+				sc.resize(16);
+				for (int i = 0; i < 16; i++) { sc.set(i, Vector4((float)d.scell[i * 4], (float)d.scell[i * 4 + 1], (float)d.scell[i * 4 + 2], (float)d.scell[i * 4 + 3])); }
+				rs->material_set_param(mat, "scell", sc);
+				rs->material_set_param(mat, "sinfo", Vector2((float)d.sn, d.sprev ? 1.0f : 0.0f));
+			}
 		}
 		if (d.lit) {
 			const fs2_sink_mesh_light &L = d.light;
@@ -2199,6 +2237,85 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u) | (nc ? 16384u : 0u);
 	auto it = bb_shaders.find(skey);
 	if (it != bb_shaders.end()) { return it->second; }
+	if (kind == FS2_SINK_BB_STARS) {
+		// R3 row 8: stars_draw's per-star work (docs/R3_stars_design.md). One instance per star (pA = unit vector, pA.w = the star's index i), VERTEX.x picks the end
+		// (0 = tail p1, 1 = head p2), VERTEX.y the side. Every step is the game's own float expression in the same order (vm_vec_rotate, g3_code_vertex,
+		// g3_project_vertex, vm_vec_dist_quick, the tail, the colour index) and (int) is trunc(); the strip is segment()'s: an axis aligned line is the pixel rect
+		// from one end to the other inclusive, any other a one pixel wide strip through the pixel centres. Coordinates are Godot's (the pixel x covers [x, x + 1)); the
+		// org uniform adds the D3D half pixel, so 0.5 comes off here. A star the CPU route drops (code, overflow) collapses to nothing.
+		String sc;
+		sc += "shader_type spatial;\n";
+		sc += "render_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, blend_mix, depth_draw_never, depth_test_disabled;\n";
+		sc += "uniform vec4 cfg;\n";
+		sc += "uniform vec4 org;\n";
+		sc += "uniform vec4 vr;\n";
+		sc += "uniform vec4 vu;\n";
+		sc += "uniform vec4 vf;\n";
+		sc += "uniform vec4 pr;\n";
+		sc += "uniform vec4 pu;\n";
+		sc += "uniform vec4 pf;\n";
+		sc += "uniform vec4 sp;\n";
+		sc += "uniform vec4 sfl;\n";
+		sc += "varying flat float alp;\n";
+		sc += "vec3 rot(vec3 s, vec4 a, vec4 b, vec4 c) { return vec3((s.x * a.x) + (s.y * a.y) + (s.z * a.z), (s.x * b.x) + (s.y * b.y) + (s.z * b.z), (s.x * c.x) + (s.y * c.y) + (s.z * c.z)); }\n";
+		sc += "bool dropped(vec3 p) { return p.x > p.z || p.y > p.z || p.x < -p.z || p.y < -p.z || p.z <= 0.0; }\n";
+		sc += "vec2 proj(vec3 p, vec2 cwh) { float w = 1.0 / p.z; return vec2((cwh.x + (p.x * cwh.x * w)) * 0.5, (cwh.y - (p.y * cwh.y * w)) * 0.5); }\n";
+		sc += "float magq(vec3 v) { float a = abs(v.x); float b = abs(v.y); float c = abs(v.z); if (a < b) { float t1 = a; a = b; b = t1; } if (b < c) { float t2 = b; b = c; c = t2; if (a < b) { float t3 = a; a = b; b = t3; } } float bc = (b * 0.25) + (c * 0.125); return a + bc + (bc * 0.5); }\n";
+		sc += "void vertex() {\n";
+		sc += "\tmat4 M = MODEL_MATRIX;\n";
+		sc += "\tvec3 pos = vec3(M[0][0], M[0][1], M[0][2]);\n";
+		sc += "\tint idx = int(M[1][0] + 0.5);\n";
+		sc += "\tvec2 q = VERTEX.xy;\n";
+		sc += "\tvec2 cwh = 2.0 * cfg.xy;\n";
+		sc += "\talp = 0.0;\n";
+		sc += "\tbool skip = false;\n";
+		sc += "\tvec3 p2 = rot(pos, vr, vu, vf);\n";
+		sc += "\tif (dropped(p2)) { skip = true; }\n";
+		sc += "\tvec2 s2 = skip ? vec2(0.0) : proj(p2, cwh);\n";
+		sc += "\tint fl = int(sfl.x + 0.5);\n";
+		sc += "\tvec3 p1 = vec3(0.0);\n";
+		sc += "\tvec2 s1 = vec2(0.0);\n";
+		sc += "\tfloat dist = 0.0;\n";
+		sc += "\tif (!skip) {\n";
+		sc += "\t\tvec3 last = rot(pos, pr, pu, pf);\n";
+		sc += "\t\tdist = magq(last - p2);\n";
+		sc += "\t\tfloat ratio;\n";
+		sc += "\t\tif (dist > sp.w) { ratio = sp.w / dist; dist = sp.w; } else { ratio = 1.0; }\n";
+		sc += "\t\tratio *= sp.x;\n";
+		sc += "\t\tp1 = vec3(p2.x + ((last.x - p2.x) * ratio), p2.y + ((last.y - p2.y) * ratio), p2.z + ((last.z - p2.z) * ratio));\n";
+		sc += "\t\tif (dropped(p1)) { skip = true; } else { s1 = proj(p1, cwh); }\n";
+		sc += "\t}\n";
+		sc += "\tint ci = idx & 7;\n";
+		sc += "\tif ((fl & 2) != 0) { float colorf = 255.0 - (dist * sp.y); if (colorf < sp.z) { colorf = sp.z; } ci = (int(colorf) * (idx & 7)) / 256; }\n";
+		sc += "\talp = float((ci + 1) * 24) / 255.0;\n";
+		sc += "\tfloat x1f = s1.x;\n";
+		sc += "\tif (int(s1.x) == int(s2.x) && int(s1.y) == int(s2.y)) { x1f = s1.x + 1.0; }\n";
+		sc += "\tint ix1 = int(x1f); int iy1 = int(s1.y); int ix2 = int(s2.x); int iy2 = int(s2.y);\n";
+		sc += "\tint cr = int(cwh.x) - 1;\n";
+		sc += "\tif (ix1 > cr && iy1 == iy2) { ix1 = cr; }\n";
+		sc += "\tvec2 c;\n";
+		sc += "\tif (ix1 == ix2 || iy1 == iy2) {\n";
+		sc += "\t\tint lx = min(ix1, ix2); int hx = max(ix1, ix2); int ly = min(iy1, iy2); int hy = max(iy1, iy2);\n";
+		sc += "\t\tif (ix1 == ix2) { c = vec2(q.y > 0.5 ? float(lx + 1) : float(lx), q.x > 0.5 ? float(hy + 1) : float(ly)); } else { c = vec2(q.x > 0.5 ? float(hx + 1) : float(lx), q.y > 0.5 ? float(ly + 1) : float(ly)); }\n";
+		sc += "\t} else {\n";
+		sc += "\t\tvec2 a = vec2(float(ix1) + 0.5, float(iy1) + 0.5);\n";
+		sc += "\t\tvec2 b = vec2(float(ix2) + 0.5, float(iy2) + 0.5);\n";
+		sc += "\t\tvec2 d = b - a;\n";
+		sc += "\t\tfloat len = sqrt(d.x * d.x + d.y * d.y);\n";
+		sc += "\t\tvec2 n = vec2(-d.y / len * 0.5, d.x / len * 0.5);\n";
+		sc += "\t\tc = (q.x > 0.5 ? b : a) + (q.y > 0.5 ? -n : n);\n";
+		sc += "\t}\n";
+		sc += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + c.x - 0.5 - cfg.x, org.y + cfg.y - (c.y - 0.5), -cfg.z, 1.0); }\n";
+		sc += "}\n";
+		sc += "void fragment() {\n";
+		sc += "\tALBEDO = vec3(1.0);\n";
+		sc += "\tALPHA = alp;\n";
+		sc += "}\n";
+		RID ssh = rs->shader_create();
+		rs->shader_set_code(ssh, sc);
+		bb_shaders[skey] = ssh;
+		return ssh;
+	}
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, ";
 	code += blend == FS2_SINK_BLEND_ADD ? "blend_premul_alpha, " : "blend_mix, ";
 	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
@@ -2304,17 +2421,24 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
 {
 	GodotSink *s = static_cast<GodotSink *>(u);
-	if (b == nullptr || !s->in_frame || !s->in_run || !s->have_view || s->textures.find(b->texture) == s->textures.end()) { return 0; }
+	const bool stars = b != nullptr && b->kind == FS2_SINK_BB_STARS;	// R3 row 8: no texture
+	if (b == nullptr || !s->in_frame || !s->in_run || !s->have_view || (!stars && s->textures.find(b->texture) == s->textures.end())) { return 0; }
+	if (stars && (b->star_pos == nullptr || b->star_n <= 0 || b->star_n > kBbBucketCap[kBbBuckets - 1] || b->star_stride < 3)) { return 0; }
 	if (s->clip_empty) { return 1; }	// everything is clipped away: deliberately drawn nothing
 	s->batcher.flush();
 	BbDraw d;
 	d.b = *b;
+	if (stars) {
+		d.b.star_pos = nullptr;
+		d.stars.resize((size_t)b->star_n * 3);
+		for (int i = 0; i < b->star_n; i++) { std::memcpy(&d.stars[(size_t)i * 3], b->star_pos + (size_t)i * (size_t)b->star_stride, 3 * sizeof(float)); }
+	}
 	d.epoch = s->run_epoch;
 	d.crect = s->clipped;
 	if (d.crect) { std::memcpy(d.cr, s->clip, sizeof(d.cr)); }
 	d.cw = s->view.canvas_w; d.ch = s->view.canvas_h; d.ox = s->view.origin_x; d.oy = s->view.origin_y;
 	d.scale[0] = s->view.scale[0]; d.scale[1] = s->view.scale[1];
-	{
+	if (!stars) {
 		const Tex &tx = s->textures.find(b->texture)->second;
 		d.arr = tx.arr; d.layer = tx.layer;
 		if (d.arr < 0) { fs2perf::count(fs2perf::C_BB_NOARR); }
@@ -2330,6 +2454,7 @@ int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
 bool GodotSink::bb_same_run(const BbDraw &a, const BbDraw &b) const
 {
 	const unsigned zm = FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE;
+	if (a.b.kind == FS2_SINK_BB_STARS || b.b.kind == FS2_SINK_BB_STARS) { return false; }	// one call = one run
 	return a.b.kind == b.b.kind && a.b.orient == b.b.orient && a.b.blend == b.b.blend && (a.arr >= 0 ? a.arr == b.arr : (b.arr < 0 && a.b.texture == b.b.texture)) && (a.b.flags & zm) == (b.b.flags & zm)
 		&& a.b.bw == b.b.bw && a.b.bh == b.b.bh && std::memcmp(a.b.clip, b.b.clip, sizeof(a.b.clip)) == 0
 		&& a.epoch == b.epoch && a.cw == b.cw && a.ch == b.ch && a.ox == b.ox && a.oy == b.oy
@@ -2343,9 +2468,10 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 {
 	fs2perf::Zone _pz(fs2perf::Z_BB_RUN);
 	const BbDraw &d = bb_draws[idx[0]];
+	const bool st = d.b.kind == FS2_SINK_BB_STARS;	// R3 row 8: one instance per star, no texture
 	auto ti = textures.find(d.b.texture);
-	if (ti == textures.end() || !bb_quad.is_valid() || !bb_fan5.is_valid()) { return; }
-	const int n = (int)idx.size();
+	if ((!st && ti == textures.end()) || !bb_quad.is_valid() || !bb_fan5.is_valid()) { return; }
+	const int n = st ? d.b.star_n : (int)idx.size();
 	fs2perf::count(fs2perf::C_LAYER_BATCHES);
 	stat_bb_draws += (unsigned long long)n;
 	fs2perf::count(fs2perf::C_BB_RUNS);
@@ -2359,9 +2485,9 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	const float dbase = 2.0f + (float)(MAX_EPOCH - epoch) * 1100.0f;
 	const bool zr = (d.b.flags & FS2_SINK_DRAWF_ZREAD) != 0, zw = (d.b.flags & FS2_SINK_DRAWF_ZWRITE) != 0;
 	const int zmode = zr ? (zw ? 2 : 1) : (zw ? 3 : 0);
-	const bool use_arr = d.arr >= 0 && d.arr < (int)arr_chunks.size();
-	const bool a8 = ti->second.format == FS2_SINK_TEX_A8;
-	const bool lin = (ti->second.flags & FS2_SINK_TEXF_LINEAR) != 0;
+	const bool use_arr = !st && d.arr >= 0 && d.arr < (int)arr_chunks.size();
+	const bool a8 = !st && ti->second.format == FS2_SINK_TEX_A8;
+	const bool lin = !st && (ti->second.flags & FS2_SINK_TEXF_LINEAR) != 0;
 	// per-draw data: transform rows r0..r2 (flat k = column * 3 + row, buffer index row * 4 + column), then the tint as custom data
 	const bool t3 = d.b.kind == FS2_SINK_BB_TRI3;	// TRI3 also fills the instance colour (between the transform and the custom data)
 	const int kStride = t3 ? 20 : 16;
@@ -2370,6 +2496,12 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	float *w = buf.ptrw();
 	std::memset(w, 0, sizeof(float) * (size_t)cap * kStride);
 	for (int i = 0; i < n; i++) {
+		if (st) {	// the star unit vector and its index; the view, tail and colour rules ride in the material
+			float *e = w + (size_t)i * kStride;
+			const float sv[4] = { d.stars[(size_t)i * 3], d.stars[(size_t)i * 3 + 1], d.stars[(size_t)i * 3 + 2], (float)i };
+			for (int k = 0; k < 4; k++) { e[(k % 3) * 4 + (k / 3)] = sv[k]; }
+			continue;
+		}
 		const fs2_sink_billboard &b = bb_draws[idx[(size_t)i]].b;
 		float *e = w + (size_t)i * kStride;
 		const float v[12] = { b.p0[0], b.p0[1], b.p0[2], b.rad, (b.kind == FS2_SINK_BB_ROTATED ? b.angle : b.p1[0]), b.p1[1], b.p1[2], b.rad_tail, b.max_len, (float)b.orient, (float)b.zbias, (float)bb_draws[idx[(size_t)i]].layer };
@@ -2402,6 +2534,34 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	l.bb_multimeshes.push_back(std::make_pair(pool, mm));
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
+	if (st) {
+		rs->material_set_shader(mat, billboard_shader(FS2_SINK_BB_STARS, FS2_SINK_BLEND_ALPHA, 0, false, false, false, false));
+		l.mesh_materials.push_back(mat);
+		const float *v = d.b.star_view, *p = d.b.star_prev, *r = d.b.star_par;
+		rs->material_set_param(mat, "vr", Vector4(v[0], v[1], v[2], 0.0f)); rs->material_set_param(mat, "vu", Vector4(v[3], v[4], v[5], 0.0f)); rs->material_set_param(mat, "vf", Vector4(v[6], v[7], v[8], 0.0f));
+		rs->material_set_param(mat, "pr", Vector4(p[0], p[1], p[2], 0.0f)); rs->material_set_param(mat, "pu", Vector4(p[3], p[4], p[5], 0.0f)); rs->material_set_param(mat, "pf", Vector4(p[6], p[7], p[8], 0.0f));
+		rs->material_set_param(mat, "sp", Vector4(r[0], r[1], r[2], r[3]));
+		rs->material_set_param(mat, "sfl", Vector4((float)d.b.star_flags, 0.0f, 0.0f, 0.0f));
+		const float scw = d.cw > 0 ? (float)d.cw : (float)width, sch = d.ch > 0 ? (float)d.ch : (float)height;
+		rs->material_set_param(mat, "cfg", Vector4(0.5f * scw, 0.5f * sch, dbase, 0.0f));
+		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * scw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * sch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
+		RID sinst;
+		if (kInstancePool && !spare_bb_instances.empty()) {
+			sinst = spare_bb_instances.back();
+			spare_bb_instances.pop_back();
+			rs->instance_set_base(sinst, mm);
+			rs->instance_set_scenario(sinst, l.scenario);
+		} else {
+			sinst = rs->instance_create2(mm, l.scenario);
+			rs->instance_set_transform(sinst, Transform3D());
+			rs->instance_geometry_set_cast_shadows_setting(sinst, RenderingServer::SHADOW_CASTING_SETTING_OFF);
+			rs->instance_set_custom_aabb(sinst, AABB(Vector3(-1.0e6f, -1.0e6f, -1.0e6f), Vector3(2.0e6f, 2.0e6f, 2.0e6f)));
+		}
+		rs->instance_set_pivot_data(sinst, -origin, false);
+		rs->instance_geometry_set_material_override(sinst, mat);
+		l.bb_instances.push_back(sinst);
+		return;
+	}
 	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 8) != 0));
 	l.mesh_materials.push_back(mat);
 	rs->material_set_param(mat, "tex", use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid);

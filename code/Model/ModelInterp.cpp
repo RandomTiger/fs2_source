@@ -1445,7 +1445,7 @@ struct InterpMeshBuild {
 	InterpMeshBuild() : ok(true), thruster(false), tris(0), tris_agree(0) {}
 };
 
-static int Interp_fb_count[11] = { 0 };
+static int Interp_fb_count[14] = { 0 };	// 11: a thruster the host declined, 12: a clip plane the host declined, 13: a hull draw the host declined
 static int Interp_mesh_unmeshed_flat = 0,Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
 
 static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int depth)
@@ -1621,7 +1621,77 @@ void model_interp_mesh_preload_all()
 	}
 }
 
-int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d, thruster declined %d, clip plane declined %d, hull draw declined %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10], Interp_fb_count[11], Interp_fb_count[12], Interp_fb_count[13]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+
+// R3 row 9: the stale fog colour. A marked (PIXEL_FOG) poly sets the fog colour the polys after it (the textured thrusters) are fogged with, and
+// a GPU-drawn submodel never reaches the tmapper. After such a draw the polys are walked once more in reverse draw order through the real
+// clipper into a fog-only tmapper (gr_host_fog_mark_begin); the first one that reaches it is the last marked poly the polygon path would have
+// drawn, and the host sends its screen positions to the sink as the colour state. The box check is not repeated (a box the polygon path
+// skipped would have skipped its polys; one box in a hull or a thruster is the usual case).
+static int interp_replay_list(ubyte *p, polymodel *pm, bool thr, uint flags, vertex *pts, int *stamp, int cur, vector **src, float min_dist)
+{
+	ubyte *chunks[512];
+	int n = 0;
+	for (ubyte *q = p; w(q) != OP_EOF && n < 512; q += w(q+4)) { chunks[n++] = q; }
+	for (int c = n - 1; c >= 0; c--) {
+		ubyte *q = chunks[c];
+		if (w(q) == OP_SORTNORM) {
+			const int frontlist = w(q+36), backlist = w(q+40), prelist = w(q+44), postlist = w(q+48), onlist = w(q+52);
+			// the forward order is pre, (facing: back, on, front; else front, on, back), post: reversed here
+			const bool facing = g3_check_normal_facing(vp(q+20), vp(q+8)) != 0;
+			const int order[5] = { postlist, facing ? frontlist : backlist, onlist, facing ? backlist : frontlist, prelist };
+			for (int k = 0; k < 5; k++) {
+				if (order[k] && interp_replay_list(q + order[k], pm, thr, flags, pts, stamp, cur, src, min_dist)) { return 1; }
+			}
+		} else if (w(q) == OP_TMAPPOLY) {
+			if (!thr && pm->textures[w(q+40)] < 0) { continue; }
+			const int nv = w(q+36);
+			if (nv < 3 || nv > TMAP_MAX_VERTS) { continue; }
+			if (!g3_check_normal_facing(vp(q+20), vp(q+8))) { continue; }
+			model_tmap_vert *verts = (model_tmap_vert *)(q+44);
+			vertex *list[TMAP_MAX_VERTS];
+			for (int i = 0; i < nv; i++) {
+				const int vn = verts[i].vertnum;
+				if (stamp[vn] != cur) {
+					vector tmp = *src[vn];
+					if (thr && tmp.z < min_dist) { tmp.z *= Interp_thrust_scale; }
+					g3_rotate_vertex(&pts[vn], &tmp);
+					stamp[vn] = cur;
+				}
+				list[i] = &pts[vn];
+				list[i]->u = verts[i].u;
+				list[i]->v = verts[i].v;
+			}
+			g3_draw_poly(nv, list, flags);
+			if (gr_host_fog_mark_hit()) { return 1; }
+		}
+	}
+	return 0;
+}
+
+static void interp_fog_replay(polymodel *pm, bsp_info *sm, bool thr_flat)
+{
+	if (!(Interp_tmap_flags & TMAP_FLAG_PIXEL_FOG)) { return; }
+	const bool thr = thr_flat;
+	ubyte *p = (ubyte *)sm->bsp_data;
+	while (w(p) != OP_EOF && w(p) != OP_DEFPOINTS) { p += w(p+4); }
+	if (w(p) != OP_DEFPOINTS) { return; }
+	const int nverts = w(p+8);
+	if (nverts <= 0 || nverts >= MAX_POLYGON_VECS) { return; }
+	if (!gr_host_fog_mark_begin()) { return; }
+	static vertex pts[MAX_POLYGON_VECS];
+	static int stamp[MAX_POLYGON_VECS];
+	static vector *src[MAX_POLYGON_VECS];
+	static int cur = 0;
+	if (++cur == 0x7ffffff0) { memset(stamp, 0, sizeof(stamp)); cur = 1; }
+	const ubyte *normcount = p + 20;
+	vector *v = vp(p + w(p+16));
+	for (int n = 0; n < nverts; n++) { src[n] = v; v += 1 + normcount[n]; }
+	const float min_dist = (Interp_flags & MR_IS_MISSILE) ? 0.5f : -1.5f;
+	const uint flags = thr ? (Interp_tmap_flags & (~(TMAP_FLAG_TEXTURED|TMAP_FLAG_TILED|TMAP_FLAG_CORRECT))) : (Interp_tmap_flags | TMAP_FLAG_NONDARKENING);
+	interp_replay_list(p, pm, thr, flags, pts, stamp, cur, src, min_dist);
+	gr_host_fog_mark_end();
+}
 
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)
@@ -1678,7 +1748,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	static int s_was_clipping = 0;
 	if (G3_user_clip) {
 		const float plane[4] = { G3_user_clip_normal.x, G3_user_clip_normal.y, G3_user_clip_normal.z, -vm_vec_dot(&G3_user_clip_normal, &G3_user_clip_point) };
-		if (!gr_host_mesh_clip(plane)) { return 0; }
+		if (!gr_host_mesh_clip(plane)) { Interp_fb_count[12]++; return 0; }
 		s_was_clipping = 1;
 	} else if (s_was_clipping) {
 		gr_host_mesh_clip(NULL);
@@ -1706,6 +1776,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 			m.state = 0;
 			return 0;
 		}
+		if (rt != 1) { Interp_fb_count[11]++; }
 		return rt == 1;
 	}
 
@@ -1727,7 +1798,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 				m.state = 0;
 				return 0;
 			}
-			if (rl == 1) { return 1; }
+			if (rl == 1) { interp_fog_replay(pm, sm, false); return 1; }
 		}
 	}
 
@@ -1757,6 +1828,8 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 		m.state = 0;
 		return 0;
 	}
+	if (r != 1) { Interp_fb_count[thr ? 11 : 13]++; }
+	if (r == 1) { interp_fog_replay(pm, sm, thr); }
 	return r == 1;
 }
 

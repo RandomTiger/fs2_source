@@ -146,6 +146,7 @@ typedef struct fs2_sink_draw {
 #define FS2_SINK_BB_QUAD	3	/* v7, beam_render: p0 / p1 = eye-space centres of the start and end, rad / rad_tail = half widths there, max_len carries the perspective scale Matrix_scale.z (eye space is Matrix_scaled; no layout or value change), orient bit 0 = a user clip plane is on (declined); a corner nearer than 0.1 is clipped to that plane by the sink; the quad's corners are centre +- normalize(cross(p1 - p0, -centre)) * half width, perspective-correct uvs 0..1 (start = u 0, end = u 1, v 1 = the + side) */
 #define FS2_SINK_BB_QUAD4	4	/* v8, nebl_render_section (lightning): quad[] = the four eye-space corners in uv order (0,0) (1,0) (1,1) (0,1), perspective-correct uvs 0..1; p0 / p1 / rad are unused; orient bit 0 = a user clip plane is on (declined); the sink clips the polygon to the 0.1 near plane itself */
 #define FS2_SINK_BB_TRI3	5	/* v8, trail_render (weapon trails, the tail triangle): quad[0..8] = the three eye-space corners, tri_uv[0..5] = their uvs (u0 v0 u1 v1 u2 v2), perspective-correct; p0 / p1 / rad are unused; orient bit 0 = a user clip plane is on (declined); the sink clips the polygon to the 0.1 near plane itself. Trail quads use FS2_SINK_BB_QUAD4. R3 row 6 (warp-in cone, subspace tunnel): in the sink struct orient bit 1 = tiled (repeat sampler, no legacy uv clamp), bit 2 = affine uvs (sw = 1), both default 0. Shield hits (R3 row 4) use it too, orient bit 2 = a shield, tint = the polygon's constant rgb (trails: grey); a shield quad is two triangles */
+#define FS2_SINK_BB_STARS	6	/* R3 row 8, stars_draw (StarField.cpp): the 2D star lines. No texture (texture 0, accepted for this kind only), blend alpha, flags 0. star_pos = star_n unit vectors, star_stride floats apart (the caller's array, copied before the call returns); star_view = the View_matrix rows (rvec, uvec, fvec) of this pass and star_prev the one of the previous update pass (equal on the first pass), star_par = Star_amount, Star_dim, Star_cap, Star_max_length, star_flags = Star_flags. The sink reproduces per star: rotate, code, project, tail, colour index (white, alpha (index + 1) * 24), the int truncation and the h_line pixel rules (axis aligned lines are pixel rects inclusive, others a one pixel strip), in canvas pixels. The caller has declined (no call) a clip rect smaller than the canvas, a user clip plane and a HUD scale */
 typedef struct fs2_sink_billboard {
 	int32_t kind;			/* FS2_SINK_BB_* */
 	int32_t texture, blend;		/* as fs2_sink_draw; texture 0 = untextured (tint colour) */
@@ -160,11 +161,14 @@ typedef struct fs2_sink_billboard {
 	float angle;			/* v6: FS2_SINK_BB_ROTATED only */
 	float quad[12];			/* v8: FS2_SINK_BB_QUAD4 only (appended at the end, no earlier field moves) */
 	float tri_uv[6];		/* v8: FS2_SINK_BB_TRI3 only (appended after quad) */
+	const float *star_pos;		/* FS2_SINK_BB_STARS only (appended after tri_uv, no earlier field moves) */
+	int32_t star_n, star_stride, star_flags;
+	float star_view[9], star_prev[9], star_par[4];
 } fs2_sink_billboard;
 
 typedef struct fs2_sink_mesh_fog {
 	int32_t mode;		/* FS2_SINK_FOG_* */
-	uint8_t rgb[4];		/* fog colour r g b (a unused) */
+	uint8_t rgb[4];		/* fog colour r g b; rgb[3] == 1 (R3 row 9): the colour is the one the last marked poly left (see mesh_fog_mark), not the pixels behind each vertex */
 	float fog_near, fog_far;	/* world units; depth = vertex z * 30000 with z capped at 0.98, as fs2_sink_draw */
 } fs2_sink_mesh_fog;
 
@@ -250,6 +254,14 @@ typedef struct fs2_render_sink {
 	 * gets the screen-space triangles from the host as before. Returns 1 when drawn or deliberately culled, 0 when the sink cannot take this draw
 	 * (the host then draws it on the CPU path). */
 	int (*billboard_draw)(void *user, const fs2_sink_billboard *b);
+
+	/* v9, optional (R3 row 9, appended at the end; no earlier entry or field moves): the host drew a poly marked fog_rgb[3] == 1 on the mesh path (a
+	 * hull submodel; the sink never saw its vertices), so the last colour the CPU path would have set is that poly's. xy = n screen positions
+	 * (x, y pairs, as the draw vertices of a marked fs2_sink_draw, 3 <= n <= 32). The sink takes them as the colour state of the fogged draws that
+	 * follow in call order, exactly as a marked fs2_sink_draw does, and draws nothing. A mesh_fog with rgb[3] == 1 then fogs a mesh draw with that
+	 * colour (a textured thruster: it is not marked and keeps the stale one). A sink without it makes the host keep a fogged textured thruster on
+	 * the CPU path. */
+	void (*mesh_fog_mark)(void *user, const float *xy, int n);
 } fs2_render_sink;
 
 #ifdef __cplusplus

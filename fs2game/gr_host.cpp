@@ -51,6 +51,7 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include "Model.h"
 #include "Ship.h"
 #include "MissionParse.h"
+extern int Framecount;
 #include <cstring>
 
 #include "render_sink.h"
@@ -120,12 +121,16 @@ struct Host {
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
 	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
+	bool mesh_stale = false;	// h_mesh_thrust: the draw in mesh_prepare is a textured thruster in fog; it wears the stale fog colour (R3 row 9)
+	bool fog_replay_hit = false;	// fog_mark_end: the replayed poly reached the fog-only tmapper
+	void (*fog_replay_saved)(int, vertex **, uint) = nullptr;
 	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
 	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_skipped = 0;	// mesh draws dropped because the sink skipped the frame
 	int mesh_fb[6] = {};	// mesh draws that fell back to the polygon path, by reason: cpu_only, no z, fog unsupported, no frame, texture, fog state
+	int clip_on = 0, clip_draws = 0, clip_first = -1, tiled_draws = 0, tiled_first = -1;	// occurrence counts for picking pair frames: mesh draws under a clip plane, tiled mesh draws, first frame of each
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
 	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
@@ -134,6 +139,7 @@ struct Host {
 	int shield_offered = 0, shield_gpu = 0;	// shield hit polygons (triangles; a quad is two) handed to the sink / drawn by it (R3 row 4); declined = offered - drawn, must be 0
 	int warp_offered = 0, warp_gpu = 0;	// warp-in cone triangles handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
 	int star_offered = 0, star_gpu = 0;	// starfield background bitmap triangles handed to the sink / drawn by it (R3 row 7); declined = offered - drawn, must be 0
+	int stars_offered = 0, stars_gpu = 0;	// stars_draw passes handed to the sink / drawn by it (R3 row 8); declined = offered - drawn (the pass then runs on the CPU route), must be 0
 	int sub_offered = 0, sub_gpu = 0;	// subspace tunnel triangles (hull and glow polys) handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
 	int light_offered = 0, light_gpu = 0;	// lightning bolt quads handed to the sink / drawn by it (R3 row 5); declined = offered - drawn, must be 0
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
@@ -1334,8 +1340,41 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 	return 1;
 }
 
+// R3 row 8: stars_draw (StarField.cpp) hands the whole star pass over. p0 = the View_matrix rows of this pass (9 floats), of the previous pass (9) and
+// Star_amount, Star_dim, Star_cap, Star_max_length (4); p1 = the first star's unit vector, rad = the float stride between stars, orient = the star count,
+// flags = Star_flags. The sink does the rest (docs/R3_stars_design.md). 0 = declined and counted: the caller runs its own CPU loop, which draws the same
+// pass (a clip rectangle smaller than the canvas, a user clip plane or a HUD scale are the sink's open cases).
+static int h_stars(const float *p0, const float *p1, float rad, int orient, unsigned flags)
+{
+	if (H.sink == nullptr || H.sink->billboard_draw == nullptr || p0 == nullptr || p1 == nullptr || orient <= 0 || rad < 3.0f) { return 0; }
+	ensure_frame();
+	if (!drawing()) { return 1; }	// no frame is being drawn: nothing to draw on either route, not an offer
+	sync_offset();
+	H.stars_offered++;
+	if (G3_user_clip || H.ps != 1 || gr_screen.clip_left != 0 || gr_screen.clip_top != 0 || gr_screen.clip_width != Canvas_width || gr_screen.clip_height != Canvas_height) { return 0; }
+	fs2_sink_billboard b = {};
+	b.kind = FS2_SINK_BB_STARS;
+	b.blend = FS2_SINK_BLEND_ALPHA;
+	b.tint[0] = b.tint[1] = b.tint[2] = b.tint[3] = 255;
+	b.star_pos = p1; b.star_n = orient; b.star_stride = (int32_t)rad; b.star_flags = (int32_t)flags;
+	for (int i = 0; i < 9; i++) { b.star_view[i] = p0[i]; b.star_prev[i] = p0[9 + i]; }
+	for (int i = 0; i < 4; i++) { b.star_par[i] = p0[18 + i]; }
+	b.clip[0] = gr_screen.clip_left; b.clip[1] = gr_screen.clip_top; b.clip[2] = gr_screen.clip_right; b.clip[3] = gr_screen.clip_bottom;
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	if (!H.sink->billboard_draw(H.sink->user, &b)) { return 0; }	// the sink refused: nothing was drawn, the CPU route runs
+	H.stars_gpu++;
+	return 1;
+}
+
 static int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
+	if (kind == FS2_SINK_BB_STARS) {
+		static const bool stars_on = (getenv("FS2_STARS_GPU") == nullptr || atoi(getenv("FS2_STARS_GPU")) != 0) && getenv("FS2_BB_OFF") == nullptr;	// stars draw on the GPU; FS2_STARS_GPU=0 (pixel-comparison runs) keeps the CPU loop
+		if (!stars_on) { return 0; }
+		return h_stars(p0, p1, rad, orient, flags);
+	}
 	if (kind == FS2_SINK_BB_TRI3 && (orient & 32)) {	// R3 row 7: starfield background bitmap triangles (orient bit 5); xparent ones are alpha blended, the rest filter (additive)
 		static const bool star_on = getenv("FS2_STARFIELD_GPU") == nullptr || atoi(getenv("FS2_STARFIELD_GPU")) != 0;	// they draw on the GPU; FS2_STARFIELD_GPU=0 (pixel-comparison runs) keeps them on the poly path
 		if (!star_on) { return 0; }
@@ -1551,6 +1590,8 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
 	static const int force_fb = getenv("FS2_MESH_FORCE_FB") ? atoi(getenv("FS2_MESH_FORCE_FB")) : 0;	// test only: 1 sends every mesh draw down the polygon path (the forced-path pixel pair, D-20261105-165753)
+	if (H.clip_on) { if (H.clip_draws++ == 0) { H.clip_first = Framecount; } }
+	if (tiled) { if (H.tiled_draws++ == 0) { H.tiled_first = Framecount; } }
 	if (force_fb == 1 || m.cpu_only) { H.mesh_fb[0]++; return 2; }	// a fault: counted, nothing drawn (D-20261105-165753); only the fog-off scripted case keeps the polygon path
 	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 2; }
 	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 2; }
@@ -1614,6 +1655,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 			f.mode = FS2_SINK_FOG_LINEAR;
 			f.rgb[0] = clamp8(H.fog_r); f.rgb[1] = clamp8(H.fog_g); f.rgb[2] = clamp8(H.fog_b);
 			f.fog_near = H.fog_near; f.fog_far = H.fog_far;
+			if (H.mesh_stale) { f.rgb[3] = 1; }
 		}
 		if (!H.mesh_fog_valid || std::memcmp(&f, &H.mesh_fog_sent, sizeof(f)) != 0) {
 			H.mesh_fog_ok = H.sink->mesh_fog(H.sink->user, &f) != 0;
@@ -1657,11 +1699,18 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 // is a z scale in the sink for the vertices in front of min_dist
 int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
 {
-	// fogged (nebula): a thruster poly has no PIXEL_FOG mark, so it takes the fog colour the last marked poly left (see fog_rgb[3]); not the mesh fog's
-	if (H.sink->mesh_thrust == nullptr || H.fog_mode != GR_FOGMODE_NONE || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	// fogged (nebula): a flat thruster is marked PIXEL_FOG like a hull poly (the replay in model_interp_mesh_try sends its mark); a textured one is
+	// not marked, and the polygon path fogs it with the colour the last marked poly left. fog_rgb[3] = 1 asks the sink for exactly that colour
+	// (R3 row 9, D-20261106-112338). On unless FS2_THRUSTFOG_GPU=0.
+	static const bool thrfog_on = getenv("FS2_THRUSTFOG_GPU") == nullptr || atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
+	const bool fogged = H.fog_mode != GR_FOGMODE_NONE;
+	if (H.sink->mesh_thrust == nullptr || (fogged && !thrfog_on) || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	if (fogged && bitmap >= 0 && H.sink->mesh_fog_mark == nullptr) { return 0; }	// a sink that cannot carry the stale colour keeps the polygon path
 	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
 	const float ts[2] = { scale, min_dist };
+	H.mesh_stale = fogged && bitmap >= 0;
 	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
+	H.mesh_stale = false;
 	if (p != 1) { return p == 2 ? 1 : p; }
 	if (flat) {
 		H.mesh_rgba.resize((size_t)nv * 4);
@@ -1677,6 +1726,38 @@ int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, 
 	H.sink->mesh_draw(H.sink->user, key, xform, flat ? H.mesh_rgba.data() : nullptr, flat ? nv : 0);
 	H.sink->mesh_thrust(H.sink->user, nullptr);
 	return 1;
+}
+
+// R3 row 9: the marked polys of a GPU-drawn model never reach the tmapper, so the stale fog colour they leave is replayed. model_interp_mesh_try
+// re-runs the polys through the real clipper into this tmapper, which only sends the screen positions of the one that would have been the
+// last marked poly (the sink sets the colour state from them, as tmapper_internal's PIXEL_FOG block does, without drawing)
+static void h_tmapper_fogmark(int nv, vertex *verts[], uint)
+{
+	if (nv < 3 || nv > 32) { return; }
+	ensure_frame();
+	if (!drawing()) { return; }
+	float xy[64];
+	for (int i = 0; i < nv; i++) {
+		xy[i * 2] = (float)(int)(verts[i]->sx * 16.0f) / 16.0f + (float)gr_screen.offset_x + FS2_SINK_D3D_PIXEL_CENTRE;
+		xy[i * 2 + 1] = (float)(int)(verts[i]->sy * 16.0f) / 16.0f + (float)gr_screen.offset_y + FS2_SINK_D3D_PIXEL_CENTRE;
+	}
+	H.sink->mesh_fog_mark(H.sink->user, xy, nv);
+	H.fog_replay_hit = true;
+}
+static int h_fog_mark_begin()
+{
+	static const bool on = getenv("FS2_THRUSTFOG_GPU") == nullptr || atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
+	if (!on || H.sink->mesh_fog_mark == nullptr || H.fog_mode == GR_FOGMODE_NONE || !H.mesh_fog_ok) { return 0; }
+	H.fog_replay_saved = gr_screen.gf_tmapper;
+	gr_screen.gf_tmapper = h_tmapper_fogmark;
+	H.fog_replay_hit = false;
+	return 1;
+}
+static int h_fog_mark_hit() { return H.fog_replay_hit ? 1 : 0; }
+static int h_fog_mark_end()
+{
+	gr_screen.gf_tmapper = H.fog_replay_saved;
+	return H.fog_replay_hit ? 1 : 0;
 }
 
 // the nebula background model (stars_draw_background): the forced bitmap on every poly, additive, no depth, no culling, vertex colour
@@ -1701,6 +1782,7 @@ int h_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gr
 int h_mesh_clip(const float *plane)
 {
 	if (H.sink->mesh_clip == nullptr) { return plane == nullptr; }
+	H.clip_on = plane != nullptr;
 	H.sink->mesh_clip(H.sink->user, plane);
 	return 1;
 }
@@ -2049,10 +2131,11 @@ void host_cleanup()
 	if (mesh_switch()) { fprintf(stderr, "render3d: shields: %d offered, %d drawn on the GPU, %d declined\n", H.shield_offered, H.shield_gpu, H.shield_offered - H.shield_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: warp cone: %d offered, %d drawn on the GPU, %d declined\n", H.warp_offered, H.warp_gpu, H.warp_offered - H.warp_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: starfield bitmaps: %d offered, %d drawn on the GPU, %d declined\n", H.star_offered, H.star_gpu, H.star_offered - H.star_gpu); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: stars: %d offered, %d drawn on the GPU, %d declined\n", H.stars_offered, H.stars_gpu, H.stars_offered - H.stars_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: subspace: %d offered, %d drawn on the GPU, %d declined\n", H.sub_offered, H.sub_gpu, H.sub_offered - H.sub_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: lightning: %d offered, %d drawn on the GPU, %d declined\n", H.light_offered, H.light_gpu, H.light_offered - H.light_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: mesh draws under a clip plane: %d (first frame %d), tiled: %d (first frame %d)\n", H.clip_draws, H.clip_first, H.tiled_draws, H.tiled_first); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }
@@ -2110,6 +2193,9 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.model_page_in = h_model_page_in;
 	Backend.level_loaded = h_level_loaded;
 	Backend.live_mode_change = 0;	// GodotResolution: set in host_init
+	Backend.fog_mark_begin = h_fog_mark_begin;
+	Backend.fog_mark_end = h_fog_mark_end;
+	Backend.fog_mark_hit = h_fog_mark_hit;
 	gr_host_backend_register(&Backend);
 	return 1;
 }
