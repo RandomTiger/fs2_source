@@ -57,7 +57,7 @@ if (-not $bad) {
 		$sf = @($m | Where-Object { $_ -match "Screen '[^']+': FAIL" }).Count
 		$ends = @($m | Where-Object { $_ -match '^(r|d) exit=0 Menu tour: \d+ screens, \d+ passed, 0 failed, \d+ skipped' }).Count
 		"tour: $($m | Select-Object -Last 1), screen FAIL lines $sf, builds finished clean $ends of 2"
-		if ($sf -or $ends -ne 2 -or (($m | Select-Object -Last 1) -ne 'DONE pass=2 fail=0')) { $bad += 'fs1 tour' }
+		if ($sf -or $ends -ne 2 -or ("$($m | Select-Object -Last 1)" -ne 'DONE pass=2 fail=0')) { $bad += 'fs1 tour' }
 	} else { $bad += 'tour not run' }
 }
 if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
