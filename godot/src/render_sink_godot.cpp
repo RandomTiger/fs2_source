@@ -2193,10 +2193,10 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 // g3_draw_bitmap and g3_draw_laser on the GPU: the vertex shader works out the four corners from the eye-space points with the game's own
 // formulas (docs/R3_billboards_design.md), in canvas pixels, snaps them to the 1/16 grid as the host does, and places them as the mesh shader
 // does (x = org.x + sx - cw/2, y = org.y + ch/2 - sy, w = 1; the perspective-correct uvs are done by hand with the game's per-end sw).
-RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr, bool rep, bool aff)
+RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr, bool rep, bool aff, bool nc)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u);
+	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u) | (nc ? 16384u : 0u);
 	auto it = bb_shaders.find(skey);
 	if (it != bb_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, ";
@@ -2286,7 +2286,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += "\tfloat d = cfg.z + min(zq / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
 	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
-	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (" + String(rep ? "false && " : "") + "ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (" + String(rep ? "false && " : nc ? "sx >= 0.0 && sy >= 0.0 && sx <= cwh.x && sy <= cwh.y && " : "") + "ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
 	code += (kind != FS2_SINK_BB_RIBBON && kind != FS2_SINK_BB_QUAD && kind != FS2_SINK_BB_QUAD4 && kind != FS2_SINK_BB_TRI3) ?"\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
 	code += "void fragment() {\n";
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
@@ -2402,7 +2402,7 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	l.bb_multimeshes.push_back(std::make_pair(pool, mm));
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
-	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0));
+	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 8) != 0));
 	l.mesh_materials.push_back(mat);
 	rs->material_set_param(mat, "tex", use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid);
 	rs->material_set_param(mat, "bwh", Vector2((float)d.b.bw, (float)d.b.bh));
