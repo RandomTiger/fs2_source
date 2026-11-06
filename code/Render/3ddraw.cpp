@@ -1631,13 +1631,34 @@ void stars_project_2d_onto_sphere( vector *pnt, float rho, float phi, float thet
 // nebulas and planets jump as they cross an edge. The hardware trims it instead. Only a cut at a near plane stays,
 // since a point behind the eye cannot be projected.
 #define PERSPECTIVE_BITMAP_NEAR_Z	10.0f
+
+// Claude: R3 row 7, one background bitmap triangle on the GPU (TRI3, orient bit 5; uncut, the sink clips it at the 0.1 near plane; no depth, the caller turned zbuffering off).
+// 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_STARFIELD_GPU=0, user clip plane)
+extern int G3_user_clip;
+static int perspective_bitmap_gpu_tri(vertex **tri, uint flags)
+{
+	if ( tri[0]->z < PERSPECTIVE_BITMAP_NEAR_Z && tri[1]->z < PERSPECTIVE_BITMAP_NEAR_Z && tri[2]->z < PERSPECTIVE_BITMAP_NEAR_Z ){
+		return 1;
+	}
+	float p[9], uv[6];
+	for(int i=0; i<3; i++){
+		p[i*3] = tri[i]->x; p[i*3+1] = tri[i]->y; p[i*3+2] = tri[i]->z;
+		uv[i*2] = tri[i]->u; uv[i*2+1] = tri[i]->v;
+	}
+	return gr_host_billboard(5, p, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 32, flags, -1);
+}
+
 static void perspective_bitmap_draw_tri(vertex **tri, uint flags)
 {
 	vertex out[4];
 	vertex *list[4];
 	int i, n = 0;
 
-	if(gr_screen.mode != GR_DIRECT3D){
+	if(perspective_bitmap_gpu_tri(tri, flags)){	// Claude: R3 row 7, before the mode test: the host mode (GR_HOST) is the one that draws these
+		return;
+	}
+
+	if(gr_screen.mode != GR_DIRECT3D && gr_screen.mode != GR_HOST){	// Claude: R3 row 7, GR_HOST (the Godot host) takes the D3D route too: no screen clip (D-20261106-062111)
 		g3_draw_poly(3, tri, flags);
 		return;
 	}

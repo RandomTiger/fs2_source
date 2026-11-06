@@ -133,6 +133,7 @@ struct Host {
 	int trail_offered = 0, trail_gpu = 0;	// trail section polygons handed to the sink / drawn by it (R3 row 2); declined = offered - drawn, must be 0
 	int shield_offered = 0, shield_gpu = 0;	// shield hit polygons (triangles; a quad is two) handed to the sink / drawn by it (R3 row 4); declined = offered - drawn, must be 0
 	int warp_offered = 0, warp_gpu = 0;	// warp-in cone triangles handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
+	int star_offered = 0, star_gpu = 0;	// starfield background bitmap triangles handed to the sink / drawn by it (R3 row 7); declined = offered - drawn, must be 0
 	int sub_offered = 0, sub_gpu = 0;	// subspace tunnel triangles (hull and glow polys) handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
 	int light_offered = 0, light_gpu = 0;	// lightning bolt quads handed to the sink / drawn by it (R3 row 5); declined = offered - drawn, must be 0
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
@@ -1283,7 +1284,7 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 	if (!(flags & TMAP_FLAG_TEXTURED) || (flags & (TMAP_FLAG_NEBULA | TMAP_FLAG_RAMP | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD | TMAP_FLAG_ALPHA
 		| (tiled ? 0 : TMAP_FLAG_TILED) | TMAP_FLAG_BITMAP_2D | TMAP_FLAG_PIXEL_FOG | TMAP_FLAG_NONDARKENING))) { H.bb_cpu++; H.bb_why[1]++; H.bb_flags = flags; return 1; }
 	const bool filter = gr_screen.current_alphablend_mode == GR_ALPHABLEND_FILTER;
-	if ((kind == FS2_SINK_BB_QUAD || kind == FS2_SINK_BB_QUAD4 || kind == FS2_SINK_BB_TRI3) && (!filter || (orient & 1))) { return 0; }	// the callers are filter blended; orient bit 0 = a user clip plane is on (the sink has no such clip: declined and counted)
+	if ((kind == FS2_SINK_BB_QUAD || kind == FS2_SINK_BB_QUAD4 || kind == FS2_SINK_BB_TRI3) && ((!filter && !(orient & 32)) || (orient & 1))) { return 0; }	// the callers are filter blended; orient bit 0 = a user clip plane is on (the sink has no such clip: declined and counted)
 	if (kind == FS2_SINK_BB_ROTATED) { static const bool rot_on = getenv("FS2_BB_ROT") == nullptr || atoi(getenv("FS2_BB_ROT")) != 0; if (!rot_on || !filter) { return 0; } }	// rotated puffs draw on the GPU; FS2_BB_ROT=0 (pixel-comparison runs) keeps them on the poly path; every caller is filter blended, any other blend stays on the poly path
 
 	fs2_sink_billboard b = {};
@@ -1335,6 +1336,16 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 
 static int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
+	if (kind == FS2_SINK_BB_TRI3 && (orient & 32)) {	// R3 row 7: starfield background bitmap triangles (orient bit 5); xparent ones are alpha blended, the rest filter (additive)
+		static const bool star_on = getenv("FS2_STARFIELD_GPU") == nullptr || atoi(getenv("FS2_STARFIELD_GPU")) != 0;	// they draw on the GPU; FS2_STARFIELD_GPU=0 (pixel-comparison runs) keeps them on the poly path
+		if (!star_on) { return 0; }
+		const int xbefore = H.bb_sink, xidle = H.bb_why[0];
+		const int xr = h_billboard_in(kind, p0, p1, rad, rad_tail, max_len, orient, flags, rgb);
+		if (H.bb_why[0] != xidle) { return xr; }	// no frame is being drawn: not an offer
+		H.star_offered++;
+		if (H.bb_sink != xbefore) { H.star_gpu++; }
+		return xr;
+	}
 	if (kind == FS2_SINK_BB_TRI3 && (orient & (8 | 16))) {	// R3 row 6: warp-in cone (orient bit 3) and subspace tunnel (bit 4)
 		static const bool warp_on = getenv("FS2_WARP_GPU") == nullptr || atoi(getenv("FS2_WARP_GPU")) != 0;	// both draw on the GPU; FS2_WARP_GPU=0 (pixel-comparison runs) keeps them on the poly path
 		if (!warp_on) { return 0; }
@@ -2037,6 +2048,7 @@ void host_cleanup()
 	if (mesh_switch()) { fprintf(stderr, "render3d: trails: %d offered, %d drawn on the GPU, %d declined\n", H.trail_offered, H.trail_gpu, H.trail_offered - H.trail_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: shields: %d offered, %d drawn on the GPU, %d declined\n", H.shield_offered, H.shield_gpu, H.shield_offered - H.shield_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: warp cone: %d offered, %d drawn on the GPU, %d declined\n", H.warp_offered, H.warp_gpu, H.warp_offered - H.warp_gpu); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: starfield bitmaps: %d offered, %d drawn on the GPU, %d declined\n", H.star_offered, H.star_gpu, H.star_offered - H.star_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: subspace: %d offered, %d drawn on the GPU, %d declined\n", H.sub_offered, H.sub_gpu, H.sub_offered - H.sub_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: lightning: %d offered, %d drawn on the GPU, %d declined\n", H.light_offered, H.light_gpu, H.light_offered - H.light_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
