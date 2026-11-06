@@ -1555,6 +1555,18 @@ void hud_squadmsg_repair_rearm_abort( int toggle_state, object *obj)
 		hud_squadmsg_toggle();						// take us out of message mode
 }
 
+// Claude: voice "abort": calls off the support ship when the menu's abort row would be active.
+// Returns 0 if there is nothing to call off.
+int hud_squadmsg_voice_abort_rearm()
+{
+	if ( (Player_obj == NULL) || !is_support_allowed(Player_obj) )
+		return 0;
+	if ( !(Ai_info[Ships[Player_obj->instance].ai_index].ai_flags & (AIF_AWAITING_REPAIR | AIF_BEING_REPAIRED)) && !mission_is_repair_scheduled(Player_obj) )
+		return 0;
+	hud_squadmsg_repair_rearm_abort(0);
+	return 1;
+}
+
 // returns 1 if an order is valid for a ship.  Applies to things like departure when engines are blown, etc.
 int hud_squadmsg_ship_order_valid( int shipnum, int order )
 {
