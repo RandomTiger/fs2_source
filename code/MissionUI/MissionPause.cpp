@@ -328,6 +328,7 @@ void pause_do(int multi)
 	} else if (Pause_debug_camera) {	// Claude: debug camera (#125)
 		debug_camera_do();
 	} else {		
+		gr_reset_clip();	// Claude: the mission frame left the wide clip on, which put the first pause frame left of centre (#211)
 		//	RENDER A GAME FRAME HERE AS THE BACKGROUND
 		gr_restore_screen(Pause_saved_screen);
 		if (Pause_background_bitmap >= 0) {
