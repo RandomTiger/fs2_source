@@ -5,11 +5,11 @@ Read from code, not measured. Already on the GPU: model meshes, thruster mesh, n
 
 | # | Class | Where | Size | Risk |
 |---|---|---|---|---|
-| 1 | Beams | `Weapon/Beam.cpp:1352` (poly :1389), additive `TMAP_FLAG_CORRECT` quad | M | shots: perspective-correct quad |
+| 1 | Beams (DONE 2026-11-05, 6f94544; off: `FS2_BEAM_GPU=0`) | `Weapon/Beam.cpp:1352` | M | done |
 | 2 | Trails | `Weapon/Trails.cpp:318-340`, per-vertex alpha | M | low |
-| 3 | Shockwaves, rotated puffs | `g3_draw_rotated_bitmap` (`3ddraw.cpp:708`); GPU path `FS2_SINK_BB_ROTATED` exists, opt-in `FS2_BB_ROT`, off because shots differ 7.7% | S-M | shots (open blocker) |
+| 3 | Shockwaves, rotated puffs | `g3_draw_rotated_bitmap` (`3ddraw.cpp:708`); DONE 2026-11-05: `FS2_SINK_BB_ROTATED` on by default (off: `FS2_BB_ROT=0`, used by the frame runner for pixel compares) | S-M | done |
 | 4 | Shield hits | `Ship/Shield.cpp:477-540`, gouraud tinted quads | M | ship-relative transform |
-| 5 | Lightning | `Nebula/NebLightning.cpp:1242-1275`, after row 1 | S | low |
+| 5 | Lightning (DONE 2026-11-05, 5f157ea, `FS2_SINK_BB_QUAD4`; off: `FS2_LIGHTNING_GPU=0`) | `Nebula/NebLightning.cpp` | S | done |
 | 6 | Warp-in cone, subspace tunnel | `Fireball/WarpInEffect.cpp:154`; `Interp_subspace` skipped by mesh path | M | animated uv offset |
 | 7 | Starfield bitmaps/backgrounds | `3ddraw.cpp:1633`, `StarField.cpp:816-823`, no depth | M | aspect-dependent scale |
 | 8 | Stars | `StarField.cpp:1033-1181`, 2D lines/pixels | M | high: 1-px exactness |

@@ -22,6 +22,7 @@ $env:FS2_GR_HOST = '1'; $env:FS2_SKIP_STALE = '0'
 $nebfog = $env:FS2_NEBFOG; if (-not $nebfog) { $env:FS2_NEBFOG = 'gpu' }	# a picture compare needs fog as a player sees it
 $bbrot = $env:FS2_BB_ROT; if (-not $bbrot) { $env:FS2_BB_ROT = '0' }	# a picture compare against the native poly path: rotated puffs stay on the poly path
 $beamgpu = $env:FS2_BEAM_GPU; if (-not $beamgpu) { $env:FS2_BEAM_GPU = '0' }	# likewise beams stay on the poly path
+$trailgpu = $env:FS2_TRAILS_GPU; if (-not $trailgpu) { $env:FS2_TRAILS_GPU = '0' }	# likewise weapon trails
 $lightgpu = $env:FS2_LIGHTNING_GPU; if (-not $lightgpu) { $env:FS2_LIGHTNING_GPU = '0' }	# likewise lightning bolts
 Push-Location $env:PATH_FS2
 $p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $ShotDir 'godot.out.txt') -RedirectStandardError (Join-Path $ShotDir 'godot.err.txt'); $null = $p.Handle
@@ -31,5 +32,6 @@ Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_GR_HOST, Env:FS2_SKI
 if (-not $nebfog) { Remove-Item Env:FS2_NEBFOG -ErrorAction SilentlyContinue }
 if (-not $bbrot) { Remove-Item Env:FS2_BB_ROT -ErrorAction SilentlyContinue }
 if (-not $beamgpu) { Remove-Item Env:FS2_BEAM_GPU -ErrorAction SilentlyContinue }
+if (-not $trailgpu) { Remove-Item Env:FS2_TRAILS_GPU -ErrorAction SilentlyContinue }
 if (-not $lightgpu) { Remove-Item Env:FS2_LIGHTNING_GPU -ErrorAction SilentlyContinue }
 return $code

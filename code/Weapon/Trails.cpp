@@ -219,6 +219,21 @@ int trail_is_on_ship(int trail_index, ship *shipp)
 	return 0;
 }
 
+// Claude: R3 row 2, one trail section polygon on the GPU (filter blended: the vertex alpha is unused, the bitmap alpha set by gr_set_bitmap is the whole tint). Quad corners in uv order (0,0) (1,0) (1,1) (0,1) = FS2_SINK_BB_QUAD4; the tail triangle = FS2_SINK_BB_TRI3 with its own uvs. The host near clips at 0.1, a user clip plane is declined. orient bit 1 marks a trail for the host's counters / FS2_TRAILS_GPU. 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_TRAILS_GPU=0)
+extern int G3_user_clip;
+static int trail_gpu_poly(int n, vertex **v)
+{
+	if ( n == 4 ? (v[0]->codes & v[1]->codes & v[2]->codes & v[3]->codes) : (v[0]->codes & v[1]->codes & v[2]->codes) ){
+		return 1;
+	}
+	float c[12], uv[8];
+	for(int i=0; i<n; i++){
+		c[i*3] = v[i]->x; c[i*3+1] = v[i]->y; c[i*3+2] = v[i]->z;
+		uv[i*2] = v[i]->u; uv[i*2+1] = v[i]->v;
+	}
+	return gr_host_billboard(n == 4 ? 4 : 5, c, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 2, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT, -1);
+}
+
 // Render the trail behind a missile.
 // Basically a queue of points that face the viewer.
 void trail_render( trail * trailp )
@@ -319,7 +334,9 @@ void trail_render( trail * trailp )
 				vlist[2]->u = 1.0f;  vlist[2]->v = 0.5f;
 
 				gr_set_bitmap(ti->bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, l/255.0f );
-				if ( gr_screen.hardware )	{
+				if ( gr_screen.hardware && trail_gpu_poly(3, vlist) )	{
+					// drawn on the GPU
+				} else if ( gr_screen.hardware )	{
 					g3_draw_poly( 3, vlist, TMAP_FLAG_TEXTURED|TMAP_FLAG_ALPHA|TMAP_FLAG_GOURAUD );
 				} else {
 					g3_draw_poly( 3, vlist, TMAP_FLAG_TEXTURED );
@@ -339,7 +356,9 @@ void trail_render( trail * trailp )
 				vlist[3]->u = 0.0f;  vlist[3]->v = 1.0f;
 
 				gr_set_bitmap(ti->bitmap, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, l/255.0f );
-				if ( gr_screen.hardware )	{
+				if ( gr_screen.hardware && trail_gpu_poly(4, vlist) )	{
+					// drawn on the GPU
+				} else if ( gr_screen.hardware )	{
 					g3_draw_poly( 4, vlist, TMAP_FLAG_TEXTURED|TMAP_FLAG_ALPHA|TMAP_FLAG_GOURAUD );
 				} else {
 					g3_draw_poly( 4, vlist, TMAP_FLAG_TEXTURED );
