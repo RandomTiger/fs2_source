@@ -323,6 +323,7 @@ private:
 		bool crect = false;
 		int cr[4] = {};
 		int arr = -1, layer = 0;	// texture array chunk and layer, resolved at draw time
+		std::vector<float> stars;	// FS2_SINK_BB_STARS: the star unit vectors (xyz each), copied from b.star_pos
 	};
 	static constexpr int32_t kBbBase = 1 << 24;	// a batch whose key.texture is <= -kBbBase is billboard draw (-key.texture - kBbBase)
 	std::vector<BbDraw> bb_draws;

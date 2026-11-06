@@ -139,6 +139,7 @@ struct Host {
 	int shield_offered = 0, shield_gpu = 0;	// shield hit polygons (triangles; a quad is two) handed to the sink / drawn by it (R3 row 4); declined = offered - drawn, must be 0
 	int warp_offered = 0, warp_gpu = 0;	// warp-in cone triangles handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
 	int star_offered = 0, star_gpu = 0;	// starfield background bitmap triangles handed to the sink / drawn by it (R3 row 7); declined = offered - drawn, must be 0
+	int stars_offered = 0, stars_gpu = 0;	// stars_draw passes handed to the sink / drawn by it (R3 row 8); declined = offered - drawn (the pass then runs on the CPU route), must be 0
 	int sub_offered = 0, sub_gpu = 0;	// subspace tunnel triangles (hull and glow polys) handed to the sink / drawn by it (R3 row 6); declined = offered - drawn, must be 0
 	int light_offered = 0, light_gpu = 0;	// lightning bolt quads handed to the sink / drawn by it (R3 row 5); declined = offered - drawn, must be 0
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
@@ -1339,8 +1340,41 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 	return 1;
 }
 
+// R3 row 8: stars_draw (StarField.cpp) hands the whole star pass over. p0 = the View_matrix rows of this pass (9 floats), of the previous pass (9) and
+// Star_amount, Star_dim, Star_cap, Star_max_length (4); p1 = the first star's unit vector, rad = the float stride between stars, orient = the star count,
+// flags = Star_flags. The sink does the rest (docs/R3_stars_design.md). 0 = declined and counted: the caller runs its own CPU loop, which draws the same
+// pass (a clip rectangle smaller than the canvas, a user clip plane or a HUD scale are the sink's open cases).
+static int h_stars(const float *p0, const float *p1, float rad, int orient, unsigned flags)
+{
+	if (H.sink == nullptr || H.sink->billboard_draw == nullptr || p0 == nullptr || p1 == nullptr || orient <= 0 || rad < 3.0f) { return 0; }
+	ensure_frame();
+	if (!drawing()) { return 1; }	// no frame is being drawn: nothing to draw on either route, not an offer
+	sync_offset();
+	H.stars_offered++;
+	if (G3_user_clip || H.ps != 1 || gr_screen.clip_left != 0 || gr_screen.clip_top != 0 || gr_screen.clip_width != Canvas_width || gr_screen.clip_height != Canvas_height) { return 0; }
+	fs2_sink_billboard b = {};
+	b.kind = FS2_SINK_BB_STARS;
+	b.blend = FS2_SINK_BLEND_ALPHA;
+	b.tint[0] = b.tint[1] = b.tint[2] = b.tint[3] = 255;
+	b.star_pos = p1; b.star_n = orient; b.star_stride = (int32_t)rad; b.star_flags = (int32_t)flags;
+	for (int i = 0; i < 9; i++) { b.star_view[i] = p0[i]; b.star_prev[i] = p0[9 + i]; }
+	for (int i = 0; i < 4; i++) { b.star_par[i] = p0[18 + i]; }
+	b.clip[0] = gr_screen.clip_left; b.clip[1] = gr_screen.clip_top; b.clip[2] = gr_screen.clip_right; b.clip[3] = gr_screen.clip_bottom;
+	glow_flush();
+	if (!H.run_open) { H.sink->depth_begin(H.sink->user); H.run_open = true; H.view_sent = false; }
+	send_view();
+	if (!H.sink->billboard_draw(H.sink->user, &b)) { return 0; }	// the sink refused: nothing was drawn, the CPU route runs
+	H.stars_gpu++;
+	return 1;
+}
+
 static int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
+	if (kind == FS2_SINK_BB_STARS) {
+		static const bool stars_on = (getenv("FS2_STARS_GPU") == nullptr || atoi(getenv("FS2_STARS_GPU")) != 0) && getenv("FS2_BB_OFF") == nullptr;	// stars draw on the GPU; FS2_STARS_GPU=0 (pixel-comparison runs) keeps the CPU loop
+		if (!stars_on) { return 0; }
+		return h_stars(p0, p1, rad, orient, flags);
+	}
 	if (kind == FS2_SINK_BB_TRI3 && (orient & 32)) {	// R3 row 7: starfield background bitmap triangles (orient bit 5); xparent ones are alpha blended, the rest filter (additive)
 		static const bool star_on = getenv("FS2_STARFIELD_GPU") == nullptr || atoi(getenv("FS2_STARFIELD_GPU")) != 0;	// they draw on the GPU; FS2_STARFIELD_GPU=0 (pixel-comparison runs) keeps them on the poly path
 		if (!star_on) { return 0; }
@@ -2097,6 +2131,7 @@ void host_cleanup()
 	if (mesh_switch()) { fprintf(stderr, "render3d: shields: %d offered, %d drawn on the GPU, %d declined\n", H.shield_offered, H.shield_gpu, H.shield_offered - H.shield_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: warp cone: %d offered, %d drawn on the GPU, %d declined\n", H.warp_offered, H.warp_gpu, H.warp_offered - H.warp_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: starfield bitmaps: %d offered, %d drawn on the GPU, %d declined\n", H.star_offered, H.star_gpu, H.star_offered - H.star_gpu); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: stars: %d offered, %d drawn on the GPU, %d declined\n", H.stars_offered, H.stars_gpu, H.stars_offered - H.stars_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: subspace: %d offered, %d drawn on the GPU, %d declined\n", H.sub_offered, H.sub_gpu, H.sub_offered - H.sub_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: lightning: %d offered, %d drawn on the GPU, %d declined\n", H.light_offered, H.light_gpu, H.light_offered - H.light_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }

@@ -1040,6 +1040,24 @@ void subspace_render()
 	gr_zbuffer_set(saved_gr_zbuffering);
 }
 
+// Claude: R3 row 8 (docs/R3_stars_design.md). The GPU sink takes the whole star pass (gr_host_billboard kind 6), working last_star_pos out of the previous pass's
+// View_matrix, so the CPU copy of last_star_pos goes stale while the sink draws. Star_prev_view is the matrix of the last pass, Star_last_n the star count it
+// covered. A pass that runs on the CPU first brings last_star_pos up to date, so both routes always see the same tails.
+#define STARS_GPU_KIND		6	// FS2_SINK_BB_STARS (fs2game/render_sink.h)
+static matrix Star_prev_view;
+static int Star_last_n = 0;
+static int Star_gpu_stale = 0;
+
+static void star_sync_last_pos()
+{
+	for ( int i = 0; i < Star_last_n; i++ )	{
+		vector p2;
+		vm_vec_rotate( &p2, &Stars[i].pos, &Star_prev_view );
+		Stars[i].last_star_pos = p2;
+	}
+	Star_gpu_stale = 0;
+}
+
 void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subspace )
 {
 	int i;
@@ -1086,7 +1104,38 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 	
 		star *sp;
 
-		if ( !last_stars_filled )	{
+		// Claude: R3 row 8, the whole pass on the sink when it takes it; 0 = the CPU loop below runs
+		int gpu_done = 0;
+		{
+			int gpu_n = (Detail.num_stars*Num_stars)/MAX_DETAIL_LEVEL;
+			if ( gpu_n < 0 )	{
+				gpu_n = 0;
+			} else if ( gpu_n > Num_stars )	{
+				gpu_n = Num_stars;
+			}
+			if ( gpu_n > 0 && (Star_flags & (STAR_FLAG_TAIL|STAR_FLAG_DIM)) && gr_screen.hardware && (!last_stars_filled || gpu_n == Star_last_n) )	{
+				float pack[22];
+				const matrix *pm = last_stars_filled ? &Star_prev_view : &View_matrix;
+				const vector *cur[3] = { &View_matrix.rvec, &View_matrix.uvec, &View_matrix.fvec };
+				const vector *prv[3] = { &pm->rvec, &pm->uvec, &pm->fvec };
+				for ( i = 0; i < 3; i++ )	{
+					pack[i*3] = cur[i]->x;  pack[i*3+1] = cur[i]->y;  pack[i*3+2] = cur[i]->z;
+					pack[9+i*3] = prv[i]->x;  pack[9+i*3+1] = prv[i]->y;  pack[9+i*3+2] = prv[i]->z;
+				}
+				pack[18] = Star_amount;  pack[19] = Star_dim;  pack[20] = Star_cap;  pack[21] = Star_max_length;
+				if ( gr_host_billboard( STARS_GPU_KIND, pack, &Stars[0].pos.x, (float)(sizeof(star)/sizeof(float)), 0.0f, 0.0f, gpu_n, Star_flags, -1 ) )	{
+					gpu_done = 1;
+					Star_prev_view = View_matrix;
+					Star_last_n = gpu_n;
+					Star_gpu_stale = 1;
+				}
+			}
+			if ( !gpu_done && Star_gpu_stale )	{
+				star_sync_last_pos();
+			}
+		}
+
+		if ( !last_stars_filled && !gpu_done )	{
 			for (sp=Stars,i=0; i<Num_stars; i++, sp++ ) {
 				vertex p2;
 				g3_rotate_faraway_vertex(&p2, &sp->pos);
@@ -1103,6 +1152,11 @@ void stars_draw( int show_stars, int show_suns, int show_nebulas, int show_subsp
 			tmp_num_stars = 0;
 		} else if ( tmp_num_stars > Num_stars )	{
 			tmp_num_stars = Num_stars;
+		}
+		if ( gpu_done )	{
+			tmp_num_stars = 0;
+		} else {
+			Star_last_n = tmp_num_stars;
 		}
 		
 		for (sp=Stars,i=0; i<tmp_num_stars; i++, sp++ ) {
