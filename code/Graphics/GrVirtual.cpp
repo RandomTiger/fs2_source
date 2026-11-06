@@ -327,9 +327,8 @@ float gr_virtual_hud_scale(int *pivot_x, int *pivot_y)
 	} else if (Hud_gauge_now == HUD_PLAYER_SHIELD_ICON) {
 		*pivot_x += gr_screen.max_w * 132 / 1000;	// between the radar and the energy bars
 	} else if (Hud_gauge_now == HUD_DIRECTIVES_VIEW) {
-		// Claude: the left column has no room for them at 1.5 between the head and the target box, so they sit beside the head, tops level (#189)
-		*pivot_x = -gr_screen.max_w * 764 / 1000;
-		*pivot_y = gr_screen.max_h * 894 / 1000;
+		// Claude: under the head at 1.5, left edges level, 4 pixels clear; the target box's top is lower than five lines reach (Tom, #189)
+		*pivot_y = (gr_screen.res == GR_640) ? 13 : 250;
 	}
 	return 1.5f;	// Claude: 1.5 rather than 2 (Tom, 2026-11-04)
 }
