@@ -55,7 +55,8 @@
 #define VOICE_FUNC_DUAL_MISSILE			1
 #define VOICE_FUNC_CYCLE_MISSILE			2
 #define VOICE_FUNC_REARM					3	// call in the support ship, as the rearm key does
-#define VOICE_NUM_FUNCS						4
+#define VOICE_FUNC_ABORT_REARM			4	// call off the support ship, as the menu's abort row does
+#define VOICE_NUM_FUNCS						5
 
 #define VOICE_ORDER_TIMEOUT_MS			8000	// as the squad menu's own timeout
 
