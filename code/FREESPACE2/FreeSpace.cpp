@@ -656,7 +656,7 @@ float flFrametime;
 #ifdef RELEASE_REAL
 	int	Show_framerate = 0;
 #else 
-	int	Show_framerate = 1;
+	int	Show_framerate = 0;	// Claude: off in every build; the Godot drop-down console has its own fps toggle (Tom, #208)
 #endif
 
 int	Framerate_cap = 120;
