@@ -434,6 +434,33 @@ void free_global_tri_records(int shnum)
 	}
 }
 
+// Claude: R3 row 4, one shield polygon on the GPU (TRI3 kind with an rgb tint: the vertex colour is constant per polygon, the host's rgb argument; filter blended). A quad is two triangles (0 1 2) (0 2 3). The host near clips at 0.1, a user clip plane is declined. orient bit 2 marks a shield for the host's counters / FS2_SHIELD_GPU. 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_SHIELD_GPU=0)
+extern int G3_user_clip;
+static int shield_gpu_tri(vertex *a, vertex *b, vertex *c, ubyte r, ubyte g, ubyte bl)
+{
+	if ( a->codes & b->codes & c->codes ){
+		return 1;
+	}
+	const vertex *v[3] = { a, b, c };
+	float p[9], uv[6];
+	for(int i=0; i<3; i++){
+		p[i*3] = v[i]->x; p[i*3+1] = v[i]->y; p[i*3+2] = v[i]->z;
+		uv[i*2] = v[i]->u; uv[i*2+1] = v[i]->v;
+	}
+	return gr_host_billboard(5, p, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 4, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT, (int)r | ((int)g << 8) | ((int)bl << 16));
+}
+
+static int shield_gpu_poly(int n, vertex **v, ubyte r, ubyte g, ubyte b)
+{
+	if ( !shield_gpu_tri(v[0], v[1], v[2], r, g, b) ){
+		return 0;
+	}
+	if ( n == 4 ){
+		shield_gpu_tri(v[0], v[2], v[3], r, g, b);
+	}
+	return 1;
+}
+
 void render_low_detail_shield_bitmap(gshield_tri *trip, matrix *orient, vector *pos, ubyte r, ubyte g, ubyte b)
 {
 	matrix	m;
@@ -475,12 +502,14 @@ void render_low_detail_shield_bitmap(gshield_tri *trip, matrix *orient, vector *
 		vertlist[1] = &verts[2];
 		vertlist[2] = &verts[1]; 
 		vertlist[3] = &verts[0]; 
+		if ( !shield_gpu_poly(4, vertlist, r, g, b) )
 		g3_draw_poly( 4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	} else {
 		vertlist[0] = &verts[0]; 
 		vertlist[1] = &verts[1];
 		vertlist[2] = &verts[2]; 
 		vertlist[3] = &verts[3]; 
+		if ( !shield_gpu_poly(4, vertlist, r, g, b) )
 		g3_draw_poly( 4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	}
 }
@@ -536,8 +565,10 @@ void render_shield_triangle(gshield_tri *trip, matrix *orient, vector *pos, ubyt
 		vertlist[0] = verts[2]; 
 		vertlist[1] = verts[1]; 
 		vertlist[2] = verts[0]; 
+		if ( !shield_gpu_poly(3, vertlist, r, g, b) )
 		g3_draw_poly( 3, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	} else {
+		if ( !shield_gpu_poly(3, verts, r, g, b) )
 		g3_draw_poly( 3, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	}
 }
@@ -545,6 +576,17 @@ void render_shield_triangle(gshield_tri *trip, matrix *orient, vector *pos, ubyt
 MONITOR(NumShieldRend);
 
 //	Render a shield mesh in the global array Shield_hits[]
+// Claude: test-only override of Detail.shield_effects (steward D-20261106-030446): FS2_SHIELD_DETAIL=1 draws the low-detail shield quad so a pixel compare can exercise render_low_detail_shield_bitmap. Unset = the game setting
+static int shield_detail_level()
+{
+	static int d = -2;
+	if ( d == -2 ){
+		const char *e = getenv("FS2_SHIELD_DETAIL");
+		d = e ? atoi(e) : -1;
+	}
+	return (d >= 0) ? d : Detail.shield_effects;
+}
+
 void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 {
 	int		i;
@@ -573,7 +615,7 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 	}
 
 	//	At detail levels 1, 3, animations play at double speed to reduce load.
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 3)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 3)) {
 		Shield_hits[shield_num].start_time -= Frametime;
 	}
 
@@ -630,7 +672,7 @@ void render_shield(int shield_num) //, matrix *orient, vector *centerp)
 	}
 	gr_set_bitmap(bitmap_id, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, alpha );
 
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 2)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 2)) {
 		if ( bitmap_id != - 1 ) {
 			render_low_detail_shield_bitmap(&Global_tris[Shield_hits[shield_num].tri_list[0]], orient, centerp, Shield_hits[shield_num].rgb[0], Shield_hits[shield_num].rgb[1], Shield_hits[shield_num].rgb[2]);
 		}
@@ -929,7 +971,7 @@ void create_shield_explosion(int objnum, int model_num, matrix *orient, vector *
 
 	//nprintf(("AI", "Frame %i: Creating explosion on %i.\n", Framecount, objnum));
 
-	if (!gr_screen.hardware || (Detail.shield_effects == 1) || (Detail.shield_effects == 2)) {
+	if (!gr_screen.hardware || (shield_detail_level() == 1) || (shield_detail_level() == 2)) {
 		create_shield_low_detail(objnum, model_num, orient, centerp, tcp, tr0, shieldp);
 		return;
 	}

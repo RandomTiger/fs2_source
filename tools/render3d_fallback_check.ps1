@@ -43,6 +43,8 @@ foreach ($m in $Missions) {
 	$ld = if ($ll) { [int]$ll.Matches[0].Groups[3].Value } else { 0 }	# lightning quads the sink declined (R3 row 5) fail the run
 	$tl = Select-String "$out\e.txt" -Pattern 'render3d: trails: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
 	$td = if ($tl) { [int]$tl.Matches[0].Groups[3].Value } else { 0 }	# trail polygons the sink declined (R3 row 2) fail the run
-	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } elseif ($bd -ne 0) { "$m FAIL: $bd beams declined"; $fail++ } elseif ($td -ne 0) { "$m FAIL: $td trail polygons declined"; $fail++ } elseif ($ld -ne 0) { "$m FAIL: $ld lightning quads declined"; $fail++ } else { "$m OK (all fallback counters 0)" }
+	$sl = Select-String "$out\e.txt" -Pattern 'render3d: shields: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
+	$sd = if ($sl) { [int]$sl.Matches[0].Groups[3].Value } else { 0 }	# shield hit polygons the sink declined (R3 row 4) fail the run
+	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } elseif ($bd -ne 0) { "$m FAIL: $bd beams declined"; $fail++ } elseif ($td -ne 0) { "$m FAIL: $td trail polygons declined"; $fail++ } elseif ($sd -ne 0) { "$m FAIL: $sd shield polygons declined"; $fail++ } elseif ($ld -ne 0) { "$m FAIL: $ld lightning quads declined"; $fail++ } else { "$m OK (all fallback counters 0)" }
 }
 exit $fail
