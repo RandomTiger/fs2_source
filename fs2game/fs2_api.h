@@ -50,7 +50,7 @@ typedef struct fs2_hooks {
 } fs2_hooks;
 
 // Version of this API; bumped when a function or struct changes.
-#define FS2_API_VERSION 10
+#define FS2_API_VERSION 12
 
 #ifdef FS2GAME_EXPORTS
 #define FS2_API __declspec(dllexport)
@@ -136,6 +136,12 @@ FS2_API void fs2_input_focus(int got);
 FS2_API void fs2_input_close(void);
 // The size of the game's screen in pixels, for mapping the host window's cursor onto it. 0 and 0 before fs2_init.
 FS2_API void fs2_screen_size(int *w, int *h);
+// Text in the game's own small font (font01), for the host to draw outside the game picture. Newlines start a new line. Gives the
+// size in *w and *h; with pixels not NULL also fills w * h bytes of coverage, 0 to 255, row by row. Returns 0, with both sizes 0,
+// while the fonts are not loaded. Reads only: it changes no game state.
+FS2_API int fs2_font_text(const char *text, unsigned char *pixels, int *w, int *h);
+// 1 while voice control is open and live, 0 otherwise. Reads only: it changes no game state.
+FS2_API int fs2_voice_enabled(void);
 
 // v8, the virtual canvas (code/Graphics/GrVirtual.h). The host's window client size in pixels; call it before the
 // first frame and again on every resize. 0, 0 means none: the game draws its base 4:3 screen, letterboxed by the host.
@@ -159,10 +165,13 @@ FS2_API int fs2_switch_gr_mode(int res);
 typedef struct fs2_dropdown_hooks {
 	void	(*show)(int x, int y, int w, int h, const char *const *labels, int count, int selected);
 	void	(*hide)(void);
+	void	(*side_button)(const char *text);	// v11, may be NULL: a button in the window's bottom left, in the black column; text shows it, NULL takes it away
 } fs2_dropdown_hooks;
 FS2_API int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks);
 // The player chose item index in the shown drop-down. Call only from inside the poll_events hook, like the other input sinks.
 FS2_API void fs2_input_dropdown(int index);
+// v11: the player clicked the side button. Call only from inside the poll_events hook.
+FS2_API void fs2_input_side_button(void);
 
 // v10: a line from the host's console, called between frames. The game's commands: resolution ..., unlock missions. Returns 1 and
 // its answer in out (out_size bytes, lines split by \n), or 0 for a line that is not the game's.

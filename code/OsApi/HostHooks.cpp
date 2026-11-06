@@ -6,6 +6,7 @@
 
 host_hooks Host_hooks = host_hooks_windows;
 int Host_dropdown_chosen = -1;		// GodotOptions, see HostHooks.h
+int Host_side_button_pressed = 0;	// GodotOptions, see HostHooks.h
 
 void host_hooks_set(const host_hooks *h)
 {

@@ -127,6 +127,9 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
 		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
 		fs2console::attach(screen, &api, !scripted && shown);	// GodotOptions: live play only
+		if (!scripted && shown) {
+			status_panel.create(static_cast<Fs2Screen *>(screen), api.module, api.font_text, api.voice_enabled);
+		}
 		const String ov = OS::get_singleton()->get_environment("FS2_NEBFOG");
 		if (ov == "off") { fs2sink::g_nebfog = fs2sink::kNebFogOff; } else if (ov == "same") { fs2sink::g_nebfog = fs2sink::kNebFogSame; } else if (ov == "lag") { fs2sink::g_nebfog = fs2sink::kNebFogLag; } else if (ov == "gpu") { fs2sink::g_nebfog = fs2sink::kNebFogGpu; }
 		UtilityFunctions::print("Fs2Game: kNebFog ", fs2sink::g_nebfog == fs2sink::kNebFogGpu ? "gpu" : fs2sink::g_nebfog == fs2sink::kNebFogSame ? "same" : fs2sink::g_nebfog == fs2sink::kNebFogLag ? "lag" : "off");
@@ -281,6 +284,7 @@ void Fs2Game::_process(double delta)
 	if (!running) {
 		return;
 	}
+	status_panel.refresh();
 	if (!fs2perf::g_on) {
 		step();
 		return;

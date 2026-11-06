@@ -23,6 +23,7 @@ int	pad_voice_talk_held();
 
 // For the pad test (PadMenuTest.cpp): how many times South has targeted in flight.
 int	pad_game_south_count();
+int	pad_game_east_count(int next);		// East presses in flight: 0 nearest hostile, 1 next hostile
 
 // From read_keyboard_controls(): adds the pad's yaw, pitch, roll and throttle.
 void	pad_read_flight(struct control_info *ci, float frame_time);
@@ -34,11 +35,8 @@ int	pad_pause_pressed();
 // (it would otherwise read the same pad, with the D-pad as view controls).
 int	pad_owns_joystick();
 
-// From the HUD render (PadHud.cpp): draws the open pad tree options.
-void	pad_hud_render();
-
-// From hud_show_ets(): 1 while North is held and this gauge (0 weapons, 1 shields, 2 engines) is the system
-// North + D-pad changes. pad_ets_recolor (PadHud.cpp) sets its colour; a gauge not highlighted is left alone.
+// From hud_show_ets(): 1 while RB is held and this gauge (0 weapons, 1 shields, 2 engines) is the system
+// RB + D-pad changes. pad_ets_recolor (PadHud.cpp) sets its colour; a gauge not highlighted is left alone.
 int	pad_ets_highlight(int gauge);
 void	pad_ets_recolor(int gauge, int bright);
 

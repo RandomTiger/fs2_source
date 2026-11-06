@@ -174,6 +174,7 @@ extern char *Cmdline_rank_above;
 extern char *Cmdline_rank_below;
 extern char *Cmdline_connect_addr;
 extern char *Cmdline_dataset;	// Claude: -dataset, see DataSetInstall.h
+extern char *Cmdline_resolution;	// Claude: GodotOptions, -resolution, see GrVirtual.h
 extern int Cmdline_gr_switch_test;	// Claude: GodotResolution, -gr_switch_test
 extern int Cmdline_multi_log;
 extern int Cmdline_server_firing;

@@ -33,6 +33,7 @@
 #include "MissionCampaign.h"
 #include "Scoring.h"
 #include "cmdline.h"
+#include "Timer.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -289,14 +290,16 @@ static int Go_gr_shown = GR_1024;		// the GR row's lit choice: the key's, else t
 static color Go_fs1_text;				// FS1's main hall grey
 static int Go_fs1_text_inited = 0;
 
-// the Resolution row (DisplayResolution, D-20261102-200805 / 204803): Classic, Desktop, then window sizes that fit the monitor
+// the Resolution row (DisplayResolution, D-20261102-200805 / 204803): Classic, Desktop, then window sizes that fit the monitor.
+// Live play with the host's drop-down lists the monitor's own display modes (Tom, #198); the drawn row keeps the short common list.
 typedef struct go_res {
 	int mode, w, h;		// GR_DISPLAY_*; w x h for GR_DISPLAY_SIZE
 	int gr;				// Claude: GodotOptions, a wide entry's GR mode (it also sets the height), else -1
 	char text[24];
 } go_res;
 
-#define GO_MAX_RES			9	// Claude: GodotOptions, 7 and the two wide entries
+#define GO_MAX_SYS_SIZES	48		// the display modes listed, the largest if there are more
+#define GO_MAX_RES			(GO_MAX_SYS_SIZES + 8)	// Claude: GodotOptions, room also for the 4:3 and wide entries, Desktop, the monitor's size and the size in force
 #define GO_MAX_SIZES		3		// common sizes below the monitor's own
 
 static go_res Go_res[GO_MAX_RES];
@@ -320,6 +323,60 @@ static void game_options_monitor_size(int *w, int *h)
 	}
 	*w = GetSystemMetrics(SM_CXSCREEN);
 	*h = GetSystemMetrics(SM_CYSCREEN);
+}
+
+// the sizes the monitor offers (each once, however many refresh rates or colour depths), smallest first; read again if the window
+// moves to another monitor. 0 if Windows gave none.
+static int game_options_system_sizes(int sizes[GO_MAX_SYS_SIZES][2])
+{
+	static char device[sizeof(((MONITORINFOEXA *)0)->szDevice)] = "";
+	static int cached[GO_MAX_SYS_SIZES][2];
+	static int num_cached = 0;
+	MONITORINFOEXA mi;
+	DEVMODEA dm;
+	HMONITOR mon = MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTOPRIMARY);
+	int i, j, k, w, h;
+
+	mi.cbSize = sizeof(mi);
+	if (!mon || !GetMonitorInfoA(mon, (MONITORINFO *)&mi)) {
+		return 0;
+	}
+	if ((num_cached == 0) || strcmp(device, mi.szDevice)) {
+		strcpy(device, mi.szDevice);
+		num_cached = 0;
+		memset(&dm, 0, sizeof(dm));
+		dm.dmSize = sizeof(dm);
+		for (i = 0; EnumDisplaySettingsA(mi.szDevice, i, &dm); i++) {
+			w = (int)dm.dmPelsWidth;
+			h = (int)dm.dmPelsHeight;
+			if ((w < 640) || (h < 480)) {
+				continue;
+			}
+			// in order by width, then height; at the limit the smallest goes
+			for (j = 0; (j < num_cached) && ((cached[j][0] < w) || ((cached[j][0] == w) && (cached[j][1] < h))); j++) {
+			}
+			if ((j < num_cached) && (cached[j][0] == w) && (cached[j][1] == h)) {
+				continue;
+			}
+			if (num_cached == GO_MAX_SYS_SIZES) {
+				if (j == 0) {
+					continue;
+				}
+				memmove(&cached[0], &cached[1], (j - 1) * sizeof(cached[0]));
+				j--;
+			} else {
+				for (k = num_cached; k > j; k--) {
+					cached[k][0] = cached[k - 1][0];
+					cached[k][1] = cached[k - 1][1];
+				}
+				num_cached++;
+			}
+			cached[j][0] = w;
+			cached[j][1] = h;
+		}
+	}
+	memcpy(sizes, cached, num_cached * sizeof(cached[0]));
+	return num_cached;
 }
 
 static void game_options_res_add(int mode, int w, int h, char *text)
@@ -355,22 +412,35 @@ static void game_options_res_add_wide(int gr, int base_h, int mw, int mh)
 	}
 }
 
-// Classic, Desktop, up to GO_MAX_SIZES common sizes that fit the monitor (the largest, in ascending order), the monitor's own
-// size, and the size in force if it is none of those
+// Classic (both heights where the mode changes live), Desktop, the wide entries, then the sizes: the monitor's display modes that
+// fit it with the host's drop-down, else up to GO_MAX_SIZES common sizes that fit (the largest, in ascending order). Then the
+// monitor's own size, and the size in force if it is none of those.
+static int game_options_dropdown_ok();
+
 static void game_options_res_list()
 {
-	int mw, mh, cw, ch, cur, i, first, n;
+	int mw, mh, cw, ch, cur, i, first, n, live, own_listed = 0;
+	int sizes[GO_MAX_SYS_SIZES][2];
 	char classic[24];	// Claude: GodotOptions, the Classic entry names the size the game draws at
 	int num_common = (int)(sizeof(Go_common_sizes) / sizeof(Go_common_sizes[0]));
 
 	Go_num_res = 0;
 	sprintf(classic, "%s (4:3)", (Go_gr_shown == GR_640) ? "640x480" : "1024x768");
-	game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, classic);
+	live = game_options_keys_active() && gr_live_mode_change() && Game_profile->gr_mode_choice;
+	if (live) {
+		// Claude: GodotOptions, both 4:3 heights (Tom, #198)
+		game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, "640x480 (4:3)");
+		Go_res[Go_num_res - 1].gr = GR_640;
+		game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, "1024x768 (4:3)");
+		Go_res[Go_num_res - 1].gr = GR_1024;
+	} else {
+		game_options_res_add(GR_DISPLAY_CLASSIC, 0, 0, classic);
+	}
 	game_options_res_add(GR_DISPLAY_DESKTOP, 0, 0, "Desktop");
 	game_options_monitor_size(&mw, &mh);
 	// Claude: GodotOptions, the wide entries (Tom): only where the mode changes live, and never in a compared run, whose screen stays as it was
 	cur = gr_virtual_display_request(&cw, &ch);
-	if (game_options_keys_active() && gr_live_mode_change() && Game_profile->gr_mode_choice) {
+	if (live) {
 		gr_virtual_get_window(&cw, &ch);
 		if ((cur == GR_DISPLAY_SIZE) || (cw <= 0) || (ch <= 0)) {	// a chosen size's shape is not the shape Desktop would give
 			cw = mw;
@@ -381,9 +451,16 @@ static void game_options_res_list()
 			game_options_res_add_wide(GR_1024, 768, cw, ch);
 		}
 	}
+	n = game_options_dropdown_ok() ? game_options_system_sizes(sizes) : 0;
+	for (i = 0; i < n; i++) {
+		if ((sizes[i][0] <= mw) && (sizes[i][1] <= mh) && ((sizes[i][0] != mw) || (sizes[i][1] != mh))) {
+			game_options_res_add(GR_DISPLAY_SIZE, sizes[i][0], sizes[i][1], NULL);
+			own_listed = 1;
+		}
+	}
 	n = 0;
 	first = num_common;
-	for (i = num_common - 1; (i >= 0) && (n < GO_MAX_SIZES); i--) {
+	for (i = num_common - 1; !own_listed && (i >= 0) && (n < GO_MAX_SIZES); i--) {
 		if ((Go_common_sizes[i][0] <= mw) && (Go_common_sizes[i][1] <= mh) && ((Go_common_sizes[i][0] != mw) || (Go_common_sizes[i][1] != mh))) {
 			first = i;
 			n++;
@@ -850,83 +927,82 @@ void game_options_screen_do_frame(float /*frametime*/)
 }
 
 // ---------------------------------------------------------------------------------------------------
-// the pilot screen's Options button: bottom right, the Options tab's four-diamond icon from this data set's own art.
-// Data with no such art (a demo) gets the word instead.
+// the pilot screen's Options button: the word, bottom left. The black column beside the picture is outside what the game can draw
+// on or point at, so a host with a side button (HostHooks.h side_button, the Godot host) puts it there. A host without one
+// (native D3D) gets the word drawn in the picture's bottom left corner.
 
 #define GO_BUTTON_MARGIN	8
+#define GO_BUTTON_STALE_MS	250		// a host click older than this came while a popup held the screen: not meant for the button
 
-static int Go_button_frame[2] = { -1, -1 };		// normal, under the mouse
 static int Go_button_on = 0;
+static int Go_button_host = 0;			// the host's button is up
 static int Go_button_was_down = 0;
+static int Go_button_last_do = 0;
+
+static void game_options_pilot_button_click()
+{
+	Go_from_pilot_screen = 1;
+	gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
+	gameseq_post_event(GS_EVENT_GAME_OPTIONS);
+}
 
 void game_options_pilot_button_init()
 {
-	char name[MAX_FILENAME_LEN];
-	char *root;
-	int first, nframes = 0;
-
 	Go_button_on = game_options_keys_active();
 	Go_from_pilot_screen = 0;
-	Go_button_frame[0] = Go_button_frame[1] = -1;
 	Go_button_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
-	if (!Go_button_on) {
-		return;
-	}
-
-	root = Cfile_fs1_data ? "OP_00" : ((gr_screen.res == GR_1024) ? "2_OPT_00" : "OPT_00");
-	sprintf(name, "%s0001", root);
-	Go_button_frame[0] = bm_load(name);
-	sprintf(name, "%s0002", root);
-	Go_button_frame[1] = bm_load(name);
-	if (Go_button_frame[0] < 0) {
-		first = bm_load_animation(root, &nframes);
-		if (first >= 0) {
-			Go_button_frame[0] = first;
-			Go_button_frame[1] = (nframes > 1) ? first + 1 : -1;
-		}
-	}
-	if (Go_button_frame[1] < 0) {
-		Go_button_frame[1] = Go_button_frame[0];
+	Go_button_host = 0;
+	Go_button_last_do = timer_get_milliseconds();
+	Host_side_button_pressed = 0;
+	if (Go_button_on && (Host_hooks.side_button != NULL)) {
+		Go_button_host = 1;
+		Host_hooks.side_button("OPTIONS");
 	}
 }
 
 void game_options_pilot_button_do()
 {
-	int w = 0, h = 0, x, y, mx, my, over, down;
+	int w = 0, h = 0, x, y, mx, my, over, down, now;
 
 	if (!Go_button_on) {
 		return;
 	}
-	if (Go_button_frame[0] >= 0) {
-		bm_get_info(Go_button_frame[0], &w, &h);
-	} else {
-		gr_set_font(FONT1);
-		gr_get_string_size(&w, &h, "OPTIONS");
+	if (Go_button_host) {
+		now = timer_get_milliseconds();
+		if (Host_side_button_pressed && ((now - Go_button_last_do) < GO_BUTTON_STALE_MS) && !Go_from_pilot_screen) {
+			game_options_pilot_button_click();
+		}
+		Host_side_button_pressed = 0;
+		Go_button_last_do = now;
+		return;
 	}
-	x = gr_screen.max_w - w - GO_BUTTON_MARGIN;
+	gr_set_font(FONT1);
+	gr_get_string_size(&w, &h, "OPTIONS");
+	x = GO_BUTTON_MARGIN;
 	y = gr_screen.max_h - h - GO_BUTTON_MARGIN;
 	if (Cfile_fs1_data) {
-		y -= (18 * gr_screen.max_h) / 480;	// FS1's copyright line runs this far right: sit above it
+		y -= (18 * gr_screen.max_h) / 480;	// FS1's copyright line runs this far out: sit above it
 	}
 
 	mouse_get_pos(&mx, &my);
 	down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
 	over = (mx >= x - 4) && (mx < x + w + 4) && (my >= y - 4) && (my < y + h + 4);
 
-	if (Go_button_frame[0] >= 0) {
-		gr_set_bitmap(Go_button_frame[over ? 1 : 0]);
-		gr_bitmap(x, y);
-	} else {
-		gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
-		gr_string(x, y, "OPTIONS");
-	}
+	gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
+	gr_string(x, y, "OPTIONS");
 
 	if (over && !down && Go_button_was_down && !Go_from_pilot_screen) {
-		Go_from_pilot_screen = 1;
-		gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
-		gameseq_post_event(GS_EVENT_GAME_OPTIONS);
+		game_options_pilot_button_click();
 	}
 	Go_button_was_down = down;
+}
+
+void game_options_pilot_button_close()
+{
+	if (Go_button_host) {
+		Host_hooks.side_button(NULL);
+		Go_button_host = 0;
+	}
 }
 
 int game_options_pilot_button_leaving()
@@ -974,7 +1050,7 @@ static void go_console_resolution(const char *arg, char *out, int out_size)
 
 	if (arg[0] == 0) {
 		for (i = 0; i < Go_num_res; i++) {
-			sprintf(line, "%c  %s%s\n", 'a' + i, Go_res[i].text, (i == Go_res_shown) ? "  *" : "");
+			sprintf(line, "%c  %s%s\n", (i < 26) ? 'a' + i : ' ', Go_res[i].text, (i == Go_res_shown) ? "  *" : "");	// past z: resolution <w>x<h>
 			go_console_print(out, out_size, line);
 		}
 		return;
@@ -1029,7 +1105,7 @@ static void go_console_resolution(const char *arg, char *out, int out_size)
 				}
 			}
 		}
-		for (i = 0; i < num_common; i++) {
+		for (i = 0; !game_options_dropdown_ok() && (i < num_common); i++) {	// Claude: GodotOptions, with the host's drop-down the list is the monitor's own modes
 			if ((Go_common_sizes[i][1] == h) && (Go_common_sizes[i][0] <= mw) && (h <= mh)) {
 				float d = (float)Go_common_sizes[i][0] / (float)h - want;
 				d = (d < 0.0f) ? -d : d;

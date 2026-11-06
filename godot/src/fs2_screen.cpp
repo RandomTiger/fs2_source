@@ -40,6 +40,27 @@ void Fs2Screen::_exit_tree()
 	sink.shutdown();
 }
 
+Vector2 Fs2Screen::get_window_size() const
+{
+	return view != nullptr ? view->get_size() : Vector2();
+}
+
+float Fs2Screen::get_left_column_width() const
+{
+	if (viewport == nullptr || view == nullptr) {
+		return 0.0f;
+	}
+	const Vector2 shown = view->get_size();
+	const Vector2i game = viewport->get_size();
+	if (game.x <= 0 || game.y <= 0) {
+		return 0.0f;
+	}
+	const float scale_x = shown.x / (float)game.x;
+	const float scale_y = shown.y / (float)game.y;
+	const float scale = scale_x < scale_y ? scale_x : scale_y;
+	return (shown.x - ((float)game.x * scale)) * 0.5f;
+}
+
 Ref<Image> Fs2Screen::get_image()
 {
 	if (viewport == nullptr) {

@@ -20,8 +20,10 @@
 #include "Mouse.h"
 #include "2d.h"
 #include "GrVirtual.h"	// v8
+#include "Font.h"
 #include "fs2_api.h"
 #include "InputTest.h"
+#include "../code/Voice/VoiceGame.h"
 #include "OsApi.h"
 #include "Sound.h"
 #include "ds.h"
@@ -53,7 +55,7 @@ static unsigned long long Api_sound_window = 0;
 static int Api_sound_logged = 0;
 
 // v9: the host's drop-down widget (fs2_set_dropdown_hooks); both null = none, the game draws its own choices
-static fs2_dropdown_hooks Api_dropdown = { NULL, NULL };
+static fs2_dropdown_hooks Api_dropdown = { NULL, NULL, NULL };
 
 static uintptr_t api_sound_window(void)
 {
@@ -188,7 +190,9 @@ int fs2_init(const char *cmdline, const char *root_dir)
 	Host_hooks.sound_window = Api_sound_window ? api_sound_window : NULL;	// v7: after the table copy, so it holds for any table
 	Host_hooks.dropdown_show = Api_dropdown.show;	// v9: likewise; null for a host that gave none
 	Host_hooks.dropdown_hide = Api_dropdown.hide;
+	Host_hooks.side_button = Api_dropdown.side_button;	// v11
 	Host_dropdown_chosen = -1;
+	Host_side_button_pressed = 0;
 	Api_sound_logged = 0;
 
 	replay_wait_for_restart();
@@ -343,6 +347,94 @@ int fs2_console_command(const char *line, char *out, int out_size)
 	return game_options_console_command(line, out, out_size);
 }
 
+// the game's own spacing for a letter, as get_char_width in Font.cpp, without touching Current_font
+static int font_text_advance(const font *f, unsigned char c1, unsigned char c2)
+{
+	const int letter = c1 - f->first_ascii;
+	const int letter2 = c2 - f->first_ascii;
+	int advance, i;
+
+	if ((letter < 0) || (letter >= f->num_chars)) {
+		return f->w;
+	}
+	advance = f->char_data[letter].spacing;
+	i = f->char_data[letter].kerning_entry;
+	if ((i > -1) && (c2 != 0) && (c2 != '\n') && (letter2 >= 0) && (letter2 < f->num_chars)) {
+		while ((i < f->num_kern_pairs) && (f->kern_data[i].c1 == letter) && (f->kern_data[i].c2 < letter2)) {
+			i++;
+		}
+		if ((i < f->num_kern_pairs) && (f->kern_data[i].c1 == letter) && (f->kern_data[i].c2 == letter2)) {
+			advance += f->kern_data[i].offset;
+		}
+	}
+	return advance;
+}
+
+int fs2_font_text(const char *text, unsigned char *pixels, int *w, int *h)
+{
+	const font *f = (Num_fonts > 0) ? &Fonts[0] : NULL;
+	const int line_h = (f != NULL) ? (f->h + 2) : 0;
+	int x = 0, y = 0, width = 0, height;
+	const unsigned char *s;
+
+	*w = 0;
+	*h = 0;
+	if ((f == NULL) || (f->pixel_data == NULL) || (f->char_data == NULL) || (text == NULL)) {
+		return 0;
+	}
+	for (s = (const unsigned char *)text; *s; s++) {
+		if (*s == '\n') {
+			x = 0;
+			y += line_h;
+			continue;
+		}
+		x += font_text_advance(f, s[0], s[1]);
+		if (x > width) {
+			width = x;
+		}
+	}
+	height = y + f->h;
+	*w = width;
+	*h = height;
+	if (pixels == NULL) {
+		return 1;
+	}
+	memset(pixels, 0, (size_t)width * height);
+	x = 0;
+	y = 0;
+	for (s = (const unsigned char *)text; *s; s++) {
+		const int letter = *s - f->first_ascii;
+
+		if (*s == '\n') {
+			x = 0;
+			y += line_h;
+			continue;
+		}
+		if ((letter >= 0) && (letter < f->num_chars)) {
+			const unsigned char *fp = f->pixel_data + f->char_data[letter].offset;
+			const int cw = f->char_data[letter].byte_width;
+			int cx, cy;
+
+			for (cy = 0; cy < f->h; cy++) {
+				for (cx = 0; cx < cw; cx++) {
+					const int c = fp[cx + (cy * cw)];	// 0 to 14 or more, as the font's bitmap is built in Font.cpp
+
+					if (((x + cx) < width) && (c > 0)) {
+						pixels[(x + cx) + ((y + cy) * width)] = (unsigned char)(((c > 14) ? 14 : c) * 255 / 14);
+					}
+				}
+			}
+		}
+		x += font_text_advance(f, s[0], s[1]);
+	}
+	return 1;
+}
+
+int fs2_voice_enabled(void)
+{
+	return voice_game_enabled();
+}
+
 void fs2_set_window_handle(unsigned long long handle)
 {
 	Api_sound_window = handle;
@@ -353,6 +445,7 @@ int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks)
 	if ( (hooks == NULL) || (hooks->show == NULL) || (hooks->hide == NULL) ) {
 		Api_dropdown.show = NULL;
 		Api_dropdown.hide = NULL;
+		Api_dropdown.side_button = NULL;
 		return 0;
 	}
 	Api_dropdown = *hooks;
@@ -362,6 +455,11 @@ int fs2_set_dropdown_hooks(const fs2_dropdown_hooks *hooks)
 void fs2_input_dropdown(int index)
 {
 	Host_dropdown_chosen = (index < 0) ? -1 : index;
+}
+
+void fs2_input_side_button(void)
+{
+	Host_side_button_pressed = 1;
 }
 
 void fs2_set_fiber(int mode)

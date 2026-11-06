@@ -677,7 +677,7 @@ void player_select_do()
 	// draw any pending messages on the bottom or middle of the screen
 	player_select_display_all_text();	
 
-	game_options_pilot_button_do();	// Claude: the Options button, bottom right (Tom, GodotOptions)
+	game_options_pilot_button_do();	// Claude: the Options button, bottom left (Tom, GodotOptions)
 
 #ifndef RELEASE_REAL
 	// gr_set_color_fast(&Color_bright_green);
@@ -710,6 +710,8 @@ void player_select_close()
 		player_select_cancel_create();
 	}
 	
+	game_options_pilot_button_close();	// Claude: the host's button goes with the screen
+
 	// Claude: off to Game Options and back here (the Options button): no pilot is chosen yet
 	if (game_options_pilot_button_leaving()) {
 		if (Player_select_background_bitmap >= 0) {

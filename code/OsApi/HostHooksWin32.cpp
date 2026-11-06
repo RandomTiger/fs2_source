@@ -104,6 +104,7 @@ const host_hooks host_hooks_windows = {
 	NULL,	// Claude: sound_window, the game's own window
 	NULL,	// Claude: dropdown_show, the game draws its own choices
 	NULL,	// Claude: dropdown_hide
+	NULL,	// Claude: side_button, the screen draws its own
 };
 
 static void host_headless_poll_events()
@@ -162,4 +163,5 @@ const host_hooks host_hooks_headless = {
 	NULL,	// Claude: sound_window, none
 	NULL,	// Claude: dropdown_show, none
 	NULL,	// Claude: dropdown_hide
+	NULL,	// Claude: side_button, none
 };

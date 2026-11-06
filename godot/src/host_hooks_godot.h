@@ -48,6 +48,9 @@ void frame_tick();
 // The game key that types character c on the game's US table, and whether it needs shift; 0 for none.
 unsigned int text_key(unsigned int c, bool *shift);
 
+// How many connected devices the pad hook would take as a pad, and how many are other joysticks. The input test's synthetic device is not counted.
+void device_counts(int *pads, int *sticks);
+
 // Measurement only (R1-feel): how many events the game has taken from the queue, and when it took the last (ticks_usec).
 unsigned long long consumed_count(void);
 long long consumed_usec(void);
