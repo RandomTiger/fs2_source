@@ -25,6 +25,7 @@ $beamgpu = $env:FS2_BEAM_GPU; if (-not $beamgpu) { $env:FS2_BEAM_GPU = '0' }	# l
 $trailgpu = $env:FS2_TRAILS_GPU; if (-not $trailgpu) { $env:FS2_TRAILS_GPU = '0' }	# likewise weapon trails
 $shieldgpu = $env:FS2_SHIELD_GPU; if (-not $shieldgpu) { $env:FS2_SHIELD_GPU = '0' }	# likewise shield hits
 $lightgpu = $env:FS2_LIGHTNING_GPU; if (-not $lightgpu) { $env:FS2_LIGHTNING_GPU = '0' }	# likewise lightning bolts
+$stargpu = $env:FS2_STARFIELD_GPU; if (-not $stargpu) { $env:FS2_STARFIELD_GPU = '0' }	# likewise the starfield background bitmaps
 $warpgpu = $env:FS2_WARP_GPU; if (-not $warpgpu) { $env:FS2_WARP_GPU = '0' }	# likewise the warp-in cone and the subspace tunnel
 Push-Location $env:PATH_FS2
 $p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $ShotDir 'godot.out.txt') -RedirectStandardError (Join-Path $ShotDir 'godot.err.txt'); $null = $p.Handle
@@ -37,5 +38,6 @@ if (-not $beamgpu) { Remove-Item Env:FS2_BEAM_GPU -ErrorAction SilentlyContinue 
 if (-not $trailgpu) { Remove-Item Env:FS2_TRAILS_GPU -ErrorAction SilentlyContinue }
 if (-not $shieldgpu) { Remove-Item Env:FS2_SHIELD_GPU -ErrorAction SilentlyContinue }
 if (-not $lightgpu) { Remove-Item Env:FS2_LIGHTNING_GPU -ErrorAction SilentlyContinue }
+if (-not $stargpu) { Remove-Item Env:FS2_STARFIELD_GPU -ErrorAction SilentlyContinue }
 if (-not $warpgpu) { Remove-Item Env:FS2_WARP_GPU -ErrorAction SilentlyContinue }
 return $code
