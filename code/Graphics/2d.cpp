@@ -527,6 +527,24 @@ int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float s
 	return Gr_host_backend->mesh_thrust(key, xform, nv, bitmap, scale, min_dist, rgb);
 }
 
+int gr_host_fog_mark_begin()
+{
+	if (!gr_host_mesh_ready() || !Gr_host_backend->fog_mark_begin) { return 0; }
+	return Gr_host_backend->fog_mark_begin();
+}
+
+int gr_host_fog_mark_end()
+{
+	if (!Gr_host_backend || !Gr_host_backend->fog_mark_end) { return 0; }
+	return Gr_host_backend->fog_mark_end();
+}
+
+int gr_host_fog_mark_hit()
+{
+	if (!Gr_host_backend || !Gr_host_backend->fog_mark_hit) { return 0; }
+	return Gr_host_backend->fog_mark_hit();
+}
+
 int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray)
 {
 	if (!gr_host_mesh_ready() || !Gr_host_backend->mesh_bg) { return 0; }

@@ -642,6 +642,9 @@ typedef struct gr_host_backend {
 	int (*billboard)(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags, int a_rgb);
 	void (*model_page_in)(int modelnum);						// Claude: load hook, a ship model's textures were just paged in (model_page_in_textures); the host may build its fixed data for it now
 	void (*level_loaded)();											// Claude: load hook, level paging is done (level_page_in); the host may finish what needs its device
+	int (*fog_mark_begin)(void);										// Claude: R3 row 9, a replay of a GPU-drawn model's marked polys follows: swaps in a fog-only tmapper; 0 = no replay needed
+	int (*fog_mark_end)(void);										// Claude: R3 row 9, ends the replay; 1 = a poly reached the tmapper
+	int (*fog_mark_hit)(void);										// Claude: R3 row 9, 1 once a replayed poly has reached the fog-only tmapper
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly);
@@ -649,6 +652,9 @@ extern int gr_host_mesh_draw(int key, const float *xform, const unsigned char *r
 extern int gr_host_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light, int nv, int tiled);
 extern int gr_host_mesh_clip(const float *plane);
 extern int gr_host_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb);
+extern int gr_host_fog_mark_begin();
+extern int gr_host_fog_mark_end();
+extern int gr_host_fog_mark_hit();
 extern int gr_host_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gray);
 extern void gr_host_mesh_free(int key);
 extern int gr_host_billboard(int kind, const float *p0, const float *p1, float a_rad, float b_rad, float a_maxlen, int a_orient, unsigned a_flags, int a_rgb);

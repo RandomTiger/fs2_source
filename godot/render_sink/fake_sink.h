@@ -63,6 +63,7 @@ public:
 		table.mesh_draw_lit = &FakeSink::s_mesh_draw_lit;
 		table.mesh_clip = &FakeSink::s_mesh_clip;
 		table.mesh_fog = &FakeSink::s_mesh_fog;
+		table.mesh_fog_mark = &FakeSink::s_mesh_fog_mark;
 		table.mesh_thrust = &FakeSink::s_mesh_thrust;
 		table.billboard_draw = &FakeSink::s_billboard_draw;
 		table.texture_array_create = &FakeSink::s_texture_array_create;
@@ -302,6 +303,10 @@ private:
 		FakeSink *s = static_cast<FakeSink *>(u);
 		s->need_frame("mesh_thrust outside a frame");
 		s->add(Cmd::MeshThrust).a = t != nullptr ? 1 : 0;
+	}
+	static void s_mesh_fog_mark(void *u, const float *, int)
+	{
+		static_cast<FakeSink *>(u)->need_frame("mesh_fog_mark outside a frame");
 	}
 	static int s_mesh_fog(void *u, const fs2_sink_mesh_fog *fog)
 	{

@@ -168,7 +168,7 @@ typedef struct fs2_sink_billboard {
 
 typedef struct fs2_sink_mesh_fog {
 	int32_t mode;		/* FS2_SINK_FOG_* */
-	uint8_t rgb[4];		/* fog colour r g b (a unused) */
+	uint8_t rgb[4];		/* fog colour r g b; rgb[3] == 1 (R3 row 9): the colour is the one the last marked poly left (see mesh_fog_mark), not the pixels behind each vertex */
 	float fog_near, fog_far;	/* world units; depth = vertex z * 30000 with z capped at 0.98, as fs2_sink_draw */
 } fs2_sink_mesh_fog;
 
@@ -254,6 +254,14 @@ typedef struct fs2_render_sink {
 	 * gets the screen-space triangles from the host as before. Returns 1 when drawn or deliberately culled, 0 when the sink cannot take this draw
 	 * (the host then draws it on the CPU path). */
 	int (*billboard_draw)(void *user, const fs2_sink_billboard *b);
+
+	/* v9, optional (R3 row 9, appended at the end; no earlier entry or field moves): the host drew a poly marked fog_rgb[3] == 1 on the mesh path (a
+	 * hull submodel; the sink never saw its vertices), so the last colour the CPU path would have set is that poly's. xy = n screen positions
+	 * (x, y pairs, as the draw vertices of a marked fs2_sink_draw, 3 <= n <= 32). The sink takes them as the colour state of the fogged draws that
+	 * follow in call order, exactly as a marked fs2_sink_draw does, and draws nothing. A mesh_fog with rgb[3] == 1 then fogs a mesh draw with that
+	 * colour (a textured thruster: it is not marked and keeps the stale one). A sink without it makes the host keep a fogged textured thruster on
+	 * the CPU path. */
+	void (*mesh_fog_mark)(void *user, const float *xy, int n);
 } fs2_render_sink;
 
 #ifdef __cplusplus

@@ -120,6 +120,9 @@ struct Host {
 	int fog_mode = 0, fog_r = 0, fog_g = 0, fog_b = 0;
 	float fog_near = 0.0f, fog_far = 0.0f;
 	fs2_sink_mesh_fog mesh_fog_sent = {};	// the fog the sink last got for meshes (mesh_fog_valid: it got one)
+	bool mesh_stale = false;	// h_mesh_thrust: the draw in mesh_prepare is a textured thruster in fog; it wears the stale fog colour (R3 row 9)
+	bool fog_replay_hit = false;	// fog_mark_end: the replayed poly reached the fog-only tmapper
+	void (*fog_replay_saved)(int, vertex **, uint) = nullptr;
 	bool mesh_fog_valid = false, mesh_fog_ok = true;	// mesh_fog_ok: the sink took the fog it last got
 	bool load_mode = false;	// h_level_loaded is uploading: texture_create and mesh_create are legal without a frame
 	int bb_tex_late = 0;	// billboard textures uploaded at a draw because load had not
@@ -1574,6 +1577,7 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 			f.mode = FS2_SINK_FOG_LINEAR;
 			f.rgb[0] = clamp8(H.fog_r); f.rgb[1] = clamp8(H.fog_g); f.rgb[2] = clamp8(H.fog_b);
 			f.fog_near = H.fog_near; f.fog_far = H.fog_far;
+			if (H.mesh_stale) { f.rgb[3] = 1; }
 		}
 		if (!H.mesh_fog_valid || std::memcmp(&f, &H.mesh_fog_sent, sizeof(f)) != 0) {
 			H.mesh_fog_ok = H.sink->mesh_fog(H.sink->user, &f) != 0;
@@ -1617,14 +1621,18 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 // is a z scale in the sink for the vertices in front of min_dist
 int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
 {
-	// fogged (nebula): a flat thruster is marked PIXEL_FOG like a hull poly; a textured one is not, and the polygon path fogs it with the colour the
-	// last marked poly left (see fog_rgb[3]). With FS2_THRUSTFOG_GPU=1 it goes to the GPU with the mesh fog's own colour behind each vertex, which
-	// is NOT the stale colour (a logged deviation until Tom decides, D-20261106-104901); off by default: fogged thrusters stay on the polygon path
-	static const bool thrfog_on = getenv("FS2_THRUSTFOG_GPU") != nullptr && atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
-	if (H.sink->mesh_thrust == nullptr || (H.fog_mode != GR_FOGMODE_NONE && !thrfog_on) || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	// fogged (nebula): a flat thruster is marked PIXEL_FOG like a hull poly (the replay in model_interp_mesh_try sends its mark); a textured one is
+	// not marked, and the polygon path fogs it with the colour the last marked poly left. fog_rgb[3] = 1 asks the sink for exactly that colour
+	// (R3 row 9, D-20261106-112338). On unless FS2_THRUSTFOG_GPU=0.
+	static const bool thrfog_on = getenv("FS2_THRUSTFOG_GPU") == nullptr || atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
+	const bool fogged = H.fog_mode != GR_FOGMODE_NONE;
+	if (H.sink->mesh_thrust == nullptr || (fogged && !thrfog_on) || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	if (fogged && bitmap >= 0 && H.sink->mesh_fog_mark == nullptr) { return 0; }	// a sink that cannot carry the stale colour keeps the polygon path
 	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
 	const float ts[2] = { scale, min_dist };
+	H.mesh_stale = fogged && bitmap >= 0;
 	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
+	H.mesh_stale = false;
 	if (p != 1) { return p == 2 ? 1 : p; }
 	if (flat) {
 		H.mesh_rgba.resize((size_t)nv * 4);
@@ -1640,6 +1648,38 @@ int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, 
 	H.sink->mesh_draw(H.sink->user, key, xform, flat ? H.mesh_rgba.data() : nullptr, flat ? nv : 0);
 	H.sink->mesh_thrust(H.sink->user, nullptr);
 	return 1;
+}
+
+// R3 row 9: the marked polys of a GPU-drawn model never reach the tmapper, so the stale fog colour they leave is replayed. model_interp_mesh_try
+// re-runs the polys through the real clipper into this tmapper, which only sends the screen positions of the one that would have been the
+// last marked poly (the sink sets the colour state from them, as tmapper_internal's PIXEL_FOG block does, without drawing)
+static void h_tmapper_fogmark(int nv, vertex *verts[], uint)
+{
+	if (nv < 3 || nv > 32) { return; }
+	ensure_frame();
+	if (!drawing()) { return; }
+	float xy[64];
+	for (int i = 0; i < nv; i++) {
+		xy[i * 2] = (float)(int)(verts[i]->sx * 16.0f) / 16.0f + (float)gr_screen.offset_x + FS2_SINK_D3D_PIXEL_CENTRE;
+		xy[i * 2 + 1] = (float)(int)(verts[i]->sy * 16.0f) / 16.0f + (float)gr_screen.offset_y + FS2_SINK_D3D_PIXEL_CENTRE;
+	}
+	H.sink->mesh_fog_mark(H.sink->user, xy, nv);
+	H.fog_replay_hit = true;
+}
+static int h_fog_mark_begin()
+{
+	static const bool on = getenv("FS2_THRUSTFOG_GPU") == nullptr || atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
+	if (!on || H.sink->mesh_fog_mark == nullptr || H.fog_mode == GR_FOGMODE_NONE || !H.mesh_fog_ok) { return 0; }
+	H.fog_replay_saved = gr_screen.gf_tmapper;
+	gr_screen.gf_tmapper = h_tmapper_fogmark;
+	H.fog_replay_hit = false;
+	return 1;
+}
+static int h_fog_mark_hit() { return H.fog_replay_hit ? 1 : 0; }
+static int h_fog_mark_end()
+{
+	gr_screen.gf_tmapper = H.fog_replay_saved;
+	return H.fog_replay_hit ? 1 : 0;
 }
 
 // the nebula background model (stars_draw_background): the forced bitmap on every poly, additive, no depth, no culling, vertex colour
@@ -2051,6 +2091,9 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.mesh_free = h_mesh_free;
 	Backend.model_page_in = h_model_page_in;
 	Backend.level_loaded = h_level_loaded;
+	Backend.fog_mark_begin = h_fog_mark_begin;
+	Backend.fog_mark_end = h_fog_mark_end;
+	Backend.fog_mark_hit = h_fog_mark_hit;
 	gr_host_backend_register(&Backend);
 	return 1;
 }
