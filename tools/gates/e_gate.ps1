@@ -5,7 +5,7 @@ Initialize-Fs2DemoScratch	# FS2_PROCDUMP (optional) = procdump.exe, for crash du
 if (-not $Repo) { $Repo = $RepoRoot }
 $bad = @()	# steps that failed: any one makes the gate exit 1 (#142)
 $w = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\warning_check.ps1" -RepoDir $Repo | Select-Object -Last 1
-"warning_check: $w"; if ($w -notmatch 'PASS') { $bad += 'warning_check' }
+"warning_check: $w"; if ("$w" -notmatch 'PASS') { $bad += 'warning_check' }
 $sp=$PSScriptRoot
 $r=$Repo
 Get-ChildItem $r -Recurse -Filter code.lib | Remove-Item
@@ -25,6 +25,6 @@ if ($LASTEXITCODE) { $bad += 'replays' }
 "quick: $q"
 Select-String "$env:TEMP\w_$Label\summary.txt" -Pattern '^FAIL' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(100, $_.Line.Length)) }
 $tc = & powershell -NoProfile -ExecutionPolicy Bypass -File "$r\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
-"tools: $tc"; if ($tc -notmatch 'PASS') { $bad += 'tools' }
+"tools: $tc"; if ("$tc" -notmatch 'PASS') { $bad += 'tools' }
 if ($bad) { "e_gate: FAIL ($($bad -join ', '))"; exit 1 }
 'e_gate: PASS'
