@@ -1218,6 +1218,21 @@ void nebl_calc_facing_pts_smart( vector *top, vector *bot, vector *fvec, vector 
 	vm_vec_scale_add2( bot, &rvec, z_add );
 }
 
+// Claude: R3 row 5, one bolt quad on the GPU. The corners are the rotated eye-space vertices in uv order (0,0) (1,0) (1,1) (0,1); the host's sink near clips at 0.1 itself, a user clip plane is declined (orient 1). 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_LIGHTNING_GPU=0)
+extern int G3_user_clip;
+static int nebl_gpu_quad(vertex *p0, vertex *p1, vertex *p2, vertex *p3)
+{
+	if ( p0->codes & p1->codes & p2->codes & p3->codes ){
+		return 1;
+	}
+	const vertex *p[4] = { p0, p1, p2, p3 };
+	float c[12];
+	for(int i=0; i<4; i++){
+		c[i*3] = p[i]->x; c[i*3+1] = p[i]->y; c[i*3+2] = p[i]->z;
+	}
+	return gr_host_billboard(4, c, NULL, 0.0f, 0.0f, 0.0f, G3_user_clip ? 1 : 0, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT, -1);
+}
+
 // render a section of the bolt
 void nebl_render_section(bolt_type *bi, l_section *a, l_section *b)
 {		
@@ -1244,7 +1259,10 @@ void nebl_render_section(bolt_type *bi, l_section *a, l_section *b)
 
 		// draw
 		gr_set_bitmap(bi->texture, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, Nebl_alpha);
-		g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);		
+		if(nebl_gpu_quad(&a->vex[idx], &a->vex[idx+1], &b->vex[idx+1], &b->vex[idx])){
+			continue;
+		}
+		g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);
 	}
 
 	// draw
@@ -1261,9 +1279,11 @@ void nebl_render_section(bolt_type *bi, l_section *a, l_section *b)
 	v[3].u = 0.0f; v[3].v = 1.0f;
 
 	gr_set_bitmap(bi->texture, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, Nebl_alpha);
-	g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);	
+	if(!nebl_gpu_quad(&a->vex[2], &a->vex[0], &b->vex[0], &b->vex[2])){
+		g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);
+	}
 
-	// draw the glow beam	
+	// draw the glow beam
 	verts[0] = &a->glow_vex[0];
 	verts[0]->v = 0.0f; verts[0]->u = 0.0f;
 
@@ -1277,7 +1297,9 @@ void nebl_render_section(bolt_type *bi, l_section *a, l_section *b)
 	verts[3]->v = 0.0f; verts[3]->u = 1.0f;
 
 	gr_set_bitmap(bi->glow, GR_ALPHABLEND_FILTER, GR_BITBLT_MODE_NORMAL, Nebl_glow_alpha);
-	g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);	
+	if(!nebl_gpu_quad(&a->glow_vex[0], &b->glow_vex[0], &b->glow_vex[1], &a->glow_vex[1])){
+		g3_draw_poly(4, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT);
+	}
 }
 
 // generate a section

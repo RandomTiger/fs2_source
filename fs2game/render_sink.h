@@ -144,6 +144,7 @@ typedef struct fs2_sink_draw {
 #define FS2_SINK_BB_RIBBON	1	/* g3_draw_laser: p0 = head, p1 = tail, rad = head width, rad_tail = tail width, max_len = pixel cap of the 2D length */
 #define FS2_SINK_BB_ROTATED	2	/* v6, g3_draw_rotated_bitmap: p0 = centre, rad = size of the shorter side (not half), angle = roll in radians (viewer bank already added, wrapped to 0..2pi); constant per-quad sw, always uv 0..1 */
 #define FS2_SINK_BB_QUAD	3	/* v7, beam_render: p0 / p1 = eye-space centres of the start and end, rad / rad_tail = half widths there, max_len carries the perspective scale Matrix_scale.z (eye space is Matrix_scaled; no layout or value change), orient bit 0 = a user clip plane is on (declined); a corner nearer than 0.1 is clipped to that plane by the sink; the quad's corners are centre +- normalize(cross(p1 - p0, -centre)) * half width, perspective-correct uvs 0..1 (start = u 0, end = u 1, v 1 = the + side) */
+#define FS2_SINK_BB_QUAD4	4	/* v8, nebl_render_section (lightning): quad[] = the four eye-space corners in uv order (0,0) (1,0) (1,1) (0,1), perspective-correct uvs 0..1; p0 / p1 / rad are unused; orient bit 0 = a user clip plane is on (declined); the sink clips the polygon to the 0.1 near plane itself */
 typedef struct fs2_sink_billboard {
 	int32_t kind;			/* FS2_SINK_BB_* */
 	int32_t texture, blend;		/* as fs2_sink_draw; texture 0 = untextured (tint colour) */
@@ -156,6 +157,7 @@ typedef struct fs2_sink_billboard {
 	int32_t bw, bh;			/* bitmap size in texels (bitmap kind: the aspect rule) */
 	int32_t clip[4];		/* gr_screen clip left, top, right, bottom, canvas-relative: the bitmap kind's scaler clips and drops tiny quads with them */
 	float angle;			/* v6: FS2_SINK_BB_ROTATED only */
+	float quad[12];			/* v8: FS2_SINK_BB_QUAD4 only (appended at the end, no earlier field moves) */
 } fs2_sink_billboard;
 
 typedef struct fs2_sink_mesh_fog {
