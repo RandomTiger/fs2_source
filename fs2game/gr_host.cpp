@@ -130,6 +130,7 @@ struct Host {
 	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
 	int beam_offered = 0, beam_gpu = 0;	// beams handed to the sink / drawn by it (R3 row 1); declined = offered - drawn, must be 0
 	int trail_offered = 0, trail_gpu = 0;	// trail section polygons handed to the sink / drawn by it (R3 row 2); declined = offered - drawn, must be 0
+	int shield_offered = 0, shield_gpu = 0;	// shield hit polygons (triangles; a quad is two) handed to the sink / drawn by it (R3 row 4); declined = offered - drawn, must be 0
 	int light_offered = 0, light_gpu = 0;	// lightning bolt quads handed to the sink / drawn by it (R3 row 5); declined = offered - drawn, must be 0
 	int bb_sink = 0, bb_cpu = 0, bb_why[5] = {}; unsigned bb_flags = 0;	// billboard draws the sink took / that stayed on the CPU path (R3)
 	// depth shadow (see top): host only, the game reads none of it
@@ -1250,6 +1251,16 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 
 static int h_billboard(int kind, const float *p0, const float *p1, float rad, float rad_tail, float max_len, int orient, unsigned flags, int rgb)
 {
+	if (kind == FS2_SINK_BB_TRI3 && (orient & 4)) {	// shield hits (orient bit 2 marks them; the rgb argument is the polygon's constant vertex colour)
+		static const bool shield_on = getenv("FS2_SHIELD_GPU") == nullptr || atoi(getenv("FS2_SHIELD_GPU")) != 0;	// shield hits draw on the GPU; FS2_SHIELD_GPU=0 (pixel-comparison runs) keeps them on the poly path
+		if (!shield_on) { return 0; }
+		const int sbefore = H.bb_sink, sidle = H.bb_why[0];
+		const int sr = h_billboard_in(kind, p0, p1, rad, rad_tail, max_len, orient, flags, rgb);
+		if (H.bb_why[0] != sidle) { return sr; }	// no frame is being drawn: not an offer
+		H.shield_offered++;
+		if (H.bb_sink != sbefore) { H.shield_gpu++; }
+		return sr;
+	}
 	if ((kind == FS2_SINK_BB_QUAD4 && (orient & 2)) || kind == FS2_SINK_BB_TRI3) {	// weapon trails (orient bit 1 marks the quad callers)
 		static const bool trails_on = getenv("FS2_TRAILS_GPU") == nullptr || atoi(getenv("FS2_TRAILS_GPU")) != 0;	// trails draw on the GPU; FS2_TRAILS_GPU=0 (pixel-comparison runs) keeps them on the poly path
 		if (!trails_on) { return 0; }
@@ -1906,6 +1917,7 @@ void host_cleanup()
 	if (mesh_switch()) { fprintf(stderr, "render3d: billboards: %d on the sink, %d faults (not drawing %d, flags %d last 0x%x, cull %d, sink refused %d)\n", H.bb_sink, H.bb_cpu, H.bb_why[0], H.bb_why[1], H.bb_flags, H.bb_why[2], H.bb_why[3]); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: beams: %d offered, %d drawn on the GPU, %d declined\n", H.beam_offered, H.beam_gpu, H.beam_offered - H.beam_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: trails: %d offered, %d drawn on the GPU, %d declined\n", H.trail_offered, H.trail_gpu, H.trail_offered - H.trail_gpu); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: shields: %d offered, %d drawn on the GPU, %d declined\n", H.shield_offered, H.shield_gpu, H.shield_offered - H.shield_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: lightning: %d offered, %d drawn on the GPU, %d declined\n", H.light_offered, H.light_gpu, H.light_offered - H.light_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }

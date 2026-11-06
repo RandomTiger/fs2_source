@@ -433,6 +433,33 @@ void free_global_tri_records(int shnum)
 	}
 }
 
+// Claude: R3 row 4, one shield polygon on the GPU (TRI3 kind with an rgb tint: the vertex colour is constant per polygon, the host's rgb argument; filter blended). A quad is two triangles (0 1 2) (0 2 3). The host near clips at 0.1, a user clip plane is declined. orient bit 2 marks a shield for the host's counters / FS2_SHIELD_GPU. 1 = drawn (or nothing to draw), 0 = this draw stays here (FS2_SHIELD_GPU=0)
+extern int G3_user_clip;
+static int shield_gpu_tri(vertex *a, vertex *b, vertex *c, ubyte r, ubyte g, ubyte bl)
+{
+	if ( a->codes & b->codes & c->codes ){
+		return 1;
+	}
+	const vertex *v[3] = { a, b, c };
+	float p[9], uv[6];
+	for(int i=0; i<3; i++){
+		p[i*3] = v[i]->x; p[i*3+1] = v[i]->y; p[i*3+2] = v[i]->z;
+		uv[i*2] = v[i]->u; uv[i*2+1] = v[i]->v;
+	}
+	return gr_host_billboard(5, p, uv, 0.0f, 0.0f, 0.0f, (G3_user_clip ? 1 : 0) | 4, TMAP_FLAG_TEXTURED | TMAP_FLAG_CORRECT, (int)r | ((int)g << 8) | ((int)bl << 16));
+}
+
+static int shield_gpu_poly(int n, vertex **v, ubyte r, ubyte g, ubyte b)
+{
+	if ( !shield_gpu_tri(v[0], v[1], v[2], r, g, b) ){
+		return 0;
+	}
+	if ( n == 4 ){
+		shield_gpu_tri(v[0], v[2], v[3], r, g, b);
+	}
+	return 1;
+}
+
 void render_low_detail_shield_bitmap(gshield_tri *trip, matrix *orient, vector *pos, ubyte r, ubyte g, ubyte b)
 {
 	matrix	m;
@@ -474,12 +501,14 @@ void render_low_detail_shield_bitmap(gshield_tri *trip, matrix *orient, vector *
 		vertlist[1] = &verts[2];
 		vertlist[2] = &verts[1]; 
 		vertlist[3] = &verts[0]; 
+		if ( !shield_gpu_poly(4, vertlist, r, g, b) )
 		g3_draw_poly( 4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	} else {
 		vertlist[0] = &verts[0]; 
 		vertlist[1] = &verts[1];
 		vertlist[2] = &verts[2]; 
 		vertlist[3] = &verts[3]; 
+		if ( !shield_gpu_poly(4, vertlist, r, g, b) )
 		g3_draw_poly( 4, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	}
 }
@@ -535,8 +564,10 @@ void render_shield_triangle(gshield_tri *trip, matrix *orient, vector *pos, ubyt
 		vertlist[0] = verts[2]; 
 		vertlist[1] = verts[1]; 
 		vertlist[2] = verts[0]; 
+		if ( !shield_gpu_poly(3, vertlist, r, g, b) )
 		g3_draw_poly( 3, vertlist, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	} else {
+		if ( !shield_gpu_poly(3, verts, r, g, b) )
 		g3_draw_poly( 3, verts, TMAP_FLAG_TEXTURED | TMAP_FLAG_RGB | TMAP_FLAG_GOURAUD);
 	}
 }
