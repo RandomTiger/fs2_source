@@ -324,7 +324,7 @@ private:
 	std::map<uint32_t, godot::RID> bb_shaders;
 	godot::RID bb_quad;
 	godot::RID bb_fan5;	// QUAD4: a five slot fan (a quad clipped by the near plane has up to five corners), VERTEX.x = the slot
-	godot::RID billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr);
+	godot::RID billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr, bool rep = false, bool aff = false);
 	// batched instancing: adjacent billboard draws of one state are one multimesh, one material, one instance (per-draw data in the transform + custom data)
 	static constexpr int kBbBuckets = 5;
 	static constexpr int kBbBucketCap[kBbBuckets] = {8, 32, 128, 512, 2048};

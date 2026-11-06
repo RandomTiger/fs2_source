@@ -2193,10 +2193,10 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 // g3_draw_bitmap and g3_draw_laser on the GPU: the vertex shader works out the four corners from the eye-space points with the game's own
 // formulas (docs/R3_billboards_design.md), in canvas pixels, snaps them to the 1/16 grid as the host does, and places them as the mesh shader
 // does (x = org.x + sx - cw/2, y = org.y + ch/2 - sy, w = 1; the perspective-correct uvs are done by hand with the game's per-end sw).
-RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr)
+RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr, bool rep, bool aff)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u);
+	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u);
 	auto it = bb_shaders.find(skey);
 	if (it != bb_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, cull_disabled, ";
@@ -2204,7 +2204,8 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
 	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
 	code += arr ? ";\nuniform sampler2DArray tex : " : ";\nuniform sampler2D tex : ";
-	code += lin ? "filter_linear, repeat_disable;\n" : "filter_nearest, repeat_disable;\n";
+	code += lin ? "filter_linear, " : "filter_nearest, ";
+	code += rep ? "repeat_enable;\n" : "repeat_disable;\n";	// rep: the subspace tunnel's tiled polys (R3 row 6)
 	// one draw call per run of draws that share this state: per run bwh = bw, bh; sc = Matrix_scale x, y; bcl = the scaler clip l, t, r, b; cfg = canvas/2, dbase;
 	// per draw, in the instance's 3x4 transform (read back from MODEL_MATRIX, which is exact: the instance transform is the identity) and its custom data:
 	// pA = p0 xyz, rad; pB = p1 xyz, rad_tail; bbp = max_len, orient, bw, bh; zbias; tint
@@ -2254,6 +2255,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\t\tif (ia != ib) { if (n == kk) { float t = (0.1 - C[i].z) / (C[j].z - C[i].z); ev = mix(C[i], C[j], t); eu = mix(U[i], U[j], t); } n++; }\n\t}\n";
 		code += "\tuv = eu;\n\tfloat z = max(ev.z, 0.1);\n\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
 	} else if (kind == FS2_SINK_BB_TRI3) {
+		// R3 row 6: aff = the warp cone and the thruster glow polys have no CORRECT flag, so their uvs are affine in screen space (sw = 1), as the poly path draws them
 		// trail_render, the tail triangle: as QUAD4 with three corners (corner i = M[i].xyz) and their own uvs (u0 v0 u1 = M[3].xyz, v1 u2 v2 = COLOR.xyz); tint r in custom.x, g in custom.w, b in colour.w (trails: grey), zbias, layer in the custom data. Clipped to the 0.1 near plane into a fan of up to four slots.
 		code += "\ttintv = vec4(INSTANCE_CUSTOM.x, INSTANCE_CUSTOM.w, COLOR.w, 1.0);\n\tzbias = INSTANCE_CUSTOM.y;\n\tlyr = INSTANCE_CUSTOM.z;\n";
 		code += "\tvec3 C[3] = vec3[3](M[0].xyz, M[1].xyz, M[2].xyz);\n\tvec2 U[3] = vec2[3](vec2(M[3][0], M[3][1]), vec2(M[3][2], COLOR.x), vec2(COLOR.y, COLOR.z));\n";
@@ -2262,6 +2264,8 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\tfor (int i = 0; i < 3; i++) {\n\t\tint j = (i + 1) % 3;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { if (n == kk) { ev = C[i]; eu = U[i]; } n++; }\n";
 		code += "\t\tif (ia != ib) { if (n == kk) { float t = (0.1 - C[i].z) / (C[j].z - C[i].z); ev = mix(C[i], C[j], t); eu = mix(U[i], U[j], t); } n++; }\n\t}\n";
 		code += "\tuv = eu;\n\tfloat z = max(ev.z, 0.1);\n\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
+		if (aff) { code += "\tsw = 1.0;\n"; }
+		if (rep) { code += "\tsw = 1.0 / z;\n"; }	// true perspective (1/z, no clamp at 1): the tunnel polys sit nearer than 1 unit and the CPU frames match this, not the clamped sw
 	} else {
 		code += "\tfloat sw0 = min(1.0 / pA.z, 1.0);\n\tfloat sw1 = min(1.0 / pB.z, 1.0);\n";
 		code += "\tfloat hx = (cwh.x + pA.x * cwh.x / pA.z) * 0.5;\n\tfloat hy = (cwh.y - pA.y * cwh.y / pA.z) * 0.5;\n";
@@ -2282,7 +2286,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += "\tfloat d = cfg.z + min(zq / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
 	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
-	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (" + String(rep ? "false && " : "") + "ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
 	code += (kind != FS2_SINK_BB_RIBBON && kind != FS2_SINK_BB_QUAD && kind != FS2_SINK_BB_QUAD4 && kind != FS2_SINK_BB_TRI3) ?"\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
 	code += "void fragment() {\n";
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
@@ -2326,7 +2330,7 @@ int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
 bool GodotSink::bb_same_run(const BbDraw &a, const BbDraw &b) const
 {
 	const unsigned zm = FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE;
-	return a.b.kind == b.b.kind && a.b.blend == b.b.blend && (a.arr >= 0 ? a.arr == b.arr : (b.arr < 0 && a.b.texture == b.b.texture)) && (a.b.flags & zm) == (b.b.flags & zm)
+	return a.b.kind == b.b.kind && a.b.orient == b.b.orient && a.b.blend == b.b.blend && (a.arr >= 0 ? a.arr == b.arr : (b.arr < 0 && a.b.texture == b.b.texture)) && (a.b.flags & zm) == (b.b.flags & zm)
 		&& a.b.bw == b.b.bw && a.b.bh == b.b.bh && std::memcmp(a.b.clip, b.b.clip, sizeof(a.b.clip)) == 0
 		&& a.epoch == b.epoch && a.cw == b.cw && a.ch == b.ch && a.ox == b.ox && a.oy == b.oy
 		&& a.scale[0] == b.scale[0] && a.scale[1] == b.scale[1]
@@ -2398,7 +2402,7 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	l.bb_multimeshes.push_back(std::make_pair(pool, mm));
 	RID mat;
 	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
-	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr));
+	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0));
 	l.mesh_materials.push_back(mat);
 	rs->material_set_param(mat, "tex", use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid);
 	rs->material_set_param(mat, "bwh", Vector2((float)d.b.bw, (float)d.b.bh));
