@@ -47,11 +47,13 @@ foreach ($m in $Missions) {
 	$sd = if ($sl) { [int]$sl.Matches[0].Groups[3].Value } else { 0 }	# shield hit polygons the sink declined (R3 row 4) fail the run
 	$wl = Select-String "$out\e.txt" -Pattern 'render3d: warp cone: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
 	$wd = if ($wl) { [int]$wl.Matches[0].Groups[3].Value } else { 0 }	# warp cone triangles the sink declined (R3 row 6) fail the run
+	$xl = Select-String "$out\e.txt" -Pattern 'render3d: starfield bitmaps: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
+	$xd = if ($xl) { [int]$xl.Matches[0].Groups[3].Value } else { 0 }	# starfield background bitmap triangles the sink declined (R3 row 7) fail the run
 	$ul = Select-String "$out\e.txt" -Pattern 'render3d: subspace: (\d+) offered, (\d+) drawn on the GPU, (\d+) declined' | Select-Object -Last 1
 	$ud = if ($ul) { [int]$ul.Matches[0].Groups[3].Value } else { 0 }	# subspace tunnel triangles the sink declined (R3 row 6) fail the run
 	# A Godot shader that fails to compile draws nothing and leaves every counter happy (TRI3 shield/trail triangles, 168bafd): any shader error line in either log fails the run
 	$se = @(Select-String "$out\e.txt", "$out\o.txt" -Pattern 'SHADER ERROR|Parse Error|[Ss]hader compilation failed' | Select-Object -First 3)
 	if ($se) { "$m FAIL: Godot shader error: " + $se[0].Line.Trim(); $fail++; continue }
-	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } elseif ($bd -ne 0) { "$m FAIL: $bd beams declined"; $fail++ } elseif ($td -ne 0) { "$m FAIL: $td trail polygons declined"; $fail++ } elseif ($sd -ne 0) { "$m FAIL: $sd shield polygons declined"; $fail++ } elseif ($wd -ne 0) { "$m FAIL: $wd warp cone triangles declined"; $fail++ } elseif ($ud -ne 0) { "$m FAIL: $ud subspace triangles declined"; $fail++ } elseif ($ld -ne 0) { "$m FAIL: $ld lightning quads declined"; $fail++ } else { "$m OK (all fallback counters 0)" }
+	if ($nz) { "$m FAIL: " + (($nz | ForEach-Object { $_.Value }) -join ', '); $fail++ } elseif ($bd -ne 0) { "$m FAIL: $bd beams declined"; $fail++ } elseif ($td -ne 0) { "$m FAIL: $td trail polygons declined"; $fail++ } elseif ($sd -ne 0) { "$m FAIL: $sd shield polygons declined"; $fail++ } elseif ($wd -ne 0) { "$m FAIL: $wd warp cone triangles declined"; $fail++ } elseif ($xd -ne 0) { "$m FAIL: $xd starfield bitmap triangles declined"; $fail++ } elseif ($ud -ne 0) { "$m FAIL: $ud subspace triangles declined"; $fail++ } elseif ($ld -ne 0) { "$m FAIL: $ld lightning quads declined"; $fail++ } else { "$m OK (all fallback counters 0)" }
 }
 exit $fail
