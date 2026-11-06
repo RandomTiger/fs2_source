@@ -1297,7 +1297,7 @@ static int h_billboard_in(int kind, const float *p0, const float *p1, float rad,
 		std::vector<bm_level_bitmap> l((size_t)(n > 0 ? n : 0));
 		if (n > 0) { bm_get_level_bitmaps(l.data(), n); }
 		int fl = -99; const char *fn = "(not in list)";
-		for (auto &b : l) { if (bid >= b.handle && bid < b.handle + b.nframes) { fl = b.flags; fn = b.filename; break; } }
+		for (auto &lvl : l) { if (bid >= lvl.handle && bid < lvl.handle + lvl.nframes) { fl = lvl.flags; fn = lvl.filename; break; } }	// Claude: was b, which hid the billboard (C4456)
 		fprintf(stderr, "render3d: LATE billboard texture at a draw (bitmap %d, level flags %d, %s)\n", bid, fl, fn);
 	} }
 	// rgb >= 0: constant vertex colour (g3_draw_laser_rgb: RGB|GOURAUD), through the gamma table as tmapper_internal does
