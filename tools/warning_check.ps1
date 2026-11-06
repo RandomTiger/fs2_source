@@ -29,6 +29,8 @@ $projects = 'Freespace2', 'Fred2', 'Pofview', 'Nebedit', 'Fonttool', 'Ac', 'Cfil
 $builds = @($projects | ForEach-Object { "$_|Win32" })
 # the x64 layers: Freespace2 is the one project with x64 configurations (D-20261020-134257 part ii)
 if (Select-String (Join-Path $RepoDir 'Freespace2.vcxproj') -Pattern 'Release\|x64' -Quiet) { $builds += 'Freespace2|x64' }
+# the Godot layers' game DLL, x64 only: fs2game\gr_host.cpp and friends compile nowhere else (#204)
+if (Test-Path (Join-Path $RepoDir 'fs2game\fs2game.vcxproj')) { $builds += 'fs2game\fs2game|x64' }
 $all = @()
 $failed = 0
 foreach ($b in $builds) {
@@ -39,7 +41,7 @@ foreach ($b in $builds) {
 		# Rebuild first cleans what the last build wrote, as listed in the .tlog folders, and that includes the exes a
 		# normal build put in the game folder; without the lists only this check's own outputs are replaced
 		Get-ChildItem $RepoDir -Recurse -Directory -Filter *.tlog -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-		$log = Join-Path $Out $(if ($plat -eq 'x64') { "${p}_x64_$c.txt" } else { "${p}_$c.txt" })
+		$log = Join-Path $Out $(if ($plat -eq 'x64') { "$(Split-Path $p -Leaf)_x64_$c.txt" } else { "${p}_$c.txt" })
 		& $msb (Join-Path $RepoDir "$p.vcxproj") /t:Rebuild /nodeReuse:false "/p:Configuration=$c" "/p:Platform=$plat" "/p:SolutionDir=$RepoDir\" /m /v:m /nologo > $log 2>&1
 		$code = $LASTEXITCODE
 		# Xiph is third-party and never edited: its sources are out of the count by name (D-20261020-222203)
