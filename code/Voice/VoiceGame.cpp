@@ -49,6 +49,7 @@ extern int hud_squadmsg_voice_send_ship(int shipnum, int order);
 extern int hud_squadmsg_voice_send_wing(int wingnum, int order);
 extern int hud_squadmsg_voice_send_all_fighters(int order);
 extern void hud_squadmsg_rearm_shortcut();
+extern int hud_squadmsg_voice_abort_rearm();
 
 #define VOICE_INI_SECTION			"Voice"
 #define VOICE_DEFAULT_PTT			KEY_CAPSLOCK	// unbound by default.  Not backtick: that is the debug key, and the ship keys are ignored while it is held
@@ -235,6 +236,10 @@ static void voice_apply(int kind, int index, int order)
 			button_info_set(&Player->bi, CYCLE_SECONDARY);
 		} else if (index == VOICE_FUNC_REARM) {
 			hud_squadmsg_rearm_shortcut();
+		} else if (index == VOICE_FUNC_ABORT_REARM) {
+			if (!hud_squadmsg_voice_abort_rearm()) {
+				gamesnd_play_iface(SND_GENERAL_FAIL);
+			}
 		}
 		break;
 
