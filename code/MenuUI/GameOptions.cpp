@@ -938,10 +938,13 @@ static int Go_button_on = 0;
 static int Go_button_host = 0;			// the host's button is up
 static int Go_button_was_down = 0;
 static int Go_button_last_do = 0;
+static int Go_button_in_hall = 0;		// Claude: the main hall has the button too (Tom, #212): Back returns to the screen it came from
+static int Go_button_clicked = 0;		// Claude: one click, one event, until the screen closes
 
 static void game_options_pilot_button_click()
 {
-	Go_from_pilot_screen = 1;
+	Go_button_clicked = 1;
+	Go_from_pilot_screen = Go_button_in_hall ? 0 : 1;
 	gamesnd_play_iface(SND_IFACE_MOUSE_CLICK);
 	gameseq_post_event(GS_EVENT_GAME_OPTIONS);
 }
@@ -950,6 +953,8 @@ void game_options_pilot_button_init()
 {
 	Go_button_on = game_options_keys_active();
 	Go_from_pilot_screen = 0;
+	Go_button_in_hall = 0;	// Claude: #212
+	Go_button_clicked = 0;	// Claude: #212
 	Go_button_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
 	Go_button_host = 0;
 	Go_button_last_do = timer_get_milliseconds();
@@ -958,6 +963,13 @@ void game_options_pilot_button_init()
 		Go_button_host = 1;
 		Host_hooks.side_button("OPTIONS");
 	}
+}
+
+// Claude: #212, the same button on the main hall
+void game_options_hall_button_init()
+{
+	game_options_pilot_button_init();
+	Go_button_in_hall = 1;
 }
 
 void game_options_pilot_button_do()
@@ -969,7 +981,7 @@ void game_options_pilot_button_do()
 	}
 	if (Go_button_host) {
 		now = timer_get_milliseconds();
-		if (Host_side_button_pressed && ((now - Go_button_last_do) < GO_BUTTON_STALE_MS) && !Go_from_pilot_screen) {
+		if (Host_side_button_pressed && ((now - Go_button_last_do) < GO_BUTTON_STALE_MS) && !Go_button_clicked) {	// Claude: #212
 			game_options_pilot_button_click();
 		}
 		Host_side_button_pressed = 0;
@@ -991,7 +1003,7 @@ void game_options_pilot_button_do()
 	gr_set_color_fast(over ? &Color_bright_white : game_options_text_color());
 	gr_string(x, y, "OPTIONS");
 
-	if (over && !down && Go_button_was_down && !Go_from_pilot_screen) {
+	if (over && !down && Go_button_was_down && !Go_button_clicked) {	// Claude: #212
 		game_options_pilot_button_click();
 	}
 	Go_button_was_down = down;

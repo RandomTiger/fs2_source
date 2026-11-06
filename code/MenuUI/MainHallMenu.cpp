@@ -314,6 +314,7 @@
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
 #include "Autotest.h"	// Claude: the autotest menu tour clicks a region, see Autotest.h
+#include "GameOptions.h"	// Claude: the Options button (Tom, #212)
 
 #include "movie.h"		// Claude: the movie player is back; it plays an .ogv when the .mve cannot be (code/Movie)
 
@@ -947,6 +948,8 @@ void main_hall_init(int main_hall_num)
 
 	Main_hall_inited = 1;
 
+	game_options_hall_button_init();	// Claude: the Options button (Tom, #212)
+
 	// determine if we have a right click
 	Main_hall_right_click = mouse_down(MOUSE_RIGHT_BUTTON);
 
@@ -1285,6 +1288,8 @@ void main_hall_do(float frametime)
 	// blit ship and weapon table status
 	main_hall_blit_table_status();
 
+	game_options_pilot_button_do();	// Claude: the Options button, bottom left (Tom, #212)
+
 
 	gr_flip();
 
@@ -1307,6 +1312,8 @@ void main_hall_close()
 	if(!Main_hall_inited){
 		return;
 	}	
+
+	game_options_pilot_button_close();	// Claude: the host's button goes with the screen (#212)
 
 	// unload the main hall bitmap
 	if(Main_hall_bitmap != -1){

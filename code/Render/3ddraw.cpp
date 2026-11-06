@@ -1658,7 +1658,8 @@ static void perspective_bitmap_draw_tri(vertex **tri, uint flags)
 		return;
 	}
 
-	if(gr_screen.mode != GR_DIRECT3D){
+	// Claude: the host renderer takes the same unclipped route as D3D, so mission background bitmaps match native at the screen edges (#202)
+	if(gr_screen.mode != GR_DIRECT3D && gr_screen.mode != GR_HOST){
 		g3_draw_poly(3, tri, flags);
 		return;
 	}

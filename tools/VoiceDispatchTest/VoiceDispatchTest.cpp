@@ -120,7 +120,7 @@ static void test_phrases()
 	int i, j, n;
 	const char *expect_targets[] = {
 		"alpha two", "gtc aquitaine", "beta", "alpha", "alpha wing", "beta wing", "epsilon",
-		"epsilon wing", "all fighters", "single missile", "dual missile", "cycle missile", "support", "rearm", "repair",
+		"epsilon wing", "all fighters", "single missile", "dual missile", "cycle missile", "support", "rearm", "repair", "abort", "abort rearm",
 		"destroy my target", "disable my target", "disarm my target", "destroy subsystem", "protect my target",
 		"ignore my target", "form on my wing", "cover me", "engage enemy", "attack", "capture my target", "depart"
 	};
@@ -132,13 +132,13 @@ static void test_phrases()
 
 	// "beta" is both a ship and a wing: listed once
 	n = voice_target_phrases(Targets, NUM_TARGETS, list, VOICE_GRAMMAR_LEN);
-	sprintf(detail, "%d target phrases, expected 27", n);
-	check(n == 27, "target phrase count", detail);
+	sprintf(detail, "%d target phrases, expected 29", n);
+	check(n == 29, "target phrase count", detail);
 	for (i = 0; i < (int)(sizeof(expect_targets) / sizeof(expect_targets[0])); i++) {
 		check(has_phrase(list, expect_targets[i]), "target phrase listed", expect_targets[i]);
 	}
-	// "rearm me" and "abort rearm" have no shortcut key, so they are not said first
-	check(!has_phrase(list, "rearm me") && !has_phrase(list, "abort rearm"), "no order first without a key", NULL);
+	// "rearm me" has no shortcut key, so it is not said first; "abort rearm" is listed as a function
+	check(!has_phrase(list, "rearm me"), "no order first without a key", NULL);
 
 	// the send step: the targets only
 	n = voice_send_phrases(Targets, NUM_TARGETS, list, VOICE_GRAMMAR_LEN);
@@ -219,14 +219,15 @@ static void test_targets()
 	expect(&vc, VOICE_STEP_TARGET, "support", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "rearm", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "repair", VOICE_RESULT_FUNCTION, VOICE_FUNC_REARM, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "abort", VOICE_RESULT_FUNCTION, VOICE_FUNC_ABORT_REARM, -1, VOICE_STEP_TARGET);
+	expect(&vc, VOICE_STEP_TARGET, "abort rearm", VOICE_RESULT_FUNCTION, VOICE_FUNC_ABORT_REARM, -1, VOICE_STEP_TARGET);
 
 	// unmatched: nothing, and the step stays
 	expect(&vc, VOICE_STEP_TARGET, "gamma wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "alpha two wing", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 	expect(&vc, VOICE_STEP_TARGET, "", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
-	// "rearm me" and "abort rearm" are not said first
+	// "rearm me" is not said first
 	expect(&vc, VOICE_STEP_TARGET, "rearm me", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
-	expect(&vc, VOICE_STEP_TARGET, "abort rearm", VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 
 	// every target name the stub offers resolves to itself
 	for (int i = 0; i < NUM_TARGETS; i++) {
@@ -326,6 +327,9 @@ static void test_send()
 		if (first) {
 			expect(&vc, VOICE_STEP_TARGET, voice_order_name(i), VOICE_RESULT_SHORTCUT, -1, i, VOICE_STEP_SEND);
 			check(vc.held_order == i, "shortcut holds the order", voice_order_name(i));
+		} else if (i == VOICE_ORDER_ABORT_REARM) {
+			// said first it is the abort function, not the order
+			expect(&vc, VOICE_STEP_TARGET, voice_order_name(i), VOICE_RESULT_FUNCTION, VOICE_FUNC_ABORT_REARM, -1, VOICE_STEP_TARGET);
 		} else {
 			expect(&vc, VOICE_STEP_TARGET, voice_order_name(i), VOICE_RESULT_NONE, -1, -1, VOICE_STEP_TARGET);
 		}
