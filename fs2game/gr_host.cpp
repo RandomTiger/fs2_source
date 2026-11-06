@@ -51,6 +51,7 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include "Model.h"
 #include "Ship.h"
 #include "MissionParse.h"
+#include "GameSequence.h"
 extern int Framecount;
 #include <cstring>
 
@@ -493,6 +494,7 @@ int tex_get(int bitmap_id, int type, bool repeat = false, bool bitmap_2d = false
 	// UI text and 2D bitmaps keep integer texels (D3D: TEXTURE_SOURCE_NO_FILTERING); everything else is bilinear
 	uint32_t tf = (aa || bitmap_2d) ? 0 : FS2_SINK_TEXF_LINEAR;
 	if (kind == TK_REPEAT) { tf |= FS2_SINK_TEXF_REPEAT; }
+	if (!H.load_mode) { static int n = 0; if (n++ < 8) { fprintf(stderr, "render3d: LATE texture at a draw (bitmap %d, kind %d, %s, state %d)\n", bitmap_id, kind, bm_get_filename(bitmap_id), gameseq_get_state()); } }
 	H.sink->texture_create(H.sink->user, t.sink_id, w, h, format, tf, px.data());
 	return t.sink_id;
 }
