@@ -1445,7 +1445,7 @@ struct InterpMeshBuild {
 	InterpMeshBuild() : ok(true), thruster(false), tris(0), tris_agree(0) {}
 };
 
-static int Interp_fb_count[11] = { 0 };
+static int Interp_fb_count[14] = { 0 };	// 11: a thruster the host declined, 12: a clip plane the host declined, 13: a hull draw the host declined
 static int Interp_mesh_unmeshed_flat = 0,Interp_mesh_unmeshed_other = 0, Interp_mesh_meshed = 0;
 
 static void interp_mesh_walk(InterpMeshBuild &b, polymodel *pm, ubyte *p, int depth)
@@ -1621,7 +1621,7 @@ void model_interp_mesh_preload_all()
 	}
 }
 
-int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
+int model_interp_mesh_late() { fprintf(stderr, "render3d: draws left on the polygon path: subspace %d, no hardware %d, saved lighting %d, pofview thruster %d, flat thruster flags %d, forced texture %d, all xparent %d, no cull %d, other flags %d, other tmap flags %d, outline only (no polygons) %d, thruster declined %d, clip plane declined %d, hull draw declined %d\n", Interp_fb_count[0], Interp_fb_count[1], Interp_fb_count[2], Interp_fb_count[3], Interp_fb_count[4], Interp_fb_count[5], Interp_fb_count[6], Interp_fb_count[7], Interp_fb_count[8], Interp_fb_count[9], Interp_fb_count[10], Interp_fb_count[11], Interp_fb_count[12], Interp_fb_count[13]); fprintf(stderr, "render3d: submodels meshed %d, not meshed: flat %d, other %d\n", Interp_mesh_meshed, Interp_mesh_unmeshed_flat, Interp_mesh_unmeshed_other); fprintf(stderr, "render3d: late stale %d, preloaded %d, preload calls %d\n", Interp_mesh_late_stale, Interp_mesh_preloaded, Interp_mesh_preload_calls); return Interp_mesh_late; }
 
 // 1: the submodel was drawn by the host (skip the polygon path); 0: draw it on the polygon path
 static int model_interp_mesh_try(polymodel *pm, int mn)
@@ -1678,7 +1678,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 	static int s_was_clipping = 0;
 	if (G3_user_clip) {
 		const float plane[4] = { G3_user_clip_normal.x, G3_user_clip_normal.y, G3_user_clip_normal.z, -vm_vec_dot(&G3_user_clip_normal, &G3_user_clip_point) };
-		if (!gr_host_mesh_clip(plane)) { return 0; }
+		if (!gr_host_mesh_clip(plane)) { Interp_fb_count[12]++; return 0; }
 		s_was_clipping = 1;
 	} else if (s_was_clipping) {
 		gr_host_mesh_clip(NULL);
@@ -1706,6 +1706,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 			m.state = 0;
 			return 0;
 		}
+		if (rt != 1) { Interp_fb_count[11]++; }
 		return rt == 1;
 	}
 
@@ -1757,6 +1758,7 @@ static int model_interp_mesh_try(polymodel *pm, int mn)
 		m.state = 0;
 		return 0;
 	}
+	if (r != 1) { Interp_fb_count[thr ? 11 : 13]++; }
 	return r == 1;
 }
 

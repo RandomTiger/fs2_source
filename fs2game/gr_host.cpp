@@ -51,6 +51,7 @@ static inline int MulDiv(int number, int numerator, int denominator)
 #include "Model.h"
 #include "Ship.h"
 #include "MissionParse.h"
+extern int Framecount;
 #include <cstring>
 
 #include "render_sink.h"
@@ -125,6 +126,7 @@ struct Host {
 	int mesh_tex_late = 0;	// textures a mesh draw uploaded because load had not (tiled, thruster); reads 0 in play
 	int mesh_skipped = 0;	// mesh draws dropped because the sink skipped the frame
 	int mesh_fb[6] = {};	// mesh draws that fell back to the polygon path, by reason: cpu_only, no z, fog unsupported, no frame, texture, fog state
+	int clip_on = 0, clip_draws = 0, clip_first = -1, tiled_draws = 0, tiled_first = -1;	// occurrence counts for picking pair frames: mesh draws under a clip plane, tiled mesh draws, first frame of each
 	int mesh_sink_late = 0;	// sink meshes created at a draw instead of at level load (D-20261104-084045); reads 0 in play
 	std::unordered_map<uint64_t, int> head_layer;	// talking heads preloaded at level load: pixel hash of a frame (size included) -> its layer's texture id
 	int head_frames = 0, head_hits = 0;	// frames preloaded, and play-time head frames that found their layer
@@ -1473,6 +1475,8 @@ static int mesh_prepare(int key, const float *xform, int nv, int tiled, int thr_
 	Host::HostMesh &m = it->second;
 	if ((int)m.v.size() != nv) { return -1; }
 	static const int force_fb = getenv("FS2_MESH_FORCE_FB") ? atoi(getenv("FS2_MESH_FORCE_FB")) : 0;	// test only: 1 sends every mesh draw down the polygon path (the forced-path pixel pair, D-20261105-165753)
+	if (H.clip_on) { if (H.clip_draws++ == 0) { H.clip_first = Framecount; } }
+	if (tiled) { if (H.tiled_draws++ == 0) { H.tiled_first = Framecount; } }
 	if (force_fb == 1 || m.cpu_only) { H.mesh_fb[0]++; return 2; }	// a fault: counted, nothing drawn (D-20261105-165753); only the fog-off scripted case keeps the polygon path
 	if (H.zmode == GR_ZBUFF_NONE && !bg) { H.mesh_fb[1]++; return 2; }
 	if (H.fog_mode != GR_FOGMODE_NONE && H.sink->mesh_fog == nullptr) { H.mesh_fb[2]++; return 2; }
@@ -1579,8 +1583,11 @@ int h_mesh_draw_lit(int key, const float *xform, const gr_host_mesh_light *light
 // is a z scale in the sink for the vertices in front of min_dist
 int h_mesh_thrust(int key, const float *xform, int nv, int bitmap, float scale, float min_dist, const unsigned char *rgb)
 {
-	// fogged (nebula): a thruster poly has no PIXEL_FOG mark, so it takes the fog colour the last marked poly left (see fog_rgb[3]); not the mesh fog's
-	if (H.sink->mesh_thrust == nullptr || H.fog_mode != GR_FOGMODE_NONE || (bitmap < 0 && rgb == nullptr)) { return 0; }
+	// fogged (nebula): a flat thruster is marked PIXEL_FOG like a hull poly; a textured one is not, and the polygon path fogs it with the colour the
+	// last marked poly left (see fog_rgb[3]). With FS2_THRUSTFOG_GPU=1 it goes to the GPU with the mesh fog's own colour behind each vertex, which
+	// is NOT the stale colour (a logged deviation until Tom decides, D-20261106-104901); off by default: fogged thrusters stay on the polygon path
+	static const bool thrfog_on = getenv("FS2_THRUSTFOG_GPU") != nullptr && atoi(getenv("FS2_THRUSTFOG_GPU")) != 0;
+	if (H.sink->mesh_thrust == nullptr || (H.fog_mode != GR_FOGMODE_NONE && !thrfog_on) || (bitmap < 0 && rgb == nullptr)) { return 0; }
 	const bool flat = bitmap < 0;	// no flame bitmap: the polys are flat and lit, like a hull's untextured polys, but the flame's z scale still applies
 	const float ts[2] = { scale, min_dist };
 	const int p = mesh_prepare(key, xform, nv, 0, bitmap, flat);
@@ -1623,6 +1630,7 @@ int h_mesh_bg(int key, const float *xform, int nv, int bitmap, int tiled, int gr
 int h_mesh_clip(const float *plane)
 {
 	if (H.sink->mesh_clip == nullptr) { return plane == nullptr; }
+	H.clip_on = plane != nullptr;
 	H.sink->mesh_clip(H.sink->user, plane);
 	return 1;
 }
@@ -1951,7 +1959,7 @@ void host_cleanup()
 	if (mesh_switch()) { fprintf(stderr, "render3d: subspace: %d offered, %d drawn on the GPU, %d declined\n", H.sub_offered, H.sub_gpu, H.sub_offered - H.sub_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: lightning: %d offered, %d drawn on the GPU, %d declined\n", H.light_offered, H.light_gpu, H.light_offered - H.light_gpu); }
 	if (mesh_switch()) { fprintf(stderr, "render3d: mesh draws on the polygon path: cpu_only %d, no z %d, fog unsupported %d, no frame %d, texture %d, fog state %d, dropped with a skipped frame %d\n", H.mesh_fb[0], H.mesh_fb[1], H.mesh_fb[2], H.mesh_fb[3], H.mesh_fb[4], H.mesh_fb[5], H.mesh_skipped); }
-	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
+	if (mesh_switch()) { fprintf(stderr, "render3d: meshes built at first draw (late): %d\n", model_interp_mesh_late()); fprintf(stderr, "render3d: mesh draws under a clip plane: %d (first frame %d), tiled: %d (first frame %d)\n", H.clip_draws, H.clip_first, H.tiled_draws, H.tiled_first); fprintf(stderr, "render3d: sink meshes created at a draw (late): %d\n", H.mesh_sink_late); fprintf(stderr, "render3d: textures uploaded at a mesh draw (late): %d\n", H.mesh_tex_late); fprintf(stderr, "render3d: textures uploaded at a billboard draw (late): %d\n", H.bb_tex_late); fprintf(stderr, "render3d: talking head frames preloaded: %d, found at play: %d\n", H.head_frames, H.head_hits); }
 	depth_run_end();
 	if (H.sink != nullptr && H.frame == FRAME_OPEN) { H.sink->frame_end(H.sink->user); }
 	if (H.sink != nullptr && H.frame != FRAME_NONE) { }

@@ -27,6 +27,7 @@ $shieldgpu = $env:FS2_SHIELD_GPU; if (-not $shieldgpu) { $env:FS2_SHIELD_GPU = '
 $lightgpu = $env:FS2_LIGHTNING_GPU; if (-not $lightgpu) { $env:FS2_LIGHTNING_GPU = '0' }	# likewise lightning bolts
 $stargpu = $env:FS2_STARFIELD_GPU; if (-not $stargpu) { $env:FS2_STARFIELD_GPU = '0' }	# likewise the starfield background bitmaps
 $warpgpu = $env:FS2_WARP_GPU; if (-not $warpgpu) { $env:FS2_WARP_GPU = '0' }	# likewise the warp-in cone and the subspace tunnel
+$thrfoggpu = $env:FS2_THRUSTFOG_GPU; if (-not $thrfoggpu) { $env:FS2_THRUSTFOG_GPU = '0' }	# likewise fogged engine thrusters
 Push-Location $env:PATH_FS2
 $p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $ShotDir 'godot.out.txt') -RedirectStandardError (Join-Path $ShotDir 'godot.err.txt'); $null = $p.Handle
 if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $code = 'TIMEOUT' } else { $code = $p.ExitCode }
@@ -40,4 +41,5 @@ if (-not $shieldgpu) { Remove-Item Env:FS2_SHIELD_GPU -ErrorAction SilentlyConti
 if (-not $lightgpu) { Remove-Item Env:FS2_LIGHTNING_GPU -ErrorAction SilentlyContinue }
 if (-not $stargpu) { Remove-Item Env:FS2_STARFIELD_GPU -ErrorAction SilentlyContinue }
 if (-not $warpgpu) { Remove-Item Env:FS2_WARP_GPU -ErrorAction SilentlyContinue }
+if (-not $thrfoggpu) { Remove-Item Env:FS2_THRUSTFOG_GPU -ErrorAction SilentlyContinue }
 return $code
