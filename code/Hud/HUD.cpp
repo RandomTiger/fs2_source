@@ -2166,7 +2166,7 @@ void hud_show_text_flash_icon(char *txt, int y, int bright)
 	gr_get_string_size(&w, &h, txt);
 
 	// draw the box	
-	gr_rect( (int)((((float)gr_screen.clip_width / 2.0f) - ((float)w / 2.0f)) - 1.0f), (int)((float)y - 1.0f), w + 2, h + 1);	// Claude: clip_width, where the text centres in the wide view (#209)
+	gr_rect( (int)((((float)(gr_virtual_in_wide_clip() ? gr_screen.clip_width : gr_screen.max_w) / 2.0f) - ((float)w / 2.0f)) - 1.0f), (int)((float)y - 1.0f), w + 2, h + 1);	// Claude: in the wide clip use clip_width, where the text centres (#209); otherwise retail
 
 	// string
 	hud_set_gauge_color(HUD_TEXT_FLASH, HUD_C_BRIGHT);	
