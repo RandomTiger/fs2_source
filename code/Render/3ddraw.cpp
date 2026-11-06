@@ -1658,7 +1658,7 @@ static void perspective_bitmap_draw_tri(vertex **tri, uint flags)
 		return;
 	}
 
-	if(gr_screen.mode != GR_DIRECT3D && gr_screen.mode != GR_HOST){	// Claude: R3 row 7, GR_HOST (the Godot host) takes the D3D route too: no screen clip (D-20261106-062111)
+	if(gr_screen.mode != GR_DIRECT3D){
 		g3_draw_poly(3, tri, flags);
 		return;
 	}
