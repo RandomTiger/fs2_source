@@ -2,6 +2,8 @@
 Render3D gate (D-20261105-165753): a shown replay with GPU nebula fog must draw every model on the GPU. Reads the exit lines
 "render3d: mesh draws on the polygon path: ..." and "render3d: draws left on the polygon path: ..." (thruster, clip plane, hull, forced texture, saved lighting ...) and fails unless every counter is 0, skipped frames excepted.
   tools\render3d_fallback_check.ps1 -Run <game folder> [-Set autotest] [-Missions AutotestWeapons,AutotestNebActive] [-Config r]
+  -Frames N [-ExpectSkipped]: N game frames per Godot frame (FS2_FRAMES), so the sink skips N-1 of every N frames (ec65311: a skipped frame drops model draws instead of polygon-drawing them).
+  With -ExpectSkipped the run also fails unless the game exits 0 with REPLAY OK and the "dropped with a skipped frame" counter is above 0 (frames really were skipped).
 One game at a time: run it only when no other game runs. Exit 0 = pass.
 #>
 param(
@@ -10,7 +12,9 @@ param(
 	[string]$Set = 'autotest',
 	[string[]]$Missions = @('AutotestWeapons', 'AutotestNebActive'),
 	[string]$Config = 'r',
-	[int]$TimeoutMin = 20
+	[int]$TimeoutMin = 20,
+	[int]$Frames = 0,
+	[switch]$ExpectSkipped
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -29,11 +33,22 @@ foreach ($m in $Missions) {
 	$out = Join-Path $env:TEMP "r3d_fb_$m"; Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $out | Out-Null
 	$env:PATH_FS2 = $Run; $env:FS2_DLL = $dll; $env:FS2_ROOT = $Run; $env:FS2_GR_HOST = '1'; if ($Fog) { $env:FS2_NEBFOG = $Fog } else { Remove-Item Env:FS2_NEBFOG -ErrorAction SilentlyContinue }
 	$env:FS2_CMD = "-window -autotest -replay `"$rec`""
+	if ($Frames -gt 0) { $env:FS2_FRAMES = "$Frames" }
+	Remove-Item "$rec.replay.log" -ErrorAction SilentlyContinue
 	Push-Location $Run
 	$p = Start-Process $godot -ArgumentList "--path `"$proj`"" -PassThru -NoNewWindow -RedirectStandardOutput "$out\o.txt" -RedirectStandardError "$out\e.txt"; $null = $p.Handle
 	if (-not $p.WaitForExit($TimeoutMin * 60000)) { Stop-Process $p -Force }
 	Pop-Location
-	Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_GR_HOST, Env:FS2_NEBFOG -ErrorAction SilentlyContinue
+	Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_GR_HOST, Env:FS2_NEBFOG, Env:FS2_FRAMES -ErrorAction SilentlyContinue
+	if ($ExpectSkipped) {
+		$dl = Select-String "$out\e.txt" -Pattern 'dropped with a skipped frame (\d+)' | Select-Object -Last 1
+		$dropped = if ($dl) { [int]$dl.Matches[0].Groups[1].Value } else { 0 }
+		$replayOk = (Test-Path "$rec.replay.log") -and (Select-String "$rec.replay.log" -Pattern 'REPLAY OK' -Quiet)
+		if ($p.ExitCode -ne 0) { "$m FAIL: game exit code $($p.ExitCode) with skipped frames"; $fail++; continue }
+		if (-not $replayOk) { "$m FAIL: no REPLAY OK with skipped frames"; $fail++; continue }
+		if ($dropped -le 0) { "$m FAIL: no frame was skipped (dropped counter $dropped)"; $fail++; continue }
+		"$m skipped frames: $dropped model draws dropped"
+	}
 	$line = Select-String "$out\e.txt" -Pattern 'render3d: mesh draws on the polygon path:' | Select-Object -Last 1
 	if (-not $line) { "$m FAIL: no counter line"; $fail++; continue }
 	$nz = [regex]::Matches($line.Line, '(cpu_only|no z|fog unsupported|no frame|texture|fog state) (\d+)') | Where-Object { [int]$_.Groups[2].Value -ne 0 }
