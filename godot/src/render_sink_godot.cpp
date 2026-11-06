@@ -2253,6 +2253,15 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 		code += "\tfor (int i = 0; i < 4; i++) {\n\t\tint j = (i + 1) % 4;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { if (n == kk) { ev = C[i]; eu = U[i]; } n++; }\n";
 		code += "\t\tif (ia != ib) { if (n == kk) { float t = (0.1 - C[i].z) / (C[j].z - C[i].z); ev = mix(C[i], C[j], t); eu = mix(U[i], U[j], t); } n++; }\n\t}\n";
 		code += "\tuv = eu;\n\tfloat z = max(ev.z, 0.1);\n\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
+	} else if (kind == FS2_SINK_BB_TRI3) {
+		// trail_render, the tail triangle: as QUAD4 with three corners (corner i = M[i].xyz) and their own uvs (u0 v0 u1 = M[3].xyz, v1 u2 v2 = INSTANCE_COLOR.xyz); tint (grey), zbias, layer in the custom data. Clipped to the 0.1 near plane into a fan of up to four slots.
+		code += "\ttintv = vec4(INSTANCE_CUSTOM.x, INSTANCE_CUSTOM.x, INSTANCE_CUSTOM.x, 1.0);\n\tzbias = INSTANCE_CUSTOM.y;\n\tlyr = INSTANCE_CUSTOM.z;\n";
+		code += "\tvec3 C[3] = vec3[3](M[0].xyz, M[1].xyz, M[2].xyz);\n\tvec2 U[3] = vec2[3](vec2(M[3][0], M[3][1]), vec2(M[3][2], INSTANCE_COLOR.x), vec2(INSTANCE_COLOR.y, INSTANCE_COLOR.z));\n";
+		code += "\tint cnt = 0;\n\tfor (int i = 0; i < 3; i++) {\n\t\tint j = (i + 1) % 3;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { cnt++; }\n\t\tif (ia != ib) { cnt++; }\n\t}\n";
+		code += "\tint kk = min(int(VERTEX.x + 0.5), max(cnt - 1, 0));\n\tvec3 ev = C[0];\n\tvec2 eu = U[0];\n\tint n = 0;\n\tif (cnt == 0) { skip = true; }\n";
+		code += "\tfor (int i = 0; i < 3; i++) {\n\t\tint j = (i + 1) % 3;\n\t\tbool ia = C[i].z >= 0.1;\n\t\tbool ib = C[j].z >= 0.1;\n\t\tif (ia) { if (n == kk) { ev = C[i]; eu = U[i]; } n++; }\n";
+		code += "\t\tif (ia != ib) { if (n == kk) { float t = (0.1 - C[i].z) / (C[j].z - C[i].z); ev = mix(C[i], C[j], t); eu = mix(U[i], U[j], t); } n++; }\n\t}\n";
+		code += "\tuv = eu;\n\tfloat z = max(ev.z, 0.1);\n\tsx = snap16((cwh.x + ev.x * cwh.x / z) * 0.5);\n\tsy = snap16((cwh.y - ev.y * cwh.y / z) * 0.5);\n\tzq = z;\n\tsw = min(1.0 / z, 1.0);\n";
 	} else {
 		code += "\tfloat sw0 = min(1.0 / pA.z, 1.0);\n\tfloat sw1 = min(1.0 / pB.z, 1.0);\n";
 		code += "\tfloat hx = (cwh.x + pA.x * cwh.x / pA.z) * 0.5;\n\tfloat hy = (cwh.y - pA.y * cwh.y / pA.z) * 0.5;\n";
@@ -2274,7 +2283,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
 	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
 	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
-	code += (kind != FS2_SINK_BB_RIBBON && kind != FS2_SINK_BB_QUAD && kind != FS2_SINK_BB_QUAD4) ?"\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
+	code += (kind != FS2_SINK_BB_RIBBON && kind != FS2_SINK_BB_QUAD && kind != FS2_SINK_BB_QUAD4 && kind != FS2_SINK_BB_TRI3) ?"\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
 	code += "void fragment() {\n";
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }
 	code += arr ? "\tvec4 t = texture(tex, vec3(pc.xy / pc.z, lyr));\n" : "\tvec4 t = texture(tex, pc.xy / pc.z);\n";
@@ -2350,7 +2359,8 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	const bool a8 = ti->second.format == FS2_SINK_TEX_A8;
 	const bool lin = (ti->second.flags & FS2_SINK_TEXF_LINEAR) != 0;
 	// per-draw data: transform rows r0..r2 (flat k = column * 3 + row, buffer index row * 4 + column), then the tint as custom data
-	constexpr int kStride = 16;
+	const bool t3 = d.b.kind == FS2_SINK_BB_TRI3;	// TRI3 also fills the instance colour (between the transform and the custom data)
+	const int kStride = t3 ? 20 : 16;
 	PackedFloat32Array buf;
 	buf.resize((int64_t)cap * kStride);
 	float *w = buf.ptrw();
@@ -2364,17 +2374,24 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 			e[12] = b.tint[0] / 255.0f; e[13] = (float)b.zbias; e[14] = (float)bb_draws[idx[(size_t)i]].layer; e[15] = 1.0f;
 			continue;
 		}
+		if (b.kind == FS2_SINK_BB_TRI3) {	// corners in k 0..8, the first three uv floats in k 9..11, the rest in the instance colour; tint (grey), zbias, layer in the custom data
+			float t[12] = { b.quad[0], b.quad[1], b.quad[2], b.quad[3], b.quad[4], b.quad[5], b.quad[6], b.quad[7], b.quad[8], b.tri_uv[0], b.tri_uv[1], b.tri_uv[2] };
+			for (int k = 0; k < 12; k++) { e[(k % 3) * 4 + (k / 3)] = t[k]; }
+			e[12] = b.tri_uv[3]; e[13] = b.tri_uv[4]; e[14] = b.tri_uv[5]; e[15] = 0.0f;
+			e[16] = b.tint[0] / 255.0f; e[17] = (float)b.zbias; e[18] = (float)bb_draws[idx[(size_t)i]].layer; e[19] = 1.0f;
+			continue;
+		}
 		for (int k = 0; k < 12; k++) { e[(k % 3) * 4 + (k / 3)] = v[k]; }
 		e[12] = b.tint[0] / 255.0f; e[13] = b.tint[1] / 255.0f; e[14] = b.tint[2] / 255.0f; e[15] = b.tint[3] / 255.0f;
 	}
 	RID mm;
-	const bool q4 = d.b.kind == FS2_SINK_BB_QUAD4;
-	const int pool = q4 ? kBbBuckets + bucket : bucket;
+	const bool q4 = d.b.kind == FS2_SINK_BB_QUAD4 || t3;
+	const int pool = t3 ? 2 * kBbBuckets + bucket : q4 ? kBbBuckets + bucket : bucket;
 	if (!bb_mm_pool[pool].empty()) { mm = bb_mm_pool[pool].back(); bb_mm_pool[pool].pop_back(); }
 	else {
 		mm = rs->multimesh_create();
 		rs->multimesh_set_mesh(mm, q4 ? bb_fan5 : bb_quad);
-		rs->multimesh_allocate_data(mm, cap, RenderingServer::MULTIMESH_TRANSFORM_3D, false, true);
+		rs->multimesh_allocate_data(mm, cap, RenderingServer::MULTIMESH_TRANSFORM_3D, t3, true);
 	}
 	rs->multimesh_set_buffer(mm, buf);
 	rs->multimesh_set_visible_instances(mm, n);

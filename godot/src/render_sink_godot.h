@@ -328,7 +328,7 @@ private:
 	// batched instancing: adjacent billboard draws of one state are one multimesh, one material, one instance (per-draw data in the transform + custom data)
 	static constexpr int kBbBuckets = 5;
 	static constexpr int kBbBucketCap[kBbBuckets] = {8, 32, 128, 512, 2048};
-	std::vector<godot::RID> bb_mm_pool[kBbBuckets * 2];	// [bucket] on bb_quad, [kBbBuckets + bucket] on bb_fan5
+	std::vector<godot::RID> bb_mm_pool[kBbBuckets * 3];	// [bucket] on bb_quad, [kBbBuckets + bucket] on bb_fan5 (QUAD4), [2 * kBbBuckets + bucket] on bb_fan5 with instance colours (TRI3)
 	std::vector<godot::RID> spare_bb_instances;
 	std::vector<size_t> bb_run_idx;
 	bool bb_same_run(const BbDraw &a, const BbDraw &b) const;
