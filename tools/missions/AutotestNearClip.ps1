@@ -9,6 +9,7 @@ the player's position.
 autotest: player stays still
 Run with -at_time 40.
 '@
+$m.Notes = $m.Notes -replace "`r", ''	# this file is CRLF, so the here-string carries CRs; the mission writer adds its own
 $m.Stars = 500
 
 Add-Player $m
