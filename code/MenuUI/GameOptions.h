@@ -69,6 +69,8 @@ int game_options_tour_step(int step);
 
 // the pilot screen's Options button (live play only: a compared run neither loads nor draws it)
 void game_options_pilot_button_init();
+// Claude: #212, the main hall's call in place of the one above; _do and _close are shared
+void game_options_hall_button_init();
 // draws it and takes a click on it; call once a frame, before the flip
 void game_options_pilot_button_do();
 // takes the host's button away; call when the screen closes
