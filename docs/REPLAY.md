@@ -46,6 +46,8 @@ TraceDiff recordings\NAME.trace replays\NAME.trace
 - Add `-fulltrace` to write the full state every frame instead of every 60 frames. Use it to pin down the exact frame and field once TraceDiff has found a divergence.
 - Add `-replay_pace` to watch or listen to a replay at the speed it was recorded. Without it a replay runs as fast as the PC can draw. Pacing only waits in real time after each mission frame; the trace is the same either way.
 
+**Pausing a gate (#214, D-20261107-094737).** Create `%TEMP%\fs2_gate.pause` to hold a running gate and delete it to carry on. `tools\replay_check.ps1` (and `tools\godot_check.ps1` from the Godot layer up) checks for it before each game launch: a run in flight finishes first, and the gate goes on only when the file is gone and no game is running, so a game you start during the hold keeps it held. Nothing else holds: packaged replays, captures, tours, smoke and the host-mode checks run straight through, so a request can take a long time to take hold, or never take hold if no more replay launches come. A hold is confirmed only by `%TEMP%\fs2_gate.paused`, which names the time, the runner and its PID: that PID must be alive and have started before that time. The printed lines are not relied on, since most gates capture them. Whoever places the marker removes it when that gate ends, and says if the pause never took hold; a marker left behind holds the next gate. Only the repo's scripts and `plus_gate4`'s `Child` have been read for a timer across the runner; under any other wrapper, read it first, and do not pause under one that times the runner.
+
 ## What is recorded
 
 Every value the game takes from the OS during the mission, as one ordered stream. The game reads them in the same order on replay.
