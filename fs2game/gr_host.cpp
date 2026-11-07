@@ -1154,6 +1154,15 @@ void h_restore_screen(int id)
 	const int c[4] = { 255, 255, 255, 255 };
 	// GodotResolution: the capture is the whole virtual canvas; the base screen is its centre part
 	const float vw = (float)gr_virtual_w(), vh = (float)gr_virtual_h();
+	if (gr_virtual_active()) {
+		// the whole capture goes back, so a wide flight view stays behind the pause screen and popups. The clip opens for this one draw
+		sync_offset();
+		glow_flush();
+		H.sink->set_clip(H.sink->user, 0, 0, (int)vw, (int)vh);
+		quad((float)-H.pdx, (float)-H.pdy, vw - (float)H.pdx, vh - (float)H.pdy, 0.0f, 0.0f, 1.0f, 1.0f, id, FS2_SINK_BLEND_OPAQUE, c, c, c, c);
+		send_clip();
+		return;
+	}
 	const float u0 = (float)gr_virtual_centre_x() / vw, v0 = (float)gr_virtual_centre_y() / vh;
 	quad(0, 0, (float)gr_screen.max_w, (float)gr_screen.max_h, u0, v0, u0 + (float)gr_screen.max_w / vw, v0 + (float)gr_screen.max_h / vh, id, FS2_SINK_BLEND_OPAQUE, c, c, c, c);
 }
