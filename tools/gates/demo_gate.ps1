@@ -26,7 +26,7 @@ $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\replay_c
 $r | Where-Object { $_ -match '^(FAIL|SKIP)' } | ForEach-Object { $_.Substring(0, [Math]::Min(170, $_.Length)) }
 $last = $r | Select-Object -Last 1; "replays: $last"
 $fails = @($r | Where-Object { $_ -match '^FAIL ' })
-if ($fails.Count -or ($r -match '^SKIP')) { $bad += 'replays' }
+if ($fails.Count -or ($r -match '^SKIP') -or -not ($r -match '^DONE ')) { $bad += 'replays' }
 $t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
 "tools: $t"; if ("$t" -notmatch '^PASS') { $bad += 'tools' }
 if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }
