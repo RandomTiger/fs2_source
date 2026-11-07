@@ -22,6 +22,8 @@ The port stack is `Enhanced` -> `PrePort32` -> `PrePort64` -> `Godot` -> `GodotE
 ## Folders
 Each branch in use has its own folder (a git worktree, like a second Perforce workspace) next to the others, named `fs2_<Branch>`: `fs2_RecordPlayback` (the main clone), `fs2_Enhanced`, `fs2_PrePort32`, `fs2_PrePort64`, and later `fs2_Godot`, `fs2_GodotEnhanced`. Build and run the tests in `fs2_Enhanced`, so every feature is covered; commit each change in the folder of the branch it belongs on.
 
+The game's tools (FRED2, Pofview, Nebedit and the command-line tools), what each layer must keep working and their per-layer exe names are in [TOOLS.md](TOOLS.md).
+
 ## Rules
 - **Fix a bug on the lowest layer that has it, then merge it upward one layer at a time.** An original-game bug goes on `OriginalSourceBugFixes`, a recorder bug on `RecordPlayback`, a feature bug on that feature's branch. Then: `OriginalSourceBugFixes` → `RecordPlayback` → `Enhanced` → `PrePort32` → `PrePort64` → `Godot` → `GodotEnhanced`.
 - **`RecordPlayback` is strictly for changes that let record and playback run without sync error** (Tom, 2026-10-22, D-20261022-085602), ideally only within the recording systems. What stays on it: the test suite (autotest, the menu tour, the replay and check scripts); the audio listening scenes and their A/B script, which count as autotest; and the `fs2.ini` settings file that replaced the registry (registry settings caused start-up problems). Docs and process commits are acceptable there, since they cannot cause a sync error. Diagnostics, speed tools and features go elsewhere: the lowest layer whose job it is, `PrePort32` for diagnostics and speed work. Already-pushed work stays where it is.
