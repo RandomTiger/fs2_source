@@ -46,7 +46,10 @@ if (-not $NoBuild) {
 	}
 	$env:PATH_FS2 = $saved
 }
-$fred = if (Test-Path "$w\bin\Fred2.exe") { "$w\bin\Fred2.exe" } else { "$Game\Fred2.exe" }
+# FRED, Pofview and Nebedit link as <Tool>_<Layer>r.exe (tools\layer.ps1); the layer is the checked repo's
+. "$PSScriptRoot\layer.ps1"
+function Find-Tool($tool) { $n = Get-FS2Tool $tool 'r' $repo; if (Test-Path "$w\bin\$n") { "$w\bin\$n" } else { "$Game\$n" } }
+$fred = Find-Tool 'Fred2'
 
 function Run($exe, $argList) {
 	Remove-Item "$w\out.txt", "$w\err.txt" -ErrorAction SilentlyContinue
@@ -166,7 +169,7 @@ function Check-Gui($name, $p, $want, $extraOk, $extra) {
 	Out-Result ((-not $bad) -and ($t -match $want) -and $extraOk) "$name $extra$(if ($bad -or $t -notmatch $want) { " windows: '$($t.Substring(0, [Math]::Min(200, $t.Length)))'" })"
 	Stop-Process $p -Force
 }
-$copies = @{ "$Game\Fred2_check.exe" = $fred; "$Game\Pofview_check.exe" = "$repo\Pofview.exe"; "$Game\Nebedit_check.exe" = "$repo\Nebedit.exe" }
+$copies = @{ "$Game\Fred2_check.exe" = $fred; "$Game\Pofview_check.exe" = (Find-Tool 'Pofview'); "$Game\Nebedit_check.exe" = (Find-Tool 'Nebedit') }
 foreach ($k in $copies.Keys) { Copy-Item $copies[$k] $k -Force }
 
 # FRED: File > Open, the mission name, OK; then File > Save, and the file must still be a whole mission

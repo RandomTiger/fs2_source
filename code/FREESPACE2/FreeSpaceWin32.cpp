@@ -799,7 +799,7 @@ int game_do_cd_mission_check(char *filename)
 // Claude: no video card configured yet: tell the player, start the launcher and exit. Was inline in game_init (D-045).
 void game_run_launcher()
 {
-	os_message_box(XSTR("Please configure your system in the Launcher before running FS2. YOU MUST RUN AS ADMIN! \n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), OS_MB_OWNED);
+	os_message_box(XSTR("Please configure your system in the Launcher before running FS2.\n\n The Launcher will now be started!", 1446), XSTR("Attention!", 1447), OS_MB_OWNED);
 
 	// fire up the UpdateLauncher executable
 	STARTUPINFO si;
