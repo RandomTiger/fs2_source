@@ -72,11 +72,11 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <AssemblerListingLocation>.\..\Debug\code\</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation><!-- Claude: no /FR or bscmake, about 18 s per clean Debug build (2026-10-20) -->
-      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>$(IntDir)</ObjectFileName>
-      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>.\..\Debug\code\code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\..\Debug\code\</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\Debug\code\</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <ResourceCompile>
@@ -110,10 +110,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>$(IntDir)code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>$(IntDir)</ObjectFileName>
-      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+      <AssemblerListingLocation>.\..\Release\code\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\..\Release\code\code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\..\Release\code\</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\Release\code\</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <Culture>0x0409</Culture>
