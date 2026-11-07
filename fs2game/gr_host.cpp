@@ -1273,9 +1273,8 @@ static int h_stars(const float *p0, const float *p1, float rad, int orient, unsi
 	if (H.sink == nullptr || H.sink->billboard_draw == nullptr || p0 == nullptr || p1 == nullptr || orient <= 0 || rad < 3.0f) { return 0; }
 	ensure_frame();
 	if (!drawing()) { return 1; }	// no frame is being drawn: nothing to draw on either route, not an offer
-	sync_offset();
 	H.stars_offered++;
-	if (G3_user_clip || H.ps != 1 || gr_screen.clip_left != 0 || gr_screen.clip_top != 0 || gr_screen.clip_width != Canvas_width || gr_screen.clip_height != Canvas_height) { return 0; }
+	if (G3_user_clip || gr_screen.clip_left != 0 || gr_screen.clip_top != 0 || gr_screen.clip_width != Canvas_width || gr_screen.clip_height != Canvas_height) { return 0; }
 	fs2_sink_billboard b = {};
 	b.kind = FS2_SINK_BB_STARS;
 	b.blend = FS2_SINK_BLEND_ALPHA;
