@@ -54,14 +54,14 @@
   <Import Project="$(MSBuildThisFileDirectory)build\layer.props" /><!-- Claude: layer name for the exe names (D-20261101-064106) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\</OutDir>
-    <IntDir>.\Debug\</IntDir>
+    <IntDir>.\Debug\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2_$(FS2Layer)_d</TargetName>
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\</OutDir>
-    <IntDir>.\Release\</IntDir>
+    <IntDir>.\Release\Freespace2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>FS2_$(FS2Layer)_r</TargetName>
     <TargetExt>.exe</TargetExt>
@@ -80,11 +80,11 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;NO_CD_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
+      <AssemblerListingLocation>.\Debug\Freespace2\</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation>
-      <PrecompiledHeaderOutputFile>.\Debug\Freespace2.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\Debug\</ObjectFileName>
-      <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>.\Debug\Freespace2\Freespace2.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\Debug\Freespace2\</ObjectFileName>
+      <ProgramDataBaseFileName>.\Debug\Freespace2\</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <Midl>
@@ -134,10 +134,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\Release\Freespace2.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>.\Release\Freespace2\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\Release\Freespace2\Freespace2.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\Release\Freespace2\</ObjectFileName>
+      <ProgramDataBaseFileName>.\Release\Freespace2\</ProgramDataBaseFileName>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
