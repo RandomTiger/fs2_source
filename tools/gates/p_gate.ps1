@@ -20,8 +20,8 @@ if (-not (Test-Path "$env:TEMP\$Label\replay\summary.txt")) { 'suite: no replay\
 Select-String "$env:TEMP\$Label\replay\summary.txt" -Pattern '^FAIL' -ErrorAction SilentlyContinue | ForEach-Object { $_.Line.Substring(0, [Math]::Min(160, $_.Line.Length)) }
 if (-not $Full) {
 	$t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
-	"tools: $t"; if ($t -notmatch '^PASS') { $bad += 'tools' }
+	"tools: $t"; if ("$t" -notmatch '^PASS') { $bad += 'tools' }
 	$w = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\warning_check.ps1" -RepoDir $Repo -Out (Join-Path $env:LOCALAPPDATA 'fs2_warning_check') | Select-Object -Last 1
-	"warning_check: $w"; if ($w -notmatch '^PASS') { $bad += 'warnings' }
+	"warning_check: $w"; if ("$w" -notmatch '^PASS') { $bad += 'warnings' }
 }
 if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }

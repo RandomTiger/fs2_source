@@ -18,7 +18,7 @@ foreach ($b in $Branches) {
 	foreach ($e in 'r64', 'd64') {
 		$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\nodraw_check.ps1" -Headless -Config $e -Out "$o\headless_$e" | Select-Object -Last 1
 		"$b x64 $e`: $l"
-		if ($l -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
+		if ("$l" -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
 	}
 }
 'x64 PASS'
