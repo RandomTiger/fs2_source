@@ -31,7 +31,7 @@ function Clear-Shared {
 
 $failed = @()
 foreach ($c in $Configs) {
-	$exe = Join-Path $GameDir ("FS2vs2022{0}.exe" -f $(if ($c -eq 'Release') { 'r' } else { 'd' }))
+	$exe = Join-Path $GameDir (Get-FS2Exe $c)
 	$int = Join-Path $env:LOCALAPPDATA ("fs2_demo_obj\{0}_{1}\" -f (Split-Path $repo -Leaf), $c)
 	Clear-Shared
 	Remove-Item $exe -ErrorAction SilentlyContinue

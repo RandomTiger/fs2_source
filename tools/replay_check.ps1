@@ -38,7 +38,7 @@ $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $Out | Out-Null
 # the test missions the autotest recordings play
 Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
-$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir 'FS2vs2022r.exe'))
+$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir (Get-FS2Exe r)))
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
