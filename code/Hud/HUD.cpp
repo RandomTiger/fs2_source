@@ -2156,6 +2156,7 @@ void hud_show_text_flash_icon(char *txt, int y, int bright)
 	if(bright){
 		hud_set_gauge_color(HUD_TEXT_FLASH, HUD_C_DIM);
 	} else {
+		gr_virtual_hud_gauge(HUD_TEXT_FLASH);	// Claude: the black box takes the gauge's anchor too, as the bright one does (#222)
 		gr_set_color_fast(&Color_black);
 	}
 
