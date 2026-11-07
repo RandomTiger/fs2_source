@@ -6,6 +6,6 @@
      (a feature branch's own value is dropped when it merges into its target). -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <FS2Layer>Godot</FS2Layer>
+    <FS2Layer>GodotOptions</FS2Layer>
   </PropertyGroup>
 </Project>
