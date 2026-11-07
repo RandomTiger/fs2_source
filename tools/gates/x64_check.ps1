@@ -35,7 +35,7 @@ foreach ($b in $Branches) {
 	foreach ($e in 'r64', 'd64') {
 		$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\nodraw_check.ps1" -Headless -Config $e -Out "$o\headless_$e" | Select-Object -Last 1
 		"$b x64 $e`: $l"
-		if ($l -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
+		if ("$l" -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
 	}
 	# FS1 and the FS1 demo headless too (D-20261021-125812, #102): this build's x64 exes go into each install, then
 	# recordings\fs1 replays (FS1 at GR_640, #101) and the FS1 demo missions run. A missing install is a FAIL, never a skip.
