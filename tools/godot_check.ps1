@@ -4,7 +4,8 @@ fs2game.dll, driven by godot\runner.gd with the same -headless -replay -trace ar
 Pass = Godot exit 0, replay log REPLAY OK, TraceDiff MATCH against the native x64 trace of the same configuration
 (and against the recorded trace). Exit codes as dll_check/autotest: 0 all pass, 1 any fail.
 
-Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative] [-Fiber 1|stress]
+Usage: tools\godot_check.ps1 [-Config r|d] [-Set autotest|fs1|demo|fs1demo] [-Missions a,b] [-Quick] [-Out dir] [-NoNative] [-Fiber 1|stress] [-Shown [-TexLate]]
+-TexLate  with -Shown only: the profiler runs for each mission's Godot run and the mission's line gets its whole-run late-upload count, one csv per mission and build kept in <Out>\perf (#217). Measuring only: it grades nothing, and a count it cannot read prints "tex_late not written", never 0.
 -Quick  the per-commit quick set (14 custom + sm1-01 + sm3-06), taken from the 'custom' list below if present.
 Needs: godot\bin\fs2godot.dll (cmake build, godot\README.md), Godot 4.7.2 in the folder $env:GODOT_ENGINE_4_7 (or -Godot exe), FS2game_<Layer>_64<c>.dll,
 FS2_<Layer>_<c>64.exe, tools\bin\TraceDiff.exe. Also runs the restart check (two recordings in one process) and the forced-Error check (P1) through Godot.
@@ -24,8 +25,10 @@ param(
 	[string[]]$Only,	# L1: just these missions (name or set/name), for the walk-back
 	[switch]$Shown,	# gate C (D-20261027-190104): Godot run in a real window (no --headless), host renderer (FS2_GR_HOST=1), game without -headless; native baseline unchanged
 	[switch]$NoDraw,	# the -nodraw host-mode subset: -nodraw instead of -headless in the Godot run, host renderer; native baseline unchanged
-	[switch]$NoHostChecks	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
+	[switch]$NoHostChecks,	# skip the restart and forced-Error checks at the end (L1 runs them once per config)
+	[switch]$TexLate	# see above (#217)
 )
+if ($TexLate -and (-not $Shown -or $NoDraw -or $Level -ne 'L2' -or $env:FS2_PACE -or $env:FS2_RENDER3D)) { 'FAIL -TexLate needs -Shown and -Level L2, without -NoDraw, with FS2_PACE and FS2_RENDER3D unset'; exit 1 }
 $repo = Split-Path $PSScriptRoot
 . "$PSScriptRoot\layer.ps1"	# exe and DLL names (D-20261101-064106)
 if ($Level -eq 'L1') { $ft = Join-Path $PSScriptRoot 'gates'; . (Join-Path $ft 'l1_lib.ps1'); Invoke-GodotL1 $repo $PSCommandPath (Join-Path $ft 'l1_set.txt') $Seed $Only $Out }
@@ -72,6 +75,17 @@ function Replay-Result([string]$rec, [string]$dest) {
 	return (Select-String $dest -Pattern 'REPLAY OK|DESYNC.*|ERROR.*' | Select-Object -First 1).Line
 }
 
+# the whole-run count from this run's game csv, never a 0 it did not read (#217)
+function Get-TexLate([string]$Csv, [datetime]$Since) {
+	$bad = 'tex_late not written'
+	if (-not (Test-Path $Csv) -or (Get-Item $Csv).LastWriteTime -lt $Since) { return $bad }
+	$rows = @(Import-Csv $Csv)
+	if ($rows.Count -eq 0 -or $rows[0].PSObject.Properties.Name -notcontains 'c_tex_late') { return $bad }
+	$n = 0
+	foreach ($r in $rows) { if ($r.c_tex_late -notmatch '^\d+$') { return $bad }; $n += [int]$r.c_tex_late }
+	return "tex_late $n (whole run)"
+}
+
 if (-not (Test-Path (Join-Path $proj '.godot\extension_list.cfg'))) { & $Godot --headless --path $proj --import | Out-Null }
 $good = if ($gs.RecDir) { '^REPLAY OK' } else { '^AUTOTEST PASS' }
 Set-Location $run
@@ -102,9 +116,15 @@ foreach ($m in $Missions) {
 	$gargs = if ($Shown) { "--path `"$proj`"" } else { "--headless --path `"$proj`"" }
 	$env:FS2_DLL = $dll; $env:FS2_ROOT = $run; $env:FS2_CMD = ($gflags -replace '%T', $gtrace)
 	if ($Fiber) { $env:FS2_FIBER = $Fiber }
+	if ($TexLate) {
+		$perfDir = Join-Path $Out 'perf'; New-Item -ItemType Directory -Force $perfDir | Out-Null
+		$perfCsv = Join-Path $perfDir "${m}_${Config}_game.csv"; Remove-Item $perfCsv -ErrorAction SilentlyContinue
+		$perfSince = Get-Date
+		$env:FS2_PERF_DIR = $perfDir; $env:FS2_PERF_TAG = "${m}_${Config}"; $env:FS2_PERF_SAMPLE_HZ = '0'
+	}
 	$p = Start-Process $Godot -ArgumentList $gargs -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $Out "${m}_godot.out.txt") -RedirectStandardError (Join-Path $Out "${m}_godot.err.txt"); $null = $p.Handle
 	if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $gcode = 'TIMEOUT' } else { $gcode = $p.ExitCode }
-	Remove-Item Env:FS2_FIBER -ErrorAction SilentlyContinue
+	Remove-Item Env:FS2_FIBER, Env:FS2_PERF_DIR, Env:FS2_PERF_TAG, Env:FS2_PERF_SAMPLE_HZ -ErrorAction SilentlyContinue
 	$gres = Replay-Result $rec (Join-Path $Out "${m}_godot.replay.log")
 	$line += " | godot exit=$gcode $gres"
 	if (($gcode -ne 0) -or ($gres -notmatch $good)) { $ok = $false }
@@ -121,6 +141,7 @@ foreach ($m in $Missions) {
 	}
 	$counts = Select-String (Join-Path $run 'autotest.log') -Pattern 'Asserts \d+, Int3 \d+, warnings \d+' -ErrorAction SilentlyContinue | Select-Object -Last 1
 	if ($counts) { $line += " ($($counts.Matches[0].Value))" }
+	if ($TexLate) { $tl = Get-TexLate $perfCsv $perfSince; $line += " | $tl"; if ($tl -notmatch '^tex_late \d') { $ok = $false } }
 	if (($Config -eq 'd') -and -not (Select-String (Join-Path $run 'autotest.log') -Pattern 'guards: assert' -Quiet)) { $ok = $false; $line += ' GUARDS NOT ASSERTING' }
 	if ($ok) { $pass++ } else { $fail++; $line = "FAIL $line" }
 	$line | Add-Content $summary
