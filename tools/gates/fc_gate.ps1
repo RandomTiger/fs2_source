@@ -49,7 +49,7 @@ if (-not $bad) {
 	if (@($r | Where-Object { $_ -match '^FAIL ' }).Count -or ($r -match '^SKIP') -or $n -ne $f.Count) { $bad += 'fs1 replays' }
 	$t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $fs2 -RepoDir $Repo
 	$t | Where-Object { $_ -match '^(FAIL|STALE)' } | ForEach-Object { $_.Substring(0, [Math]::Min(200, $_.Length)) }
-	"tools: $($t | Select-Object -Last 1)"; if (($t | Select-Object -Last 1) -notmatch '^PASS') { $bad += 'tools' }
+	"tools: $($t | Select-Object -Last 1)"; if ("$($t | Select-Object -Last 1)" -notmatch '^PASS') { $bad += 'tools' }	# as a string: an empty pipeline in ( ) -notmatch is false, so no output used to pass (#126)
 	if (-not $NoTour) {
 		$m = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\menu_check.ps1" -Out "$out\tour" -Configs r,d -GameDir $Fs1Dir
 		$m | Where-Object { $_ -match "Screen '[^']+': (FAIL|SKIP)" } | ForEach-Object { "tour $_" }
@@ -57,7 +57,7 @@ if (-not $bad) {
 		$sf = @($m | Where-Object { $_ -match "Screen '[^']+': FAIL" }).Count
 		$ends = @($m | Where-Object { $_ -match '^(r|d) exit=0 Menu tour: \d+ screens, \d+ passed, 0 failed, \d+ skipped' }).Count
 		"tour: $($m | Select-Object -Last 1), screen FAIL lines $sf, builds finished clean $ends of 2"
-		if ($sf -or $ends -ne 2 -or (($m | Select-Object -Last 1) -ne 'DONE pass=2 fail=0')) { $bad += 'fs1 tour' }
+		if ($sf -or $ends -ne 2 -or ("$($m | Select-Object -Last 1)" -ne 'DONE pass=2 fail=0')) { $bad += 'fs1 tour' }
 	} else { $bad += 'tour not run' }
 }
-if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
+if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }

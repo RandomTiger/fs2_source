@@ -49,7 +49,30 @@ if (-not $recs) { throw "No recordings match: $Missions" }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	# Gate pause (#214, D-20261107-094737): while %TEMP%\fs2_gate.pause exists, hold before the next launch; resume
+	# only when the marker is gone and no game runs, checked together. %TEMP%\fs2_gate.paused (time, runner, PID)
+	# confirms a hold; it never stops or changes a run, and nothing reads it to decide anything.
+	$pause = "$env:TEMP\fs2_gate.pause"
+	$paused = "$env:TEMP\fs2_gate.paused"
+	$held = $null
+	do {
+		while (Test-Path -LiteralPath $pause) {
+			if (-not $held) {
+				$held = Get-Date; $next = $held.AddMinutes(10)
+				try { Set-Content -LiteralPath $paused -Value "$($held.ToString('o')) replay_check $PID" -Encoding ascii -ErrorAction Stop } catch { }
+				Write-Host "Gate pause: $pause found at $($held.ToString('HH:mm:ss')); replay_check holds before its next launch (PID $PID). Delete that file to carry on."
+			} elseif ((Get-Date) -ge $next) {
+				$next = $next.AddMinutes(10)
+				Write-Host "Gate pause: still held by $pause at $(Get-Date -Format 'HH:mm:ss'), $([int]((Get-Date) - $held).TotalMinutes) min so far (replay_check, PID $PID). Delete that file to carry on."
+			}
+			Start-Sleep -Seconds 2
+		}
+		while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	} while (Test-Path -LiteralPath $pause)
+	if ($held) {
+		try { if (((Get-Content -LiteralPath $paused -TotalCount 1 -ErrorAction Stop) -split ' ')[-1] -eq "$PID") { Remove-Item -LiteralPath $paused -ErrorAction Stop } } catch { }
+		Write-Host "Gate pause: $pause gone at $(Get-Date -Format 'HH:mm:ss'); replay_check carries on after $('{0:0.0}' -f ((Get-Date) - $held).TotalMinutes) min held."
+	}
 }
 
 Set-Location $GameDir
@@ -94,7 +117,7 @@ foreach ($r in $recs) {
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		# TraceDiff exits 2 when it cannot read either trace (missing, not a trace, other version): a FAIL, never a pass (D-20261021-125813)
 		if ((Test-Path $trace) -and ($LASTEXITCODE -eq 2)) { $diff = 'TRACE UNREADABLE (TraceDiff exit 2: missing recorded trace, or another trace version)' }
-		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
+		if (("$res" -notmatch 'REPLAY OK') -or ("$diff" -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
 		# an autotest replay exits 0 only with no Assert, Int3 or Warning (D-029, D-077); a hand-played one exits 1 on success (D-033)
 		if ($r.Autotest) {
