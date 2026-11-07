@@ -17,7 +17,7 @@ The recorder records a person playing a mission. It replays the same inputs into
 
 ## Paths
 - Game install: the `PATH_FS2` environment variable. It differs per machine; never hard-code it.
-- Built exes go to `PATH_FS2`, named after the branch's layer (D-20261101-064106): `FS2_<Layer>_d.exe` (Debug) and `FS2_<Layer>_r.exe` (Release), here `FS2_RecordPlayback_d.exe` / `_r.exe`. The layer name lives only in `build\layer.props`; scripts read it through `tools\layer.ps1` (`Get-FS2Exe r|d`). Each branch keeps its own value: on a merge into a branch, keep that branch's value, conflict or not. The old `FS2vs2022*.exe` files in the installs are no longer built.
+- Built exes go to `PATH_FS2`, named after the branch's layer (D-20261101-064106): `FS2_<Layer>_d.exe` (Debug) and `FS2_<Layer>_r.exe` (Release), here `FS2_AutoPlay_d.exe` / `_r.exe`. The layer name lives only in `build\layer.props`; scripts read it through `tools\layer.ps1` (`Get-FS2Exe r|d`). Each branch keeps its own value: on a merge into a branch, keep that branch's value, conflict or not. The old `FS2vs2022*.exe` files in the installs are no longer built.
 - `TraceDiff.exe` goes to `tools\bin\`.
 - MSBuild: found with vswhere, never a fixed path: `& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe` (as `Get-MSBuild` in `tools\gates\common.ps1`).
 

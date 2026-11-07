@@ -18,6 +18,7 @@ FS2_RecordPlayback_d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS]
 | `-at_speed` | Time compression, 1 to 8. | 4 |
 | `-at_pilot` | The pilot to use. | The most recently saved single-player pilot |
 | `-at_skill` | Skill level, 0 (very easy) to 4 (insane). The recording stores it, so the replay plays at the same level. | The pilot's own |
+| `-at_autoplay` | Try to win the mission (see Autoplay below). Implies `-playernpc`. | Off |
 
 Autotest never saves the pilot file, so the pilot's skill level, stats and settings are left as they were.
 
@@ -107,6 +108,20 @@ tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 - The time limit is in mission time, which a replay reproduces exactly. A real-time limit would end the replay on a different frame.
 - `-autotest` on a replay adds only the log, the watchdog and the no-dialog handling. The replay still drives the menus itself.
 - If an `Assert` or `Int3` fired while recording, replay with `-autotest` too, or the replay stops at the same `Assert` dialog.
+
+## Autoplay
+```
+FS2_AutoPlay_r.exe -window -autotest -at_mission sm1-02 -at_autoplay -at_skill 2 [-record ... -trace ...]
+tools\record_autoplay.ps1 -Missions AutotestAI,sm1-01,sm1-02 [-Skill 2] [-Time 900]
+```
+An autotest that tries to win (`code/Replay/Autoplay.cpp`, wip branch `AutoPlay`). The AI flies the player, and a manager beside the game gives it orders the way the squad message menu gives them to a wingman. No game code changes.
+- Once a second of mission time it reads the incomplete primary goals and pending directives (their sexps) for ships to destroy, disable, disarm, destroy a subsystem of, or protect. Order of targets: fighters and bombers attacking a ship to protect (bombers first), goal targets (small ships before big), then the nearest hostile fighter, then any hostile. A goal target on another team (sm1-02's neutral sentry guns) counts too.
+- With no target it guards a ship to protect, else an escort ship, else leaves the mission's own orders to fly the player.
+- When every primary goal is complete (or only the player's departure is left), it waits 5 s and warps out as Alt-J does.
+- The player can die (D-20261107-124842); death is `FAILED`. Missions whose notes say `autotest: mission controls vulnerability` keep that.
+- The log ends each mission with `Autoplay result: WON | FAILED | PARTIAL n/m | STALLED | TIMEOUT, ...` (D-20261107-124845). `STALLED`: no goal or event changed for 300 s. The default time limit is 900 s. All times are mission time, set in `Autoplay.h` (D-20261107-124844); changing one means re-recording the autoplay suite.
+- The recording header stores the autoplay bit, and the replay runs the manager again; it uses game state and mission time only, so the replay matches (D-20261107-124846).
+- Recordings live in `recordings/autoplay/`. The results are a tracked baseline, not a gate; the replays must still sync (D-20261107-124847).
 
 ## Not covered
 - Nobody flies the player ship, so player weapons, collisions and the player's own damage are not tested. AI ships fight as normal.
