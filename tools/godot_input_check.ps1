@@ -134,6 +134,7 @@ foreach ($t in $Tests) {
 	$line | Add-Content $summary
 	$line
 }
+Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 "DONE pass=$pass fail=$fail" | Add-Content $summary
 "DONE pass=$pass fail=$fail"
 if ($fail) { exit 1 }
