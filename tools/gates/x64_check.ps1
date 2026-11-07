@@ -48,7 +48,7 @@ foreach ($b in $Branches) {
 	# -CrossCheck none: the default sm1-01 is also an FS1 name and would run the x86 exes
 	$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\replay_check.ps1" -Headless -Configs r64,d64 -CrossCheck none -Missions $fs1 -Out "$o\fs1" | Select-Object -Last 1
 	"$b x64 fs1: $l"
-	if ($l -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
+	if ("$l" -notmatch 'fail=0') { "$b x64 FAIL"; exit 1 }
 	$l = & powershell -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\fs1demo_run.ps1" -Headless -Configs r64,d64 -Out "$o\fs1demo" | Select-Object -Last 1
 	"$b x64 fs1demo: $l"
 	if ($l -ne 'PASS') { "$b x64 FAIL"; exit 1 }
