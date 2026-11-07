@@ -568,8 +568,9 @@ int joy_init()
 				break;
 		}
 
-		// the configured joystick isn't there (or none was configured): use the first one that answers
-		if (rs != JOYERR_NOERROR) {
+		// Claude: the configured joystick is a real device id but doesn't answer: use the first one that does.
+		// "None" (99999) and any other id past the last device stay no joystick.
+		if (rs != JOYERR_NOERROR && Cur_joystick < n) {
 			for (i=0; i<n; i++) {
 				rs = joyGetPosEx(i, &ji);
 				if (rs == JOYERR_NOERROR) {
