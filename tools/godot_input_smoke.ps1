@@ -19,7 +19,7 @@ function Run-Live($name, $inject) {
 	$rec = "$Out\$name.fs2rec"
 	$env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'
 	$env:FS2_INJECT = if ($inject) { '1' } else { '0' }
-	$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot Tom -at_time 90 -record `"$rec`" -trace `"$Out\$name.trace`""
+	$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot AutotestPilot -at_time 90 -record `"$rec`" -trace `"$Out\$name.trace`""
 	Set-Location $GameDir
 	$p = Start-Process $Godot -ArgumentList "--path `"$(Join-Path $repo 'godot')`" --windowed --resolution 800x450" -PassThru -Wait -RedirectStandardOutput "$Out\$name.out.txt" -RedirectStandardError "$Out\$name.err.txt"
 	Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_INJECT -ErrorAction SilentlyContinue
@@ -44,4 +44,5 @@ Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER -ErrorAction S
 $res += "godot replay exit=$($p.ExitCode): " + ((Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line)
 $res += "TraceDiff live vs native replay: " + (& $td "$Out\inject.trace" "$Out\replay_native.trace" | Select-Object -Last 1)
 $res += "TraceDiff live vs godot replay:  " + (& $td "$Out\inject.trace" "$Out\replay_godot.trace" | Select-Object -Last 1)
+Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 $res | Set-Content "$Out\input_smoke.txt"; $res
