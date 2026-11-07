@@ -40,6 +40,8 @@ $exceptions = @(
 	@{ Branch = 'FS1Compat'; Merge = '95ee575'; What = 'Enhanced merged down into FS1Compat (batch 4)'; Src = 'D-20261022-152101 option 3' }
 	@{ Branch = 'FS1Compat'; Merge = '24cd57f'; What = 'Enhanced merged down into FS1Compat'; Src = 'D-20261022-152101 option 3; D-20261022-161947' }
 	@{ Branch = 'FS1Compat'; Merge = 'f2363f5'; What = 'FS1Demo merged into FS1Compat, reverted on FS1Compat'; Src = 'D-20261021-173031 rule 4; D-20261023-202744' }
+	# only these four commits, not all a pull merge brings: a later VoiceControl commit in RecordPlayback stays an ERROR
+	@{ Branch = 'RecordPlayback'; Merge = '26fc888'; Commits = 'c403875', 'c3e1e0a', 'b26050f', 'be8fd99'; What = 'pull merge of origin/RecordPlayback; its own four commits sit on its second parent, where VoiceControl was cut'; Src = 'D-20261107-095649' }
 )
 
 $errors = 0
@@ -80,7 +82,7 @@ function Chain($b) { $c = @(); $p = $map[$b].Parent; while ($p) { $c += $p; $p =
 # exceptions: excused commit set per exception, keyed by branch
 $excused = @{}
 foreach ($x in $exceptions) {
-	$x.Set = Set-Of (git rev-list "$($x.Merge)^2" --not "$($x.Merge)^1" 2>$null)
+	$x.Set = if ($x.Commits) { Set-Of @($x.Commits | ForEach-Object { git rev-parse "$_^{commit}" }) } else { Set-Of (git rev-list "$($x.Merge)^2" --not "$($x.Merge)^1" 2>$null) }
 	$x.Hits = 0
 	if (-not $excused.ContainsKey($x.Branch)) { $excused[$x.Branch] = @() }
 	$excused[$x.Branch] += $x
