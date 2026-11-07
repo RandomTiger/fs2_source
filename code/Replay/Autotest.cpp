@@ -480,6 +480,8 @@ static void autotest_main_menu()
 		if (Autotest_gave_up) {
 			Autotest_missions_failed++;
 		} else if (Autotest_in_mission) {
+			// a mission that ends with no debrief (sm3-09) still gets its autoplay result line
+			autoplay_result(AUTOPLAY_END_ITSELF);
 			autotest_logf("Mission '%s' done\n", Autotest_current);
 		} else {
 			Autotest_missions_failed++;
@@ -1463,8 +1465,9 @@ void autotest_frame()
 	}
 
 	// every frame: the player may not exist on the first frame, and mission events can clear it.
-	// Autoplay plays to win, so the player can be killed (D-20261107-124842).
-	if (!Autotest_mission_vulnerability && !Autoplay_on && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
+	// Autoplay too: the player stays invulnerable until autoplay has a good baseline (Tom, 2026-11-07,
+	// over D-20261107-124842).
+	if (!Autotest_mission_vulnerability && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
 		shipp = &Ships[Player_obj->instance];
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
