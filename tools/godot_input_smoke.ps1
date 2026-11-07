@@ -19,7 +19,7 @@ function Run-Live($name, $inject) {
 	$rec = "$Out\$name.fs2rec"
 	$env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'
 	$env:FS2_INJECT = if ($inject) { '1' } else { '0' }
-	$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot Tom -at_time 90 -record `"$rec`" -trace `"$Out\$name.trace`""
+	$env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot AutotestPilot -at_time 90 -record `"$rec`" -trace `"$Out\$name.trace`""
 	Set-Location $GameDir
 	$p = Start-Process $Godot -ArgumentList "--path `"$(Join-Path $repo 'godot')`" --windowed --resolution 800x450" -PassThru -Wait -RedirectStandardOutput "$Out\$name.out.txt" -RedirectStandardError "$Out\$name.err.txt"
 	Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_INJECT -ErrorAction SilentlyContinue
@@ -29,19 +29,36 @@ function Count($name, $pat) { $l = Select-String -Path "$Out\$name.fs2rec.record
 $res += Run-Live 'base' $false
 $res += Run-Live 'inject' $true
 $res += (Select-String -Path "$Out\inject.out.txt" -Pattern '^inject:' | % { $_.Line })
+$cnt = @{}
 foreach ($n in 'base', 'inject') {
-	$res += "$n record.log: ev_key=$(Count $n '^\s+ev_key\s' ) ev_mouse=$(Count $n '^\s+ev_mouse\s')"
+	$k = [int](Count $n '^\s+ev_key\s'); $m = [int](Count $n '^\s+ev_mouse\s'); $cnt[$n] = @($k, $m)
+	$res += "$n record.log: ev_key=$k ev_mouse=$m"
 }
 # replay the injected recording natively and in Godot
 Set-Location $GameDir
 $rc = "-window -autotest -headless -replay `"$Out\inject.fs2rec`" -trace `"$Out\replay_native.trace`""
 $np = Start-Process ".\$(Get-FS2Exe "${Config}64")" -ArgumentList $rc -PassThru -Wait
-$res += "native replay exit=$($np.ExitCode): " + ((Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line)
+$nr = (Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line
+$res += "native replay exit=$($np.ExitCode): $nr"
 $env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'
 $env:FS2_CMD = "-window -autotest -headless -replay `"$Out\inject.fs2rec`" -trace `"$Out\replay_godot.trace`""
 $p = Start-Process (Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe') -ArgumentList "--headless --path `"$(Join-Path $repo 'godot')`"" -PassThru -Wait -RedirectStandardOutput "$Out\replay_godot.out.txt"
 Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER -ErrorAction SilentlyContinue
-$res += "godot replay exit=$($p.ExitCode): " + ((Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line)
-$res += "TraceDiff live vs native replay: " + (& $td "$Out\inject.trace" "$Out\replay_native.trace" | Select-Object -Last 1)
-$res += "TraceDiff live vs godot replay:  " + (& $td "$Out\inject.trace" "$Out\replay_godot.trace" | Select-Object -Last 1)
+$gr = (Select-String "$Out\inject.fs2rec.replay.log" -Pattern '^REPLAY|DESYNC|ERROR' | Select-Object -Last 1).Line
+$res += "godot replay exit=$($p.ExitCode): $gr"
+$t = & $td "$Out\inject.trace" "$Out\replay_native.trace" | Select-Object -Last 1; $e1 = $LASTEXITCODE
+$res += "TraceDiff live vs native replay: $t"
+$t = & $td "$Out\inject.trace" "$Out\replay_godot.trace" | Select-Object -Last 1; $e2 = $LASTEXITCODE
+$res += "TraceDiff live vs godot replay:  $t"
+Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
+# its own grade (#232): the injected run took more key and mouse input, both replays say REPLAY OK, both traces match
+$bad = @()
+if ($cnt['inject'][0] -le $cnt['base'][0]) { $bad += 'ev_key not above base' }
+if ($cnt['inject'][1] -le $cnt['base'][1]) { $bad += 'ev_mouse not above base' }
+if ("$nr" -notmatch '^REPLAY OK') { $bad += 'native replay' }
+if ("$gr" -notmatch '^REPLAY OK') { $bad += 'godot replay' }
+if ($e1 -ne 0) { $bad += 'TraceDiff native' }
+if ($e2 -ne 0) { $bad += 'TraceDiff godot' }
+$res += if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
 $res | Set-Content "$Out\input_smoke.txt"; $res
+if ($bad) { exit 1 }

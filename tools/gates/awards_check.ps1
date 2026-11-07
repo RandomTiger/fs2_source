@@ -27,7 +27,7 @@ function Get-PilotHash { (Get-ChildItem "$GameDir\data\players" -Recurse -File |
 function Invoke-Tour($out, $config, $extra) {
 	Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
 	$last = & powershell -NoProfile -ExecutionPolicy Bypass -File "$RepoRoot\tools\menu_check.ps1" -GameDir $GameDir -Configs $config -Out $out @extra | Select-Object -Last 1
-	if ($last -notmatch 'DONE pass=\d+ fail=0') { "tour $config $($extra -join ' '): $last" }
+	if ("$last" -notmatch 'DONE pass=\d+ fail=0') { "tour $config $($extra -join ' '): $last" }
 }
 
 $bad = @()
