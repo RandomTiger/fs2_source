@@ -18,7 +18,7 @@ $map = [ordered]@{
 	'PrePort64'              = @{ Kind = 'layer'; Parent = 'PrePort32'; Src = 'BRANCHES.md lines 13, 18' }
 	'Godot'                  = @{ Kind = 'layer'; Parent = 'PrePort64'; Src = 'BRANCHES.md line 14' }
 	'GodotPlus'              = @{ Kind = 'layer'; Parent = 'Godot'; Src = 'BRANCHES.md line 15 (as GodotEnhanced); D-20261105-171620 (renamed GodotPlus, meeting branch)' }
-	'Latest'                 = @{ Kind = 'pointer'; Parent = 'Enhanced'; Src = 'BRANCHES.md line 20' }
+	'Latest'                 = @{ Kind = 'pointer'; Parent = 'GodotPlus'; Src = 'BRANCHES.md line 20' }
 	'FS2Demo'                = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'BRANCHES.md lines 10, 33' }
 	'FS1Compat'              = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'BRANCHES.md lines 10, 33' }
 	'FS1Demo'                = @{ Kind = 'feature'; Parent = 'FS1Compat'; Target = 'Enhanced'; Src = 'BRANCHES.md lines 10, 34' }
@@ -117,12 +117,12 @@ for ($i = 1; $i -lt $present.Count; $i++) {
 	if ($down.Count -gt 0) { Out-Error "$lo contains $($down.Count) commit(s) made on ${hi}: a merge went downward" }
 }
 
-if (($remote -contains 'Latest') -and ($present -contains 'Enhanced')) {
-	git merge-base --is-ancestor origin/Latest origin/Enhanced
-	if ($LASTEXITCODE -ne 0) { Out-Error "Latest is not part of Enhanced: Latest must only be moved forward to Enhanced" }
+if (($remote -contains 'Latest') -and ($present -contains 'GodotPlus')) {	# Latest follows GodotPlus (2026-11-07)
+	git merge-base --is-ancestor origin/Latest origin/GodotPlus
+	if ($LASTEXITCODE -ne 0) { Out-Error "Latest is not part of GodotPlus: Latest must only be moved forward to GodotPlus" }
 	else {
-		$behind = Count "origin/Latest..origin/Enhanced"
-		if ($behind -gt 0) { Out-Warn "Latest is $behind commit(s) behind Enhanced: move it up once Enhanced passes the suite" } else { Out-Ok "Latest is at Enhanced" }
+		$behind = Count "origin/Latest..origin/GodotPlus"
+		if ($behind -gt 0) { Out-Warn "Latest is $behind commit(s) behind GodotPlus: move it up once GodotPlus passes its autotests" } else { Out-Ok "Latest is at GodotPlus" }
 	}
 }
 
@@ -194,7 +194,7 @@ foreach ($b in $remote) {
 	$props = git show "origin/${b}:build/layer.props" 2>$null
 	if ($LASTEXITCODE -ne 0) { continue }	# not merged up to the per-layer names yet
 	$m = [regex]::Match(($props -join "`n"), '<FS2Layer>\s*([^<]*?)\s*</FS2Layer>')
-	$want = if ($b -eq 'Latest') { 'Enhanced' } else { $b }	# Latest is only ever moved to Enhanced
+	$want = if ($b -eq 'Latest') { 'GodotPlus' } else { $b }	# Latest is only ever moved to GodotPlus
 	if (-not $m.Success) { Out-Error "$b has build\layer.props with no FS2Layer" }
 	elseif ($m.Groups[1].Value -ne $want) { Out-Error "$b names its exes after '$($m.Groups[1].Value)', not '$want': a merge took another branch's layer name; restore $want in a commit on $b" }
 	else { Out-Ok "$b layer name $want" }
