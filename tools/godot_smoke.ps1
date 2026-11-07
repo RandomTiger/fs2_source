@@ -32,6 +32,23 @@ public static class W32 {
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int hgt, bool repaint);
  [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint timeout, out IntPtr res);
+ delegate bool EnumProc(IntPtr h, IntPtr l);
+ [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+ [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+ [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+ // Godot's window by its class: in Debug the process's main window is the game's Debug Spew console (#226)
+ public static IntPtr GodotWindow(int id) {
+  IntPtr found = IntPtr.Zero;
+  EnumWindows(delegate(IntPtr h, IntPtr l) {
+   uint pid; GetWindowThreadProcessId(h, out pid);
+   if (pid != (uint)id || !IsWindowVisible(h)) return true;
+   var s = new System.Text.StringBuilder(64); GetClassName(h, s, 64);
+   if (s.ToString() != "Engine") return true;
+   found = h; return false;
+  }, IntPtr.Zero);
+  return found;
+ }
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 "@
@@ -46,8 +63,9 @@ $p = Start-Process $Godot -ArgumentList "--path `"$(Join-Path $repo 'godot')`" -
 $null = $p.Handle
 $res = @(); $t0 = Get-Date
 Start-Sleep -Seconds 8
-$p.Refresh(); $h = $p.MainWindowHandle
-$res += "window handle: $h, title: $($p.MainWindowTitle)"
+$p.Refresh(); $h = [W32]::GodotWindow($p.Id)
+$res += "window handle: $h, process main window: $($p.MainWindowTitle)"
+if ($h -eq [IntPtr]::Zero) { $res += 'no Godot window found: window checks not run' }
 if ($h -ne [IntPtr]::Zero) {
 	$res += "hung at +8s: $([W32]::IsHungAppWindow($h))"
 	[W32+RECT]$r = New-Object W32+RECT; [void][W32]::GetWindowRect($h, [ref]$r)
@@ -80,4 +98,4 @@ Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAME
 $env:FS2_GR_HOST = $oldHost	# empty removes it
 Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 $res | Set-Content "$Out\smoke.txt"; $res
-if ($fault3D -or $code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern '\bFAIL\b' -CaseSensitive -Quiet)) { exit 1 }
+if ($h -eq [IntPtr]::Zero -or $fault3D -or $code -ne 0 -or (Select-String (Join-Path $GameDir 'autotest.log') -Pattern 'FAIL' -CaseSensitive -Quiet)) { exit 1 }
