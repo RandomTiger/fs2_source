@@ -17,6 +17,7 @@ Add-Type -AssemblyName System.Drawing, System.Windows.Forms
 Add-Type @"
 using System; using System.Runtime.InteropServices;
 public static class W32 {
+ [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
  [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int hgt, bool repaint);
@@ -41,6 +42,7 @@ public static class W32 {
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 "@
+[void][W32]::SetProcessDPIAware()	# real pixels, or a scaled desktop gives the window's rectangle and the resize in other units (#228)
 $env:FS2_DLL = Join-Path $GameDir (Get-FS2Dll $Config); $env:FS2_ROOT = $GameDir; $env:FS2_FIBER = '1'; $env:FS2_FRAMES = '1'; $env:FS2_SMOKE = '1'
 $env:FS2_CMD = "-window -autotest -headless -at_mission $Mission -at_pilot AutotestPilot -at_time $Seconds"
 Remove-Item (Join-Path $GameDir 'autotest.log') -ErrorAction SilentlyContinue
