@@ -3,7 +3,7 @@
 # Exit code 1 if a rule is broken (ERROR), 0 otherwise.  WARN lines are things to tidy, not breakages.
 param([switch]$NoFetch)
 
-$layers = 'master', 'VS2015', 'VS2022', 'OriginalSourceBugFixes', 'RecordPlayback', 'Enhanced', 'PrePort', 'Godot', 'GodotEnhanced'
+$layers = 'master', 'VS2022', 'OriginalSourceBugFixes', 'RecordPlayback', 'Enhanced', 'PrePort32', 'PrePort64', 'Godot', 'GodotPlus'
 $errors = 0
 
 function Out-Error($msg) { Write-Output "ERROR  $msg"; $script:errors++ }
