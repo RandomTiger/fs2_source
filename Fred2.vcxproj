@@ -62,7 +62,7 @@
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>.\</OutDir>
+    <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\Release\Fred2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>Fred2_$(FS2Layer)r</TargetName>

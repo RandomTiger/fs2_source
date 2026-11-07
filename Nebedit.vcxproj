@@ -60,7 +60,7 @@
     <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>.\</OutDir>
+    <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\NebeditRelease\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>Nebedit_$(FS2Layer)r</TargetName>
