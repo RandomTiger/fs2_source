@@ -51,12 +51,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\..\Debug\</OutDir>
-    <IntDir>.\..\Debug\</IntDir>
+    <IntDir>.\..\Debug\code\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\..\Release\</OutDir>
-    <IntDir>.\..\Release\</IntDir>
+    <IntDir>.\..\Release\code\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -72,11 +72,11 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_WINDOWS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>NDEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\Debug\</AssemblerListingLocation>
+      <AssemblerListingLocation>.\..\Debug\code\</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation><!-- Claude: no /FR or bscmake, about 18 s per clean Debug build (2026-10-20) -->
-      <PrecompiledHeaderOutputFile>.\..\Debug\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\Debug\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\Debug\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>.\..\Debug\code\code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\..\Debug\code\</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\Debug\code\</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <ResourceCompile>
@@ -108,10 +108,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\..\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\..\Release\code.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\..\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\..\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>.\..\Release\code\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\..\Release\code\code.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\..\Release\code\</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\Release\code\</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <Culture>0x0409</Culture>
