@@ -53,15 +53,20 @@
     <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <Import Project="$(MSBuildThisFileDirectory)build\layer.props" /><!-- Claude: per-layer tool exe names (D-20261107-101603) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\</OutDir>
     <IntDir>.\FredDebug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <TargetName>Fred2_$(FS2Layer)d</TargetName>
+    <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\</OutDir>
-    <IntDir>.\Release\</IntDir>
+    <IntDir>.\Release\Fred2\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <TargetName>Fred2_$(FS2Layer)r</TargetName>
+    <TargetExt>.exe</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -105,7 +110,7 @@
       <SubSystem>Windows</SubSystem>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <OutputFile>$(PATH_FS2)\Fred2.exe</OutputFile>
+      <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>winmm.lib;vfw32.lib;msacm32.lib;wsock32.lib;code.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -125,10 +130,10 @@
       <ForcedIncludeFiles>PSTypes.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;FRED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_DEBUG;%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
-      <PrecompiledHeaderOutputFile>.\Release\Fred2.pch</PrecompiledHeaderOutputFile>
-      <ObjectFileName>.\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
+      <AssemblerListingLocation>.\Release\Fred2\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\Release\Fred2\Fred2.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\Release\Fred2\</ObjectFileName>
+      <ProgramDataBaseFileName>.\Release\Fred2\</ProgramDataBaseFileName>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -151,7 +156,7 @@
       <SubSystem>Windows</SubSystem>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <IgnoreSpecificDefaultLibraries>libc.lib;libcd.lib;libcmtd.lib;nafxcwd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <OutputFile>$(PATH_FS2)\Fred2.exe</OutputFile>
+      <OutputFile>$(PATH_FS2)\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>winmm.lib;vfw32.lib;msacm32.lib;code.lib;wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
