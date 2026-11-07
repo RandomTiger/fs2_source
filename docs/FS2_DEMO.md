@@ -231,6 +231,11 @@ recordings moved, each at or after its first limit frame (TraceDiff against the 
 Both were recorded again on FS2Demo (format 3) with the batch 3 settings; PrePort (format 4) follows at
 carry-up.
 
+**Re-recorded again on the clean rebuild (2026-11-07, FS2Demo-rebuild).** SPDemo-01 and SPDemo-02 were recorded
+after the Enhanced merge-down and carried pad (`input_device`) entries that RecordPlayback cannot replay. Both were
+recorded again on the rebuild, same settings (120 s, 4x, `-playernpc`, `-at_skill 2`). Release and Debug replay
+REPLAY OK, TraceDiff MATCH (3523 and 3510 frames). DemoTrain is unchanged.
+
 **Pilot files, version 141 (D-20261023-201347, D-20261023-201747).** The exe always writes 141. Layout:
 the version, then one int, the data set active at save time (`Game_profile->data_set`), then the existing
 fields, with the stats block's medal count before that many medal ints. The tag is informational: it is
