@@ -1,6 +1,6 @@
 # GodotPlus gate on 2ceee7f: moved frames
 
-Gated commit: 2ceee7f. Pin: U:\Projects\FS2Pinsceee7f (local, GodotPlus). Moved against the previous pin, GodotRender3D cddc7d7, 42 of the 43 compared frames; boxes are the changed area against that pin (x left..right, y top..bottom, changed pixels).
+Gated sha 2ceee7f; pin U:\Projects\FS2Pins\2ceee7f, local, named by 2ceee7f. Every box below is measured against this gate's before capture, U:\Temp\plusgate\before, built from eb605f3, each build against its own. The previous pin, GodotRender3D cddc7d7, is kept and retired; these boxes are not measured against it. On the #202 lines, "whole frame, mission background bitmap" is the region declared after the first red run (D-20261106-212110), not a reading of every pixel: AutotestWeapons 4500's three shapes and VisualSubspace's bars are unnamed, the Weapons shapes passed by the steward's elimination, and AutotestArrivals 560, 600 have no native reference (D-20261106-224918, #220).
 
 This commit is docs only. It is not gated and is not the pin (D-20261106-225618). Nothing reads this file.
 
