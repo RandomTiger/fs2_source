@@ -1,5 +1,7 @@
 # Fix review: Supernova.cpp `supernova_set_view` uninitialised `move`
 
+GitHub issue #29.
+
 **Recommendation: TAKE.**
 
 ## The bug

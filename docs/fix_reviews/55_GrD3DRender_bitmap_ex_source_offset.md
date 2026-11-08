@@ -1,5 +1,7 @@
 # Fix review: D3D bitmap_ex reads from the wrong source address when sx or sy is above zero
 
+GitHub issue #272.
+
 **Recommendation: TAKE.** `gr_d3d_bitmap_ex_internal` computes its source pointer in pixels but adds it to a byte address, so any draw that starts inside the bitmap (sx or sy above zero) reads the wrong pixels. Drawing side only, no gameplay state. Found by the FS1 barracks pilot picture on FS1Demo (a85511f). Taken by the steward (D-20261021-100829).
 
 ## The bug

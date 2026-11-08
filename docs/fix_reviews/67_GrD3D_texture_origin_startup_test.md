@@ -1,5 +1,7 @@
 # Fix review: the start-up texture-origin test picks by window mode, not by what the card needs
 
+GitHub issue #274 (companion of #77, review 60).
+
 **Recommendation: FIX by always using 1 and no longer reading `D3DTextureOrigin` (Tom, D-20261107-210210; first landed as a default for an unset value, D-20261107-104004).** `d3d_detect_texture_origin_32/16` decide `D3d_rendition_uvs`, the half-texel offset on every textured draw. The test reads the front buffer. Windowed, that is the desktop, so the result depends on desktop pixels. Full-screen, it reads the game's own frame, but on this machine the test pixel lands in the same place under both settings, so the test cannot tell them apart and falls through to 0. Measured here: windowed picks 1, full-screen picks 0. 1 is the value the code's own mapping needs (see Fix). The default first landed on VS2022 (94ea4fa). It moves here because it changes original behaviour; VS2022 reverted it (b1d1c91). The steward ruled that this branch takes it (D-20261107-104004).
 
 ## The bug

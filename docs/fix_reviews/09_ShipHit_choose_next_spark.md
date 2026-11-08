@@ -1,5 +1,7 @@
 # Fix review: ShipHit.cpp `choose_next_spark` reads uninitialised spark pairs
 
+GitHub issue #36.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by replaying a Release recording (SM1-03) in Debug. The trace diverged at frame 11856 and the replay desynced at frame 11940.
