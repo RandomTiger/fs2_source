@@ -1,8 +1,9 @@
 // Headless replay test for PrePort64 (#280). A separate Jenkins job: Script Path = Jenkinsfile.replay.
 // Clean, Checkout and the two game builds are copied from Jenkinsfile; keep them in step with it.
 // Only the game builds (target Freespace2) plus TraceDiff, which the replay check needs; no editor tools.
+// No FS2 demo replays for now: they need a separate FS2_DEMO exe, whose build fails on the agent (#282).
 pipeline {
-    // no space in the folder: tools/build_demo.ps1 cannot build from a path with one (#281)
+    // no space in the folder (#281)
     agent { node { label ''; customWorkspace 'fs2_headless_autotest' } }
 
     options {
@@ -38,7 +39,7 @@ pipeline {
             steps {
                 powershell '''
                     $bad = @()
-                    foreach ($v in 'PATH_FS2', 'PATH_FS1', 'PATH_FS2DEMO') {
+                    foreach ($v in 'PATH_FS2', 'PATH_FS1') {
                         $p = [Environment]::GetEnvironmentVariable($v)
                         if (-not $p) { $bad += "$v is not set for this account" }
                         elseif (-not (Test-Path -LiteralPath $p)) { $bad += "$v = $p does not exist" }
@@ -88,29 +89,9 @@ pipeline {
             }
         }
 
-        // the FS2 demo replays need the FS2_DEMO exe in PATH_FS2DEMO; the gates build it with this script
-        stage('Build FS2 demo') {
-            steps {
-                powershell '''
-                    $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:WORKSPACE\\tools\\build_demo.ps1"
-                    $r | ForEach-Object { Write-Host $_ }
-                    if (-not ($r -and ($r[-1] -match '^PASS'))) {
-                        # the build logs sit in the service account's profile: show their errors here
-                        foreach ($f in Get-ChildItem (Join-Path $env:LOCALAPPDATA 'fs2_demo_build') -Filter *.txt -ErrorAction SilentlyContinue) {
-                            Write-Host "---- $($f.Name)"
-                            $t = @(Get-Content -LiteralPath $f.FullName)
-                            $e = @($t | Where-Object { $_ -match 'error|MSB\\d+' } | Select-Object -First 20)
-                            if (-not $e) { $e = $t | Select-Object -Last 20 }
-                            $e | ForEach-Object { Write-Host $_ }
-                        }
-                        exit 1
-                    }
-                '''
-            }
-        }
-
         // Per commit: the L1 set from tools\\gates\\l1_set.txt (read here, so the manager's edits take effect), Release
-        // and Debug. Nightly or FULL_SET: every recording, Release plus the sm1-01 cross-check (demo is always r and d).
+        // and Debug. Nightly or FULL_SET: every autotest, played and FS1 recording, Release plus the sm1-01 cross-check.
+        // No demo recordings (#282).
         // Red on the script's exit code, and also when a summary is missing or has no DONE line (#196, #231).
         stage('Replay headless') {
             steps {
@@ -155,11 +136,13 @@ pipeline {
                     }
 
                     $ok = $true
+                    $fs2 = @(); $fs1 = @(); $cfg = 'r,d'
                     if ($env:REPLAY_FULL) {
-                        # every recording in autotest, fs1 and demo; FS2 and FS1 folders cannot clash without -Missions
-                        $ok = (Run-Check 'full' @('-Configs', 'r') $fs1Dir) -and $ok
+                        # every recording except demo (#282)
+                        $cfg = 'r'
+                        foreach ($d in 'autotest', 'played') { $fs2 += Get-ChildItem (Join-Path $ws "recordings\\$d") -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName } }
+                        $fs1 += Get-ChildItem (Join-Path $ws 'recordings\\fs1') -Filter *.fs2rec | ForEach-Object { $_.BaseName }
                     } else {
-                        $fs2 = @(); $fs1 = @()
                         foreach ($l in Get-Content -LiteralPath "$ws\\tools\\gates\\l1_set.txt") {
                             $l = ($l -replace '#.*$', '').Trim()
                             if (-not $l) { continue }
@@ -167,15 +150,15 @@ pipeline {
                             switch ($kind) {
                                 'features' { $fs2 += Get-ChildItem (Join-Path $ws 'recordings\\autotest') -Filter "$name.fs2rec" | ForEach-Object { $_.BaseName } }
                                 'fs2'      { $fs2 += $name }
-                                'fs2demo'  { $fs2 += $name }   # recordings\\demo, replayed in PATH_FS2DEMO
                                 'fs1'      { $fs1 += $name }
-                                default    { }   # fs1demo has no recording (clean-run rule): not a replay, left out for now
+                                default    { }   # fs2demo needs the FS2_DEMO exe (#282); fs1demo has no recording (clean-run rule)
                             }
                         }
                         if ($env:REPLAY_MISSIONS) { $fs2 = @($env:REPLAY_MISSIONS -split ','); $fs1 = @() }   # hand-run proofs only
-                        if ($fs2) { $ok = (Run-Check 'fs2' @('-Configs', 'r,d', '-Missions', ($fs2 -join ',')) '') -and $ok }
-                        if ($fs1) { $ok = (Run-Check 'fs1' @('-Configs', 'r,d', '-Missions', ($fs1 -join ','), '-Fs1Dir', $fs1Dir) $fs1Dir) -and $ok }
                     }
+                    $fs2 = @($fs2 | Sort-Object -Unique); $fs1 = @($fs1 | Sort-Object -Unique)
+                    if ($fs2) { $ok = (Run-Check 'fs2' @('-Configs', $cfg, '-Missions', ($fs2 -join ',')) '') -and $ok }
+                    if ($fs1) { $ok = (Run-Check 'fs1' @('-Configs', $cfg, '-Missions', ($fs1 -join ','), '-Fs1Dir', $fs1Dir) $fs1Dir) -and $ok }
                     if (-not $ok) { exit 1 }
                 '''
             }
