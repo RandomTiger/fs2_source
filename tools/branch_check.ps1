@@ -27,7 +27,8 @@ $map = [ordered]@{
 	'MissionJump'            = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
 	'NoMultiplayer'          = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
 	'FrameShots'             = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
-	'GodotRender3D'          = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-111802 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
+	'AutoPlay'               = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'RecordPlayback'; Src = 'D-20261107-124841 (feature off RecordPlayback); D-20261108-161952 (Tom: merges back into RecordPlayback, done as 99ca4fd)' }
+	'GodotRender3D'         = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-111802 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotResolution'        = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261102-200801 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotOptions'           = @{ Kind = 'feature'; Parent = 'GodotResolution'; Target = 'GodotPlus'; Src = 'D-20261102-200808 (child of GodotResolution); D-20261105-171620 (merges into GodotPlus)' }
 	'SteamIntegration'       = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-090335 (direct child of Godot); D-20261105-171620 (merges into GodotPlus)' }
@@ -42,6 +43,8 @@ $exceptions = @(
 	@{ Branch = 'FS1Compat'; Merge = 'f2363f5'; What = 'FS1Demo merged into FS1Compat, reverted on FS1Compat'; Src = 'D-20261021-173031 rule 4; D-20261023-202744' }
 	# only these four commits, not all a pull merge brings: a later VoiceControl commit in RecordPlayback stays an ERROR
 	@{ Branch = 'RecordPlayback'; Merge = '26fc888'; Commits = 'c403875', 'c3e1e0a', 'b26050f', 'be8fd99'; What = 'pull merge of origin/RecordPlayback; its own four commits sit on its second parent, where VoiceControl was cut'; Src = 'D-20261107-095649' }
+	# Tom ordered AutoPlay merged back into RecordPlayback; only its two commits, a later AutoPlay commit stays an ERROR
+	@{ Branch = 'RecordPlayback'; Merge = '99ca4fd'; Commits = '31df01a', 'f8a408f'; What = 'AutoPlay merged into RecordPlayback (Tom, 2026-11-07)'; Src = 'D-20261108-161952' }
 )
 
 $errors = 0
