@@ -94,7 +94,17 @@ pipeline {
                 powershell '''
                     $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:WORKSPACE\\tools\\build_demo.ps1"
                     $r | ForEach-Object { Write-Host $_ }
-                    if (-not ($r -and ($r[-1] -match '^PASS'))) { exit 1 }
+                    if (-not ($r -and ($r[-1] -match '^PASS'))) {
+                        # the build logs sit in the service account's profile: show their errors here
+                        foreach ($f in Get-ChildItem (Join-Path $env:LOCALAPPDATA 'fs2_demo_build') -Filter *.txt -ErrorAction SilentlyContinue) {
+                            Write-Host "---- $($f.Name)"
+                            $t = @(Get-Content -LiteralPath $f.FullName)
+                            $e = @($t | Where-Object { $_ -match 'error|MSB\\d+' } | Select-Object -First 20)
+                            if (-not $e) { $e = $t | Select-Object -Last 20 }
+                            $e | ForEach-Object { Write-Host $_ }
+                        }
+                        exit 1
+                    }
                 '''
             }
         }
