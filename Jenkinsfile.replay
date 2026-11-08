@@ -1,0 +1,188 @@
+// Headless replay test for PrePort64 (#280). A separate Jenkins job: Script Path = Jenkinsfile.replay.
+// Clean, Checkout and the two game builds are copied from Jenkinsfile; keep them in step with it.
+// Only the game builds (target Freespace2) plus TraceDiff, which the replay check needs; no editor tools.
+pipeline {
+    agent any
+
+    options {
+        // one copy of the game at a time: two builds would fight over the game folders and the exe link target
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        booleanParam(name: 'FULL_SET', defaultValue: false, description: 'Replay every recording (the nightly run) instead of the L1 set')
+    }
+
+    triggers {
+        pollSCM('H/15 * * * *')
+        cron('H 1 * * *')   // nightly: full recording set
+    }
+
+    stages {
+
+        stage('Clean') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Checked out ${env.GIT_BRANCH} @ ${env.GIT_COMMIT}"
+            }
+        }
+
+        stage('Check game folders') {
+            steps {
+                powershell '''
+                    $bad = @()
+                    foreach ($v in 'PATH_FS2', 'PATH_FS1', 'PATH_FS2DEMO') {
+                        $p = [Environment]::GetEnvironmentVariable($v)
+                        if (-not $p) { $bad += "$v is not set for this account" }
+                        elseif (-not (Test-Path -LiteralPath $p)) { $bad += "$v = $p does not exist" }
+                        else { "$v = $p" }
+                    }
+                    if ($bad) { $bad | ForEach-Object { Write-Host "FAIL $_" }; exit 1 }
+                '''
+            }
+        }
+
+        stage('Build Release') {
+            steps {
+                bat """
+                    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" ^
+                    freespace2.sln ^
+                    /t:Freespace2 ^
+                    /p:Configuration=Release ^
+                    /p:Platform=x86 ^
+                    /m
+                """
+            }
+        }
+
+        stage('Build Debug') {
+            steps {
+                bat """
+                    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" ^
+                    freespace2.sln ^
+                    /t:Freespace2 ^
+                    /p:Configuration=Debug ^
+                    /p:Platform=x86 ^
+                    /m
+                """
+            }
+        }
+
+        stage('Build TraceDiff') {
+            steps {
+                bat """
+                    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe" ^
+                    freespace2.sln ^
+                    /t:TraceDiff ^
+                    /p:Configuration=Release ^
+                    /p:Platform=x86 ^
+                    /m
+                """
+            }
+        }
+
+        // the FS2 demo replays need the FS2_DEMO exe in PATH_FS2DEMO; the gates build it with this script
+        stage('Build FS2 demo') {
+            steps {
+                powershell '''
+                    $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:WORKSPACE\\tools\\build_demo.ps1"
+                    $r | ForEach-Object { Write-Host $_ }
+                    if (-not ($r -and ($r[-1] -match '^PASS'))) { exit 1 }
+                '''
+            }
+        }
+
+        // Per commit: the L1 set from tools\\gates\\l1_set.txt (read here, so the manager's edits take effect), Release
+        // and Debug. Nightly or FULL_SET: every recording, Release plus the sm1-01 cross-check (demo is always r and d).
+        // Red on the script's exit code, and also when a summary is missing or has no DONE line (#196, #231).
+        stage('Replay headless') {
+            steps {
+                script {
+                    def timer = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
+                    env.REPLAY_FULL = (params.FULL_SET || timer) ? '1' : ''
+                }
+                powershell '''
+                    $ErrorActionPreference = 'Stop'
+                    $ws = $env:WORKSPACE
+                    . "$ws\\tools\\layer.ps1"
+                    $out = Join-Path $ws 'replays\\jenkins'
+                    New-Item -ItemType Directory -Force $out | Out-Null
+                    $fs1Dir = $env:PATH_FS1
+                    # FS1 recordings replay in the FS1 folder with the exes found there (as tools\\gates\\l1_gate.ps1 does)
+                    foreach ($c in 'r', 'd') {
+                        $x = Get-FS2Exe $c $ws
+                        Copy-Item -LiteralPath (Join-Path $env:PATH_FS2 $x) -Destination $fs1Dir -Force
+                    }
+
+                    function Run-Check([string]$label, [string[]]$a, [string]$fs1) {
+                        $o = Join-Path $out $label
+                        Write-Host "replay $label start $((Get-Date).ToString('HH:mm'))"
+                        # an empty PATH_FS1 keeps same-named FS1 recordings out of the FS2 run
+                        $env:PATH_FS1 = $fs1
+                        $ErrorActionPreference = 'Continue'   # the check's own errors land in the log, not here
+                        & powershell -NoProfile -ExecutionPolicy Bypass -File "$ws\\tools\\replay_check.ps1" -Headless -Out $o @a
+                        $code = $LASTEXITCODE
+                        $env:PATH_FS1 = $fs1Dir
+                        $sum = Join-Path $o 'summary.txt'
+                        $done = $null
+                        if (Test-Path -LiteralPath $sum) {
+                            $lines = Get-Content -LiteralPath $sum
+                            $lines | Where-Object { $_ -match '^(FAIL|SKIP)' -or $_ -match 'NOT HEADLESS' } | ForEach-Object { Write-Host $_ }
+                            $done = $lines | Where-Object { $_ -match '^DONE pass=\\d+ fail=\\d+' } | Select-Object -Last 1
+                        }
+                        Write-Host "replay $label end $((Get-Date).ToString('HH:mm')) exit=$code $done"
+                        if (-not $done) { Write-Host "FAIL replay $label left no DONE line in $sum"; return $false }
+                        if ($code -ne 0 -or $done -notmatch 'fail=0$') { return $false }
+                        if ($lines -match '^SKIP') { Write-Host "FAIL replay $label skipped a recording (a skip is not green)"; return $false }
+                        return $true
+                    }
+
+                    $ok = $true
+                    if ($env:REPLAY_FULL) {
+                        # every recording in autotest, fs1 and demo; FS2 and FS1 folders cannot clash without -Missions
+                        $ok = (Run-Check 'full' @('-Configs', 'r') $fs1Dir) -and $ok
+                    } else {
+                        $fs2 = @(); $fs1 = @()
+                        foreach ($l in Get-Content -LiteralPath "$ws\\tools\\gates\\l1_set.txt") {
+                            $l = ($l -replace '#.*$', '').Trim()
+                            if (-not $l) { continue }
+                            $kind, $name = -split $l
+                            switch ($kind) {
+                                'features' { $fs2 += Get-ChildItem (Join-Path $ws 'recordings\\autotest') -Filter "$name.fs2rec" | ForEach-Object { $_.BaseName } }
+                                'fs2'      { $fs2 += $name }
+                                'fs2demo'  { $fs2 += $name }   # recordings\\demo, replayed in PATH_FS2DEMO
+                                'fs1'      { $fs1 += $name }
+                                default    { }   # fs1demo has no recording (clean-run rule): not a replay, left out for now
+                            }
+                        }
+                        if ($env:REPLAY_MISSIONS) { $fs2 = @($env:REPLAY_MISSIONS -split ','); $fs1 = @() }   # hand-run proofs only
+                        if ($fs2) { $ok = (Run-Check 'fs2' @('-Configs', 'r,d', '-Missions', ($fs2 -join ',')) '') -and $ok }
+                        if ($fs1) { $ok = (Run-Check 'fs1' @('-Configs', 'r,d', '-Missions', ($fs1 -join ','), '-Fs1Dir', $fs1Dir) $fs1Dir) -and $ok }
+                    }
+                    if (-not $ok) { exit 1 }
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'replays/jenkins/**/summary.txt, replays/jenkins/**/*.replay.log, replays/jenkins/**/*.autotest.log', allowEmptyArchive: true
+                }
+                failure {
+                    archiveArtifacts artifacts: 'replays/jenkins/**/*.trace', allowEmptyArchive: true
+                }
+            }
+        }
+
+    }
+
+    post {
+        always {
+            echo "Pipeline finished with status: ${currentBuild.currentResult}"
+        }
+    }
+}
