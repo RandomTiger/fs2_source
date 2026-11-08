@@ -2,7 +2,8 @@
 // Clean, Checkout and the two game builds are copied from Jenkinsfile; keep them in step with it.
 // Only the game builds (target Freespace2) plus TraceDiff, which the replay check needs; no editor tools.
 pipeline {
-    agent any
+    // no space in the folder: tools/build_demo.ps1 cannot build from a path with one (#281)
+    agent { node { label ''; customWorkspace 'fs2_headless_autotest' } }
 
     options {
         // one copy of the game at a time: two builds would fight over the game folders and the exe link target
