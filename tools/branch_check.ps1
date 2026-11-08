@@ -82,6 +82,18 @@ function Own-Above($branch, $base) {
 # ancestors in the map (parent, its parent, ...)
 function Chain($b) { $c = @(); $p = $map[$b].Parent; while ($p) { $c += $p; $p = $map[$p].Parent }; $c }
 
+# like Own-Commits, but also not on the first-parent line of any ancestor of $below in the map (D-20261108-164648):
+# a child cut from an older line of its parent carries the grandparent's own commits, which are not the child's.
+# The chain stops at the first ancestor that is not in the map or not on origin; reachability is never used.
+function Own-Commits-Chain($branch, $below) {
+	$drop = Set-Of (Fp-Of $below)
+	foreach ($a in Chain $below) {
+		if (-not $map.Contains($a) -or $remote -notcontains $a) { break }
+		foreach ($c in Fp-Of $a) { $drop[$c] = 1 }
+	}
+	@(Fp-Of $branch | Where-Object { -not $drop.ContainsKey($_) })
+}
+
 # exceptions: excused commit set per exception, keyed by branch
 $excused = @{}
 foreach ($x in $exceptions) {
@@ -145,7 +157,7 @@ foreach ($f in $features) {
 
 	# a child merged into its parent: commits on the child's first-parent line, off the parent's, that are in the parent
 	if ($map[$p].Kind -ne 'feature' -or $t -ne $p) {
-		$up = Drop-Excused $p @(Own-Commits $f $p | Where-Object { $pAll.ContainsKey($_) })
+		$up = Drop-Excused $p @(Own-Commits-Chain $f $p | Where-Object { $pAll.ContainsKey($_) })
 		if ($up.Count -gt 0) { Out-Error "$p contains $($up.Count) commit(s) made on its child ${f}: a child was merged into its parent" }
 	}
 
