@@ -64,7 +64,7 @@ try {
 				# FS1 branches link into PATH_FS1
 				$env:PATH_FS1 = $dir
 				$r = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') -GameDir $dir | Select-Object -Last 1
-				if ($r -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
+				if ("$r" -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
 			} elseif ($built) {
 				Copy-Item (Join-Path $built (Get-FS2Exe r)), (Join-Path $built (Get-FS2Exe d)) $dir -Force
 			} else {

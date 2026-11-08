@@ -358,7 +358,18 @@ int main(int argc, char **argv)
 			for (h = 0; h < 7; h++) {
 				if (fa.head[h] != fb.head[h]) break;
 			}
-			if (h == 7) continue;
+			if (h == 7) {
+				// a frame both traces wrote in full: its bytes too, since nothing checks a stored payload against its hash
+				if (!fa.payload || !fb.payload) continue;
+				if (fa.head[7] == fb.head[7] && !memcmp(fa.payload, fb.payload, fa.head[7])) continue;
+
+				// same hash, different bytes: a file is damaged, so its counts cannot be trusted to decode
+				int o = 0;
+				while (o < fa.head[7] && o < fb.head[7] && fa.payload[o] == fb.payload[o]) o++;
+				printf("\nDIVERGED at frame %d (mission time %.3f s): payload differs under the same state hash\n", fa.head[0], fa.head[1] / 65536.0);
+				printf("    sizes A=%d B=%d, first differing byte at offset %d\n", fa.head[7], fb.head[7], o);
+				return 1;
+			}
 
 			printf("\nDIVERGED at frame %d (mission time %.3f s): %s differs\n", fa.head[0], fa.head[1] / 65536.0,
 				(h < 5) ? Head_names[h] : "state hash");
