@@ -91,6 +91,7 @@ static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mis
 #define AUTOTEST_HDR_RULES			1
 #define AUTOTEST_HDR_PLAYER_NPC	2
 #define AUTOTEST_HDR_AUTOPLAY		4	// -at_autoplay: a replay runs the autoplay manager again (D-20261107-124846)
+#define AUTOTEST_HDR_AP_SCAN		8	// autoplay scans the ships an is-cargo-known goal names (Tom, 2026-11-07); recordings made before it lack the bit and replay without it
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
@@ -236,6 +237,27 @@ static LONG WINAPI autotest_crash(EXCEPTION_POINTERS *info)
 
 	autotest_logf("FATAL: crash, exception 0x%08x at 0x%08x in mission '%s'\n", info->ExceptionRecord->ExceptionCode,
 		info->ExceptionRecord->ExceptionAddress, Autotest_current);
+	// the exe loads at a random base (dynamic base): the offset into it is what maps to the .map/.pdb
+	autotest_logf("FATAL: module base 0x%08x, offset 0x%08x\n", (unsigned int)GetModuleHandle(NULL),
+		(unsigned int)info->ExceptionRecord->ExceptionAddress - (unsigned int)GetModuleHandle(NULL));
+	{
+		// Release omits frame pointers, so no stack walk: the stack words that point into the exe are
+		// likely return addresses, logged as offsets for the .map (callers of the crash, #267)
+		unsigned int base = (unsigned int)GetModuleHandle(NULL);
+		unsigned int size = ((IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew))->OptionalHeader.SizeOfImage;
+		unsigned int *sp = (unsigned int *)info->ContextRecord->Esp;
+		char line[400];
+		int i, n = 0, len = 0;
+
+		line[0] = 0;
+		for (i = 0; (i < 512) && (n < 24) && !IsBadReadPtr(sp + i, 4); i++) {
+			if ((sp[i] > base + 0x1000) && (sp[i] < base + size)) {
+				len += sprintf(line + len, " %x", sp[i] - base);
+				n++;
+			}
+		}
+		autotest_logf("FATAL: stack words in the exe (offsets):%s\n", line);
+	}
 	if (screen) {
 		autotest_logf("Screen '%s': FAIL crash, exception 0x%08x\n", screen, info->ExceptionRecord->ExceptionCode);
 	}
@@ -315,6 +337,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 	Autotest_harness = 1;
 	Autotest_rules = 1;
 	Autoplay_on = (player_npc & AUTOTEST_ASK_AUTOPLAY) != 0;
+	Autoplay_scan = Autoplay_on;
 	player_npc = ((player_npc & AUTOTEST_ASK_PLAYER_NPC) != 0) || Autoplay_on;	// autoplay needs the AI flying the player
 	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
@@ -360,7 +383,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 
 void autotest_get_settings(int *on, int *time, int *speed)
 {
-	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0) | (Autoplay_on ? AUTOTEST_HDR_AUTOPLAY : 0)) : 0;
+	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0) | (Autoplay_on ? AUTOTEST_HDR_AUTOPLAY : 0) | (Autoplay_scan ? AUTOTEST_HDR_AP_SCAN : 0)) : 0;
 	*time = Autotest_rules ? Autotest_time : 0;
 	*speed = Autotest_rules ? Autotest_speed : 0;
 }
@@ -371,6 +394,7 @@ void autotest_set_from_recording(int on, int time, int speed)
 	Autotest_rules = (on & AUTOTEST_HDR_RULES) != 0;
 	Autotest_player_npc = Autotest_player_npc_asked = Autotest_rules && (on & AUTOTEST_HDR_PLAYER_NPC);
 	Autoplay_on = Autotest_rules && (on & AUTOTEST_HDR_AUTOPLAY);
+	Autoplay_scan = Autoplay_on && (on & AUTOTEST_HDR_AP_SCAN);
 	if (Autotest_rules) {
 		Autotest_time = time;
 		Autotest_speed = speed;

@@ -126,7 +126,7 @@ An autotest that tries to win (`code/Replay/Autoplay.cpp`, wip branch `AutoPlay`
 - The player is invulnerable, as in any autotest, until autoplay has a good baseline (Tom, 2026-11-07, over D-20261107-124842). Missions whose notes say `autotest: mission controls vulnerability` keep that, and a death there is `FAILED`.
 - The log ends each mission with `Autoplay result: WON | FAILED | PARTIAL n/m | STALLED | TIMEOUT, ...` (D-20261107-124845). `STALLED`: no goal or event changed for 600 s. The default time limit is 1800 s (both doubled, Tom, 2026-11-07). All times are mission time, set in `Autoplay.h` (D-20261107-124844); changing one means re-recording the autoplay suite.
 - The recording header stores the autoplay bit, and the replay runs the manager again; it uses game state and mission time only, so the replay matches (D-20261107-124846).
-- Campaign missions only (Tom, 2026-11-07): the script defaults to every FS2 campaign mission and skips the `Autotest*` feature-test missions. Left out (Tom, 2026-11-07): loop1-2 (too hard), loop2-1 (needs navigating between nodes), sm3-04 (the player alone against capital ships).
+- Campaign missions only (Tom, 2026-11-07): the script defaults to every FS2 campaign mission and skips the `Autotest*` feature-test missions. No mission is left out (Tom, 2026-11-07): every campaign mission, FS1 and Silent Threat included, must be shown completable, so loop1-2, loop2-1, sm3-04 and FS1's sm1-06a stay in the set whether they pass or not.
 - sm3-10 ends in the supernova, the only supernova event in the campaign, so autoplay does not run from it (Tom, 2026-11-07).
 - Recordings live in `recordings/autoplay/`. The results are a tracked baseline, not a gate; the replays must still sync (D-20261107-124847).
 

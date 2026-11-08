@@ -58,9 +58,13 @@
 #define AUTOPLAY_END_NO_WARP		6		// the goals are done but the warp-out did not end the mission
 
 extern int Autoplay_on;			// -at_autoplay, or the recording
+extern int Autoplay_scan;		// scans the ships an is-cargo-known goal names: on when recording, from the header bit on replay
 
 void autoplay_mission_start();	// the first gameplay frame
 int  autoplay_frame();				// each gameplay frame: AUTOPLAY_END_* when the run must end now, else AUTOPLAY_END_NONE
 void autoplay_result(int why);	// logs the result line once per mission
+void autoplay_loadout();			// commit_pressed, before the loadout is applied: a loadout that can win a capital ship goal
+struct object;
+void autoplay_link(object *objp);	// ai_fire_primary_weapon, after the AI's own linkage: the player's primaries linked
 
 #endif

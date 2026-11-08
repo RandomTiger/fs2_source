@@ -445,6 +445,7 @@
 #include "multi_team.h"
 #include "awacs.h"
 #include "fvi.h"
+#include "Autoplay.h"	// Claude: autoplay_link
 
 #pragma optimize("", off)
 #pragma auto_inline(off)
@@ -5653,6 +5654,7 @@ void ai_fire_primary_weapon(object *objp)
 	}
 
 	set_primary_weapon_linkage(objp);
+	autoplay_link(objp);	// Claude: autoplay links the player's primaries (only under autoplay rules, #260)
 	
 	// I think this will properly solve the problem
 	// fire non-streaming weapons
