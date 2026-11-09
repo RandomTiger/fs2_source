@@ -4132,6 +4132,8 @@ void game_frame()
 				// don't read flying controls if we're playing a demo back
 				if(!(Game_mode & GM_DEMO_PLAYBACK) && !Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship
 					read_player_controls( Player_obj, flFrametime);
+				} else if (Autoplay_steering) {	// Claude: autoplay flies the player itself for a scan
+					autoplay_steer(Player_obj, flFrametime);
 				}
 			}
 			

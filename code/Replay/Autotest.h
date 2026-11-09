@@ -41,6 +41,8 @@
 extern int Autotest_harness;	// -autotest: drive the menus, log, no dialogs
 extern int Autotest_rules;		// this mission plays under autotest rules (from the command line, or the recording)
 extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a rule, so it comes from the recording too)
+extern int Autoplay_steering;		// (Autoplay.cpp) autoplay flies the player itself for a scan: the AI and the controls stand down
+void autoplay_steer(struct object *objp, float frametime);	// each frame while Autoplay_steering, in place of read_player_controls
 
 // command line (called from parse_cmdline); player_npc is AUTOTEST_ASK_* bits
 #define AUTOTEST_ASK_PLAYER_NPC	1	// -playernpc
