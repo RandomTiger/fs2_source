@@ -1,16 +1,22 @@
 // Headless replay test (#280). A separate Jenkins job per branch: Script Path = Jenkinsfile.replay.
 // This file is the same on every branch. What a branch runs is in build\jenkins.props; exe names come from
 // build\layer.props (tools\layer.ps1); machine paths come from the agent's environment (PATH_FS2, PATH_FS1).
-// Builds only the game (target Freespace2) and TraceDiff, which the replay check needs; no editor tools.
+// Builds only the game, x64 (FS2_<Layer>_r64/_d64.exe), and TraceDiff, which the replay check needs; no editor tools.
+// Replays are x64 and headless on every branch (Tom, 2026-11-09).
 // No FS2 demo replays for now: they need a separate FS2_DEMO exe (#282, #287).
 
-// MSBuild through vswhere, so no Visual Studio path is written here
-def msbuild(String target, String config) {
-    withEnv(["MSB_TARGET=${target}", "MSB_CONFIG=${config}"]) {
+// MSBuild through vswhere, so no Visual Studio path is written here. A project file builds that project alone for the
+// platform (the solution has no x64 platform, as tools\gates\x64_check.ps1); a solution target builds in the x86 solution.
+def msbuild(String what, String config, String platform) {
+    withEnv(["MSB_WHAT=${what}", "MSB_CONFIG=${config}", "MSB_PLATFORM=${platform}"]) {
         powershell '''
             $msb = & "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe" -latest -find 'MSBuild\\**\\Bin\\MSBuild.exe' | Select-Object -First 1
             if (-not $msb) { Write-Host 'FAIL no MSBuild found with vswhere'; exit 1 }
-            & $msb freespace2.sln "/t:$env:MSB_TARGET" "/p:Configuration=$env:MSB_CONFIG" /p:Platform=x86 /m
+            if ($env:MSB_WHAT -like '*.vcxproj') {
+                & $msb $env:MSB_WHAT "/p:Configuration=$env:MSB_CONFIG" "/p:Platform=$env:MSB_PLATFORM" "/p:SolutionDir=$env:WORKSPACE\\" /m
+            } else {
+                & $msb freespace2.sln "/t:$env:MSB_WHAT" "/p:Configuration=$env:MSB_CONFIG" "/p:Platform=$env:MSB_PLATFORM" /m
+            }
             exit $LASTEXITCODE
         '''
     }
@@ -74,26 +80,27 @@ pipeline {
             }
         }
 
-        stage('Build Release') {
+        stage('Build Release x64') {
             steps {
-                script { msbuild('Freespace2', 'Release') }
+                script { msbuild('Freespace2.vcxproj', 'Release', 'x64') }
             }
         }
 
-        stage('Build Debug') {
+        stage('Build Debug x64') {
             steps {
-                script { msbuild('Freespace2', 'Debug') }
+                script { msbuild('Freespace2.vcxproj', 'Debug', 'x64') }
             }
         }
 
         stage('Build TraceDiff') {
             steps {
-                script { msbuild('TraceDiff', 'Release') }
+                script { msbuild('TraceDiff', 'Release', 'x86') }
             }
         }
 
-        // Per commit: the L1 set from tools\\gates\\l1_set.txt (read here, so the manager's edits take effect), Release
-        // and Debug. Nightly or FULL_SET: every recording of the sets, Release plus the sm1-01 cross-check.
+        // Per commit: the L1 set from tools\\gates\\l1_set.txt (read here, so the manager's edits take effect), x64
+        // Release and Debug. Nightly or FULL_SET: every recording of the sets, x64 Release. -CrossCheck none: the
+        // check's cross-check replays in the x86 exes, which this job does not build.
         // Only the sets build\\jenkins.props names. Red on the script's exit code, and also when a summary is missing or has
         // no DONE line (#196, #231), or skips a recording.
         stage('Replay headless') {
@@ -117,7 +124,7 @@ pipeline {
                     $fs1Dir = $env:PATH_FS1
                     if ($sets -contains 'fs1') {
                         # FS1 recordings replay in the FS1 folder with the exes found there (as tools\\gates\\l1_gate.ps1 does)
-                        foreach ($c in 'r', 'd') {
+                        foreach ($c in 'r64', 'd64') {
                             $x = Get-FS2Exe $c $ws
                             Copy-Item -LiteralPath (Join-Path $env:PATH_FS2 $x) -Destination $fs1Dir -Force
                         }
@@ -129,7 +136,7 @@ pipeline {
                         # an empty PATH_FS1 keeps same-named FS1 recordings out of the FS2 run
                         $env:PATH_FS1 = $fs1
                         $ErrorActionPreference = 'Continue'   # the check's own errors land in the log, not here
-                        & powershell -NoProfile -ExecutionPolicy Bypass -File "$ws\\tools\\replay_check.ps1" -Headless -Out $o @a
+                        & powershell -NoProfile -ExecutionPolicy Bypass -File "$ws\\tools\\replay_check.ps1" -Headless -CrossCheck none -Out $o @a
                         $code = $LASTEXITCODE
                         $env:PATH_FS1 = $fs1Dir
                         $sum = Join-Path $o 'summary.txt'
@@ -147,9 +154,9 @@ pipeline {
                     }
 
                     $ok = $true
-                    $fs2 = @(); $fs1 = @(); $cfg = 'r,d'
+                    $fs2 = @(); $fs1 = @(); $cfg = 'r64,d64'
                     if ($env:REPLAY_FULL) {
-                        $cfg = 'r'
+                        $cfg = 'r64'
                         foreach ($d in 'autotest', 'played') { $fs2 += Get-ChildItem (Join-Path $ws "recordings\\$d") -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName } }
                         $fs1 += Get-ChildItem (Join-Path $ws 'recordings\\fs1') -Filter *.fs2rec | ForEach-Object { $_.BaseName }
                     } else {
