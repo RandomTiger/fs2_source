@@ -1,0 +1,10 @@
+# What this branch's headless replay job (Jenkinsfile.replay, #280) runs. One key=value per line; # starts a comment.
+# Jenkinsfile.replay is the same file on every branch; only this file differs. Like build\layer.props, each branch
+# sets its own values: on a merge into a branch, keep that branch's values, conflict or not.
+# Machine paths are not here: the agent's environment holds them (PATH_FS2, PATH_FS1).
+
+# Recording sets the job replays, comma separated:
+#   fs2  recordings\autotest and recordings\played, in PATH_FS2
+#   fs1  recordings\fs1, in PATH_FS1
+# The FS2 demo set is left out until one exe plays the demo data (#282, #287).
+ReplaySets=fs2,fs1
