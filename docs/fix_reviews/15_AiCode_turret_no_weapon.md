@@ -1,5 +1,7 @@
 # Fix review: ai_fire_from_turret reads Weapon_info[-1] for a turret with no weapon
 
+GitHub issue #42.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer in the campaign autotest and in a hand-played recording of sm1-04.

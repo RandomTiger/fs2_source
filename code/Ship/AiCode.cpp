@@ -1739,7 +1739,11 @@ void set_accel_for_target_speed(object *objp, float tspeed)
 
 	max_speed = Ships[objp->instance].current_max_speed;
 
-	AI_ci.forward = tspeed/max_speed;
+	if ((max_speed == 0.0f) && (tspeed == 0.0f)) {	// Claude: engines gone and stopped: 0/0 made NaN, which spread to the ship's position (fix review 69)
+		AI_ci.forward = 0.0f;	// Claude:
+	} else {	// Claude:
+		AI_ci.forward = tspeed/max_speed;	// Claude: the original line, now in the else
+	}	// Claude:
 	aip->prev_accel = AI_ci.forward;
 
 	adjust_accel_for_docking(aip);

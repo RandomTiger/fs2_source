@@ -1,5 +1,7 @@
 # Fix review: a ship's swarm missile path count is never set, so a later mission starts it where the last one left it
 
+GitHub issue #273.
+
 **Recommendation: TAKE (asked for by Tom).** `ship::next_swarm_path` picks which of four paths each swarm missile flies, and flips the path direction every fourth missile. Nothing in the game ever sets it. A new process reads 0 because `Ships[]` is static, but a second mission in the same process reads whatever count the last ship in that slot left, so the first swarm volley of that mission can start on the wrong path and with the direction flipped.
 
 ## The bug
