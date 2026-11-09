@@ -1467,7 +1467,8 @@ static void autotest_log_events()
 // -playernpc: the original code never runs goals on the player ship, so a mission order given to the
 // player's whole wing that names the player (loop1-3's "Attack Alpha 1" to wing Alpha) never mattered.
 // With the AI flying the player it would chase itself (Int3 in ai_attack_object), so such goals are
-// dropped before the AI sees them (D-20261109-092603). Waypoint goals name a path, not a ship.
+// dropped before the AI sees them (D-20261109-092603). Only chase goals: the original code already
+// ignores a guard-self goal without a check, and dropping it would change what the player flies (sm1-10).
 static void autotest_drop_self_goals()
 {
 	ai_info *aip;
@@ -1480,7 +1481,7 @@ static void autotest_drop_self_goals()
 	for (i = 0; i < MAX_AI_GOALS; i++) {
 		ai_goal *gp = &aip->goals[i];
 
-		if ((gp->ai_mode == AI_GOAL_NONE) || (gp->ai_mode & (AI_GOAL_WAYPOINTS | AI_GOAL_WAYPOINTS_ONCE)) || (gp->ship_name == NULL)) {
+		if ((gp->ai_mode != AI_GOAL_CHASE) || (gp->ship_name == NULL)) {
 			continue;
 		}
 		if (!stricmp(gp->ship_name, Player_ship->ship_name)) {
