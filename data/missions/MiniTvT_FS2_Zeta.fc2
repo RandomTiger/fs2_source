@@ -1,0 +1,146 @@
+; Claude: MiniCampaigns: retail team-vs-team missions as a single-player campaign (docs/MINI_CAMPAIGNS.md).
+; +Player Team: is read by this project only: 1 flies Alpha (team 1), 2 flies Zeta (team 2).
+$Name: FS2 TvT: Zeta Side
+$Type: single
++Description:
+The FreeSpace 2 team-vs-team missions, flown as a single-player campaign on the Zeta side. Your wingmates and the other team are flown by the AI. Lose a mission and you fly it again.
+$end_multi_text
++Player Team: 2
+
++Starting Ships: ( "GTB Artemis"  "GTB Boanerges"  "GTB Medusa"  "GTB Ursa"  "GTB Zeus"  "GTF Erinyes"  "GTF Hercules"  "GTF Hercules Mark II"  "GTF Loki"  "GTF Myrmidon"  "GTF Pegasus"  "GTF Perseus"  "GTF Ulysses"  "GVB Bakha"  "GVB Osiris"  "GVB Sekhmet"  "GVF Horus"  "GVF Ptah"  "GVF Serapis"  "GVF Seth"  "GVF Tauret"  "GVF Thoth" )
+
++Starting Weapons: ( "Akheton SDG"  "Circe"  "Cyclops#short"  "EMP Adv."  "Harpoon"  "Helios"  "Hornet"  "Lamprey"  "Maxim"  "Mekhu HL-7"  "Morning Star"  "Piranha"  "Prometheus R"  "Prometheus S"  "Rockeye"  "Stiletto II"  "Subach HL-7"  "Tempest"  "Tornado"  "UD-8 Kayser" )
+
+$Mission: MT-01.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-01.fs2" "Protect Zanthar" )
+      ( next-mission "MT-02.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-01.fs2" ) )
+)
+
++Level: 0
++Position: 1
+
+$Mission: MT-02.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-02.fs2" "Protect Zenenet" )
+      ( next-mission "MT-03.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-02.fs2" ) )
+)
+
++Level: 1
++Position: 1
+
+$Mission: MT-03.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-03.fs2" "Protect Tomkin" )
+      ( next-mission "MT-04.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-03.fs2" ) )
+)
+
++Level: 2
++Position: 1
+
+$Mission: MT-04.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-04.fs2" "winZeta" )
+      ( next-mission "MT-05.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-04.fs2" ) )
+)
+
++Level: 3
++Position: 1
+
+$Mission: MT-05.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-05.fs2" "Destroy Alpha's corvette" )
+      ( next-mission "MT-06.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-05.fs2" ) )
+)
+
++Level: 4
++Position: 1
+
+$Mission: MT-06.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-06.fs2" "WinZeta" )
+      ( next-mission "MT-07.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-06.fs2" ) )
+)
+
++Level: 5
++Position: 1
+
+$Mission: MT-07.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-07.fs2" "WinZeta" )
+      ( next-mission "MT-08.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-07.fs2" ) )
+)
+
++Level: 6
++Position: 1
+
+$Mission: MT-08.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-08.fs2" "WinZeta" )
+      ( next-mission "MT-09.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-08.fs2" ) )
+)
+
++Level: 7
++Position: 1
+
+$Mission: MT-09.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "MT-09.fs2" "WinZeta" )
+      ( next-mission "MT-10.fs2" )
+   )
+   ( ( true ) ( next-mission "MT-09.fs2" ) )
+)
+
++Level: 8
++Position: 1
+
+$Mission: MT-10.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( not
+         ( is-previous-goal-true "MT-10.fs2" "WinZeta" )
+      )
+      ( next-mission "MT-10.fs2" )
+   )
+   ( ( true ) ( end-of-campaign ) )
+)
+
++Level: 9
++Position: 1
+
+#End

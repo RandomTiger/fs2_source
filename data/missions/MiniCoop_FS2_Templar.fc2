@@ -1,0 +1,96 @@
+; Claude: MiniCampaigns: a retail multiplayer co-op campaign as a single-player campaign (docs/MINI_CAMPAIGNS.md).
+; The other players' ships are flown by the AI. Missions and branching as retail.
+$Name: FS2 Coop: Templar
+$Type: single
++Description:
+XSTR("Operation Templar, a joint GTA-Vasudan endeavor, hunts down the last remnants of Hammer of Light. The rebels stage a desperate last stand, hijacking a Vasudan destroyer and taking hostages.", 2114)
+$end_multi_text
+
++Starting Ships: ( "GTF Ulysses"  "GTF Hercules"  "GTF Loki"  "GTB Medusa"  "GTB Ursa"  "GTB Zeus" )
+
++Starting Weapons: ( "Subach HL-7"  "Akheton SDG"  "Morning Star"  "Prometheus R"  "Prometheus S"  "Maxim"  "UD-8 Kayser"  "Circe"  "Lamprey"  "Rockeye"  "Tempest"  "Hornet"  "Hornet#Weak"  "Tornado"  "Harpoon"  "Harpoon#Weak"  "Trebuchet"  "Piranha"  "Stiletto II"  "Infyrno"  "Cyclops"  "Helios"  "EMP Adv." )
+
+
+$Mission: Templar-01.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true 
+         "Templar-01.fs2" 
+         "Destroy HOL" 
+      )
+      ( next-mission "Templar-02.fs2" )
+   )
+   ( ( true ) ( next-mission "Templar-01.fs2" ) )
+)
+
++Level: 0
++Position: 1
+
+$Mission: Templar-02.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true 
+         "Templar-02.fs2" 
+         "Scan" 
+      )
+      ( next-mission "Templar-03.fs2" )
+   )
+   ( ( true ) ( next-mission "Templar-02.fs2" ) )
+)
+
++Level: 1
++Position: 1
+
+$Mission: Templar-03.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( or 
+         ( is-previous-event-true 
+            "Templar-03.fs2" 
+            "Dead Hostages" 
+         )
+         ( is-previous-event-true 
+            "Templar-03.fs2" 
+            "Taurus 1 and Hostages Destroyed" 
+         )
+         ( is-previous-event-true 
+            "Templar-03.fs2" 
+            "Taurus 2 and Hostages Destroyed" 
+         )
+         ( is-previous-event-true 
+            "Templar-03.fs2" 
+            "Destroyer and Hostages Dead" 
+         )
+         ( is-previous-event-true 
+            "Templar-03.fs2" 
+            "Failure From Command" 
+         )
+      )
+      ( next-mission "Templar-03.fs2" )
+   )
+   ( ( true ) ( next-mission "Templar-04.fs2" ) )
+)
+
++Level: 2
++Position: 1
+
+$Mission: Templar-04.fs2
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-false 
+         "Templar-04.fs2" 
+         "Save Important" 
+      )
+      ( next-mission "Templar-04.fs2" )
+   )
+   ( ( true ) ( end-of-campaign ) )
+)
+
++Level: 3
++Position: 1
+
+#End

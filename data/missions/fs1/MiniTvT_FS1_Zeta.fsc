@@ -1,0 +1,71 @@
+; Claude: MiniCampaigns: retail team-vs-team missions as a single-player campaign (docs/MINI_CAMPAIGNS.md).
+; +Player Team: is read by this project only: 1 flies Alpha (team 1), 2 flies Zeta (team 2).
+$Name: FS1 TvT: Zeta Side
+$Type: single
++Description:
+The FreeSpace team-vs-team missions, flown as a single-player campaign on the Zeta side. Your wingmates and the other team are flown by the AI. Lose a mission and you fly it again.
+$end_multi_text
++Player Team: 2
+
++Starting Ships: ( "GTB Athena"  "GTB Medusa"  "GTB Ursa"  "GTF Apollo"  "GTF Hercules"  "GTF Ulysses"  "GTF Valkyrie"  "PVB Amun"  "PVB Osiris"  "PVF Anubis"  "PVF Horus"  "PVF Seth"  "PVF Thoth" )
+
++Starting Weapons: ( "Avenger"  "Banshee"  "D-Missile"  "Disruptor"  "Flail"  "Fury"  "Hornet"  "Interceptor"  "ML-16 Laser"  "MX-50"  "Phoenix V"  "Prometheus"  "Stiletto"  "Synaptic"  "Tsunami" )
+
+$Mission: M-Gate.FSM
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "M-Gate.FSM" "Protect PVD Gate" )
+      ( next-mission "M-GuardDuty.FSM" )
+   )
+   ( ( true ) ( next-mission "M-Gate.FSM" ) )
+)
+
++Level: 0
++Position: 1
+
+$Mission: M-GuardDuty.FSM
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "M-GuardDuty.FSM" "Destroy Terran Installation" )
+      ( next-mission "m-duel.FSM" )
+   )
+   ( ( true ) ( next-mission "M-GuardDuty.FSM" ) )
+)
+
++Level: 1
++Position: 1
+
+$Mission: m-duel.FSM
++Flags: 0
++Formula: ( cond
+   (
+      ( is-previous-goal-true "m-duel.FSM" "Protect Zaldhun" )
+      ( next-mission "m-pain.FSM" )
+   )
+   ( ( true ) ( next-mission "m-duel.FSM" ) )
+)
+
++Level: 2
++Position: 1
+
+$Mission: m-pain.FSM
++Flags: 0
++Formula: ( cond
+   (
+      ( not
+         ( and
+            ( is-previous-goal-true "m-pain.FSM" "destroy ships" )
+            ( is-previous-goal-true "m-pain.FSM" "Destroy cap" )
+         )
+      )
+      ( next-mission "m-pain.FSM" )
+   )
+   ( ( true ) ( end-of-campaign ) )
+)
+
++Level: 3
++Position: 1
+
+#End
