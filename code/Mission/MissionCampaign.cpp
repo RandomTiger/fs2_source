@@ -515,6 +515,13 @@ int mission_campaign_load( char *filename, int load_savefile )
 		if (optional_string("+Description:"))
 			Campaign.desc = stuff_and_malloc_string(F_MULTITEXT, NULL, MISSION_DESC_LENGTH);
 
+		// Claude: MiniCampaigns: optional side for a single-player campaign of team-vs-team missions, 1 or 2 (stored as team index 0 or 1)
+		Campaign.player_team = 0;
+		if (optional_string("+Player Team:")) {
+			stuff_int( &Campaign.player_team );
+			Campaign.player_team = (Campaign.player_team == 2) ? 1 : 0;
+		}
+
 		// if the type is multiplayer -- get the number of players
 		Campaign.num_players = 0;
 		if ( Campaign.type != CAMPAIGN_TYPE_SINGLE) {
