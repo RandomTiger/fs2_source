@@ -27,6 +27,8 @@
 #include "ManagePilot.h"
 #include "Object.h"
 #include "Ship.h"
+#include "ai.h"
+#include "AIGoals.h"
 #include "MissionScreenCommon.h"
 #include "MissionParse.h"
 #include "MissionGoals.h"
@@ -1462,6 +1464,32 @@ static void autotest_log_events()
 	}
 }
 
+// -playernpc: the original code never runs goals on the player ship, so a mission order given to the
+// player's whole wing that names the player (loop1-3's "Attack Alpha 1" to wing Alpha) never mattered.
+// With the AI flying the player it would chase itself (Int3 in ai_attack_object), so such goals are
+// dropped before the AI sees them (D-20261109-092603). Waypoint goals name a path, not a ship.
+static void autotest_drop_self_goals()
+{
+	ai_info *aip;
+	int i;
+
+	if (!Autotest_player_npc || (Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ship->ai_index < 0)) {
+		return;
+	}
+	aip = &Ai_info[Player_ship->ai_index];
+	for (i = 0; i < MAX_AI_GOALS; i++) {
+		ai_goal *gp = &aip->goals[i];
+
+		if ((gp->ai_mode == AI_GOAL_NONE) || (gp->ai_mode & (AI_GOAL_WAYPOINTS | AI_GOAL_WAYPOINTS_ONCE)) || (gp->ship_name == NULL)) {
+			continue;
+		}
+		if (!stricmp(gp->ship_name, Player_ship->ship_name)) {
+			autotest_logf("Mission '%s': goal %d naming the player itself dropped at mission time %.2f\n", Game_current_mission_filename, gp->ai_mode, f2fl(Missiontime));
+			ai_remove_ship_goal(aip, i);
+		}
+	}
+}
+
 void autotest_frame()
 {
 	ship *shipp;
@@ -1496,6 +1524,8 @@ void autotest_frame()
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
 	}
+
+	autotest_drop_self_goals();
 
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
