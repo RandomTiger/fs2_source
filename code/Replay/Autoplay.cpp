@@ -31,6 +31,7 @@
 #include "Supernova.h"
 #include "Afterburner.h"
 #include "cfile.h"
+#include "Encrypt.h"
 
 int Autoplay_on = 0;
 int Autoplay_scan = 0;
@@ -971,6 +972,227 @@ static int ap_wants_departed(int n, int depth)
 	return ap_wants_departed(CDR(n), depth + 1);
 }
 
+// ------------------------------------------------------------------------------------------------
+// The campaign's own branch (#268, #283-#288): a mission advances when an event its branch names is
+// true, and the game fails every event still undecided when the player leaves.  Several of those
+// events fire some seconds after the last primary goal (sm1-04's "Thanks" 7 s after the kills,
+// sm1-10's "May Continue" chained 7 s, sm2-10's after the Sathanas arrives), so with Autoplay_scan
+// the warp-out waits for them, up to AP_BRANCH_WAIT s.  Read from the campaign file's text, so no
+// sexp node is allocated during the mission.
+
+#define AP_BRANCH_WAIT		120			// s the warp-out waits for an event the campaign branch reads
+#define AP_BRANCH_MAX		8
+
+static int Ap_branch_ev[AP_BRANCH_MAX];	// Mission_events index of each event the branch reads
+static int Ap_branch_n;
+static int Ap_branch_logged;
+
+static int ap_same_mission(char *a, char *b);
+
+// the next quoted string at or after *pp, copied to out; 0 when none before end
+static int ap_branch_quoted(char **pp, char *end, char *out, int len)
+{
+	char *p = *pp, *q;
+
+	while ((p < end) && (*p != '"')) {
+		p++;
+	}
+	if (p >= end) {
+		return 0;
+	}
+	for (q = ++p; (q < end) && (*q != '"'); q++) {
+	}
+	if (q >= end) {
+		return 0;
+	}
+	if (q - p >= len) {
+		p = q;	// too long for a name: skip it
+		*pp = q + 1;
+		out[0] = 0;
+		return 1;
+	}
+	memcpy(out, p, q - p);
+	out[q - p] = 0;
+	*pp = q + 1;
+	return 1;
+}
+
+// adds this mission's events named by is-previous-event-true in its branch in one campaign file; 1 if the file holds the mission
+static int ap_branch_read(char *filename)
+{
+	char name[NAME_LENGTH], mission[MAX_FILENAME_LEN], *text, *p, *end, *block_end;
+	CFILE *fp;
+	int len, i, held = 0;
+
+	fp = cfopen(filename, "rb", CFILE_NORMAL, CF_TYPE_MISSIONS);
+	if (fp == NULL) {
+		return 0;
+	}
+	len = cfilelength(fp);
+	text = (len > 0) ? (char *)malloc(len + 1) : NULL;
+	if (text == NULL) {
+		cfclose(fp);
+		return 0;
+	}
+	len = cfread(text, 1, len, fp);
+	cfclose(fp);
+	text[(len > 0) ? len : 0] = 0;
+	if ((len >= 10) && is_encrpyted(text)) {
+		// scrambled, as Silent Threat's campaign files are: unscramble as read_file_text does (7 bytes hold 8 characters)
+		int plain_len = 0;
+		char *plain = (char *)malloc(len * 2 + 16);
+		if (plain == NULL) {
+			free(text);
+			return 0;
+		}
+		unencrypt(text, len, plain, &plain_len);
+		free(text);
+		text = plain;
+		len = plain_len;
+		text[(len > 0) ? len : 0] = 0;
+	}
+	end = text + ((len > 0) ? len : 0);
+
+	for (p = strstr(text, "$Mission:"); p != NULL; p = strstr(block_end, "$Mission:")) {
+		block_end = strstr(p + 9, "$Mission:");
+		if (block_end == NULL) {
+			block_end = end;
+		}
+		p += 9;
+		while ((p < block_end) && ((*p == ' ') || (*p == '\t'))) {
+			p++;
+		}
+		for (i = 0; (i < MAX_FILENAME_LEN - 1) && (p + i < block_end) && !strchr(" \t\r\n", p[i]); i++) {
+			mission[i] = p[i];
+		}
+		mission[i] = 0;
+		if (!ap_same_mission(mission, Game_current_mission_filename)) {
+			continue;
+		}
+		held = 1;
+		for (p = strstr(p, "is-previous-event-true"); (p != NULL) && (p < block_end); p = strstr(p, "is-previous-event-true")) {
+			p += 22;
+			if (!ap_branch_quoted(&p, block_end, mission, MAX_FILENAME_LEN) || !ap_branch_quoted(&p, block_end, name, NAME_LENGTH)) {
+				break;
+			}
+			if (!ap_same_mission(mission, Game_current_mission_filename)) {
+				continue;
+			}
+			for (i = 0; i < Num_mission_events; i++) {
+				if (!stricmp(Mission_events[i].name, name)) {
+					break;
+				}
+			}
+			if ((i < Num_mission_events) && (Ap_branch_n < AP_BRANCH_MAX)) {
+				Ap_branch_ev[Ap_branch_n++] = i;
+			}
+		}
+		break;
+	}
+	free(text);
+	return held;
+}
+
+// at mission start: the events the campaign branch reads, from the pilot's campaign or else any campaign file that holds the mission
+static void ap_branch_find()
+{
+	char buf[MAX_FILENAME_LEN + 8], *files[MAX_CAMPAIGNS];
+	int i, n, held = 0;
+
+	Ap_branch_n = 0;
+	Ap_branch_logged = 0;
+	if (Campaign.filename[0]) {
+		strcpy(buf, Campaign.filename);
+		held = ap_branch_read(cf_add_ext(buf, FS_CAMPAIGN_FILE_EXT));
+	}
+	if (!held) {
+		n = cf_get_file_list(MAX_CAMPAIGNS, files, CF_TYPE_MISSIONS, NOX("*.fc2"), CF_SORT_NAME);
+		for (i = 0; i < n; i++) {
+			if (!held) {
+				held = ap_branch_read(cf_add_ext(files[i], FS_CAMPAIGN_FILE_EXT));
+			}
+			free(files[i]);
+		}
+	}
+	if (Ap_active) {	// the FS1 data set opens its .fsc through the .fc2 name (CfileSystem), so this line shows the read happened
+		autotest_logf("Autoplay: campaign branch %s, reads %d event(s)\n", held ? "found" : "not found", Ap_branch_n);
+	}
+}
+
+// 1 if the sexp wants the player's ship or wing departed (not negated)
+static int ap_wants_player_departed(int n, int depth)
+{
+	int a, s, w;
+
+	if ((n < 0) || (depth > AP_MAX_DEPTH)) {
+		return 0;
+	}
+	if (CAR(n) != -1) {
+		return ap_wants_player_departed(CAR(n), depth + 1) || ap_wants_player_departed(CDR(n), depth + 1);
+	}
+	if (Sexp_nodes[n].subtype == SEXP_ATOM_OPERATOR) {
+		if (find_operator(CTEXT(n)) == OP_NOT) {
+			return 0;
+		}
+		if (find_operator(CTEXT(n)) == OP_HAS_DEPARTED_DELAY) {
+			for (a = (CDR(n) != -1) ? CDR(CDR(n)) : -1; a != -1; a = CDR(a)) {
+				s = ship_name_lookup(CTEXT(a), 1);
+				w = (s < 0) ? wing_name_lookup(CTEXT(a), 1) : -1;
+				if (((s >= 0) && (s == ap_player_shipnum())) || ((w >= 0) && (Player_ship->wingnum == w))) {
+					return 1;
+				}
+			}
+			return 0;
+		}
+	}
+	return ap_wants_player_departed(CDR(n), depth + 1);
+}
+
+// 1 while an event the campaign branch reads is still undecided and can still come true before the player leaves:
+// an event that wants the player gone (sm1-02's "Jump Out") counts only while its chain has not reached it
+static int ap_branch_pending(char *name, int len)
+{
+	int i, e;
+
+	for (i = 0; i < Ap_branch_n; i++) {
+		e = Ap_branch_ev[i];
+		if (Mission_events[e].formula == -1) {
+			if (Mission_events[e].result) {
+				return 0;	// the branch's event is true: the mission advances
+			}
+			continue;		// decided false: no wait helps
+		}
+		if (Mission_events[e].chain_delay >= 0) {
+			if ((e > 0) && !Mission_events[e - 1].result) {
+				strncpy(name, Mission_events[e].name, len - 1);
+				name[len - 1] = 0;
+				return 1;	// the chain has not reached it yet
+			}
+		}
+		if (!ap_wants_player_departed(Mission_events[e].formula, 0)) {
+			strncpy(name, Mission_events[e].name, len - 1);
+			name[len - 1] = 0;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// with logging once: the warp-out waits for the campaign branch's event
+static int ap_branch_wait()
+{
+	char name[NAME_LENGTH];
+
+	if (!ap_branch_pending(name, NAME_LENGTH)) {
+		return 0;
+	}
+	if (!Ap_branch_logged) {
+		Ap_branch_logged = 1;
+		autotest_logf("Autoplay: the warp-out waits up to %d s for '%s', the event the campaign advances on\n", AP_BRANCH_WAIT, name);
+	}
+	return 1;
+}
+
 // with Autoplay_scan: an incomplete primary goal waits on a ship's departure (loop2-1: "return to base"
 // as Lambda 1 undocks, the goal is Lambda 1 gone, and the player's warp-out first fails it)
 static int ap_departure_pending()
@@ -1753,6 +1975,7 @@ void autoplay_mission_start()
 	Ap_rtb = 0;
 	Ap_zone_logged = 0;
 	ap_zone_find();
+	ap_branch_find();
 	for (i = 0; i < Num_mission_events; i++) {
 		Ap_rtb_event[i] = (char)((Mission_events[i].formula != -1) && ap_rtb_walk(Mission_events[i].formula, 0));
 		// a chained "Return To Base" directive (sm3-02): Command's order once the chain makes it current
@@ -1974,7 +2197,8 @@ int autoplay_frame()
 				autotest_logf("Autoplay: primary goals done (%d/%d complete) at mission time %.2f\n", complete, primaries, ap_time());
 			}
 		} else if ((Missiontime - Ap_done_time >= i2f(AUTOPLAY_SETTLE_TIME))
-			&& !(Autoplay_scan && Ap_rtb && (Missiontime - Ap_done_time < i2f(AP_DEPART_WAIT)) && ap_departure_pending())) {
+			&& !(Autoplay_scan && Ap_rtb && (Missiontime - Ap_done_time < i2f(AP_DEPART_WAIT)) && ap_departure_pending())
+			&& !(Autoplay_scan && (Missiontime - Ap_done_time < i2f(AP_BRANCH_WAIT)) && ap_branch_wait())) {
 			// the player's own warp-out, as Alt-J starts it; the player's controls (not the AI)
 			// fly the warp-out, so the AI stops flying the player
 			ap_order(AP_NONE, 0, -1, "");
@@ -2143,7 +2367,7 @@ static void ap_campaign_verdict(char *out, int len)
 void autoplay_result(int why)
 {
 	int primaries, complete, failed;
-	char *result, partial[32], campaign[80];
+	char *result, partial[32], campaign[80], judged[64];
 	static char *reasons[] = { "", "the mission ended", "time limit", "no progress", "a primary goal failed", "the player died", "the warp-out did not end the mission" };
 
 	if (!Ap_active || Ap_reported) {
@@ -2172,6 +2396,17 @@ void autoplay_result(int why)
 		result = partial;
 	}
 	ap_campaign_verdict(campaign, sizeof(campaign));
+	// the campaign's own branch is the verdict (Tom, #268): many missions send the player home with a goal failed,
+	// and a won mission whose branch event never fired is no win
+	if (!Ap_died && (!strncmp(campaign, "advances", 8) || !strcmp(campaign, "ends the campaign")) && strncmp(result, "WON", 3)) {
+		_snprintf(judged, sizeof(judged) - 1, "WON (campaign advances; goals read %s)", result);
+		judged[sizeof(judged) - 1] = 0;
+		result = judged;
+	} else if (!strcmp(campaign, "repeats") && !strncmp(result, "WON", 3)) {
+		_snprintf(judged, sizeof(judged) - 1, "FAILED (campaign repeats; goals read %s)", result);
+		judged[sizeof(judged) - 1] = 0;
+		result = judged;
+	}
 	autotest_logf("Autoplay result: %s, %d/%d primary goals complete, %d failed, mission time %.2f (%s), campaign: %s\n", result, complete, primaries, failed, ap_time(),
 		((why >= 0) && (why < (int)(sizeof(reasons) / sizeof(reasons[0])))) ? reasons[why] : "", campaign);
 }
