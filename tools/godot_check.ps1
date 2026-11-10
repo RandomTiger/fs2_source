@@ -165,7 +165,7 @@ $launch = {
 foreach ($kind in $(if ($NoHostChecks) { @() } else { 'restart', 'fatal' })) {
     $r = Test-HostRestart $gs $run $Out $td $launch $kind 'godot'
     $r | Add-Content $summary; $r
-    if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
+    if ([string]($r | Where-Object { "$_".Trim() } | Select-Object -Last 1) -notmatch '^PASS') { $fail++ } else { $pass++ }
 }
 # joystick and pad through Godot's own input (-at_input joyhost / padhost, tools\godot_input_check.ps1), once per config with the autotest set
 if (-not $NoHostChecks -and $Set -eq 'autotest') {
