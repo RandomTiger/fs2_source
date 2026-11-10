@@ -1099,6 +1099,9 @@ static void ap_branch_find()
 			free(files[i]);
 		}
 	}
+	if (Ap_active) {	// the FS1 data set opens its .fsc through the .fc2 name (CfileSystem), so this line shows the read happened
+		autotest_logf("Autoplay: campaign branch %s, reads %d event(s)\n", held ? "found" : "not found", Ap_branch_n);
+	}
 }
 
 // 1 if the sexp wants the player's ship or wing departed (not negated)
