@@ -1,5 +1,7 @@
 # Fix review: UI_SLIDER2 divides by zero when the list fits on one page
 
+GitHub issue #270.
+
 **Recommendation: TAKE.** Debug Assert only: wrapping a Tech Room list that fits on one page (previous entry from the first item, or next entry from the last) sets the slider position to INT_MIN, and `UI_SLIDER2::draw` asserts. Release does not draw the slider in that state, so nothing visible changes there. No recording moves: the Tech Room and the multiplayer list screens are in no recording. Found by the FS1 demo play-through (2026-10-20). Taken by the steward (D-20261020-222221).
 
 ## The bug

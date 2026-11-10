@@ -3,7 +3,7 @@
  * recording tests.
  *
  * Usage:
- *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc]
+ *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc] [-at_autoplay]
  *   -autotest -at_menus [-at_mission <file.fs2>] [-at_shots <folder>]
  *
  * With -at_menus, autotest visits every single-player screen in turn (main hall screens, then the
@@ -24,6 +24,7 @@
  * With -playernpc the AI flies the player ship like any other ship, following the orders the mission
  * gives it ($AI Goals, add-goal), instead of nobody flying it.  A mission whose notes contain
  * "autotest: player stays still" is played without it.
+ * With -at_autoplay (which implies -playernpc) the run tries to win the mission: see Autoplay.h.
  *
  * Results go to autotest.log in the game directory.  Exit code: 0 pass, 1 Error(), 2 a mission
  * failed or an Assert / Int3 was hit, 5 the watchdog found the game stuck, or a crash's exception code.
@@ -40,8 +41,12 @@
 extern int Autotest_harness;	// -autotest: drive the menus, log, no dialogs
 extern int Autotest_rules;		// this mission plays under autotest rules (from the command line, or the recording)
 extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a rule, so it comes from the recording too)
+extern int Autoplay_steering;		// (Autoplay.cpp) autoplay flies the player itself for a scan: the AI and the controls stand down
+void autoplay_steer(struct object *objp, float frametime);	// each frame while Autoplay_steering, in place of read_player_controls
 
-// command line (called from parse_cmdline)
+// command line (called from parse_cmdline); player_npc is AUTOTEST_ASK_* bits
+#define AUTOTEST_ASK_PLAYER_NPC	1	// -playernpc
+#define AUTOTEST_ASK_AUTOPLAY		2	// -at_autoplay
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
 void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 void autotest_set_shots(char *dir);	// -at_shots: a screenshot of each screen of the tour
@@ -62,5 +67,6 @@ void autotest_main_hall_click(int *code, int *action);	// main_hall_do: the menu
 void autotest_not_in_demo();				// game_feature_not_in_demo_popup: the menu tour skips the screen
 void autotest_cursor_pos(long *x, long *y);	// mouse_get_cursor_pos: -at_shots parks the cursor at 0,0
 void autotest_poll_done();				// end of os_poll, for the stuck dump
+void autotest_logf(char *format, ...);	// a line in autotest.log
 
 #endif

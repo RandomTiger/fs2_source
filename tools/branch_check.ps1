@@ -27,7 +27,8 @@ $map = [ordered]@{
 	'MissionJump'            = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
 	'NoMultiplayer'          = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
 	'FrameShots'             = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'Enhanced'; Src = 'D-20261105-171620 (feature off RecordPlayback, done); BRANCHES.md lines 29-30' }
-	'GodotRender3D'          = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-111802 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
+	'AutoPlay'               = @{ Kind = 'feature'; Parent = 'RecordPlayback'; Target = 'RecordPlayback'; Src = 'D-20261107-124841 (feature off RecordPlayback); D-20261108-161952 (Tom: merges back into RecordPlayback, done as 99ca4fd)' }
+	'GodotRender3D'         = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-111802 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotResolution'        = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261102-200801 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotOptions'           = @{ Kind = 'feature'; Parent = 'GodotResolution'; Target = 'GodotPlus'; Src = 'D-20261102-200808 (child of GodotResolution); D-20261105-171620 (merges into GodotPlus)' }
 	'SteamIntegration'       = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-090335 (direct child of Godot); D-20261105-171620 (merges into GodotPlus)' }
@@ -42,6 +43,8 @@ $exceptions = @(
 	@{ Branch = 'FS1Compat'; Merge = 'f2363f5'; What = 'FS1Demo merged into FS1Compat, reverted on FS1Compat'; Src = 'D-20261021-173031 rule 4; D-20261023-202744' }
 	# only these four commits, not all a pull merge brings: a later VoiceControl commit in RecordPlayback stays an ERROR
 	@{ Branch = 'RecordPlayback'; Merge = '26fc888'; Commits = 'c403875', 'c3e1e0a', 'b26050f', 'be8fd99'; What = 'pull merge of origin/RecordPlayback; its own four commits sit on its second parent, where VoiceControl was cut'; Src = 'D-20261107-095649' }
+	# Tom ordered AutoPlay merged back into RecordPlayback; only its two commits, a later AutoPlay commit stays an ERROR
+	@{ Branch = 'RecordPlayback'; Merge = '99ca4fd'; Commits = '31df01a', 'f8a408f'; What = 'AutoPlay merged into RecordPlayback (Tom, 2026-11-07)'; Src = 'D-20261108-161952' }
 )
 
 $errors = 0
@@ -78,6 +81,18 @@ function Own-Above($branch, $base) {
 
 # ancestors in the map (parent, its parent, ...)
 function Chain($b) { $c = @(); $p = $map[$b].Parent; while ($p) { $c += $p; $p = $map[$p].Parent }; $c }
+
+# like Own-Commits, but also not on the first-parent line of any ancestor of $below in the map (D-20261108-164648):
+# a child cut from an older line of its parent carries the grandparent's own commits, which are not the child's.
+# The chain stops at the first ancestor that is not in the map or not on origin; reachability is never used.
+function Own-Commits-Chain($branch, $below) {
+	$drop = Set-Of (Fp-Of $below)
+	foreach ($a in Chain $below) {
+		if (-not $map.Contains($a) -or $remote -notcontains $a) { break }
+		foreach ($c in Fp-Of $a) { $drop[$c] = 1 }
+	}
+	@(Fp-Of $branch | Where-Object { -not $drop.ContainsKey($_) })
+}
 
 # exceptions: excused commit set per exception, keyed by branch
 $excused = @{}
@@ -142,7 +157,7 @@ foreach ($f in $features) {
 
 	# a child merged into its parent: commits on the child's first-parent line, off the parent's, that are in the parent
 	if ($map[$p].Kind -ne 'feature' -or $t -ne $p) {
-		$up = Drop-Excused $p @(Own-Commits $f $p | Where-Object { $pAll.ContainsKey($_) })
+		$up = Drop-Excused $p @(Own-Commits-Chain $f $p | Where-Object { $pAll.ContainsKey($_) })
 		if ($up.Count -gt 0) { Out-Error "$p contains $($up.Count) commit(s) made on its child ${f}: a child was merged into its parent" }
 	}
 

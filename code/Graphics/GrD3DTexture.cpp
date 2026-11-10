@@ -657,8 +657,10 @@ int d3d_create_texture_sub(int bitmap_type, int texture_handle, ushort *data, in
 
 			u = v = 0;
 
-			du = ( (bmap_w-1)*F1_0 ) / tex_w;
-			dv = ( (bmap_h-1)*F1_0 ) / tex_h;
+			// Claude: step w/tex_w, not (w-1)/tex_w (#134): at full size the old step put source texel i-1 in texel i, shifting every
+			// normal texture one texel down-right and dropping its last row and column; the last index read is still at most w-1
+			du = ( bmap_w*F1_0 ) / tex_w;
+			dv = ( bmap_h*F1_0 ) / tex_h;
 											
 			for (j = 0; j < tex_h; j++) {
 				lpSP = (unsigned short*)(((char*)ddsd.lpSurface) +	ddsd.lPitch * j);
