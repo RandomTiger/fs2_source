@@ -143,6 +143,7 @@
     <ClCompile Include="Debris\Debris.cpp" />
     <ClCompile Include="DebugConsole\Console.cpp" />
     <ClCompile Include="Demo\Demo.cpp" />
+    <ClCompile Include="Replay\Autoplay.cpp" />
     <ClCompile Include="Replay\Autotest.cpp" />
     <ClCompile Include="Replay\Replay.cpp" />
     <ClCompile Include="Replay\StateTrace.cpp" />
@@ -389,6 +390,7 @@
     <ClInclude Include="Cutscene\Cutscenes.h" />
     <ClInclude Include="Debris\Debris.h" />
     <ClInclude Include="Demo\Demo.h" />
+    <ClInclude Include="Replay\Autoplay.h" />
     <ClInclude Include="Replay\Autotest.h" />
     <ClInclude Include="Replay\Replay.h" />
     <ClInclude Include="Replay\StateTrace.h" />

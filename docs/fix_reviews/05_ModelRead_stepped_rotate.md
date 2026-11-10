@@ -1,5 +1,7 @@
 # Fix review: ModelRead.cpp `submodel_stepped_rotate` unset `ang_prev`/`ang_next`
 
+GitHub issue #32.
+
 **Recommendation: SKIP.** Retail data never hits it.
 
 ## The bug

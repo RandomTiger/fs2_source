@@ -1,5 +1,7 @@
 # Fix review: get_char_width reads past the end of the kerning table
 
+GitHub issue #51.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer during a hand tour of the menus: 6 reports, from the end-mission popup measuring its text (`popup` → `split_str` → `gr_get_string_size` → `get_char_width`).

@@ -445,6 +445,7 @@
 #include "multi_team.h"
 #include "awacs.h"
 #include "fvi.h"
+#include "Autoplay.h"	// Claude: autoplay_link
 
 #pragma optimize("", off)
 #pragma auto_inline(off)
@@ -1738,7 +1739,11 @@ void set_accel_for_target_speed(object *objp, float tspeed)
 
 	max_speed = Ships[objp->instance].current_max_speed;
 
-	AI_ci.forward = tspeed/max_speed;
+	if ((max_speed == 0.0f) && (tspeed == 0.0f)) {	// Claude: engines gone and stopped: 0/0 made NaN, which spread to the ship's position (fix review 69)
+		AI_ci.forward = 0.0f;	// Claude:
+	} else {	// Claude:
+		AI_ci.forward = tspeed/max_speed;	// Claude: the original line, now in the else
+	}	// Claude:
 	aip->prev_accel = AI_ci.forward;
 
 	adjust_accel_for_docking(aip);
@@ -5653,6 +5658,7 @@ void ai_fire_primary_weapon(object *objp)
 	}
 
 	set_primary_weapon_linkage(objp);
+	autoplay_link(objp);	// Claude: autoplay links the player's primaries (only under autoplay rules, #260)
 	
 	// I think this will properly solve the problem
 	// fire non-streaming weapons

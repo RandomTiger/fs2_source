@@ -1,5 +1,7 @@
 # Fix review: ship_do_damage reads a non-weapon object as a weapon
 
+GitHub issue #41.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer: 60 reports across the campaign autotest, reading up to 11 KB past the end of `Weapons[]`.

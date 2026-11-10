@@ -1,5 +1,7 @@
 # Fix review: FRED Release used 100 ships while the game code it links used 150
 
+GitHub issue #67.
+
 **Recommendation: TAKE.** Two different sizes for the same arrays inside one program. FRED only; the game is unchanged.
 
 ## The bug
