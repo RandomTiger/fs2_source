@@ -182,6 +182,8 @@ void GodotSink::shutdown()
 		if (bb_fan5.is_valid()) { rs->free_rid(bb_fan5); bb_fan5 = RID(); }
 		for (auto &pool : mesh_col_pool) { for (RID &r : pool.second) { rs->free_rid(r); } }
 		mesh_col_pool.clear();
+		for (auto &sh : bb_shaders) { rs->free_rid(sh.second); }	// #225: the billboard shaders, after the materials that used them
+		bb_shaders.clear();
 		for (int i = 0; i < 12; i++) {
 			if (materials[i].is_valid()) {
 				rs->free_rid(materials[i]);
