@@ -294,7 +294,6 @@
 */
 
 #include "PsTypes.h"
-#include "MissionParse.h"	// Claude: MiniCampaigns: mission_single_tvt(), mission_player_team()
 #include "Freespace.h"
 #include "SystemVars.h"
 #include "Hud.h"
@@ -2751,8 +2750,8 @@ void hud_add_objective_messsage(int type, int status)
 	Objective_display.goal_status=status;
 
 	// if this is a multiplayer tvt game
-	if(((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM) && (Net_player != NULL)) || mission_single_tvt()){	// Claude: MiniCampaigns
-		mission_goal_fetch_num_resolved(type, &Objective_display.goal_nresolved, &Objective_display.goal_ntotal, mission_player_team());	// Claude: MiniCampaigns
+	if((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM) && (Net_player != NULL)){
+		mission_goal_fetch_num_resolved(type, &Objective_display.goal_nresolved, &Objective_display.goal_ntotal, Net_player->p_info.team);
 	} else {
 		mission_goal_fetch_num_resolved(type, &Objective_display.goal_nresolved, &Objective_display.goal_ntotal);
 	}

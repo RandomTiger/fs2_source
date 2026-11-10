@@ -484,11 +484,6 @@ extern char Parse_names[MAX_SHIPS + MAX_WINGS][NAME_LENGTH];
 extern int Num_parse_names;
 extern int Num_teams;
 
-// Claude: MiniCampaigns: a team-vs-team mission flown in a single-player campaign (the side comes from the campaign file's +Player Team:)
-int mission_single_tvt();
-// Claude: MiniCampaigns: the player's team index: Net_player's in multiplayer, the campaign's side in single-player team vs team, else 0
-int mission_player_team();
-
 extern char			Player_start_shipname[NAME_LENGTH];
 extern int			Player_start_shipnum;
 extern p_object	Player_start_pobject;

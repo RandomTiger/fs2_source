@@ -308,7 +308,6 @@
  */
 
 #include "MissionDebrief.h"
-#include "MissionParse.h"	// Claude: MiniCampaigns: mission_single_tvt(), mission_player_team()
 #include "MissionBriefCommon.h"
 #include "MissionScreenCommon.h"
 #include "MissionGoals.h"
@@ -970,8 +969,8 @@ void debrief_set_multi_clients( int stage_count, int active_stages[] )
 	int i;
 
 	// set up the right briefing for this guy
-	if(((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM)) || mission_single_tvt()){	// Claude: MiniCampaigns
-		Debriefing = &Debriefings[mission_player_team()];	// Claude: MiniCampaigns
+	if((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM)){
+		Debriefing = &Debriefings[Net_player->p_info.team];
 	} else {
 		Debriefing = &Debriefings[0];			
 	}
@@ -2259,8 +2258,8 @@ void debrief_init()
 	Campaign.loop_mission = CAMPAIGN_LOOP_MISSION_UNINITIALIZED;
 
 	// set up the right briefing for this guy
-	if(((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM)) || mission_single_tvt()){	// Claude: MiniCampaigns
-		Debriefing = &Debriefings[mission_player_team()];	// Claude: MiniCampaigns
+	if((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM)){
+		Debriefing = &Debriefings[Net_player->p_info.team];
 	} else {
 		Debriefing = &Debriefings[0];			
 	}

@@ -1,9 +1,0 @@
-; Files we wrote that ship in the package's own data folder (D-20261109-212152, #296).
-; One repo path per line; nothing else under data\ ships. Test missions must never be listed.
-data/missions/MiniTvT_FS2_Alpha.fc2
-data/missions/MiniTvT_FS2_Zeta.fc2
-data/missions/MiniCoop_FS2_Templar.fc2
-data/missions/fs1/MiniTvT_FS1_Alpha.fsc
-data/missions/fs1/MiniTvT_FS1_Zeta.fsc
-data/missions/fs1/MiniCoop_FS1_LastHope.fsc
-data/missions/fs1/MiniCoop_FS1_Altair.fsc

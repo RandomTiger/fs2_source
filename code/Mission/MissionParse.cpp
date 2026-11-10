@@ -386,7 +386,6 @@ int Num_team_names = MAX_TEAM_NAMES;
 int Num_parse_goals;
 int Player_starts = 1;
 int Num_teams;
-static int Single_tvt_start_picked = 0;	// Claude: MiniCampaigns: the second team's player start has been chosen
 fix Entry_delay_time;
 
 ushort Current_file_checksum = 0;
@@ -848,7 +847,6 @@ void parse_player_info2(mission *pm)
 	team_data *ptr;
 	char starting_wings[MAX_PLAYER_WINGS][NAME_LENGTH];
 
-	Single_tvt_start_picked = 0;	// Claude: MiniCampaigns
 	// read in a ship/weapon pool for each team.
 	for ( nt = 0; nt < Num_teams; nt++ ) {
 		int num_ship_choices;
@@ -1983,11 +1981,6 @@ int parse_object(mission *pm, int flag, p_object *objp)
 	if ( objp->flags & P_OF_PLAYER_START ) {
 		objp->flags |= P_OF_CARGO_KNOWN;				// make cargo known for players
 		Player_starts++;
-		// Claude: MiniCampaigns: flying the second team, the player takes that team's first player start (both #Players blocks name Alpha 1)
-		if ( mission_single_tvt() && (mission_player_team() == 1) && (objp->team == TEAM_HOSTILE) && !Single_tvt_start_picked ) {
-			strcpy( Player_start_shipname, objp->name );
-			Single_tvt_start_picked = 1;
-		}
 	}
 
 	objp->special_exp_index = -1;
@@ -3500,12 +3493,6 @@ void post_process_mission()
 	if((Game_mode & GM_MULTIPLAYER) && (Netgame.type_flags & NG_TYPE_TEAM)){
 		Starting_wings[0] = wing_name_lookup(Starting_wing_names[0],1);
 		Starting_wings[1] = wing_name_lookup(Starting_wing_names[MAX_STARTING_WINGS],1);
-	} else if ( mission_single_tvt() ) {
-		// Claude: MiniCampaigns: only the player's own team wing (Alpha or Zeta) is a starting wing, for orders and ship select
-		for (i = 0; i < MAX_STARTING_WINGS; i++ ) {
-			Starting_wings[i] = -1;
-		}
-		Starting_wings[0] = wing_name_lookup(Starting_wing_names[mission_player_team() ? MAX_STARTING_WINGS : 0], 1);
 	} else {
 		for (i = 0; i < MAX_STARTING_WINGS; i++ ) {
 			Starting_wings[i] = wing_name_lookup(Starting_wing_names[i], 1);
@@ -5132,22 +5119,4 @@ void mission_parse_reset_alt()
 int is_training_mission()
 {
 	return (The_mission.game_type & MISSION_TYPE_TRAINING);
-}
-
-// Claude: MiniCampaigns: a team-vs-team mission flown in a single-player campaign
-int mission_single_tvt()
-{
-	return (Game_mode & GM_NORMAL) && (Game_mode & GM_CAMPAIGN_MODE) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS);
-}
-
-// Claude: MiniCampaigns: the player's team index: Net_player's in multiplayer, the campaign's side in single-player team vs team, else 0
-int mission_player_team()
-{
-	if ( (Game_mode & GM_MULTIPLAYER) && (Net_player != NULL) ) {
-		return Net_player->p_info.team;
-	}
-	if ( mission_single_tvt() ) {
-		return Campaign.player_team;
-	}
-	return 0;
 }
