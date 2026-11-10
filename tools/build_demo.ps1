@@ -35,8 +35,10 @@ foreach ($c in $Configs) {
 	$int = Join-Path $env:LOCALAPPDATA ("fs2_demo_obj\{0}_{1}\" -f (Split-Path $repo -Leaf), $c)
 	Clear-Shared
 	Remove-Item $exe -ErrorAction SilentlyContinue
-	& $msb (Join-Path $repo 'Freespace2.vcxproj') /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$repo\" `
-		"/p:ForceImportBeforeCppTargets=$PSScriptRoot\fs2demo.props" "/p:IntDir=$int" /m /v:q /nologo > (Join-Path $logs "$c.txt") 2>&1
+	# Paths end in / not \: a quoted argument ending in \" breaks on a path with a space (MSB1008, #281).
+	# /m:1: code and Xiph share IntDir, and a parallel Rebuild could clean Xiph's objects before its lib step (LNK1181, #282).
+	& $msb (Join-Path $repo 'Freespace2.vcxproj') /t:Rebuild /nodeReuse:false "/p:Configuration=$c" /p:Platform=Win32 "/p:SolutionDir=$repo/" `
+		"/p:ForceImportBeforeCppTargets=$PSScriptRoot\fs2demo.props" "/p:IntDir=$($int.TrimEnd('\'))/" /m:1 /v:q /nologo > (Join-Path $logs "$c.txt") 2>&1
 	$code = $LASTEXITCODE
 	$demo = (Test-Path $exe) -and (Select-String $exe -Pattern 'FS2_DEMO_BUILD_MARKER' -SimpleMatch -Quiet)	# compiled only under FS2_DEMO (#155)
 	"$c exit $code, demo exe: $demo"
