@@ -50,8 +50,8 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
       position where the replay reads the timer; likely focus/pause related).
 - [x] Commit the recorder work on RecordPlayback.
 - [x] Record a full mission and confirm the replay matches its trace (SM1-01).
-- [ ] Threshold experiments E1-E4 for TraceDiff tolerances.
+- [x] ~~Threshold experiments E1-E4 for TraceDiff tolerances.~~ Dropped (Tom, 2026-11-10).
 
 ## Other
-- [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT
+- [x] Dropped (Tom, 2026-11-10). Optional: GS_event_text in the debug log is out of step with the GS_EVENT
       numbers from event 15 on (debug output only).
