@@ -1,5 +1,7 @@
 # Fix review: string table loading writes past Xstr_table, and reads Ts_text[-1] on an empty string
 
+GitHub issue #61.
+
 **Recommendation: TAKE.** Two out-of-bounds accesses in the string table code, each reached only with an unusual table. Found with `/analyze` (C6385/C6386) on 2026-10-13.
 
 ## The bugs

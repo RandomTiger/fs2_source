@@ -1,5 +1,7 @@
 # Fix review: Debug Int3 when a sexp names a ship that has been destroyed or has left
 
+GitHub issue #69.
+
 **Recommendation: TAKE.** Debug builds only. Release builds and gameplay are unchanged. Decision D-029: assertions are never left in recordings.
 
 ## The bug

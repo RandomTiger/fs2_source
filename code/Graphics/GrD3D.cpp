@@ -2813,24 +2813,11 @@ void gr_d3d_init()
 	// set clear color
 	gr_screen.gf_set_clear_color = gr_d3d_set_clear_color;
 	
-	// Claude: The startup test for this reads the front buffer, which when windowed is the desktop, not the game's
-	// test bitmap, and full-screen cannot tell the two settings apart (fix review 67).  Default to 1, the half-texel
-	// offset D3D7's pixel centres need, instead of running it.
-	uint tmp = os_config_read_uint( NULL, "D3DTextureOrigin", 1 );
-
-	if ( tmp != 0xFFFF )	{
-		if ( tmp )	{
-			D3d_rendition_uvs = 1;
-		} else {
-			D3d_rendition_uvs = 0;
-		}
-	} else {
-		if(D3D_32bit){
-			d3d_detect_texture_origin_32();
-		} else {
-			d3d_detect_texture_origin_16();
-		}
-	}
+	// Claude: always 1, the half-texel offset D3D7's pixel centres need; the D3DTextureOrigin registry value is no
+	// longer read (fix review 67, Tom).  The startup test reads the desktop when windowed and cannot tell the two
+	// settings apart full-screen, so neither it nor a stale registry value decides this.
+	D3d_rendition_uvs = 1;
+	uint tmp;	// Claude: the D3DLineOffset read below still uses it; the texture-origin read that declared it is gone
 
 	// Claude: The startup test for this reads the front buffer, which when windowed is the desktop, not the game's
 	// test pixel (#77, fix review 60).  Default to 0, the value every measured case gave, instead of running it.
