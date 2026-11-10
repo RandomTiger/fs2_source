@@ -402,6 +402,7 @@
 #include "localize.h"
 #include "cfile.h"	// Claude: Cfile_fs1_data
 #include "DataSetProfile.h"	// Claude: Game_profile
+#include "Autoplay.h"	// Claude: autoplay_loadout
 
 //////////////////////////////////////////////////////
 // Game-wide Globals
@@ -1972,6 +1973,8 @@ void unload_ship_anim_instances()
 void commit_pressed()
 {
 	int player_ship_info_index;
+
+	autoplay_loadout();	// Claude: autoplay picks a loadout that can win (only under autoplay rules)
 	
 	if ( Wss_num_wings > 0 ) {
 		if(!(Game_mode & GM_MULTIPLAYER)){

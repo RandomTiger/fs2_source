@@ -1,5 +1,7 @@
 # Fix review: PCX 16bpp reader overruns its pixel temp on a 32 bit screen
 
+GitHub issue #271.
+
 **Recommendation: TAKE.** Stack overrun in `pcx_read_bitmap_16bpp` whenever D3D runs with a 32 bit back buffer: the pixel setter writes 4 bytes into a 2 byte local. Debug builds stop with a run-time check failure (seen entering the FS1 barracks on FS1Demo, 2026-10-21); Release silently writes past the variable. Drawing side only, no gameplay state. Taken by the steward (D-20261021-100829).
 
 ## The bug

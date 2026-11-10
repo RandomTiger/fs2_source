@@ -17,6 +17,7 @@
 
 #include "pstypes.h"
 #include "Autotest.h"
+#include "Autoplay.h"
 #include "Replay.h"
 #include "FreeSpace.h"
 #include "GameSequence.h"
@@ -26,6 +27,8 @@
 #include "ManagePilot.h"
 #include "Object.h"
 #include "Ship.h"
+#include "ai.h"
+#include "AIGoals.h"
 #include "MissionScreenCommon.h"
 #include "MissionParse.h"
 #include "MissionGoals.h"
@@ -88,6 +91,8 @@ static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mis
 // the recording header's autotest field: bit 0 autotest rules, bit 1 -playernpc
 #define AUTOTEST_HDR_RULES			1
 #define AUTOTEST_HDR_PLAYER_NPC	2
+#define AUTOTEST_HDR_AUTOPLAY		4	// -at_autoplay: a replay runs the autoplay manager again (D-20261107-124846)
+#define AUTOTEST_HDR_AP_SCAN		8	// autoplay scans the ships an is-cargo-known goal names (Tom, 2026-11-07); recordings made before it lack the bit and replay without it
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
@@ -148,7 +153,7 @@ void autotest_poll_done()
 	Autotest_poll_ms = GetTickCount();
 }
 
-static void autotest_logf(char *format, ...)
+void autotest_logf(char *format, ...)
 {
 	va_list args;
 	DWORD ms;
@@ -233,6 +238,27 @@ static LONG WINAPI autotest_crash(EXCEPTION_POINTERS *info)
 
 	autotest_logf("FATAL: crash, exception 0x%08x at 0x%08x in mission '%s'\n", info->ExceptionRecord->ExceptionCode,
 		info->ExceptionRecord->ExceptionAddress, Autotest_current);
+	// the exe loads at a random base (dynamic base): the offset into it is what maps to the .map/.pdb
+	autotest_logf("FATAL: module base 0x%08x, offset 0x%08x\n", (unsigned int)GetModuleHandle(NULL),
+		(unsigned int)info->ExceptionRecord->ExceptionAddress - (unsigned int)GetModuleHandle(NULL));
+	{
+		// Release omits frame pointers, so no stack walk: the stack words that point into the exe are
+		// likely return addresses, logged as offsets for the .map (callers of the crash, #267)
+		unsigned int base = (unsigned int)GetModuleHandle(NULL);
+		unsigned int size = ((IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew))->OptionalHeader.SizeOfImage;
+		unsigned int *sp = (unsigned int *)info->ContextRecord->Esp;
+		char line[400];
+		int i, n = 0, len = 0;
+
+		line[0] = 0;
+		for (i = 0; (i < 512) && (n < 24) && !IsBadReadPtr(sp + i, 4); i++) {
+			if ((sp[i] > base + 0x1000) && (sp[i] < base + size)) {
+				len += sprintf(line + len, " %x", sp[i] - base);
+				n++;
+			}
+		}
+		autotest_logf("FATAL: stack words in the exe (offsets):%s\n", line);
+	}
 	if (screen) {
 		autotest_logf("Screen '%s': FAIL crash, exception 0x%08x\n", screen, info->ExceptionRecord->ExceptionCode);
 	}
@@ -311,6 +337,9 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 {
 	Autotest_harness = 1;
 	Autotest_rules = 1;
+	Autoplay_on = (player_npc & AUTOTEST_ASK_AUTOPLAY) != 0;
+	Autoplay_scan = Autoplay_on;
+	player_npc = ((player_npc & AUTOTEST_ASK_PLAYER_NPC) != 0) || Autoplay_on;	// autoplay needs the AI flying the player
 	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
 	InitializeCriticalSection(&Autotest_log_lock);
@@ -322,7 +351,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 	autotest_logf("Autotest, Debug build %s %s\n", __DATE__, __TIME__);
 #endif
 
-	Autotest_time = autotest_int_arg("-at_time", time, AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
+	Autotest_time = autotest_int_arg("-at_time", time, Autoplay_on ? AUTOPLAY_DEFAULT_TIME : AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
 	Autotest_speed = autotest_int_arg("-at_speed", speed, AUTOTEST_DEFAULT_SPEED, 1, 8);
 	Autotest_skill = autotest_int_arg("-at_skill", skill, -1, 0, NUM_SKILL_LEVELS - 1);
 	if (mission) {
@@ -355,7 +384,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 
 void autotest_get_settings(int *on, int *time, int *speed)
 {
-	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0)) : 0;
+	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0) | (Autoplay_on ? AUTOTEST_HDR_AUTOPLAY : 0) | (Autoplay_scan ? AUTOTEST_HDR_AP_SCAN : 0)) : 0;
 	*time = Autotest_rules ? Autotest_time : 0;
 	*speed = Autotest_rules ? Autotest_speed : 0;
 }
@@ -365,11 +394,13 @@ void autotest_set_from_recording(int on, int time, int speed)
 {
 	Autotest_rules = (on & AUTOTEST_HDR_RULES) != 0;
 	Autotest_player_npc = Autotest_player_npc_asked = Autotest_rules && (on & AUTOTEST_HDR_PLAYER_NPC);
+	Autoplay_on = Autotest_rules && (on & AUTOTEST_HDR_AUTOPLAY);
+	Autoplay_scan = Autoplay_on && (on & AUTOTEST_HDR_AP_SCAN);
 	if (Autotest_rules) {
 		Autotest_time = time;
 		Autotest_speed = speed;
 	}
-	autotest_logf("Replaying a recording made %s autotest rules%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "");
+	autotest_logf("Replaying a recording made %s autotest rules%s%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "", Autoplay_on ? ", autoplay" : "");
 }
 
 // ManagePilot.cpp: writes the file even under autotest, which write_pilot_file does not
@@ -474,6 +505,8 @@ static void autotest_main_menu()
 		if (Autotest_gave_up) {
 			Autotest_missions_failed++;
 		} else if (Autotest_in_mission) {
+			// a mission that ends with no debrief (sm3-09) still gets its autoplay result line
+			autoplay_result(AUTOPLAY_END_ITSELF);
 			autotest_logf("Mission '%s' done\n", Autotest_current);
 		} else {
 			Autotest_missions_failed++;
@@ -1416,6 +1449,7 @@ void autotest_drive_state(int state)
 		case GS_STATE_DEBRIEF:
 			// the mission ended before the time limit
 			autotest_logf("Mission '%s' ended itself\n", Autotest_current);
+			autoplay_result(AUTOPLAY_END_ITSELF);
 			gameseq_post_event(GS_EVENT_END_GAME);
 			break;
 	}
@@ -1450,6 +1484,33 @@ static void autotest_log_events()
 	}
 }
 
+// -playernpc: the original code never runs goals on the player ship, so a mission order given to the
+// player's whole wing that names the player (loop1-3's "Attack Alpha 1" to wing Alpha) never mattered.
+// With the AI flying the player it would chase itself (Int3 in ai_attack_object), so such goals are
+// dropped before the AI sees them (D-20261109-092603). Only chase goals: the original code already
+// ignores a guard-self goal without a check, and dropping it would change what the player flies (sm1-10).
+static void autotest_drop_self_goals()
+{
+	ai_info *aip;
+	int i;
+
+	if (!Autotest_player_npc || (Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ship->ai_index < 0)) {
+		return;
+	}
+	aip = &Ai_info[Player_ship->ai_index];
+	for (i = 0; i < MAX_AI_GOALS; i++) {
+		ai_goal *gp = &aip->goals[i];
+
+		if ((gp->ai_mode != AI_GOAL_CHASE) || (gp->ship_name == NULL)) {
+			continue;
+		}
+		if (!stricmp(gp->ship_name, Player_ship->ship_name)) {
+			autotest_logf("Mission '%s': goal %d naming the player itself dropped at mission time %.2f\n", Game_current_mission_filename, gp->ai_mode, f2fl(Missiontime));
+			ai_remove_ship_goal(aip, i);
+		}
+	}
+}
+
 void autotest_frame()
 {
 	ship *shipp;
@@ -1467,6 +1528,7 @@ void autotest_frame()
 		Autotest_player_npc = Autotest_player_npc_asked && (strstr(The_mission.notes, AUTOTEST_STILL_NOTE) == NULL);
 		Autotest_squad_menu = (strstr(The_mission.notes, AUTOTEST_SQUAD_MENU_NOTE) != NULL);
 		Autotest_squad_next = 0;
+		autoplay_mission_start();
 		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
 			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
 		}
@@ -1475,12 +1537,16 @@ void autotest_frame()
 		}
 	}
 
-	// every frame: the player may not exist on the first frame, and mission events can clear it
+	// every frame: the player may not exist on the first frame, and mission events can clear it.
+	// Autoplay too: the player stays invulnerable until autoplay has a good baseline (Tom, 2026-11-07,
+	// over D-20261107-124842).
 	if (!Autotest_mission_vulnerability && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
 		shipp = &Ships[Player_obj->instance];
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
 	}
+
+	autotest_drop_self_goals();
 
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
@@ -1490,7 +1556,15 @@ void autotest_frame()
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));
+		autoplay_result(AUTOPLAY_END_TIME);
 		gameseq_post_event(GS_EVENT_END_GAME);
+	} else if (!Autotest_ending && Autoplay_on) {
+		int why = autoplay_frame();
+		if (why != AUTOPLAY_END_NONE) {
+			Autotest_ending = 1;
+			autoplay_result(why);
+			gameseq_post_event(GS_EVENT_END_GAME);
+		}
 	}
 
 	// the squad menu test: press the next key when its mission time comes (a replay gets the presses from the recording)

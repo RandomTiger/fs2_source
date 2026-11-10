@@ -1,5 +1,7 @@
 # Fix review: FRED Debug used the DLL C runtime while the game code it links used the static one
 
+GitHub issue #68.
+
 **Recommendation: TAKE.** Two C runtimes in one program. FRED Debug only.
 
 ## The bug

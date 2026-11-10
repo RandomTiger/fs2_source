@@ -942,8 +942,10 @@ void gr_d3d_tmapper_internal( int nverts, vertex **verts, uint flags, int is_sca
 				}
 				// all else.
 				else {				
-					src_v->tu = flCAP(va->u, minu, maxu);
-					src_v->tv = flCAP(va->v, minv, maxv);
+					// Claude: no two-texel clamp (#134): it was the Rendition Verite edge-bleed workaround, now applied on every
+					// machine because the switch is fixed at 1 for the half-texel origin (TEXTURE_ORIGIN.md effect 4); draw as non-rendition does
+					src_v->tu = va->u*u_scale;
+					src_v->tv = va->v*v_scale;
 				}				
 			}
 			// yay. non-rendition

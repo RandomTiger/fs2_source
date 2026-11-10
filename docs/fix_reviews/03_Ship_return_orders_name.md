@@ -1,5 +1,7 @@
 # Fix review: Ship.cpp `ship_return_orders` uninitialised `name`
 
+GitHub issue #30.
+
 **Recommendation: TAKE.**
 
 ## The bug

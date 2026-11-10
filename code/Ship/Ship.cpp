@@ -4188,7 +4188,7 @@ void ship_process_post(object * obj, float frametime)
 		}
 
 		// if the ship is a player ship or an observer ship don't need to do AI
-		if ( ((obj->flags & OF_PLAYER_SHIP) && !Autotest_player_npc) || (obj->type == OBJ_OBSERVER) ) {	// Claude: -playernpc runs the AI on the player ship
+		if ( ((obj->flags & OF_PLAYER_SHIP) && (!Autotest_player_npc || Autoplay_steering)) || (obj->type == OBJ_OBSERVER) ) {	// Claude: -playernpc runs the AI on the player ship, unless autoplay steers it for a scan
 			return;
 		}
 

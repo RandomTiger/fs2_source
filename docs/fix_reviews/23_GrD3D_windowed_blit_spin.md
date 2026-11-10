@@ -1,5 +1,7 @@
 # Fix review: windowed page flip spins forever when the surface is lost
 
+GitHub issue #50.
+
 **Recommendation: TAKE.** Low risk.
 
 Found during the campaign autotest: the game froze at full CPU in the middle of a mission (sm2-08 recording, Release; sm1-05 Debug replay; an earlier SM1-04 replay). A stack of the stuck game showed the main thread in `gr_d3d_flip`.
