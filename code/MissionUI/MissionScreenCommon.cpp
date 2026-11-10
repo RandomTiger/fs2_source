@@ -270,6 +270,7 @@
  */
 
 #include <limits.h>
+#include "MissionParse.h"	// Claude: MiniCampaigns: mission_single_tvt(), mission_player_team()
 #include "Freespace.h"
 #include "EventMusic.h"
 #include "Key.h"
@@ -741,8 +742,8 @@ void common_select_init()
 
 	// get the value of the team
 	Common_team = 0;							// assume the first team -- we'll change this value if we need to
-	if ( (Game_mode & GM_MULTIPLAYER) && IS_MISSION_MULTI_TEAMS )
-		Common_team = Net_player->p_info.team;
+	if ( ((Game_mode & GM_MULTIPLAYER) && IS_MISSION_MULTI_TEAMS) || mission_single_tvt() )	// Claude: MiniCampaigns
+		Common_team = mission_player_team();	// Claude: MiniCampaigns
 
 	ship_select_common_init();	
 	weapon_select_common_init();

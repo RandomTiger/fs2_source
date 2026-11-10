@@ -1,5 +1,7 @@
 # Fix review: message_play_anim reads Personas[-1] for a message with no persona
 
+GitHub issue #44.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer: 25 reports across the campaign autotest.

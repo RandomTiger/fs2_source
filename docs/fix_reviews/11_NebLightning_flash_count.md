@@ -1,5 +1,7 @@
 # Fix review: NebLightning.cpp counts lightning points from uninitialised memory
 
+GitHub issue #38.
+
 **Recommendation: TAKE.** Low risk.
 
 Found because replays of the nebula mission loop2-1 desynced about one run in seven. The replay played a lightning sound that the recording had not.

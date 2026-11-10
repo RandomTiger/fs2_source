@@ -1,5 +1,7 @@
 # Fix review: cmdline.cpp matches parameters inside other text and mangles values
 
+GitHub issue #37.
+
 **Recommendation: TAKE.** Low risk.
 
 Found while adding autotest flags (`-at_mission sm1-03.fs2`, `-at_speed 4`).

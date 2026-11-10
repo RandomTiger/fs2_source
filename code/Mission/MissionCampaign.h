@@ -355,7 +355,8 @@ typedef struct campaign {
 	int		loop_mission;								// mission number of misssion loop (if any)
 	int		loop_reentry;								// mission number to return to after loop is finished
 	int		realign_required;							// are any missions missing alignment info? (Fred)
-	int		num_players;								// valid in multiplayer campaigns -- number of players campaign supports.
+	int		num_players;
+	int		player_team;								// Claude: MiniCampaigns: single-player team vs team: the player's team index (0 or 1), from +Player Team:								// valid in multiplayer campaigns -- number of players campaign supports.
 	ubyte		ships_allowed[MAX_SHIP_TYPES];		// which ships the player can use
 	ubyte		weapons_allowed[MAX_WEAPON_TYPES];	// which weapons the player can use
 	cmission	missions[MAX_CAMPAIGN_MISSIONS];		// decription of the missions
