@@ -1,5 +1,7 @@
 # Fix review: 2 GB or more of free video memory wraps the texture budget negative
 
+GitHub issue #275 (found while looking at #104).
+
 **Recommendation: TAKE (Tom, 2026-10-29, OriginalSourceBugFixes for the overflow; removing eviction and the glow-map cap goes on Enhanced).** `d3d_tcache_init` stores DirectDraw's free texture memory, a `DWORD`, in `int D3D_texture_ram`. Any card with 2 GB or more free wraps it negative, so texture preloading is switched off and the out-of-memory eviction would free every texture. Found while looking at #104.
 
 ## The bug

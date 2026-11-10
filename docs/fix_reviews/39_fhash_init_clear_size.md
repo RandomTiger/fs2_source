@@ -1,5 +1,7 @@
 # Fix review: FRED's string hash init clears four times the table
 
+GitHub issue #66.
+
 **Recommendation: TAKE.** Wrong size in a memset, FRED only. Found with `/analyze` (C6386) on 2026-10-13.
 
 ## The bug
