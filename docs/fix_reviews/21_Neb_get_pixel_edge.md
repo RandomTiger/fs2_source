@@ -1,5 +1,7 @@
 # Fix review: neb2_get_pixel reads past the end of the nebula pre-render
 
+GitHub issue #48.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer: 45 reports across the campaign autotest, in nebula missions, reading just past the end of `tpixels`.

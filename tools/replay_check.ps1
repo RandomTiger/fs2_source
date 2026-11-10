@@ -18,7 +18,8 @@ Every recording replays in Release (-Configs). The -CrossCheck missions (default
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
 both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
 With $env:FS2_PROCDUMP set to Sysinternals procdump.exe (downloaded per machine, never committed), each run is watched
-and a crash leaves a dump in <Out>; dumps stay local (they hold game data).
+and a crash leaves a dump in <Out>; dumps stay local (they hold game data). With or without it, a crash copies the exe,
+its pdb and the game folder's DLLs, with their MD5s, to <Out>\crash_<folder>_<mission>_<config> before anything rebuilds.
 A line passes when every run says "REPLAY OK" and "MATCH", and every autotest run exits 0 (no Assert, Int3 or Warning). Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
@@ -123,6 +124,17 @@ foreach ($r in $recs) {
 			$pd = Start-Process $env:FS2_PROCDUMP -ArgumentList "-accepteula -e -ma -o $($p.Id) `"$Out`"" -PassThru -WindowStyle Hidden
 		}
 		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += " | $e TIMEOUT"; $ok = $false; continue }
+		# A crash (NTSTATUS exit, e.g. 0xC0000374) keeps the exe, its pdb and the game folder's DLLs, with MD5s, before any
+		# later build can overwrite them (D-20261107-193458: the 2026-11-07 Enhanced crash exe was lost to a rebuild).
+		# ($null -lt 0 is true in PowerShell: a launch that failed has no exit code and is not a crash)
+		if (($null -ne $p.ExitCode) -and ($p.ExitCode -lt 0)) {
+			$keep = Join-Path $Out "crash_${folder}_${name}_$e"
+			New-Item -ItemType Directory -Force $keep | Out-Null
+			$exe = Get-FS2Exe $e
+			$bins = @(".\$exe", ".\$([IO.Path]::ChangeExtension($exe, '.pdb'))") + @(Get-ChildItem . -Filter *.dll | ForEach-Object { $_.FullName })
+			$bins | Where-Object { Test-Path $_ } | ForEach-Object { Copy-Item $_ $keep; "$((Get-FileHash $_ -Algorithm MD5).Hash)  $(Split-Path $_ -Leaf)" } | Set-Content (Join-Path $keep 'md5.txt')
+			$line += " | $e CRASH 0x$('{0:X8}' -f $p.ExitCode) binaries kept in $keep"; $ok = $false
+		}
 		if ($pd) {
 			if (-not $pd.WaitForExit(120000)) { Stop-Process $pd -Force }
 			if (@(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count -gt $dumps) { $line += " | $e CRASH DUMP in $Out"; $ok = $false }

@@ -1,5 +1,7 @@
 # Fix review: ai_fire_secondary_weapon writes before the secondary stamp array with no bank
 
+GitHub issue #55.
+
 **Recommendation: TAKE.** Changes gameplay slightly: re-run the recordings and re-record any that legitimately change.
 
 Found by the compiler's code analysis (`/analyze`, warning C6386). AddressSanitizer cannot see it: the write stays inside the ship struct.
