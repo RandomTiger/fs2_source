@@ -112,6 +112,18 @@ static void history_step(int by)
 	Edit->set_caret_column(Edit->get_text().length());
 }
 
+// #225: the font is a static Ref, so it outlived Godot's cleanup and showed as leaked instances at exit. Drop it, and the
+// controls the scene tree is about to free, when the console leaves the tree.
+static void on_box_exit(void)
+{
+	Mono.unref();
+	Box = NULL;
+	Output = NULL;
+	Edit = NULL;
+	Fps = NULL;
+	Open = false;
+}
+
 void attach(Node *parent, Fs2Api *api, bool enabled)
 {
 	Api = api;
@@ -137,6 +149,7 @@ void attach(Node *parent, Fs2Api *api, bool enabled)
 	Box->set_z_index(100);
 	Box->set_visible(false);
 	parent->add_child(Box);
+	Box->connect("tree_exiting", callable_mp_static(&on_box_exit));
 
 	Output = memnew(RichTextLabel);
 	Output->set_use_bbcode(false);
