@@ -1,5 +1,7 @@
 # Fix review: big-ship attack AI checks the wrong weapon for "is it a laser"
 
+GitHub issue #57.
+
 **Recommendation: TAKE.** Out-of-bounds read that would differ between builds; small AI change.
 
 Found while reviewing the earlier Unreal port (`fs2_source_ue`); confirmed in this tree.

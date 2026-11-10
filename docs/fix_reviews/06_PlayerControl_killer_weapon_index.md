@@ -1,5 +1,7 @@
 # Fix review: PlayerControl.cpp `player_level_init` `killer_weapon_index`
 
+GitHub issue #33.
+
 **Recommendation: TAKE (low priority).** It only affects text, and the intent is clear.
 
 ## The bug

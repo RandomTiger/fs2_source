@@ -1,5 +1,7 @@
 # Fix review: debrief awards read Campaign.missions[-1] and can write past the award text
 
+GitHub issue #63.
+
 **Recommendation: TAKE.** Two small bounds bugs in how the debriefing shows awards. Found with `/analyze` (C6385) on 2026-10-13. Both are in the same few award functions, so they share a review.
 
 ## The bugs

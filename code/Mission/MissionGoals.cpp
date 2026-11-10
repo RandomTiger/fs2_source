@@ -714,7 +714,7 @@ void mission_event_shutdown()
 // called once right before entering the show goals screen to do initializations.
 void mission_show_goals_init()
 {
-	int i, type, team_num=0;		// JAS: I set team_num to 0 because it was used without being initialized.
+	int i, type, team_num = mission_single_tvt() ? mission_player_team() : 0;	/* Claude: MiniCampaigns; multiplayer keeps 0 (#294) */		// JAS: I set team_num to 0 because it was used without being initialized.
 	goal_buttons *b;
 
 	Scroll_offset = 0;
@@ -734,7 +734,7 @@ void mission_show_goals_init()
 			continue;
 		}
 
-		if ( (Game_mode & GM_MULTIPLAYER) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) && (Mission_goals[i].team != team_num) ){
+		if ( ((Game_mode & GM_MULTIPLAYER) || mission_single_tvt()) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) && (Mission_goals[i].team != team_num) ){	// Claude: MiniCampaigns
 			continue;
 		}
 
@@ -909,8 +909,8 @@ int ML_objectives_init(int x, int y, int w, int h)
 	Goal_screen_icon_x = x;
 
 	team_num = 0;			// this is the default team -- we will change it if in a multiplayer team v. team game
-	if ( (Game_mode & GM_MULTIPLAYER) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) ){
-		team_num = Net_player->p_info.team;
+	if ( ((Game_mode & GM_MULTIPLAYER) || mission_single_tvt()) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) ){	// Claude: MiniCampaigns
+		team_num = mission_player_team();	// Claude: MiniCampaigns
 	}
 
 	// fill up the lists so we can display the goals appropriately
@@ -919,7 +919,7 @@ int ML_objectives_init(int x, int y, int w, int h)
 			continue;
 		}
 
-		if ( (Game_mode & GM_MULTIPLAYER) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) && (Mission_goals[i].team != team_num) ){
+		if ( ((Game_mode & GM_MULTIPLAYER) || mission_single_tvt()) && (The_mission.game_type & MISSION_TYPE_MULTI_TEAMS) && (Mission_goals[i].team != team_num) ){	// Claude: MiniCampaigns
 			continue;
 		}
 
@@ -1049,7 +1049,7 @@ void mission_goal_status_change( int goal_num, int new_status)
 		if ( type != BONUS_GOAL ) {
 
 			// only do HUD and music is goals are my teams goals.
-			if ( (Game_mode & GM_NORMAL) || ((Net_player != NULL) && (Net_player->p_info.team == Mission_goals[goal_num].team)) ) {
+			if ( ((Game_mode & GM_NORMAL) && (!mission_single_tvt() || (mission_player_team() == Mission_goals[goal_num].team))) /* Claude: MiniCampaigns */ || ((Net_player != NULL) && (Net_player->p_info.team == Mission_goals[goal_num].team)) ) {
 				hud_add_objective_messsage(type, new_status);
 				if ( !Mission_goals[goal_num].flags & MGF_NO_MUSIC ) {	// maybe play event music
 					event_music_primary_goal_failed();
@@ -1059,7 +1059,7 @@ void mission_goal_status_change( int goal_num, int new_status)
 		}
 		mission_log_add_entry( LOG_GOAL_FAILED, Mission_goals[goal_num].name, NULL, goal_num );
 	} else if ( new_status == GOAL_COMPLETE ) {
-		if ( (Game_mode & GM_NORMAL) || ((Net_player != NULL) && (Net_player->p_info.team == Mission_goals[goal_num].team))) {
+		if ( ((Game_mode & GM_NORMAL) && (!mission_single_tvt() || (mission_player_team() == Mission_goals[goal_num].team))) /* Claude: MiniCampaigns */ || ((Net_player != NULL) && (Net_player->p_info.team == Mission_goals[goal_num].team))) {
 			hud_add_objective_messsage(type, new_status);
 			// cue for Event Music
 			if ( !(Mission_goals[goal_num].flags & MGF_NO_MUSIC) ) {

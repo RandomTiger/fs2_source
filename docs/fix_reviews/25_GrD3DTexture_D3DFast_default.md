@@ -1,5 +1,7 @@
 # Fix review: D3D textures default to a quarter of their size
 
+GitHub issue #52.
+
 **Recommendation: TAKE.** Low risk. Visual only.
 
 ## The bug

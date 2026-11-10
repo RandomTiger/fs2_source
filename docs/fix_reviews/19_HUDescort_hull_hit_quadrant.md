@@ -1,5 +1,7 @@
 # Fix review: hud_escort_ship_hit reads Quadrant_xlate[-1] on a hull hit
 
+GitHub issue #46.
+
 **Recommendation: TAKE.** No risk.
 
 Found by AddressSanitizer: 51 reports across the campaign autotest.

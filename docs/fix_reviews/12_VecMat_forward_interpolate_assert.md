@@ -1,5 +1,7 @@
 # Fix review: vm_forward_interpolate asserts when the goal is straight behind
 
+GitHub issue #39.
+
 **Recommendation: TAKE.** No risk: it changes only a Debug `Assert`.
 
 Found because Debug replays of Release recordings desynced in six missions (sm1-04, sm1-07, loop1-2, sm3-03, sm3-05, sm3-07). In Debug, this assert fires many times a mission: an autotest of sm1-07 hit it 45 times. A failed `Assert` calls `gr_activate(0)`, which minimises the window, even when the autotest only logs it. Losing focus clears `Mouse_hidden` on the window thread, which is not recorded, so the next page flip draws the cursor and the replay desyncs.

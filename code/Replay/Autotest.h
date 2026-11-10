@@ -3,7 +3,7 @@
  * recording tests.
  *
  * Usage:
- *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc]
+ *   -autotest [-at_mission <file.fs2>] [-at_time <seconds>] [-at_speed <1-8>] [-at_pilot <callsign>] [-at_skill <0-4>] [-playernpc] [-at_autoplay]
  *   -autotest -at_menus [-at_mission <file.fs2>] [-at_shots <folder>]
  *
  * With -at_menus, autotest visits every single-player screen in turn (main hall screens, then the
@@ -24,6 +24,7 @@
  * With -playernpc the AI flies the player ship like any other ship, following the orders the mission
  * gives it ($AI Goals, add-goal), instead of nobody flying it.  A mission whose notes contain
  * "autotest: player stays still" is played without it.
+ * With -at_autoplay (which implies -playernpc) the run tries to win the mission: see Autoplay.h.
  *
  * Results go to autotest.log in the game directory.  Exit code: 0 pass, 1 Error(), 2 a mission
  * failed or an Assert / Int3 was hit, 5 the watchdog found the game stuck, or a crash's exception code.
@@ -40,9 +41,16 @@
 extern int Autotest_harness;	// -autotest: drive the menus, log, no dialogs
 extern int Autotest_rules;		// this mission plays under autotest rules (from the command line, or the recording)
 extern int Autotest_player_npc;	// -playernpc: the AI flies the player ship (a rule, so it comes from the recording too)
+extern int Autoplay_steering;		// (Autoplay.cpp) autoplay flies the player itself for a scan: the AI and the controls stand down
+void autoplay_steer(struct object *objp, float frametime);	// each frame while Autoplay_steering, in place of read_player_controls
 
-// command line (called from parse_cmdline)
+// command line (called from parse_cmdline); player_npc is AUTOTEST_ASK_* bits
+#define AUTOTEST_ASK_PLAYER_NPC	1	// -playernpc
+#define AUTOTEST_ASK_AUTOPLAY		2	// -at_autoplay
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
+// MiniCampaigns: -at_campaign <file>: the -at_mission mission is played inside this campaign file (campaign mode, so a
+// team-vs-team campaign's +Player Team: side applies), on the scratch pilot, whose campaign save it writes
+void autotest_set_campaign(char *campaign);
 void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 void autotest_set_debugcam();	// -at_debugcam: Shift+Pause, the debug camera moved and turned, then Shift+Pause back (#125)
 void autotest_set_shots(char *dir);	// -at_shots: a screenshot of each screen of the tour
@@ -71,5 +79,6 @@ void autotest_check(int ok, char *what);	// logs a known answer; a wrong one fai
 int  autotest_save_screen(char *dir, char *name);	// the last frame drawn as <dir>\<name>.bmp (24-bit); 1 if written
 void autotest_set_padmenu();			// -at_padmenu: the pad's menu test, see PadMenuTest.cpp
 int  autotest_popups_by_hand();		// the mission has the pad's menu test, whose script answers its in-flight popups
+void autotest_logf(char *format, ...);	// a line in autotest.log
 
 #endif
