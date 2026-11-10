@@ -23,6 +23,19 @@ No multiplayer code or screens come back.
 - To play: copy the `.fc2` files into the install's `data\missions`, then pick the campaign in the Campaign Room.
   The FS1 files need the FS1Compat code and an FS1 install, so they cannot run on this branch alone.
 
+## Shipping
+
+Ruling D-20261109-212152 (#296): the campaign files ship in the package's own `data\missions`, listed in
+`data/package_files.txt`, and the game reads them from a second read-only search root (the folder of the exe or game
+DLL). It never writes them into the player's install. Until that lands, copy the files into the install by hand as above.
+
+## Tests
+
+`-at_campaign <file>` with `-at_mission <m>` plays a mission inside a campaign file on the scratch pilot, so a
+team-vs-team campaign's side applies (`code/Replay/Autotest.h`). Replays restore the pilot and campaign save from the
+recording. `tools\record_autotest.ps1` and `tools\record_autoplay.ps1` take `-Campaign <file>` and name the files
+`<mission>_<campaign>`: recordings/autotest and recordings/autoplay hold MT-01 to MT-10 on both sides and Templar-01 to 04.
+
 ## How the side works
 
 Team-vs-team missions hold two copies of most things: player starts (Alpha, Zeta), briefings, debriefings, goals

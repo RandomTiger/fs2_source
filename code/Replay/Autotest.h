@@ -48,6 +48,9 @@ void autoplay_steer(struct object *objp, float frametime);	// each frame while A
 #define AUTOTEST_ASK_PLAYER_NPC	1	// -playernpc
 #define AUTOTEST_ASK_AUTOPLAY		2	// -at_autoplay
 void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, char *skill, int player_npc);
+// MiniCampaigns: -at_campaign <file>: the -at_mission mission is played inside this campaign file (campaign mode, so a
+// team-vs-team campaign's +Player Team: side applies), on the scratch pilot, whose campaign save it writes
+void autotest_set_campaign(char *campaign);
 void autotest_set_menus();	// -at_menus: a tour of every single-player screen instead of the missions
 void autotest_set_shots(char *dir);	// -at_shots: a screenshot of each screen of the tour
 void autotest_set_awards(char *which);	// -at_awards: the tour's debriefing shows awards (m medal, r rank, b badge; none named means all)

@@ -2,7 +2,7 @@
 Records missions under autoplay (the autotest that tries to win, code\Replay\Autoplay.h) into
 recordings\autoplay, then replays each in Release and compares the traces.
 
-  tools\record_autoplay.ps1 [-Missions sm1-01,sm1-02] [-Skill 2] [-Time 1800] [-GameDir <dir>] [-Fs1]
+  tools\record_autoplay.ps1 [-Missions sm1-01,sm1-02] [-Skill 2] [-Time 1800] [-GameDir <dir>] [-Fs1] [-Campaign <file>]
 
 -Fs1 plays the FreeSpace 1 main campaign (sm1-01 to sm3-09a, 29 missions) and Silent Threat
 (md-01 to md-12) in the FS1 install
@@ -18,6 +18,8 @@ level is a separate, labelled run: its files get a _skillN suffix.
 for named missions (D-20261108-034420), unless -Time is given.
 The summary lists each mission's "Autoplay result" line (WON, FAILED, PARTIAL, STALLED, TIMEOUT).
 The results are a tracked baseline, not a gate; the replays must still sync (D-20261107-124845).
+-Campaign <file> plays each mission inside that campaign file (-at_campaign, MiniCampaigns: a team-vs-team
+campaign's side applies); the files are named <mission>_<campaign>.
 An existing recording of the same mission is replaced; check the replays before committing.
 Build Release first, and don't run the game from another session while this runs.
 #>
@@ -29,7 +31,8 @@ param(
 	[ValidateRange(0, 4)][int]$Skill = 2,
 	[int]$Time = 1800,
 	[string]$GameDir,
-	[switch]$Fs1
+	[switch]$Fs1,
+	[string]$Campaign
 )
 
 $repo = Split-Path $PSScriptRoot
@@ -48,6 +51,7 @@ $rec = Join-Path $repo $(if ($Fs1) { 'recordings\autoplay_fs1' } else { 'recordi
 $out = Join-Path $repo ("replays\autoplay_" + (Get-Date -Format 'yyyyMMdd_HHmm'))
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $rec, $out | Out-Null
+if ($Campaign) { Copy-Item (Join-Path $repo 'data\missions\*.fc2') (Join-Path $GameDir 'data\missions') }
 $Missions = $Missions | ForEach-Object { $_ -split ',' } | Where-Object { $_ -notlike 'Autotest*' }
 $summary = Join-Path $out 'summary.txt'
 # per-mission time caps (D-20261108-034420): mission time in seconds, only where measurements show the
@@ -58,11 +62,13 @@ $TimeCaps = @{
 
 foreach ($mission in $Missions) {
 	$m = if ($Skill -eq 2) { $mission } else { "${mission}_skill$Skill" }
+	$camp = ''
+	if ($Campaign) { $m += "_$Campaign"; $camp = " -at_campaign $Campaign" }
 	$cap = if ($TimeCaps.ContainsKey($mission) -and -not $PSBoundParameters.ContainsKey('Time')) { $TimeCaps[$mission].Time } else { $Time }
 	# the recorder writes NAME_2 beside an existing file instead of replacing it
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$p = Start-Process (Join-Path $GameDir (Get-FS2Exe r)) -WorkingDirectory $GameDir -Wait -PassThru `
-		-ArgumentList "-window -autotest -at_mission $mission -at_autoplay -at_skill $Skill -at_time $cap -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
+		-ArgumentList "-window -autotest -at_mission $mission$camp -at_autoplay -at_skill $Skill -at_time $cap -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$result = (Select-String -Path (Join-Path $rec "$m.autotest.log") -Pattern 'Autoplay result: (.*)' | Select-Object -Last 1)
 	$result = if ($result) { $result.Matches[0].Groups[1].Value } else { 'no result line' }

@@ -2,12 +2,14 @@
 Records missions under autotest into recordings\autotest, then replays each in Release and Debug and
 compares the traces.
 
-  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-GameDir <dir>]
+  tools\record_autotest.ps1 -Missions AutotestAI,sm1-01 [-Time 120] [-NoPlayerNpc] [-Campaign <file>] [-GameDir <dir>]
 
 Automatic recordings run with -playernpc: the AI flies the player ship. A mission whose notes say
 "autotest: player stays still" is still played with nobody flying the player (the game checks).
 -NoPlayerNpc records without it.
 The time limit is -Time, unless the mission file in data\missions has "-at_time N" in its notes.
+-Campaign <file> plays each mission inside that campaign file (-at_campaign, MiniCampaigns: a team-vs-team
+campaign's side applies); the files are named <mission>_<campaign>.
 An existing recording of the same mission is replaced; check the replays before committing.
 Build both configs first, and don't run the game from another session while this runs.
 #>
@@ -15,6 +17,7 @@ param(
 	[Parameter(Mandatory = $true)][string[]]$Missions,
 	[int]$Time = 120,
 	[switch]$NoPlayerNpc,
+	[string]$Campaign,
 	[string]$GameDir = $env:PATH_FS2
 )
 
@@ -26,12 +29,15 @@ $out = Join-Path $repo ("replays\record_" + (Get-Date -Format 'yyyyMMdd_HHmm'))
 $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $rec, $out | Out-Null
 Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
+Copy-Item (Join-Path $repo 'data\missions\*.fc2') (Join-Path $GameDir 'data\missions')
 $Missions = $Missions | ForEach-Object { $_ -split ',' }
 $summary = Join-Path $out 'summary.txt'
 
-foreach ($m in $Missions) {
+foreach ($mission in $Missions) {
+	$m = if ($Campaign) { "${mission}_$Campaign" } else { $mission }
+	$camp = if ($Campaign) { " -at_campaign $Campaign" } else { '' }
 	$t = $Time
-	$file = Join-Path $repo "data\missions\$m.fs2"
+	$file = Join-Path $repo "data\missions\$mission.fs2"
 	if (Test-Path $file) {
 		$notes = [regex]::Match((Get-Content -Raw $file), '(?s)\$Notes:(.*?)\$End Notes:').Groups[1].Value
 		$found = [regex]::Match($notes, '-at_time (\d+)')
@@ -40,7 +46,7 @@ foreach ($m in $Missions) {
 	foreach ($e in '.fs2rec', '.trace', '.autotest.log', '.fs2rec.record.log', '.fs2rec.replay.log') { Remove-Item (Join-Path $rec "$m$e") -ErrorAction SilentlyContinue }
 	$npc = if ($NoPlayerNpc) { '' } else { ' -playernpc' }
 	$p = Start-Process (Join-Path $GameDir (Get-FS2Exe r)) -WorkingDirectory $GameDir -Wait -PassThru `
-		-ArgumentList "-window -autotest -at_mission $m -at_time $t$npc -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
+		-ArgumentList "-window -autotest -at_mission $mission$camp -at_time $t$npc -record `"$rec\$m.fs2rec`" -trace `"$rec\$m.trace`""
 	Copy-Item (Join-Path $GameDir 'autotest.log') (Join-Path $rec "$m.autotest.log")
 	$line = "$m ($t s$npc) record exit=$($p.ExitCode) " + (Get-Content (Join-Path $rec "$m.fs2rec.record.log") -Tail 1)
 	foreach ($c in 'r', 'd') {
