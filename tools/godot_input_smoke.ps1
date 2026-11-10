@@ -25,6 +25,8 @@ function Run-Live($name, $inject) {
 	Remove-Item Env:FS2_DLL, Env:FS2_ROOT, Env:FS2_CMD, Env:FS2_FIBER, Env:FS2_FRAMES, Env:FS2_INJECT -ErrorAction SilentlyContinue
 	"$name godot exit=$($p.ExitCode)"
 }
+$proj = Join-Path $repo 'godot'	# a fresh worktree has no import yet, so the extension would not load (#245)
+if (-not (Test-Path (Join-Path $proj '.godot\extension_list.cfg'))) { & (Join-Path $env:GODOT_ENGINE_4_7 'Godot_v4.7.2-stable_win64_console.exe') --headless --path $proj --import | Out-Null }
 function Count($name, $pat) { $l = Select-String -Path "$Out\$name.fs2rec.record.log" -Pattern $pat -ErrorAction SilentlyContinue | Select-Object -First 1; if ($l) { ($l.Line.Trim() -split '\s+')[1] } else { 0 } }
 $res += Run-Live 'base' $false
 $res += Run-Live 'inject' $true
@@ -53,6 +55,7 @@ $res += "TraceDiff live vs godot replay:  $t"
 Get-ChildItem (Join-Path $GameDir 'data\players') -Recurse -File -Filter 'AutotestPilot.*' -ErrorAction SilentlyContinue | Remove-Item -Force	# the game makes this scratch pilot when it is missing: leave none in the install (#164)
 # its own grade (#232): the injected run took more key and mouse input, both replays say REPLAY OK, both traces match
 $bad = @()
+if (-not (Select-String -Path "$Out\inject.out.txt" -Pattern '^inject: step 7 ' -Quiet)) { $bad += 'the run ended before every injected event was sent' }	# #245
 if ($cnt['inject'][0] -le $cnt['base'][0]) { $bad += 'ev_key not above base' }
 if ($cnt['inject'][1] -le $cnt['base'][1]) { $bad += 'ev_mouse not above base' }
 if ("$nr" -notmatch '^REPLAY OK') { $bad += 'native replay' }
