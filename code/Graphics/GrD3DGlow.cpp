@@ -357,15 +357,15 @@ static void d3d_glow_build(int bitmap_handle, glow_slot *g)
 
 	{
 		// same nearest-texel scaling as d3d_create_texture_sub, so glow texels
-		// line up with the base texture's
+		// line up with the base texture's (a step of w/tex_w since fix review 72 removed its (w-1)/w shift, #134)
 		fix u, utmp, v, du, dv;
 		ushort *dst;
 		ubyte idx;
 		ushort pixel;
 
 		u = v = 0;
-		du = ( (bmap_w-1)*F1_0 ) / tex_w;
-		dv = ( (bmap_h-1)*F1_0 ) / tex_h;
+		du = ( bmap_w*F1_0 ) / tex_w;
+		dv = ( bmap_h*F1_0 ) / tex_h;
 
 		for ( j=0; j<tex_h; j++ )	{
 			dst = (ushort*)(((char*)ddsd.lpSurface) + ddsd.lPitch * j);
