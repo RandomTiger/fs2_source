@@ -1,5 +1,7 @@
 # Fix review: bm_create writes past the bitmap table when no slot is free
 
+GitHub issue #60.
+
 **Recommendation: TAKE.** One-line fix to an out-of-bounds write; only reached when all 3500 bitmap slots are in use. Found with `/analyze` (C6386) on 2026-10-13.
 
 ## The bug

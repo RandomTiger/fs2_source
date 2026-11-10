@@ -1,5 +1,7 @@
 # Fix review: VecMat.cpp `vm_matrix_to_rot_axis_and_angle` (180° case)
 
+GitHub issue #28.
+
 **Recommendation: TAKE. Re-record SM1-01 and SM1-02 afterwards.**
 
 ## The bug

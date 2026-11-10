@@ -1,5 +1,7 @@
 # Fix review: mission log reads Ships[-1] when a ship name is not found
 
+GitHub issue #64.
+
 **Recommendation: TAKE.** Out-of-bounds reads after an Assert that Release skips. Found with `/analyze` (C6385) on 2026-10-13.
 
 ## The bug

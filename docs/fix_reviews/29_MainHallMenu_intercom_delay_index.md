@@ -1,5 +1,7 @@
 # Fix review: main hall intercom delay read with index -1
 
+GitHub issue #56.
+
 **Recommendation: TAKE.** Low risk, menu only.
 
 Found by the compiler's code analysis (`/analyze`, warning C6385).

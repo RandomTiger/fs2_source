@@ -4078,6 +4078,8 @@ void game_frame()
 
 				if(!Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship; demo playback guard removed (#70)
 					read_player_controls( Player_obj, flFrametime);
+				} else if (Autoplay_steering) {	// Claude: autoplay flies the player itself for a scan
+					autoplay_steer(Player_obj, flFrametime);
 				}
 			}
 			

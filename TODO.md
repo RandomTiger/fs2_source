@@ -51,7 +51,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [x] Commit the recorder work on RecordPlayback.
 - [x] Record a full mission and confirm the replay matches its trace (SM1-01).
 - [ ] Tom (2026-10-17): back-fill every historical fix as a GitHub issue on RandomTiger/fs2_source: one per fix, from the OriginalSourceBugFixes commits and docs/fix_reviews, then each later layer's fixes, labelled and linked to its commit. New findings are logged as issues as they are found (#1, #2 so far).
-- [ ] Threshold experiments E1-E4 for TraceDiff tolerances.
+- [x] ~~Threshold experiments E1-E4 for TraceDiff tolerances.~~ Dropped (Tom, 2026-11-10).
 
 ## 32 bit rendering (32BitRendering branch)
 - [x] D3D 32 bit screen and textures by default (PCX: model textures, VFX, UI,
@@ -64,7 +64,7 @@ Found with a `/analyze` build of RecordPlayback on 2026-10-13. Reviews 28 and 29
 - [ ] Tom (back burner, 2026-10-17): demo mode. The demo is the only freely distributable data, so keep the demo logic (`FS2_DEMO`, `DEMO` blocks) and make the game detect demo data and switch to demo mode at run time instead of at build time. Tom to be involved. The build-variant dead-code group (D-063 G1: OEM, beta, press tour and the rest) waits for this, since much of it shares conditions with the demo blocks.
       The old one was removed there because the debris change (docs/DEBRIS_OFFSCREEN_FIX.md)
       makes it desync; it still passes on `Enhanced` and below.
-- [ ] Optional: GS_event_text in the debug log is out of step with the GS_EVENT
+- [x] Dropped (Tom, 2026-11-10). Optional: GS_event_text in the debug log is out of step with the GS_EVENT
       numbers from event 15 on (debug output only).
 ## PrePort
 - [x] Mission files check out with CRLF (recordings checksum the bytes): `.gitattributes` on
