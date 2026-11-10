@@ -1562,6 +1562,7 @@ void game_post_level_init()
 	// after mission loads, some things must get initted after the level loads
 
 	model_level_post_init();
+	rand();	// Claude: DIAG divergence probe: one extra random draw shifts the gameplay stream, so every replay must fail on the build machine (Tom, 2026-11-10); reverted after one run
 
  	HUD_init();
 	hud_setup_escort_list();
