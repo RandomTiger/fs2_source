@@ -35,7 +35,6 @@
 #include "2d.h"
 #include "MissionBrief.h"
 #include "DataSetProfile.h"
-#include "MissionCampaign.h"
 #include "key.h"
 #include "2d.h"
 #include "GrInternal.h"
@@ -104,7 +103,6 @@ static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mis
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
-static char Autotest_campaign[MAX_FILENAME_LEN] = "";	// MiniCampaigns: -at_campaign, or "" for the simulator path
 
 // the pilot autotest makes when there is none, or the one asked for will not load (#95)
 #define AUTOTEST_SCRATCH_PILOT		"AutotestPilot"
@@ -415,17 +413,8 @@ void autotest_set_from_recording(int on, int time, int speed)
 	autotest_logf("Replaying a recording made %s autotest rules%s%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "", Autoplay_on ? ", autoplay" : "");
 }
 
-void autotest_set_campaign(char *campaign)
-{
-	if (!campaign || !campaign[0] || (strlen(campaign) > MAX_FILENAME_LEN - 5)) {
-		autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_campaign needs a campaign file name");
-	}
-	strcpy(Autotest_campaign, campaign);
-}
-
 // ManagePilot.cpp: writes the file even under autotest, which write_pilot_file does not
 extern int write_pilot_file_core(player *p);
-extern int mission_campaign_savefile_save();	// MissionCampaign.cpp, not in its header
 extern void debrief_award_init();
 
 // Load the scratch pilot, first creating it as the pilot screen's "create" button does if it is
@@ -466,10 +455,7 @@ int autotest_load_pilot()
 	}
 
 	why[0] = 0;
-	if (Autotest_campaign[0]) {
-		// MiniCampaigns: -at_campaign writes the pilot's current campaign and its save, so never a player's pilot
-		strcpy(why, "-at_campaign");
-	} else if (!Autotest_pilot[0]) {
+	if (!Autotest_pilot[0]) {
 		// the most recently saved single-player pilot that is not the scratch one
 		count = cf_get_file_list_preallocated(MAX_PILOTS, pilots_arr, pilots, CF_TYPE_SINGLE_PLAYERS, NOX("*.plr"), CF_SORT_TIME);
 		for (i = 0; i < count; i++) {
@@ -522,40 +508,6 @@ static int autotest_next_mission()
 	return 0;
 }
 
-// MiniCampaigns: -at_campaign: start Autotest_current inside the campaign file by the ready room's continue-campaign
-// path, which a replay of the recording takes too (from the pilot and campaign save the recording holds)
-static void autotest_start_in_campaign()
-{
-	int i;
-
-	if (mission_campaign_load(Autotest_campaign, 0)) {
-		autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_campaign: cannot load campaign '%s'", Autotest_campaign);
-	}
-	for (i = 0; i < Campaign.num_missions; i++) {
-		if (!stricmp(Campaign.missions[i].name, Autotest_current)) {
-			break;
-		}
-	}
-	if (i == Campaign.num_missions) {
-		autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_campaign: mission '%s' is not in campaign '%s'", Autotest_current, Autotest_campaign);
-	}
-	Campaign.prev_mission = i - 1;
-	Campaign.next_mission = i;
-	// earlier missions count as skipped, as retail's skip-to-mission does (mission_campaign_skip_to_next): previous-event
-	// and previous-goal sexps then take their defaults instead of warning about a mission never played
-	for (int j = 0; j < i; j++) {
-		Campaign.missions[j].completed = 1;	// the campaign save keeps flags only for completed missions (no goals or events: never played)
-		Campaign.missions[j].flags |= CMISSION_FLAG_SKIPPED;
-	}
-	Campaign.num_missions_completed = i;
-	strcpy(Player->current_campaign, Campaign.filename);
-	if (mission_campaign_savefile_save() || write_pilot_file_core(Player)) {
-		autotest_fatal(AUTOTEST_EXIT_FAILED, "-at_campaign: cannot save the pilot or campaign");
-	}
-	autotest_logf("Campaign '%s' (side %d), mission %d\n", Campaign.filename, Campaign.player_team + 1, i);
-	gameseq_post_event(GS_EVENT_NEW_CAMPAIGN);
-}
-
 static void autotest_main_menu()
 {
 	if (Autotest_started) {
@@ -591,11 +543,6 @@ static void autotest_main_menu()
 	Autotest_ending = 0;
 	Autotest_gave_up = 0;
 	autotest_logf("Mission '%s': starting, %d s of mission time at %dx%s\n", Autotest_current, Autotest_time, Autotest_speed, Autotest_player_npc ? ", the AI flying the player" : "");
-
-	if (Autotest_campaign[0]) {
-		autotest_start_in_campaign();
-		return;
-	}
 
 	// the same path as the simulator room
 	strncpy(Game_current_mission_filename, Autotest_current, MAX_FILENAME_LEN - 1);

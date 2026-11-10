@@ -97,7 +97,6 @@
  */
 
 #include "HUD.h"
-#include "MissionParse.h"	// Claude: MiniCampaigns: mission_single_tvt(), mission_player_team()
 #include "HUDWingmanStatus.h"
 #include "ship.h"
 #include "2d.h"
@@ -457,16 +456,16 @@ void hud_wingman_kill_multi_teams()
 	int wing_index;
 
 	// do nothing in single player or non team v. team games
-	if ( (Game_mode & GM_NORMAL) && !mission_single_tvt() )	// Claude: MiniCampaigns
+	if ( Game_mode & GM_NORMAL )
 		return;
 
 	if ( !IS_MISSION_MULTI_TEAMS )
 		return;
 
 	wing_index = -1;
-	if ( mission_player_team() == 0 )	// Claude: MiniCampaigns
+	if ( Net_player->p_info.team == 0 )
 		wing_index = hud_wingman_status_wing_index(NOX("zeta"));
-	else if ( mission_player_team() == 1 )	// Claude: MiniCampaigns
+	else if ( Net_player->p_info.team == 1 )
 		wing_index = hud_wingman_status_wing_index(NOX("alpha"));
 
 	if ( wing_index == -1 )

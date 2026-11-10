@@ -260,7 +260,6 @@ cmdline_parm autotest_speed_arg("-at_speed", NULL);
 cmdline_parm autotest_pilot_arg("-at_pilot", NULL);
 cmdline_parm no_ship_glow_arg("-noshipglow", NULL);	// Claude: turn off the D3D ship glow
 cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced red ship glow
-cmdline_parm autotest_campaign_arg("-at_campaign", NULL);	// Claude: MiniCampaigns: the -at_mission mission is played inside this campaign file, see Autotest.h
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm autotest_debugcam_arg("-at_debugcam", NULL);	// Claude: the debug camera test, see Autotest.h (#125)
@@ -761,9 +760,6 @@ int parse_cmdline(char *cmdline)
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
 			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL,
 			(playernpc_arg.found() ? AUTOTEST_ASK_PLAYER_NPC : 0) | (autoplay_arg.found() ? AUTOTEST_ASK_AUTOPLAY : 0));	// Claude: -at_autoplay
-		if(autotest_campaign_arg.found()){	// Claude: MiniCampaigns: -at_campaign
-			autotest_set_campaign(autotest_campaign_arg.str());
-		}
 		if(autotest_menus_arg.found()){	// Claude: -at_menus
 			autotest_set_menus();
 		}
