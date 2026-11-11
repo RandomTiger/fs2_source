@@ -718,7 +718,8 @@ int get_debris_from_same_group(int index) {
 
 	// group base + offset
 	// offset is formed by adding 1 or 2 (since 3 in model group) and mapping back in the 0-2 range
-	return group_base + ((group_offset + rand()%2 + 1) % 3);
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	return group_base + ((group_offset + gameplay_rand()%2 + 1) % 3);
 }
 
 // returns a weight that depends on asteroid size.
@@ -823,7 +824,8 @@ void asteroid_create_all()
 			// For asteroid, load only large asteroids
 
 			// get a valid subtype
-			int subtype = rand() % 3;
+			// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+			int subtype = gameplay_rand() % 3;
 			while (Asteroid_field.field_debris_type[subtype] == -1) {
 				subtype = (subtype + 1) % 3;
 			}
@@ -832,7 +834,8 @@ void asteroid_create_all()
 		} else {
 			Assert(num_debris_types > 0);
 
-			int rand_choice = rand() % max_weighted_range;
+			// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+			int rand_choice = gameplay_rand() % max_weighted_range;
 
 			for (idx=0; idx<3; idx++) {
 				// for ship debris, choose type according to odds table
@@ -1000,7 +1003,8 @@ void maybe_throw_asteroid(int count)
 	for ( so = GET_FIRST(&Ship_obj_list); so != END_OF_LIST(&Ship_obj_list); so = GET_NEXT(so) ) {
 		object *A = &Objects[so->objnum];
 		if (so->objnum == Asteroid_throw_objnum) {
-			int subtype = rand() % 3;
+			// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+			int subtype = gameplay_rand() % 3;
 			while (Asteroid_field.field_debris_type[subtype] == -1) {
 				subtype = (subtype + 1) % 3;
 			}
