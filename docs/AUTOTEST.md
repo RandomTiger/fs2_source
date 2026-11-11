@@ -18,10 +18,13 @@ FS2_RecordPlayback_d.exe -window -autotest [-at_mission FILE] [-at_time SECONDS]
 | `-at_speed` | Time compression, 1 to 8. | 4 |
 | `-at_pilot` | The pilot to use. | The most recently saved single-player pilot |
 | `-at_skill` | Skill level, 0 (very easy) to 4 (insane). The recording stores it, so the replay plays at the same level. | The pilot's own |
+| `-at_autoplay` | Try to win the mission (see Autoplay below). Implies `-playernpc`. | Off |
 
 Autotest never saves the pilot file, so the pilot's skill level, stats and settings are left as they were.
 
 No pilot is needed (#95). When the players folder has no single-player pilot, or the `-at_pilot` one is missing or will not load, autotest uses a scratch pilot called `AutotestPilot`, making it as a new pilot if it does not exist or will not load, and logs one line saying so. It never writes, renames or deletes any other pilot, and the default pick skips `AutotestPilot`, so a player's own pilot is still chosen when there is one. A replay is unaffected: it uses the pilot stored in the recording.
+
+`tools\stale_pilot_check.ps1` (FS2 demo and retail installs, Release and Debug, part of `tools\gates\demo_gate.ps1`) proves a version 140 pilot with the wrong medal count is refused, and the same bytes load on the data set they fit (#156). It does not cover a pilot an old build already damaged.
 
 Base-layer worktrees (`VS2022`, `OriginalSourceBugFixes`, `RecordPlayback`) and `Enhanced` must not share a players folder: Enhanced writes pilot version 141, which a base build refuses (not listed, not loaded, left as it is, #114).
 
@@ -55,7 +58,7 @@ Visits every single-player screen and quits: the main hall, the Vasudan (Bastion
 - `-at_shots FOLDER` saves each view as `FOLDER\<category>\<screen>.bmp`, at the screen's own size, once the view has shown for 2.5 s (a screen's intro wipe or fade). The names match the reference captures in the private `fs2_reference` repo. **Never commit the screenshots**: they show game data. Keep the folder outside the repo, or under the git-ignored `replays\`.
 - `-at_awards` makes the debriefing's award panel show: `m` a medal, `r` a promotion, `b` a badge, any mix, none named means all three. A mission outside a campaign can earn none of them, so once the screen is open the tour gives them to the player and draws the panel again, and takes them back when the stop ends. The stats and the pilot file end as they began. The log names them, `Menu tour: awards medal 'X', rank 'Y', badge 'Z'`, or says `Menu tour: awards SKIP nothing to award` if the loaded tables have none. The screens and their order are the same, and with the option off nothing differs. Not for a run whose trace is compared. `tools\gates\awards_check.ps1` runs it (D-20261104-044841, #135).
 - The pilot screen is left out: it deletes old pilot files (#23). So is the goals screen, which FS2 cannot reach (no key, no tab, and its art is not in the FS2 data).
-- `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build.
+- `tools\menu_check.ps1` runs it in Release and Debug and prints the screen lines of each build. It always uses the scratch pilot, so real pilots in the folder cannot change the result, and deletes that pilot before and after each build's run (#141).
 
 ## Debug camera test
 Shift+Pause in a single-player mission pauses with a free camera (W/S/A/D move, mouse looks, Shift faster, Shift+Pause or Esc leaves); plain Pause is unchanged (#125). `-at_debugcam` with `-at_mission` tests it: 5 s into the mission it presses Shift+Pause, holds W then D, moves the mouse, checks the view moved and turned, presses Shift+Pause again and lets the mission play on. It logs `Debug camera test: PASS` or `FAILED: debug camera test: <why>`. The keys and cursor go through the recorder, so add `-record`/`-trace` and the recording replays it. With `-at_shots` it saves `debugcam\before`, `start`, `moved` and `after`.
@@ -81,7 +84,7 @@ Missions written for autotest are in `data/missions` (`Autotest*.fs2`); copy the
 | `AutotestLeaks` | Where sound or drawing fed gameplay (D-031): a voiced message cut short by its speaker's death, looping sounds across a kill, EMP missiles hitting the player, nebula lightning in an active storm |
 | `AutotestTraining` | Training messages: voiced, unvoiced, delayed with a set duration, two queued at once (D-031) |
 | `AutotestJoy` | The joystick read: a scripted stick (`-at_input joy`, recording only) taps a button, holds and releases fire and moves the stick; each frame's reads and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input joy -at_pilot AutotestPilot' -NoPlayerNpc` |
-| `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps D-pad Up and a shoulder, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
+| `AutotestPad` | The control pad: a scripted pad (`-at_input pad`, recording only) taps D-pad Up and North, holds the right trigger under and over its threshold and moves the sticks and left trigger in and out of the dead zones; each frame's pad output and the player's controls are checked against known answers (`code/Replay/InputTest.h`). Record with `-Extra '-at_input pad -at_pilot AutotestPilot' -NoPlayerNpc` |
 
 In the Godot host the same two scripts run as `-at_input joyhost` / `padhost`: the script becomes synthetic Godot joypad events and is read back through Godot's Input (`tools/godot_input_check.ps1`, run by `godot_check.ps1` and `godot_pkg_check.ps1`).
 
@@ -144,6 +147,27 @@ tools\bin\TraceDiff.exe recordings\NAME.trace replays\NAME.trace
 - The time limit is in mission time, which a replay reproduces exactly. A real-time limit would end the replay on a different frame.
 - `-autotest` on a replay adds only the log, the watchdog and the no-dialog handling. The replay still drives the menus itself.
 - If an `Assert` or `Int3` fired while recording, replay with `-autotest` too, or the replay stops at the same `Assert` dialog.
+
+## Autoplay
+```
+FS2_AutoPlay_r.exe -window -autotest -at_mission sm1-02 -at_autoplay -at_skill 2 [-record ... -trace ...]
+tools\record_autoplay.ps1 [-Missions sm1-01,sm1-02] [-Skill 2] [-Time 1800]
+```
+An autotest that tries to win (`code/Replay/Autoplay.cpp`, wip branch `AutoPlay`). The AI flies the player, and a manager beside the game gives it orders the way the squad message menu gives them to a wingman. No game code changes.
+- Once a second of mission time it reads the incomplete primary goals and pending directives (their sexps) for ships to destroy, disable, disarm, destroy a subsystem of, or protect. Order of targets: fighters and bombers attacking a ship to protect (bombers first), goal targets (small ships before big), then the nearest hostile fighter, then any hostile. A goal target on another team (sm1-02's neutral sentry guns) counts too.
+- With no target it guards a ship to protect, else an escort ship, else leaves the mission's own orders to fly the player.
+- A hostile not yet confirmed on the HUD (nebula or stealth) is not attacked; with nothing visible to attack, autoplay closes in on the nearest one (Tom, 2026-11-07).
+- When every primary goal is complete (or only the player's departure is left, with at least one goal complete, since a lone "Alpha 1 departs" goal is a placeholder), it waits 5 s and warps out as Alt-J does. If the mission allows the warp-out only near its jump node, autoplay flies there first (Tom, 2026-11-07).
+- A mission that ends with no debriefing (sm3-09) still gets its result line.
+- Command's "return to base" is a success in any mission (Tom, 2026-11-07): once an event sends a message whose name or text says "return to base", or a chained "Return To Base" directive becomes current (sm3-02), autoplay warps out and the result is `WON (return to base)`, failed goals or not (sm1-06 can only fail).
+- With nothing to attack, autoplay forms on the ship a live event checks the player keeps up with, `( > ( distance <player> <ship> ) N )` (sm1-05's Zeta 1), ahead of guarding (Tom, 2026-11-07).
+- A failed primary goal is not always a failed mission (Tom, 2026-11-07): the run waits 4 minutes of mission time, without warping out, for new objectives (a goal made valid, or a new directive). If some appear it plays on, and the replaced goal does not stop a `WON`; if none do, the run ends `FAILED`.
+- The player is invulnerable, as in any autotest, until autoplay has a good baseline (Tom, 2026-11-07, over D-20261107-124842). Missions whose notes say `autotest: mission controls vulnerability` keep that, and a death there is `FAILED`.
+- The log ends each mission with `Autoplay result: WON | FAILED | PARTIAL n/m | STALLED | TIMEOUT, ...` (D-20261107-124845). `STALLED`: no goal or event changed for 600 s. The default time limit is 1800 s (both doubled, Tom, 2026-11-07). All times are mission time, set in `Autoplay.h` (D-20261107-124844); changing one means re-recording the autoplay suite.
+- The recording header stores the autoplay bit, and the replay runs the manager again; it uses game state and mission time only, so the replay matches (D-20261107-124846).
+- Campaign missions only (Tom, 2026-11-07): the script defaults to every FS2 campaign mission and skips the `Autotest*` feature-test missions. No mission is left out (Tom, 2026-11-07): every campaign mission, FS1 and Silent Threat included, must be shown completable, so loop1-2, loop2-1, sm3-04 and FS1's sm1-06a stay in the set whether they pass or not.
+- sm3-10 ends in the supernova, the only supernova event in the campaign, so autoplay does not run from it (Tom, 2026-11-07).
+- Recordings live in `recordings/autoplay/`. The results are a tracked baseline, not a gate; the replays must still sync (D-20261107-124847).
 
 ## Not covered
 - Nobody flies the player ship, so player weapons, collisions and the player's own damage are not tested. AI ships fight as normal.

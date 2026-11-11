@@ -611,7 +611,7 @@ int popupdead_do_frame(float frametime)
 	k = Popupdead_window.process();
 
 	choice = popupdead_process_keys(k);
-	if ( Autotest_rules ) {	// Claude: an autotest quits the mission (choice 1), as its time limit does, so nothing waits for a player
+	if ( Autotest_rules && !autotest_popups_by_hand() ) {	// Claude: an autotest quits the mission (choice 1), as its time limit does, so nothing waits for a player
 		choice = 1;
 	}
 	if ( choice >= 0 ) {

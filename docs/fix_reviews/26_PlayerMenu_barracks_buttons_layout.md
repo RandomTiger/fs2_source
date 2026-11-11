@@ -1,5 +1,7 @@
 # Fix review: two different structs named barracks_buttons
 
+GitHub issue #53.
+
 **Recommendation: TAKE.** Low risk.
 
 This fix was first committed straight onto `RecordPlayback` (f058d3f, 2026-10-10). It is repeated here, identically, so the original-game fix sits on the right layer; the merge up to `RecordPlayback` changes nothing there.

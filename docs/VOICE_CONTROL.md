@@ -63,7 +63,7 @@ The order can also come first, as the old version allowed through the shortcut k
 - A shortcut key pressed by hand also takes a spoken target.
 - The menu closes by its own timeout, as it does for the key; after that the next utterance is a target or an order again.
 
-Four ship functions can be said at the target step and act at once:
+Five ship functions can be said at the target step and act at once:
 
 | Phrase | What it does |
 |---|---|
@@ -71,6 +71,7 @@ Four ship functions can be said at the target step and act at once:
 | "dual missile" | Turns dual-fire missiles on, if off. |
 | "cycle missile" | Cycles the secondary weapon. |
 | "support", "rearm" or "repair" | Calls in the support ship, as the rearm key does. |
+| "abort" or "abort rearm" | Calls off the support ship, as the menu's abort row does. With none called, plays the fail sound. |
 
 They do what the keys do (`CYCLE_NUM_MISSLES`, `CYCLE_SECONDARY`, and `hud_squadmsg_rearm_shortcut` for `REARM_MESSAGE`). The old version also had gun phrases ("all guns", and turning the primary or secondary banks off) through `CHOOSE_*` control actions; this source has no such actions, only cycling, so those phrases are left out.
 

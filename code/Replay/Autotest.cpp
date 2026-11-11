@@ -17,6 +17,7 @@
 
 #include "pstypes.h"
 #include "Autotest.h"
+#include "Autoplay.h"
 #include "Replay.h"
 #include "FreeSpace.h"
 #include "GameSequence.h"
@@ -26,6 +27,8 @@
 #include "ManagePilot.h"
 #include "Object.h"
 #include "Ship.h"
+#include "ai.h"
+#include "AIGoals.h"
 #include "MissionScreenCommon.h"
 #include "MissionParse.h"
 #include "MissionGoals.h"
@@ -43,6 +46,7 @@
 #include "cmdline.h"
 #include "MissionPause.h"
 #include "3d.h"
+#include "../Pad/PadMenuGame.h"
 #include "Medals.h"
 
 #ifdef _DEBUG
@@ -74,6 +78,7 @@
 // mission times (P7-6/P7-7 feature test): open it, pick a wing and an order, open it and cancel, open it
 // and let it time out. The presses are recorded with the recording and replayed from it, not made again.
 #define AUTOTEST_SQUAD_MENU_NOTE	"autotest: squad menu"
+#define AUTOTEST_PAD_MENU_NOTE		"autotest: pad menu"
 struct autotest_squad_key { float time; int key; };
 static autotest_squad_key Autotest_squad_keys[] = {
 	{ 10.0f, KEY_C }, { 11.5f, KEY_2 }, { 13.0f, KEY_1 }, { 14.5f, KEY_7 },	// open, Wings, first wing, an order
@@ -94,6 +99,8 @@ static int Autotest_player_npc_asked = 0;	// -playernpc, or the recording; a mis
 // the recording header's autotest field: bit 0 autotest rules, bit 1 -playernpc
 #define AUTOTEST_HDR_RULES			1
 #define AUTOTEST_HDR_PLAYER_NPC	2
+#define AUTOTEST_HDR_AUTOPLAY		4	// -at_autoplay: a replay runs the autoplay manager again (D-20261107-124846)
+#define AUTOTEST_HDR_AP_SCAN		8	// autoplay scans the ships an is-cargo-known goal names (Tom, 2026-11-07); recordings made before it lack the bit and replay without it
 
 static char Autotest_mission[MAX_FILENAME_LEN] = "";	// -at_mission, or "" for every campaign mission
 static char Autotest_pilot[MAX_FILENAME_LEN] = "";
@@ -155,7 +162,7 @@ void autotest_poll_done()
 	Autotest_poll_ms = GetTickCount();
 }
 
-static void autotest_logf(char *format, ...)
+void autotest_logf(char *format, ...)
 {
 	va_list args;
 	DWORD ms;
@@ -360,6 +367,9 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 
 	Autotest_harness = 1;
 	Autotest_rules = 1;
+	Autoplay_on = (player_npc & AUTOTEST_ASK_AUTOPLAY) != 0;
+	Autoplay_scan = Autoplay_on;
+	player_npc = ((player_npc & AUTOTEST_ASK_PLAYER_NPC) != 0) || Autoplay_on;	// autoplay needs the AI flying the player
 	Autotest_player_npc = Autotest_player_npc_asked = player_npc;
 	Autotest_start_ms = GetTickCount();
 	if (!once) {
@@ -384,7 +394,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 	}
 #endif
 
-	Autotest_time = autotest_int_arg("-at_time", time, AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
+	Autotest_time = autotest_int_arg("-at_time", time, Autoplay_on ? AUTOPLAY_DEFAULT_TIME : AUTOTEST_DEFAULT_TIME, 1, AUTOTEST_MAX_TIME);
 	Autotest_speed = autotest_int_arg("-at_speed", speed, AUTOTEST_DEFAULT_SPEED, 1, 8);
 	Autotest_skill = autotest_int_arg("-at_skill", skill, -1, 0, NUM_SKILL_LEVELS - 1);
 	if (mission) {
@@ -420,7 +430,7 @@ void autotest_set_cmdline(char *mission, char *time, char *speed, char *pilot, c
 
 void autotest_get_settings(int *on, int *time, int *speed)
 {
-	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0)) : 0;
+	*on = Autotest_rules ? (AUTOTEST_HDR_RULES | (Autotest_player_npc_asked ? AUTOTEST_HDR_PLAYER_NPC : 0) | (Autoplay_on ? AUTOTEST_HDR_AUTOPLAY : 0) | (Autoplay_scan ? AUTOTEST_HDR_AP_SCAN : 0)) : 0;
 	*time = Autotest_rules ? Autotest_time : 0;
 	*speed = Autotest_rules ? Autotest_speed : 0;
 }
@@ -430,11 +440,13 @@ void autotest_set_from_recording(int on, int time, int speed)
 {
 	Autotest_rules = (on & AUTOTEST_HDR_RULES) != 0;
 	Autotest_player_npc = Autotest_player_npc_asked = Autotest_rules && (on & AUTOTEST_HDR_PLAYER_NPC);
+	Autoplay_on = Autotest_rules && (on & AUTOTEST_HDR_AUTOPLAY);
+	Autoplay_scan = Autoplay_on && (on & AUTOTEST_HDR_AP_SCAN);
 	if (Autotest_rules) {
 		Autotest_time = time;
 		Autotest_speed = speed;
 	}
-	autotest_logf("Replaying a recording made %s autotest rules%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "");
+	autotest_logf("Replaying a recording made %s autotest rules%s%s\n", Autotest_rules ? "with" : "without", Autotest_player_npc ? ", the AI flying the player" : "", Autoplay_on ? ", autoplay" : "");
 }
 
 // ManagePilot.cpp: writes the file even under autotest, which write_pilot_file does not
@@ -539,11 +551,16 @@ static void autotest_main_menu()
 		if (Autotest_gave_up) {
 			Autotest_missions_failed++;
 		} else if (Autotest_in_mission) {
+			// a mission that ends with no debrief (sm3-09) still gets its autoplay result line
+			autoplay_result(AUTOPLAY_END_ITSELF);
 			autotest_logf("Mission '%s' done\n", Autotest_current);
 		} else {
 			Autotest_missions_failed++;
 			autotest_logf("FAILED: mission '%s' did not start\n", Autotest_current);
 		}
+
+		// Claude: every run reads the pad menu script's end checks, not only a recording (#154)
+		pad_menu_test_check_finished();
 
 		// a recording holds one mission
 		if (Replay_mode == REPLAY_RECORD) {
@@ -817,6 +834,7 @@ void autotest_cursor_pos(long *x, long *y)
 		*x = 0;
 		*y = 0;
 	}
+	pad_menu_test_cursor(x, y);
 }
 
 static void autotest_press(int key)
@@ -1625,6 +1643,13 @@ void autotest_drive_state(int state)
 		autotest_tour_frame(state);
 		return;
 	}
+	// the pad's menu test works the menus itself before its mission, and the two briefings on the way in; then the
+	// first frame in the main hall starts it, and the first frame after the script is done with a briefing moves on
+	if (pad_menu_test_front_end() || pad_menu_test_holds_briefing(state)) {
+		Autotest_state_ms = Autotest_frame_ms;
+		Autotest_state = -1;
+		return;
+	}
 	if (state == Autotest_state) {
 		// a menu the autotest drives has not moved on (an event was refused or flushed), so give up on
 		// this mission and go on to the next one
@@ -1667,6 +1692,7 @@ void autotest_drive_state(int state)
 		case GS_STATE_DEBRIEF:
 			// the mission ended before the time limit
 			autotest_logf("Mission '%s' ended itself\n", Autotest_current);
+			autoplay_result(AUTOPLAY_END_ITSELF);
 			gameseq_post_event(GS_EVENT_END_GAME);
 			break;
 	}
@@ -1701,6 +1727,33 @@ static void autotest_log_events()
 	}
 }
 
+// -playernpc: the original code never runs goals on the player ship, so a mission order given to the
+// player's whole wing that names the player (loop1-3's "Attack Alpha 1" to wing Alpha) never mattered.
+// With the AI flying the player it would chase itself (Int3 in ai_attack_object), so such goals are
+// dropped before the AI sees them (D-20261109-092603). Only chase goals: the original code already
+// ignores a guard-self goal without a check, and dropping it would change what the player flies (sm1-10).
+static void autotest_drop_self_goals()
+{
+	ai_info *aip;
+	int i;
+
+	if (!Autotest_player_npc || (Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ship->ai_index < 0)) {
+		return;
+	}
+	aip = &Ai_info[Player_ship->ai_index];
+	for (i = 0; i < MAX_AI_GOALS; i++) {
+		ai_goal *gp = &aip->goals[i];
+
+		if ((gp->ai_mode != AI_GOAL_CHASE) || (gp->ship_name == NULL)) {
+			continue;
+		}
+		if (!stricmp(gp->ship_name, Player_ship->ship_name)) {
+			autotest_logf("Mission '%s': goal %d naming the player itself dropped at mission time %.2f\n", Game_current_mission_filename, gp->ai_mode, f2fl(Missiontime));
+			ai_remove_ship_goal(aip, i);
+		}
+	}
+}
+
 void autotest_frame()
 {
 	ship *shipp;
@@ -1718,6 +1771,7 @@ void autotest_frame()
 		Autotest_player_npc = Autotest_player_npc_asked && (strstr(The_mission.notes, AUTOTEST_STILL_NOTE) == NULL);
 		Autotest_squad_menu = (strstr(The_mission.notes, AUTOTEST_SQUAD_MENU_NOTE) != NULL);
 		Autotest_squad_next = 0;
+		autoplay_mission_start();
 		for (i = 0; i < MAX_MISSION_EVENTS; i++) {
 			Autotest_event_state[i] = AUTOTEST_EVENT_PENDING;
 		}
@@ -1727,12 +1781,16 @@ void autotest_frame()
 		input_test_mission_start();	// Claude: a scripted input test, if the mission notes ask for one
 	}
 
-	// every frame: the player may not exist on the first frame, and mission events can clear it
+	// every frame: the player may not exist on the first frame, and mission events can clear it.
+	// Autoplay too: the player stays invulnerable until autoplay has a good baseline (Tom, 2026-11-07,
+	// over D-20261107-124842).
 	if (!Autotest_mission_vulnerability && (Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
 		shipp = &Ships[Player_obj->instance];
 		shipp->flags |= SF_INVULNERABLE;
 		Player_obj->flags |= OF_INVULNERABLE;
 	}
+
+	autotest_drop_self_goals();
 
 	if (!Autotest_in_mission) {
 		Autotest_in_mission = 1;
@@ -1748,7 +1806,15 @@ void autotest_frame()
 	} else if (!Autotest_ending && (Missiontime - Autotest_mission_start >= i2f(Autotest_time))) {
 		Autotest_ending = 1;
 		autotest_logf("Mission '%s': time limit reached at mission time %.2f\n", Game_current_mission_filename, f2fl(Missiontime));
+		autoplay_result(AUTOPLAY_END_TIME);
 		gameseq_post_event(GS_EVENT_END_GAME);
+	} else if (!Autotest_ending && Autoplay_on) {
+		int why = autoplay_frame();
+		if (why != AUTOPLAY_END_NONE) {
+			Autotest_ending = 1;
+			autoplay_result(why);
+			gameseq_post_event(GS_EVENT_END_GAME);
+		}
 	}
 
 	// the squad menu test: press the next key when its mission time comes (a replay gets the presses from the recording)
@@ -1785,13 +1851,35 @@ void autotest_check(int ok, char *what)
 	autotest_logf("Check %s at mission time %.2f: %s\n", ok ? "passed" : "FAILED", f2fl(Missiontime), what);
 }
 
+void autotest_set_padmenu()
+{
+	pad_menu_test_set();
+}
+
+// by the mission's notes and its state, so the same in the recording and in each replay
+int autotest_popups_by_hand()
+{
+	int state = gameseq_get_state();
+
+	return !Autotest_ending && ((state == GS_STATE_GAME_PLAY) || (state == GS_STATE_DEATH_DIED) || (state == GS_STATE_DEATH_BLEW_UP)) && autotest_mission_note(AUTOTEST_PAD_MENU_NOTE);
+}
+
 int autotest_popup(char *text)
 {
-	if (!Autotest_rules) {
+	if (!Autotest_rules || autotest_popups_by_hand()) {
 		return 0;
 	}
 	autotest_logf("Popup answered with its first choice: '%.100s'\n", text);
 	return 1;
+}
+
+// a popup that ends by itself, a loading bar: the pad's menu test needs what it loads, the screen's list
+int autotest_popup_loading(char *text)
+{
+	if (pad_menu_test_front_end()) {
+		return 0;
+	}
+	return autotest_popup(text);
 }
 
 // one Assert / Warning / Int3 can fire every frame, so each place is logged a few times and counted

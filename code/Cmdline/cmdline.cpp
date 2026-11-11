@@ -263,6 +263,7 @@ cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm autotest_debugcam_arg("-at_debugcam", NULL);	// Claude: the debug camera test, see Autotest.h (#125)
+cmdline_parm autotest_padmenu_arg("-at_padmenu", NULL);	// Claude: the pad's menu test, see PadMenuTest.cpp
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm autotest_input_arg("-at_input", NULL);	// Claude: scripted joystick, see InputTest.h
 cmdline_parm autotest_awards_arg("-at_awards", NULL);	// Claude: the tour's debriefing shows awards, see Autotest.h
@@ -276,6 +277,7 @@ cmdline_parm bmframes_arg("-bmframes", NULL);		// Claude
 cmdline_parm loadtimes_arg("-loadtimes", NULL);	// Claude: mission load times log, see LoadTimes.h
 int Cmdline_loadtimes = 0;						// Claude: -loadtimes
 cmdline_parm allmedals_arg("-allmedals", NULL);	// Claude: the medals screen shows every medal, the top rank and every badge (#124)
+cmdline_parm autoplay_arg("-at_autoplay", NULL);	// Claude: autoplay tries to win the mission, see Autoplay.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -764,12 +766,16 @@ int parse_cmdline(char *cmdline)
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
-			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
+			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL,
+			(playernpc_arg.found() ? AUTOTEST_ASK_PLAYER_NPC : 0) | (autoplay_arg.found() ? AUTOTEST_ASK_AUTOPLAY : 0));	// Claude: -at_autoplay
 		if(autotest_menus_arg.found()){	// Claude: -at_menus
 			autotest_set_menus();
 		}
 		if(autotest_debugcam_arg.found()){	// Claude: -at_debugcam (#125)
 			autotest_set_debugcam();
+		}
+		if(autotest_padmenu_arg.found()){	// Claude: -at_padmenu
+			autotest_set_padmenu();
 		}
 		if(autotest_shots_arg.found()){	// Claude: -at_shots
 			autotest_set_shots(autotest_shots_arg.str());

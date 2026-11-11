@@ -1,5 +1,7 @@
 # Fix review: beam-fire reads Sexp_nodes[-1] when no target subsystem is given
 
+GitHub issue #43.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer in the campaign autotest: `CTEXT` reading before `Sexp_nodes[]`, and `ship_get_subsys` comparing the text found there against subsystem names.

@@ -536,7 +536,8 @@ void dc_printf( char *format, ... );
 #define TRUE	1
 #define FALSE	0
 
-int myrand();
+// Claude: the gameplay random stream, renamed from myrand() (Tom, 2026-11-11); every call site renamed with it
+int gameplay_rand();
 // Claude: Separate random stream for cosmetic effects (particles, sparks, stars, HUD effects), so they don't shift gameplay randomness.
 int cosmetic_rand();
 void cosmetic_srand(int seed);

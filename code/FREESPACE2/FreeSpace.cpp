@@ -2044,7 +2044,7 @@ void game_init()
 	int s1, e1;
 	// int s2, e2;
 
-	char whee[1024];
+	char whee[CF_MAX_PATHNAME_LENGTH];  // Claude: was 1024 (fix review 73, #269)
 	strcpy(whee, Game_root_dir);	// Claude: from the host (game_host_init), was the current directory (D-050)
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
@@ -2153,8 +2153,8 @@ void game_init()
 	int has_sparky_hi = 0;
 
 	// check if sparky_hi exists -- access mode 0 means does file exist
-	char dir[128];
-	_getcwd(dir, 128);
+	char dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
+	_getcwd(dir, CF_MAX_PATHNAME_LENGTH);
 	if ( _access("sparky_hi_fs2.vp", 0) == 0) {
 		has_sparky_hi = 1;
 	} else {
@@ -3160,8 +3160,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 			dtime = timestamp_until(pi->afterburner_decay);
 			
-			int r1 = myrand();
-			int r2 = myrand();
+			int r1 = gameplay_rand();
+			int r2 = gameplay_rand();
 			tangles.p += 0.07f * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 			tangles.h += 0.07f * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/ABURN_DECAY_TIME));
 		}
@@ -3169,8 +3169,8 @@ void apply_hud_shake(matrix *eye_orient)
 		// Make eye shake due to engine wash
 		extern int Wash_on;
 		if (Player_obj->type == OBJ_SHIP && (Ships[Player_obj->instance].wash_intensity > 0) && Wash_on ) {
-			int r1 = myrand();
-			int r2 = myrand();
+			int r1 = gameplay_rand();
+			int r2 = gameplay_rand();
 			tangles.p += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r1-RAND_MAX/2)/RAND_MAX;
 			tangles.h += 0.07f * Ships[Player_obj->instance].wash_intensity * (float) (r2-RAND_MAX/2)/RAND_MAX;
 
@@ -3198,8 +3198,8 @@ void apply_hud_shake(matrix *eye_orient)
 
 				dtime = timestamp_until(Game_shudder_time);
 			
-				int r1 = myrand();
-				int r2 = myrand();
+				int r1 = gameplay_rand();
+				int r2 = gameplay_rand();
 				tangles.p += (Game_shudder_intensity / 200.0f) * (float) (r1-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 				tangles.h += (Game_shudder_intensity / 200.0f) * (float) (r2-RAND_MAX/2)/RAND_MAX * (0.5f - fl_abs(0.5f - (float) dtime/(float)Game_shudder_total));
 			}
@@ -4078,6 +4078,8 @@ void game_frame()
 
 				if(!Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship; demo playback guard removed (#70)
 					read_player_controls( Player_obj, flFrametime);
+				} else if (Autoplay_steering) {	// Claude: autoplay flies the player itself for a scan
+					autoplay_steer(Player_obj, flFrametime);
 				}
 			}
 			
@@ -4567,9 +4569,13 @@ void demo_maybe_show_trailer(int k)
 // generally are differences between game control keys and general UI keys, makes sense to
 // have seperate functions for each case.  If you are not checking a game control while in a
 // mission, you should probably be using game_check_key() instead.
+extern void pad_menu_poll();	// Claude: control pad on the menus, see PadMenuGame.h
+
 int game_poll()
 {
 	int k, state;
+
+	pad_menu_poll();	// Claude: before the first recorded read here
 
 	// Claude: An autotest keeps playing when its window is not in front.  os_foreground() is still read first, so the recording is unchanged.
 	if (!os_foreground() && !Autotest_rules) {		

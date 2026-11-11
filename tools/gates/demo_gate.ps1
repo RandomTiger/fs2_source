@@ -10,10 +10,10 @@ $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 $bad = @()
 if ($Warn) {
 	$w = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\warning_check.ps1" -RepoDir $Repo | Select-Object -Last 1
-	"warning_check: $w"; if ($w -notmatch '^PASS') { $bad += 'warnings' }
+	"warning_check: $w"; if ("$w" -notmatch '^PASS') { $bad += 'warnings' }
 }
 $d = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\build_demo.ps1" | Select-Object -Last 3
-"demo build: $($d -join ' / ')"; if ($d[-1] -notmatch '^PASS') { $bad += 'demo build' }
+"demo build: $($d -join ' / ')"; if ("$($d | Select-Object -Last 1)" -notmatch '^PASS') { $bad += 'demo build' }
 $msb = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 & $msb "$Repo\tools\TraceDiff\TraceDiff.vcxproj" /p:Configuration=Release /p:Platform=Win32 "/p:SolutionDir=$Repo\" /m /v:q /nologo > "$env:TEMP\${Label}_td.txt" 2>&1
 foreach ($c in 'Release', 'Debug') {
@@ -26,7 +26,9 @@ $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\replay_c
 $r | Where-Object { $_ -match '^(FAIL|SKIP)' } | ForEach-Object { $_.Substring(0, [Math]::Min(170, $_.Length)) }
 $last = $r | Select-Object -Last 1; "replays: $last"
 $fails = @($r | Where-Object { $_ -match '^FAIL ' })
-if ($fails.Count -or ($r -match '^SKIP')) { $bad += 'replays' }
+if ($fails.Count -or ($r -match '^SKIP') -or -not ($r -match '^DONE ')) { $bad += 'replays' }
 $t = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\tools_check.ps1" -Game $env:PATH_FS2 | Select-Object -Last 1
-"tools: $t"; if ($t -notmatch '^PASS') { $bad += 'tools' }
-if ($bad) { "FAIL $($bad -join ', ')" } else { 'PASS' }
+"tools: $t"; if ("$t" -notmatch '^PASS') { $bad += 'tools' }
+$s = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\stale_pilot_check.ps1" | Select-Object -Last 1
+"stale pilot: $s"; if ("$s" -notmatch '^PASS') { $bad += 'stale pilot' }
+if ($bad) { "FAIL $($bad -join ', ')"; exit 1 } else { 'PASS' }

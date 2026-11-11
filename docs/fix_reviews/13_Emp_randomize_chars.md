@@ -1,5 +1,7 @@
 # Fix review: emp_randomize_chars reads past the end of its character table
 
+GitHub issue #40.
+
 **Recommendation: TAKE.** Low risk.
 
 Found because Debug replays of Release recordings of loop2-1 diverged. Logging the caller of every gameplay random draw in a Release recording and its Debug replay showed the first difference in `emp_randomize_chars`: the two builds made a different number of draws scrambling the same HUD directive text while an EMP was on the player.

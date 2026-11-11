@@ -349,7 +349,7 @@ typedef struct {
 
 
 #define CF_MAX_FILENAME_LENGTH 	32		// Includes null terminater, so real length is 31
-#define CF_MAX_PATHNAME_LENGTH 	256	// Includes null terminater, so real length is 255
+#define CF_MAX_PATHNAME_LENGTH 	32768	// Includes null terminater, so real length is 32767  // Claude: was 256; 32767 is the longest path Windows allows, a long install path overran the old buffers (fix review 73, #269)
 
 #define CF_TYPE_ANY						-1		// Used to check in any directory
 

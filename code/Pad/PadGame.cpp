@@ -8,6 +8,7 @@
 #include "PadGame.h"
 #include "PadCore.h"
 #include "PadXInput.h"
+#include "PadMenuGame.h"
 
 #include "Physics.h"
 #include "Player.h"
@@ -19,6 +20,8 @@
 #include "Ship.h"
 #include "ai.h"
 #include "AiGoals.h"
+#include "HUDtarget.h"
+#include "Object.h"
 
 extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is reading a device
 
@@ -32,6 +35,15 @@ extern int joy_num_sticks;					// Joy.cpp: 1 if the legacy joystick code is read
 #define PAD_ACTION_MENU_SELECT	1006
 #define PAD_ACTION_MENU_BACK		1007
 #define PAD_ACTION_TALK			1008			// held: voice push-to-talk
+#define PAD_ACTION_TARGET			1009			// South: ship in reticle, then its subsystem, then no subsystem
+#define PAD_ACTION_SECONDARY_STEP	1010		// RB + North: one step of bank 1 single, double, bank 2 single, double
+#define PAD_ACTION_ETS_SHOW		1011			// held: draw the selected system on the ETS gauge
+#define PAD_ACTION_ETS_PREV		1012			// RB + D-pad: the energy system to change, and change it
+#define PAD_ACTION_ETS_NEXT		1013
+#define PAD_ACTION_ETS_UP			1014
+#define PAD_ACTION_ETS_DOWN		1015
+#define PAD_ACTION_TARGET_NEAREST	1016		// East: the nearest hostile
+#define PAD_ACTION_TARGET_NEXT	1017			// East again within PAD_REPRESS_MS of its release: the next hostile
 
 // HUDsquadmsg.cpp
 extern void hud_squadmsg_pad_open();
@@ -42,71 +54,46 @@ extern void hud_squadmsg_pad_back();
 extern int hud_squadmsg_voice_in_command();
 extern int hud_squadmsg_voice_row(int row, char **text, int *order, int *active);
 
-// Core layout. Everything else stays on the keyboard for now.
+// HUDtarget.cpp
+extern object *hud_pad_reticle_top();
+extern void hud_pad_reticle_fresh();
+extern ship_subsys *hud_pad_subsystem_in_reticle();
+extern void hud_pad_target_hostile(int next);
+
+// Flight layout (#151). Everything else stays on the keyboard for now. Layers keep a press to the
+// layer it went down in (PadCore.h), so the base action of a button pressed with RB never happens.
 static const pad_binding Pad_game_bindings[] = {
+	// RB: axes, and so the left trigger, carry on under it
+	{ PAD_RSHOULDER,			PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_ETS_SHOW },
+	{ PAD_INPUT_LTRIGGER,	PAD_G_DOUBLE_TAP_HOLD,	PAD_LAYER_ANY,		AFTERBURNER },
+
 	{ PAD_INPUT_RTRIGGER,	PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_PRIMARY },
+	{ PAD_NORTH,				PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_SECONDARY },
 	{ PAD_DPAD_UP,				PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_TOP },
 	{ PAD_DPAD_DOWN,			PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_BOTTOM },
 	{ PAD_DPAD_LEFT,			PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_LEFT },
 	{ PAD_DPAD_RIGHT,			PAD_G_PRESS,				PAD_LAYER_BASE,	SHIELD_XFER_RIGHT },
-	{ PAD_INPUT_LTRIGGER,	PAD_G_DOUBLE_TAP_HOLD,	PAD_LAYER_BASE,	AFTERBURNER },
-	{ PAD_RSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	FIRE_SECONDARY },
-	{ PAD_LSHOULDER,			PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_SLOW },
+	{ PAD_LSHOULDER,			PAD_G_HOLD_PAST_TAP,		PAD_LAYER_BASE,	PAD_CORE_ACTION_SPEED_MODE },
 	{ PAD_LSHOULDER,			PAD_G_DOUBLE_TAP,			PAD_LAYER_BASE,	ZERO_THROTTLE },
-	{ PAD_INPUT_RSTICK_DOWN,	PAD_G_PRESS,			PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE },
-	{ PAD_SOUTH,				PAD_G_HOLD,					PAD_LAYER_ANY,		PAD_ACTION_TALK },	// voice push-to-talk, also while the squad menu is up
-	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_ANY,		PAD_ACTION_PAUSE },
+	{ PAD_RSTICK,				PAD_G_PRESS,				PAD_LAYER_BASE,	LAUNCH_COUNTERMEASURE,					PAD_CHORD_WITHOUT(PAD_LSHOULDER) },
+	{ PAD_RSTICK,				PAD_G_PRESS,				PAD_LAYER_BASE,	TOGGLE_AUTO_MATCH_TARGET_SPEED,		PAD_CHORD_WITH(PAD_LSHOULDER) },
+	{ PAD_SOUTH,				PAD_G_PRESS,				PAD_LAYER_BASE,	PAD_ACTION_TARGET },
+	{ PAD_EAST,					PAD_G_PRESS_FRESH,		PAD_LAYER_BASE,	PAD_ACTION_TARGET_NEAREST },
+	{ PAD_EAST,					PAD_G_PRESS_AGAIN,		PAD_LAYER_BASE,	PAD_ACTION_TARGET_NEXT },
+	{ PAD_WEST,					PAD_G_HOLD,					PAD_LAYER_BASE,	PAD_ACTION_TALK },	// voice push-to-talk, also while the squad menu is up
+	{ PAD_START,				PAD_G_PRESS,				PAD_LAYER_BASE,	PAD_ACTION_PAUSE },
+
+	{ PAD_NORTH,				PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_SECONDARY_STEP },
+	{ PAD_INPUT_RTRIGGER,	PAD_G_PRESS,				PAD_LAYER_MOD,		CYCLE_NEXT_PRIMARY },
+	{ PAD_LSHOULDER,			PAD_G_LONG_HOLD,			PAD_LAYER_MOD,		END_MISSION },
+	{ PAD_DPAD_LEFT,			PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_ETS_PREV },
+	{ PAD_DPAD_RIGHT,			PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_ETS_NEXT },
+	{ PAD_DPAD_UP,				PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_ETS_UP },
+	{ PAD_DPAD_DOWN,			PAD_G_PRESS,				PAD_LAYER_MOD,		PAD_ACTION_ETS_DOWN },
 };
 
-// Pad tree: hold a face button, the D-pad picks. Options are Up, Right, Down, Left.
-// Below the root, Left is Back (set by the core).
-enum {
-	PAD_NODE_TARGETING,
-	PAD_NODE_HOSTILE,
-	PAD_NODE_SUBSYSTEM,
-	PAD_NODE_OTHER,
-	PAD_NODE_WEAPONS,
-	PAD_NODE_COMMANDS,
-	PAD_NUM_NODES
-};
-
-static const pad_tree_node Pad_game_nodes[PAD_NUM_NODES] = {
-	{ "Targeting", {
-		{ "Match speed",		MATCH_TARGET_SPEED,						-1 },
-		{ "Hostile",			-1,											PAD_NODE_HOSTILE },
-		{ "Subsystem",			-1,											PAD_NODE_SUBSYSTEM },
-		{ "Other",				-1,											PAD_NODE_OTHER } } },
-	{ "Hostile", {
-		{ "Next",				TARGET_NEXT_CLOSEST_HOSTILE,			-1 },
-		{ "Attacking me",		TARGET_CLOSEST_SHIP_ATTACKING_SELF,	-1 },
-		{ "Previous",			TARGET_PREV_CLOSEST_HOSTILE,			-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Subsystem", {
-		{ "Next",				TARGET_NEXT_SUBOBJECT,					-1 },
-		{ "In reticle",		TARGET_SUBOBJECT_IN_RETICLE,			-1 },
-		{ "Previous",			TARGET_PREV_SUBOBJECT,					-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Other", {
-		{ "Next cargo",		TARGET_NEXT_UNINSPECTED_CARGO,		-1 },
-		{ "Next friendly",	TARGET_NEXT_CLOSEST_FRIENDLY,			-1 },
-		{ "Next turret",		TARGET_NEXT_LIVE_TURRET,				-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Weapons", {
-		{ "Cycle primary",	CYCLE_NEXT_PRIMARY,						-1 },
-		{ "Missile link",		CYCLE_NUM_MISSLES,						-1 },
-		{ "Cycle secondary",	CYCLE_SECONDARY,							-1 },
-		{ NULL,					-1,											-1 } } },
-	{ "Commands", {
-		{ "Up",					PAD_ACTION_MENU_UP,						-1 },
-		{ "Select",				PAD_ACTION_MENU_SELECT,					-1 },
-		{ "Down",				PAD_ACTION_MENU_DOWN,					-1 },
-		{ "Back",				PAD_ACTION_MENU_BACK,					-1 } } },
-};
-
-static const pad_tree_category Pad_game_categories[] = {
-	{ PAD_WEST,		PAD_NODE_TARGETING,	-1,							-1 },
-	{ PAD_NORTH,	PAD_NODE_WEAPONS,		-1,							-1 },
-	{ PAD_EAST,		PAD_NODE_COMMANDS,	PAD_ACTION_MENU_OPEN,	PAD_ACTION_MENU_CLOSE },
+static const pad_modifier Pad_game_modifiers[] = {
+	{ PAD_RSHOULDER,	PAD_LAYER_MOD },
 };
 
 static int				Pad_game_inited = 0;
@@ -133,11 +120,12 @@ static void pad_game_init()
 
 	pad_core_set_settings(&s);
 	pad_core_set_bindings(Pad_game_bindings, sizeof(Pad_game_bindings) / sizeof(Pad_game_bindings[0]));
-	pad_core_set_tree(Pad_game_categories, sizeof(Pad_game_categories) / sizeof(Pad_game_categories[0]), Pad_game_nodes, PAD_NUM_NODES);
+	pad_core_set_modifiers(Pad_game_modifiers, sizeof(Pad_game_modifiers) / sizeof(Pad_game_modifiers[0]));
 }
 
 // The recorder keeps the pad's output, not its raw state, so a replay does not depend on
 // pad.cfg or the core. Floats are kept as fixed point; live play uses the same rounded values.
+// Slots 8 to 11 held the old pad tree: always these values now, ignored on read, so recordings stay valid.
 #define PAD_REPLAY_HEADER		12
 #define PAD_REPLAY_MAX_INTS	(PAD_REPLAY_HEADER + 2 * PAD_MAX_OUT)
 #define PAD_REPLAY_SCALE		10000.0f
@@ -164,10 +152,10 @@ static int pad_game_pack(const pad_output *out, int *vals)
 	vals[5] = pad_game_fixed(out->roll);
 	vals[6] = pad_game_fixed(out->throttle_rate);
 	vals[7] = pad_game_fixed(out->throttle_max_rate);
-	vals[8] = out->tree_category;
-	vals[9] = out->tree_node;
-	vals[10] = out->tree_depth;
-	vals[11] = out->tree_show;
+	vals[8] = -1;
+	vals[9] = -1;
+	vals[10] = 0;
+	vals[11] = 0;
 
 	n = PAD_REPLAY_HEADER;
 	for (i = 0; i < out->num_fired; i++) {
@@ -184,8 +172,6 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 	int i, p;
 
 	memset(out, 0, sizeof(*out));
-	out->tree_category = -1;
-	out->tree_node = -1;
 
 	if ((n < PAD_REPLAY_HEADER) || !vals[0]) {
 		return;
@@ -202,10 +188,6 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 	out->roll = vals[5] / PAD_REPLAY_SCALE;
 	out->throttle_rate = vals[6] / PAD_REPLAY_SCALE;
 	out->throttle_max_rate = vals[7] / PAD_REPLAY_SCALE;
-	out->tree_category = vals[8];
-	out->tree_node = vals[9];
-	out->tree_depth = vals[10];
-	out->tree_show = vals[11];
 
 	p = PAD_REPLAY_HEADER;
 	for (i = 0; i < out->num_fired; i++) {
@@ -221,7 +203,7 @@ static void pad_game_unpack(const int *vals, int n, pad_output *out)
 // time comes, it first checks what the steps before it left (the same in the recording and in each replay), then
 // fires its pad action.  The pad opens the menu and presses rows through hud_squadmsg_menu_open/_press_row.
 #define PAD_TEST_NOTE			"autotest: squad pad"
-#define PAD_TEST_TALK_ON		-2		// start holding push-to-talk (South)
+#define PAD_TEST_TALK_ON		-2		// start holding push-to-talk (West)
 #define PAD_TEST_TALK_OFF		-3
 
 enum { PT_CLOSED, PT_TOP, PT_ORDERS, PT_FORM_ROW, PT_FORMED, PT_TALK, PT_RELEASED };
@@ -249,9 +231,9 @@ static pad_test_step Pad_test_steps[] = {
 	{ 29.0f, PAD_ACTION_MENU_BACK,	PT_ORDERS,		"row 3 (All fighters): the orders are up" },
 	{ 30.0f, PAD_ACTION_MENU_CLOSE,	PT_TOP,			"back from All fighters: the top menu" },
 	{ 32.0f, PAD_TEST_TALK_ON,		PT_CLOSED,		"pad close: the menu closed" },
-	{ 33.0f, -1,						PT_TALK,			"South held: push-to-talk held, the menu still closed" },
-	{ 34.0f, PAD_TEST_TALK_OFF,		PT_TALK,			"South still held" },
-	{ 35.0f, -1,						PT_RELEASED,	"South released: push-to-talk off, the menu still closed" },
+	{ 33.0f, -1,						PT_TALK,			"West held: push-to-talk held, the menu still closed" },
+	{ 34.0f, PAD_TEST_TALK_OFF,		PT_TALK,			"West still held" },
+	{ 35.0f, -1,						PT_RELEASED,	"West released: push-to-talk off, the menu still closed" },
 };
 #define PAD_TEST_STEPS	((int)(sizeof(Pad_test_steps) / sizeof(Pad_test_steps[0])))
 
@@ -305,8 +287,6 @@ static void pad_test_frame(pad_output *live)
 	if (live) {
 		memset(live, 0, sizeof(*live));
 		live->connected = 1;
-		live->tree_category = -1;
-		live->tree_node = -1;
 	}
 
 	if ((Pad_test_next < PAD_TEST_STEPS) && (autotest_mission_seconds() >= Pad_test_steps[Pad_test_next].time)) {
@@ -323,6 +303,13 @@ static void pad_test_frame(pad_output *live)
 
 	if (live && Pad_test_talk) {
 		live->held[live->num_held++] = PAD_ACTION_TALK;
+	}
+}
+
+void pad_game_settings_read()
+{
+	if (!Pad_game_inited) {
+		pad_game_init();
 	}
 }
 
@@ -347,12 +334,7 @@ static void pad_game_update(int from_frame)
 		// the clock read in here is covered by the pad's own entry
 		replay_push();
 
-		// a legacy joystick took input at startup (no pad then): the pad stays off, never both
-		if (joy_num_sticks > 0) {
-			memset(&st, 0, sizeof(st));
-		} else {
-			pad_backend_poll(&st);
-		}
+		pad_menu_read_for_flight(&st);
 		pad_core_update(&st, timer_get_milliseconds(), &live);
 
 		replay_pop();
@@ -366,23 +348,167 @@ static void pad_game_update(int from_frame)
 	pad_game_unpack(vals, n, &Pad_game_out);
 }
 
+// South: the game's own controls do the work. Reticle targeting changes the target, so what South means is
+// worked out first, from the object a press would take. Repeat presses cycling through what is under the
+// reticle is the game's way; South means the top one, or it could never get to the subsystem.
+static int pad_game_south_control()
+{
+	object *top;
+	ship_subsys *subsys;
+
+	if ((Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ai == NULL)) {
+		return -1;
+	}
+	if (!hud_sensors_ok(Player_ship, 0)) {
+		return TARGET_SHIP_IN_RETICLE;		// the game refuses it, with its own message
+	}
+
+	top = hud_pad_reticle_top();
+	if ((top == NULL) || (OBJ_INDEX(top) != Player_ai->target_objnum)) {
+		hud_pad_reticle_fresh();
+		return TARGET_SHIP_IN_RETICLE;
+	}
+
+	subsys = hud_pad_subsystem_in_reticle();
+	if ((subsys != NULL) && (subsys == Player_ai->targeted_subsys)) {
+		return STOP_TARGETING_SUBSYSTEM;
+	}
+	return TARGET_SUBOBJECT_IN_RETICLE;
+}
+
+// RB + North: bank 1 single, bank 1 double, bank 2 single, bank 2 double, back to the start. The game's
+// controls change the bank and the link, and refuse with their own messages. With no banks, CYCLE_SECONDARY
+// says so; with one bank it only alternates single and double.
+static void pad_game_secondary_step()
+{
+	int banks;
+
+	if ((Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL)) {
+		return;
+	}
+
+	banks = Player_ship->weapons.num_secondary_banks;
+	if (banks <= 0) {
+		button_info_set(&Player->bi, CYCLE_SECONDARY);
+		return;
+	}
+	if ((Player_ship->flags & SF_SECONDARY_DUAL_FIRE) && (banks > 1)) {
+		button_info_set(&Player->bi, CYCLE_SECONDARY);
+	}
+	button_info_set(&Player->bi, CYCLE_NUM_MISSLES);
+}
+
+// The energy system RB + D-pad changes. Only the pad's recorded actions change it, so it replays,
+// and only those controls read it; the gauge just draws it.
+enum { PAD_ETS_SHIELDS, PAD_ETS_WEAPONS, PAD_ETS_ENGINES, PAD_ETS_NUM };
+
+static int	Pad_ets_selected = PAD_ETS_SHIELDS;
+static fix	Pad_ets_last_time = 0;
+
+static int pad_ets_no_shields()
+{
+	return (Player_obj != NULL) && (Player_obj->flags & OF_NO_SHIELDS);
+}
+
+// a ship may lose its shields after they were selected
+static int pad_ets_system()
+{
+	return ((Pad_ets_selected == PAD_ETS_SHIELDS) && pad_ets_no_shields()) ? PAD_ETS_WEAPONS : Pad_ets_selected;
+}
+
+static void pad_ets_step(int dir)
+{
+	int sel = pad_ets_system();
+
+	do {
+		sel = (sel + dir + PAD_ETS_NUM) % PAD_ETS_NUM;
+	} while ((sel == PAD_ETS_SHIELDS) && pad_ets_no_shields());
+	Pad_ets_selected = sel;
+}
+
+static void pad_ets_change(int up)
+{
+	switch (pad_ets_system()) {
+	case PAD_ETS_SHIELDS:	button_info_set(&Player->bi, up ? INCREASE_SHIELD : DECREASE_SHIELD);	break;
+	case PAD_ETS_WEAPONS:	button_info_set(&Player->bi, up ? INCREASE_WEAPON : DECREASE_WEAPON);	break;
+	case PAD_ETS_ENGINES:	button_info_set(&Player->bi, up ? INCREASE_ENGINE : DECREASE_ENGINE);	break;
+	}
+}
+
+int pad_ets_highlight(int gauge)
+{
+	static const int system[3] = { PAD_ETS_WEAPONS, PAD_ETS_SHIELDS, PAD_ETS_ENGINES };
+
+	if (!pad_output_is_held(&Pad_game_out, PAD_ACTION_ETS_SHOW) || (gauge < 0) || (gauge > 2)) {
+		return 0;
+	}
+	return system[gauge] == pad_ets_system();
+}
+
+static int Pad_game_south_presses = 0;
+static int Pad_game_east_presses[2] = { 0, 0 };
+
+// East: the nearest hostile (next 0), or the next one after the current target (next 1). As the game's targeting
+// keys: a damaged sensor refuses it with the game's message. Not while dead.
+static void pad_game_target_hostile(int next)
+{
+	if ((Player_obj == NULL) || (Player_obj->type != OBJ_SHIP) || (Player_ship == NULL) || (Player_ai == NULL) || (Game_mode & GM_DEAD)) {
+		return;
+	}
+	Pad_game_east_presses[next]++;
+	control_used(TARGET_NEXT_CLOSEST_HOSTILE);
+	if (hud_sensors_ok(Player_ship)) {
+		hud_pad_target_hostile(next);
+	}
+}
+
+int pad_game_east_count(int next)
+{
+	return Pad_game_east_presses[next];
+}
+
+int pad_game_south_count()
+{
+	return Pad_game_south_presses;
+}
+
 void pad_frame()
 {
-	int i;
+	int i, control;
 
 	pad_game_update(1);
+
+	// a new mission starts from the same selection, so a recording made after another mission replays
+	if (Missiontime < Pad_ets_last_time) {
+		Pad_ets_selected = PAD_ETS_SHIELDS;
+	}
+	Pad_ets_last_time = Missiontime;
 
 	for (i = 0; i < Pad_game_out.num_fired; i++) {
 		int action = Pad_game_out.fired[i];
 
 		switch (action) {
-		case PAD_ACTION_PAUSE:			game_process_pause_key();		break;
+		case PAD_ACTION_PAUSE:			game_do_pad_pause_popup();		break;	// Claude: #199
 		case PAD_ACTION_MENU_OPEN:		hud_squadmsg_pad_open();		break;
 		case PAD_ACTION_MENU_CLOSE:	hud_squadmsg_pad_close();		break;
 		case PAD_ACTION_MENU_UP:		hud_squadmsg_pad_move(-1);		break;
 		case PAD_ACTION_MENU_DOWN:		hud_squadmsg_pad_move(1);		break;
 		case PAD_ACTION_MENU_SELECT:	hud_squadmsg_pad_select();		break;
 		case PAD_ACTION_MENU_BACK:		hud_squadmsg_pad_back();		break;
+		case PAD_ACTION_SECONDARY_STEP:	pad_game_secondary_step();	break;
+		case PAD_ACTION_TARGET_NEAREST:	pad_game_target_hostile(0);	break;
+		case PAD_ACTION_TARGET_NEXT:		pad_game_target_hostile(1);	break;
+		case PAD_ACTION_ETS_PREV:		pad_ets_step(1);					break;	// reversed at Tom's request: left steps up the list (#151)
+		case PAD_ACTION_ETS_NEXT:		pad_ets_step(-1);					break;
+		case PAD_ACTION_ETS_UP:			pad_ets_change(1);				break;
+		case PAD_ACTION_ETS_DOWN:		pad_ets_change(0);				break;
+		case PAD_ACTION_TARGET:
+			Pad_game_south_presses++;
+			control = pad_game_south_control();
+			if (control >= 0) {
+				button_info_set(&Player->bi, control);
+			}
+			break;
 		default:
 			if ((action >= 0) && (action < CCFG_MAX)) {
 				button_info_set(&Player->bi, action);
@@ -422,8 +548,12 @@ void pad_read_flight(control_info *ci, float frame_time)
 		// raising the throttle by hand ends speed matching, or matching would undo it next frame
 		Player->flags &= ~PLAYER_FLAGS_MATCH_TARGET;
 		ci->forward_cruise_percent += Pad_game_out.throttle_rate * frame_time;
+	} else if (Pad_game_out.throttle_rate < 0.0f) {
+		Player->flags &= ~PLAYER_FLAGS_MATCH_TARGET;
+		ci->forward_cruise_percent += Pad_game_out.throttle_rate * frame_time;
 	}
 
+	// only old recordings still hold this; LB is the speed mode now (#151)
 	if (pad_output_is_held(&Pad_game_out, PAD_ACTION_SLOW)) {
 		Player->flags &= ~PLAYER_FLAGS_MATCH_TARGET;
 		ci->forward_cruise_percent -= Pad_game_out.throttle_max_rate * frame_time;

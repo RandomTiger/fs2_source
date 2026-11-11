@@ -442,6 +442,7 @@
 #include "multi_obj.h"
 #include "observer.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
+#include "cfile.h"	// Claude: Cfile_fs1_data, for the whole-ship scan below
 
 ////////////////////////////////////////////////////////////
 // Global object and other interesting player type things
@@ -1604,7 +1605,9 @@ int player_inspect_cargo(float frametime, char *outstr)
 	cargo_sp = &Ships[cargo_objp->instance];
 	cargo_sip = &Ship_info[cargo_sp->ship_info_index];
 
-	if (cargo_sip->flags & SIF_HUGE_SHIP) {
+	// Claude: FreeSpace 1 scanned a huge ship as a whole; FS2 added per-subsystem scans (2/99), which never
+	// set SF_CARGO_REVEALED, so FS1 goals such as sm2-08a's is-cargo-known Lucifer could not complete (#238)
+	if ((cargo_sip->flags & SIF_HUGE_SHIP) && !Cfile_fs1_data) {
 		return player_inspect_cap_subsys_cargo(frametime, outstr);
 	}
 
@@ -2039,7 +2042,8 @@ void player_maybe_play_all_alone_msg()
 	}
 
 	// met all the requirements, now only play 50% of the time :)
-	if ( rand()&1 ) {
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	if ( gameplay_rand()&1 ) {
 		message_send_builtin_to_player(MESSAGE_ALL_ALONE, NULL, MESSAGE_PRIORITY_HIGH, MESSAGE_TIME_ANYTIME, 0, 0, -1, -1);
 	}
 	Player->flags |= PLAYER_FLAGS_NO_CHECK_ALL_ALONE_MSG;

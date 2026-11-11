@@ -11,5 +11,6 @@
 void voice_game_init();		// game_init: reads [Voice] in fs2.ini, loads the engine if enabled
 void voice_game_close();	// game_shutdown
 void voice_frame();			// each mission frame, from game_process_keys before button_info_do
+int voice_game_enabled();	// 1 while the engine is open and live voice runs; only reads, for a status display
 
 #endif

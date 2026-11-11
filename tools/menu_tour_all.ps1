@@ -7,7 +7,7 @@ FS2 retail, the FS2 demo, FS1 retail and the FS1 demo (docs/FS1_DEMO.md, "Menu t
 
 The folders default to $env:PATH_FS2 (FS2 retail), $env:PATH_FS2DEMO (the FS2 demo dev copy,
 tools\make_demo_test.ps1), $env:PATH_FS1 (FS1 retail) and $env:PATH_FS1DEMO (the FS1 demo dev copy, fsdemo10.exe
-beside the exes). The FS2 demo gets an FS2_DEMO build (tools\build_demo.ps1); the other three get the same build,
+beside the exes). All four get the same build (the FS2 demo through tools\build_demo.ps1, #287),
 which picks its data set from the folder. The exes already in the folders are saved first and put back at the end
 (other branches build into them too). A set whose folder is missing is SKIP.
 Prints one line per screen per build, "<set> <config> Screen '<category>/<screen>': PASS|FAIL <why>|SKIP <why>",
@@ -60,7 +60,7 @@ try {
 				# FS1 branches link into PATH_FS1
 				$env:PATH_FS1 = $dir
 				$r = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') -GameDir $dir | Select-Object -Last 1
-				if ($r -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
+				if ("$r" -notmatch '^PASS') { "FAIL $s build: $r"; $fail++; continue }
 			} elseif ($built) {
 				Copy-Item (Join-Path $built (Get-FS2Exe r)), (Join-Path $built (Get-FS2Exe d)) $dir -Force
 			} else {

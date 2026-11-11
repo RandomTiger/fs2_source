@@ -37,6 +37,9 @@ public:
 	Ref<Image> get_image();
 	RID get_viewport_rid() const { return viewport ? viewport->get_viewport_rid() : RID(); }
 	bool save_png(const String &path);
+	// The window as this node shows into it, and the width of the black column left of the game picture.
+	Vector2 get_window_size() const;
+	float get_left_column_width() const;
 };
 
 } // namespace godot

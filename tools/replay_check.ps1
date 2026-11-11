@@ -4,7 +4,7 @@ Replays the checked-in recordings and compares each replay's trace with the reco
   recordings\autotest\*.fs2rec   replayed with -autotest
   recordings\played\*.fs2rec     hand-played recordings, replayed without it
   recordings\demo\*.fs2rec       the FreeSpace 2 demo set, replayed with -autotest in the demo folder (-DemoDir,
-                                 default $env:PATH_FS2DEMO) in Release and Debug, whose traces must be identical; with no
+                                 default $env:PATH_FS2DEMO) in Release and Debug (x64 when -Configs names x64), whose traces must be identical; with no
                                  demo folder they are skipped (SKIP), never failed (D-20261018-221705)
   recordings\fs1\*.fs2rec        FreeSpace 1 missions, replayed with -autotest in -Fs1Dir ($env:PATH_FS1; skipped when unset)
 
@@ -18,7 +18,8 @@ Every recording replays in Release (-Configs). The -CrossCheck missions (default
 and their Release and Debug traces must be byte-identical: on 2026-10-13 every recording gave identical traces in
 both builds, and Debug-made recordings replayed in Release, so one mission is enough to catch the builds drifting.
 With $env:FS2_PROCDUMP set to Sysinternals procdump.exe (downloaded per machine, never committed), each run is watched
-and a crash leaves a dump in <Out>; dumps stay local (they hold game data).
+and a crash leaves a dump in <Out>; dumps stay local (they hold game data). With or without it, a crash copies the exe,
+its pdb and the game folder's DLLs, with their MD5s, to <Out>\crash_<folder>_<mission>_<config> before anything rebuilds.
 A line passes when every run says "REPLAY OK" and "MATCH", and every autotest run exits 0 (no Assert, Int3 or Warning). Build both configs first, and don't
 build or run the game from another session while this runs: only one copy of the game can run.
 #>
@@ -41,7 +42,7 @@ $td = Join-Path $repo 'tools\bin\TraceDiff.exe'
 New-Item -ItemType Directory -Force $Out | Out-Null
 # the test missions the autotest recordings play
 Copy-Item (Join-Path $repo 'data\missions\*.fs2') (Join-Path $GameDir 'data\missions')
-$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir (Get-FS2Exe r)))
+$demoOk = $DemoDir -and (Test-Path (Join-Path $DemoDir (Get-FS2Exe $(if ($Configs -match '64') { 'r64' } else { 'r' }))))
 $summary = Join-Path $Out 'summary.txt'
 
 $recs = @()
@@ -67,7 +68,30 @@ if (-not $recs) { throw "No recordings match: $Missions" }
 
 # One copy of the game at a time: a second one closes straight away and writes no trace
 function Wait-NoGame {
-	while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	# Gate pause (#214, D-20261107-094737): while %TEMP%\fs2_gate.pause exists, hold before the next launch; resume
+	# only when the marker is gone and no game runs, checked together. %TEMP%\fs2_gate.paused (time, runner, PID)
+	# confirms a hold; it never stops or changes a run, and nothing reads it to decide anything.
+	$pause = "$env:TEMP\fs2_gate.pause"
+	$paused = "$env:TEMP\fs2_gate.paused"
+	$held = $null
+	do {
+		while (Test-Path -LiteralPath $pause) {
+			if (-not $held) {
+				$held = Get-Date; $next = $held.AddMinutes(10)
+				try { Set-Content -LiteralPath $paused -Value "$($held.ToString('o')) replay_check $PID" -Encoding ascii -ErrorAction Stop } catch { }
+				Write-Host "Gate pause: $pause found at $($held.ToString('HH:mm:ss')); replay_check holds before its next launch (PID $PID). Delete that file to carry on."
+			} elseif ((Get-Date) -ge $next) {
+				$next = $next.AddMinutes(10)
+				Write-Host "Gate pause: still held by $pause at $(Get-Date -Format 'HH:mm:ss'), $([int]((Get-Date) - $held).TotalMinutes) min so far (replay_check, PID $PID). Delete that file to carry on."
+			}
+			Start-Sleep -Seconds 2
+		}
+		while (Get-Process $FS2ProcessNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	} while (Test-Path -LiteralPath $pause)
+	if ($held) {
+		try { if (((Get-Content -LiteralPath $paused -TotalCount 1 -ErrorAction Stop) -split ' ')[-1] -eq "$PID") { Remove-Item -LiteralPath $paused -ErrorAction Stop } } catch { }
+		Write-Host "Gate pause: $pause gone at $(Get-Date -Format 'HH:mm:ss'); replay_check carries on after $('{0:0.0}' -f ((Get-Date) - $held).TotalMinutes) min held."
+	}
 }
 
 $pass = 0; $fail = 0
@@ -82,7 +106,9 @@ foreach ($r in $recs) {
 	$line = if ($folder -eq 'autotest') { $name } else { "$name ($folder)" }
 	$ok = $true
 	$cfgs = $Configs
-	if ($r.Demo -or ($r.Autotest -and ($CrossCheck -contains $name))) { $cfgs = @('r', 'd') }
+	# the demo pair is the x64 one when -Configs asks for x64 (the headless job builds only x64, #287)
+	if ($r.Demo -and ($Configs -match '64')) { $cfgs = @('r64', 'd64') }
+	elseif ($r.Demo -or ($r.Autotest -and ($CrossCheck -contains $name))) { $cfgs = @('r', 'd') }
 	foreach ($e in $cfgs) {
 		$trace = Join-Path $Out "${folder}_${name}_$e.trace"
 		$log = Join-Path $Out "${folder}_${name}_$e.replay.log"
@@ -100,6 +126,17 @@ foreach ($r in $recs) {
 			$pd = Start-Process $env:FS2_PROCDUMP -ArgumentList "-accepteula -e -ma -o $($p.Id) `"$Out`"" -PassThru -WindowStyle Hidden
 		}
 		if (-not $p.WaitForExit(1800000)) { Stop-Process $p -Force; $line += " | $e TIMEOUT"; $ok = $false; continue }
+		# A crash (NTSTATUS exit, e.g. 0xC0000374) keeps the exe, its pdb and the game folder's DLLs, with MD5s, before any
+		# later build can overwrite them (D-20261107-193458: the 2026-11-07 Enhanced crash exe was lost to a rebuild).
+		# ($null -lt 0 is true in PowerShell: a launch that failed has no exit code and is not a crash)
+		if (($null -ne $p.ExitCode) -and ($p.ExitCode -lt 0)) {
+			$keep = Join-Path $Out "crash_${folder}_${name}_$e"
+			New-Item -ItemType Directory -Force $keep | Out-Null
+			$exe = Get-FS2Exe $e
+			$bins = @(".\$exe", ".\$([IO.Path]::ChangeExtension($exe, '.pdb'))") + @(Get-ChildItem . -Filter *.dll | ForEach-Object { $_.FullName })
+			$bins | Where-Object { Test-Path $_ } | ForEach-Object { Copy-Item $_ $keep; "$((Get-FileHash $_ -Algorithm MD5).Hash)  $(Split-Path $_ -Leaf)" } | Set-Content (Join-Path $keep 'md5.txt')
+			$line += " | $e CRASH 0x$('{0:X8}' -f $p.ExitCode) binaries kept in $keep"; $ok = $false
+		}
 		if ($pd) {
 			if (-not $pd.WaitForExit(120000)) { Stop-Process $pd -Force }
 			if (@(Get-ChildItem $Out -Filter *.dmp -ErrorAction SilentlyContinue).Count -gt $dumps) { $line += " | $e CRASH DUMP in $Out"; $ok = $false }
@@ -116,7 +153,7 @@ foreach ($r in $recs) {
 		if (Test-Path $trace) { $diff = (& $td ([IO.Path]::ChangeExtension($rec, '.trace')) $trace | Select-Object -Last 1) }
 		# TraceDiff exits 2 when it cannot read either trace (missing, not a trace, other version): a FAIL, never a pass (D-20261021-125813)
 		if ((Test-Path $trace) -and ($LASTEXITCODE -eq 2)) { $diff = 'TRACE UNREADABLE (TraceDiff exit 2: missing recorded trace, or another trace version)' }
-		if (($res -notmatch 'REPLAY OK') -or ($diff -notmatch '^MATCH')) { $ok = $false }
+		if (("$res" -notmatch 'REPLAY OK') -or ("$diff" -notmatch '^MATCH')) { $ok = $false }
 		$line += " | $e exit=$($p.ExitCode) $res / $diff"
 		# an autotest replay exits 0 only with no Assert, Int3 or Warning (D-029, D-077); a hand-played one exits 1 on success (D-033)
 		if ($r.Autotest) {

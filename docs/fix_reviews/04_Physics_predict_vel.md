@@ -1,5 +1,7 @@
 # Fix review: Physics.cpp `physics_predict_vel` constant-velocity branch
 
+GitHub issue #31.
+
 **Recommendation: SKIP.** It's unused, so it doesn't fit the minimum-changes rule.
 
 ## The bug

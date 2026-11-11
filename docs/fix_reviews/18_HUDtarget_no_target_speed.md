@@ -1,5 +1,7 @@
 # Fix review: hud_target_change_check reads Objects[-1] when there is no target
 
+GitHub issue #45.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer: 34 reports across the campaign autotest.
