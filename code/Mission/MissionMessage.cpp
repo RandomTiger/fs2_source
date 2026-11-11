@@ -1726,7 +1726,8 @@ int message_get_persona( ship *shipp )
 			return -1;
 
 		// now get a random one from the list
-		i = (rand() % count);
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		i = (gameplay_rand() % count);
 		i = slist[i];
 			
 		nprintf(("messaging", "Couldn't find a new persona for ship %s, reusing persona %s\n", shipp->ship_name, Personas[i].name));

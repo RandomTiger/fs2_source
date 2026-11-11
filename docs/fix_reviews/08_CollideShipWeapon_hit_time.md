@@ -1,5 +1,7 @@
 # Fix review: CollideShipWeapon.cpp `check_inside_radius_for_big_ships` uninitialised `hit_time`
 
+GitHub issue #35.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by the clang static analyser scan (`core.UndefinedBinaryOperatorResult`), not by the fs2_source_ue audit.

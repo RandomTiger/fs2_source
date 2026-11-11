@@ -148,7 +148,7 @@ float fl_roundoff(float x, int multiple)
 float frand()
 {
 	float rval;
-	rval = ((float) myrand()) / (RAND_MAX + 1);
+	rval = ((float) gameplay_rand()) / (RAND_MAX + 1);
 	return rval;
 }
 

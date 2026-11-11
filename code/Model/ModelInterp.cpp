@@ -3405,8 +3405,8 @@ void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1,
 {
 	int nv = submodel_get_points_internal(model_num, submodel_num, MAX_POLYGON_VECS, Interp_verts, Interp_norms );
 	
-	int vn1 = (myrand()>>5) % nv;
-	int vn2 = (myrand()>>5) % nv;
+	int vn1 = (gameplay_rand()>>5) % nv;
+	int vn2 = (gameplay_rand()>>5) % nv;
 
 	*v1 = *Interp_verts[vn1];
 	*v2 = *Interp_verts[vn2];

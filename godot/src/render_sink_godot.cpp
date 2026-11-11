@@ -1849,9 +1849,6 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	} else {
 		code += "\tPOSITION = PROJECTION_MATRIX * vec4(org.x * e.z + cfg.x * e.x, org.y * e.z + cfg.y * e.y, -d * e.z, e.z);\n\tpc = vec3(UV, 1.0);\n\twv = e.z;\n";
 	}
-	if (!rpt) {	// LEGACY PIXEL COMPATIBILITY (#133): D3D clamps untiled uvs per vertex to [2/w, 1-2/w] (gr_host.cpp tmapper_internal, flCAP)
-		code += "\tvec2 ts = vec2(textureSize(tex, 0));\n\tif (ts.x >= 4.0 && ts.y >= 4.0) { pc.xy = clamp(UV, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
-	}
 	if (thr && stale) { code += "\tpc = vec3(pc.xy * e.z, e.z);\n"; }	// the polygon path draws a thruster without TMAP_FLAG_CORRECT: uvs affine in screen space
 	if (uclip) { code += "\tcz = dot(clipp.xyz, e) + clipp.w;\n"; }
 	if (fog) {
@@ -2404,8 +2401,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	}
 	code += "\tfloat d = cfg.z + min(zq / 30000.0, 0.98) * 1000.0 - zbias * 0.05;\n";
 	code += "\tif (skip) { POSITION = vec4(0.0); } else { POSITION = PROJECTION_MATRIX * vec4(org.x + sx - cfg.x, org.y + cfg.y - sy, -d, 1.0); }\n";
-	// LEGACY PIXEL COMPATIBILITY (#133): the per-vertex uv clamp, as the mesh and poly paths
-	code += "\tvec2 u2 = uv;\n\tvec2 ts = vec2(textureSize(tex, 0).xy);\n\tif (" + String(rep ? "false && " : nc ? "sx >= 0.0 && sy >= 0.0 && sx <= cwh.x && sy <= cwh.y && " : "") + "ts.x >= 4.0 && ts.y >= 4.0) { u2 = clamp(uv, 2.0 / ts, 1.0 - 2.0 / ts); }\n";
+	code += "\tvec2 u2 = uv;\n";
 	code += (kind != FS2_SINK_BB_RIBBON && kind != FS2_SINK_BB_QUAD && kind != FS2_SINK_BB_QUAD4 && kind != FS2_SINK_BB_TRI3) ?"\tpc = vec3(u2, 1.0);\n}\n" : "\tpc = vec3(u2 * sw, sw);\n}\n";
 	code += "void fragment() {\n";
 	if (crect) { code += "\tif (FRAGCOORD.x < crc.x || FRAGCOORD.y < crc.y || FRAGCOORD.x >= crc.z || FRAGCOORD.y >= crc.w) { discard; }\n"; }

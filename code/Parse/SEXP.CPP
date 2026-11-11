@@ -2340,7 +2340,8 @@ int rand_internal(int low, int high)
 		diff = 0;
 	}
 
-	return (low + rand() % (diff + 1));
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	return (low + gameplay_rand() % (diff + 1));
 }
 
 
@@ -4650,7 +4651,7 @@ void sexp_send_random_message( int n )
 	Assert ( num_messages >= 1 );
 	
 	// get a random message, and pass the parameters to send_one_message
-	message_num = myrand() % num_messages;
+	message_num = gameplay_rand() % num_messages;
 	n = temp;
 	while ( n != -1 ) {
 		if ( message_num == 0 )

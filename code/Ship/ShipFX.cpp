@@ -1818,7 +1818,8 @@ static void split_ship_init( ship* shipp, split_ship* split_ship )
 	polymodel* pm = model_get(shipp->modelnum);
 	float init_clip_plane_dist;
 	if (pm->num_split_plane > 0) {
-		int index = rand()%pm->num_split_plane;
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		int index = gameplay_rand()%pm->num_split_plane;
 		init_clip_plane_dist = pm->split_plane[index];
 	} else {
 		init_clip_plane_dist = 0.5f * (0.5f - frand())*pm->core_radius;
@@ -2127,7 +2128,8 @@ void do_sub_expl_sound(float radius, vector* sound_pos, int* sound_handle)
 	// multiplier for range (near and far distances) to apply attenuation
 	float sound_range = 1.0f + 0.0043f*radius;
 
-	int handle_index = cosmetic_rand()%NUM_SUB_EXPL_HANDLES;
+	// Claude: gameplay stream again (retail): this draw decides when a recorded sound call happens, so it is not cosmetic (#276)
+	int handle_index = gameplay_rand()%NUM_SUB_EXPL_HANDLES;
 	//mprintf(("handle_index %d\n", *handle_index));
 
 	// sound_index = get_sub_explosion_sound_index(handle_index);
@@ -2188,7 +2190,8 @@ static void maybe_fireball_wipe(clip_ship* half_ship, int* sound_handle)
 			rad = min(rad, half_ship->parent_obj->radius);
 
 			// mprintf(("xc %.1f model %.1f\n", rad, half_ship->parent_obj->radius*0.25));
-			int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
+			// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+			int fireball_type = FIREBALL_EXPLOSION_LARGE1 + gameplay_rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
 			int low_res_fireballs = Bs_exp_fire_low;
 			fireball_create(&model_clip_plane_pt, fireball_type, OBJ_INDEX(half_ship->parent_obj), rad, 0, &half_ship->parent_obj->phys_info.vel, 0.0f, -1, NULL, low_res_fireballs);
 
@@ -2386,7 +2389,8 @@ void shipfx_do_damaged_arcs_frame( ship *shipp )
 		}
 
 		// set the next arc time
-		shipp->arc_next_time = cosmetic_timestamp_rand(freq*2,freq*4);
+		// Claude: gameplay stream again (retail): this draw decides when a recorded sound call happens, so it is not cosmetic (#276)
+		shipp->arc_next_time = timestamp_rand(freq*2,freq*4);
 	}
 
 	if ( timestamp_elapsed(shipp->arc_next_time) )	{

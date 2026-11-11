@@ -3013,7 +3013,14 @@ void beam_apply_whack(beam *b, object *objp, vector *hit_point)
 	vector whack_dir, temp;
 	vm_vec_dist_to_line(&objp->pos, &b->last_start, &b->last_shot, &temp, &dist);
 	vm_vec_sub(&whack_dir, &objp->pos, &temp);
-	vm_vec_normalize(&whack_dir);
+	// Claude: centred on the beam line the direction is null; use the 1,0,0 vm_vec_normalize falls back to, without its Warning (fix review 71)
+	if (vm_vec_mag(&whack_dir) <= 0.0f) {	// Claude:
+		whack_dir.x = 1.0f;	// Claude:
+		whack_dir.y = 0.0f;	// Claude:
+		whack_dir.z = 0.0f;	// Claude:
+	} else {	// Claude:
+		vm_vec_normalize(&whack_dir);
+	}	// Claude:
 	vm_vec_scale(&whack_dir, whack);
 
 	// apply the whack
