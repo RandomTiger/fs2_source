@@ -6,6 +6,8 @@
 #ifndef _DATASETINSTALL_H
 #define _DATASETINSTALL_H
 
+#define DS_MAX_PATH 32768	// Claude: path buffers in the data-set code; 32767 is Windows' longest path, as CF_MAX_PATHNAME_LENGTH (fix review 73, #305)
+
 // The data sets, an enumeration rather than a demo flag (Tom, 2026-10-18), so code, logs and recordings
 // say which one.  Only the FreeSpace 2 pair is detected and played so far.
 // The values are on disk (the pilot 141 and .css 2 headers, D-20261023-201747): never renumber or reuse

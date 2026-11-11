@@ -28,6 +28,8 @@ Also wrong:
 
 The buffers live on the stack in short-lived functions; the deepest file-open chain holds about four at once (128 KB of the 1 MB stack). The root list grows by 32 KB per root, about 1-2 MB in all.
 
+Added 2026-11-12 (#305): the launcher update check (`game_maybe_update_launcher`) built the exe folder plus `\update\freespace.exe` into `MAX_PATH` buffers (`src_filename`, `dest_filename`, `update_dir`), which overflowed for an exe folder of about 238 characters or more, and the version check read the exe name into `_MAX_PATH`. Both use the new size too.
+
 Buffers that hold only a file name (`name_no_extension`, `cf_add_ext`, the localize temp, pilot and UI file names) are unchanged. Every changed line carries a `// Claude:` comment.
 
 ## What was checked

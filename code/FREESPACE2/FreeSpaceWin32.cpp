@@ -30,8 +30,8 @@
 // If so, copy it over and remove the update directory.
 void game_maybe_update_launcher(char *exe_dir)
 {
-	char src_filename[MAX_PATH];
-	char dest_filename[MAX_PATH];
+	char src_filename[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH, the exe folder plus \update\freespace.exe did not fit (fix review 73, #269)
+	char dest_filename[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH (fix review 73, #269)
 
 	strcpy(src_filename, exe_dir);
 	strcat(src_filename, NOX("\\update\\freespace.exe"));
@@ -59,7 +59,7 @@ void game_maybe_update_launcher(char *exe_dir)
 	DeleteFile(src_filename);
 
 	// safe to assume directory is empty, since freespace.exe should only be the file ever in the update dir
-	char update_dir[MAX_PATH];
+	char update_dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH (fix review 73, #269)
 	strcpy(update_dir, exe_dir);
 	strcat(update_dir, NOX("\\update"));
 	RemoveDirectory(update_dir);
@@ -329,8 +329,8 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	
 	
 	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
-	char root_dir[1024];
-	_getcwd(root_dir, 1024);	// the exe directory, set above
+	char root_dir[CF_MAX_PATHNAME_LENGTH];	// Claude: was 1024 (fix review 73, #305)
+	_getcwd(root_dir, CF_MAX_PATHNAME_LENGTH);	// the exe directory, set above
 
 	// Claude: -replay_next <recording> -trace_next <trace>: after the first run, init, replay and shut down again in
 	// this process with that recording and trace, to test that the game restarts cleanly (D-055)
