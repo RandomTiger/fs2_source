@@ -5,8 +5,9 @@
 # PASS needs "DONE pass=1 fail=0" at every length; a run that prints nothing is a FAIL (#196).
 # The junction is removed with rmdir (never a recursive delete, which would follow it into the install).
 # 230 is the longest default: the exe name adds 25 characters, and past 260 Windows will not start the exe at all.
-# Known result 2026-11-11 (#269): FAIL. Release replays fine up to a 76-character install path and crashes from 78
-# (0xC0000409 or 0xC0000005, no trace), so the default lengths report that crash until the game is fixed.
+# Before fix review 73 (#269) Release crashed from a 78-character install path (0xC0000409 or 0xC0000005, no trace).
+# Since the fix: PASS at 78, 140, 200 and 230. At 230 replay_check's Copy-Item of the test missions prints an error
+# (PowerShell 5.1 cannot write past 260 characters); the replay still passes because the missions are already installed.
 # Usage: longpath_check.ps1 [-GameDir <install>] [-Lengths 140,230][-Mission Autotest] [-Config r]
 param([string]$GameDir = $env:PATH_FS2, [string[]]$Lengths = @('140', '230'),[string]$Mission = 'Autotest', [string]$Config = 'r')
 . "$PSScriptRoot\common.ps1"
