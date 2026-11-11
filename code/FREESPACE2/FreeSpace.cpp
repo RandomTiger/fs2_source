@@ -7221,7 +7221,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 	/*
 	HMODULE hMod;
 	DWORD bogus_handle;
-	char myname[_MAX_PATH];
+	char myname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 	int namelen, major, minor, build, waste;
 	unsigned int buf_size;
 	DWORD version_size;
@@ -7231,7 +7231,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 
 	// Find my EXE file name
 	hMod = GetModuleHandle(NULL);
-	namelen = GetModuleFileName( hMod, myname, _MAX_PATH );
+	namelen = GetModuleFileName( hMod, myname, CF_MAX_PATHNAME_LENGTH );  // Claude: was _MAX_PATH
 
 	version_size = GetFileVersionInfoSize(myname, &bogus_handle );
 	infop = (char *)malloc(version_size);
