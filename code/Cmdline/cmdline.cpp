@@ -277,6 +277,7 @@ cmdline_parm bmframes_arg("-bmframes", NULL);		// Claude
 cmdline_parm loadtimes_arg("-loadtimes", NULL);	// Claude: mission load times log, see LoadTimes.h
 int Cmdline_loadtimes = 0;						// Claude: -loadtimes
 cmdline_parm allmedals_arg("-allmedals", NULL);	// Claude: the medals screen shows every medal, the top rank and every badge (#124)
+cmdline_parm autoplay_arg("-at_autoplay", NULL);	// Claude: autoplay tries to win the mission, see Autoplay.h
 
 int Cmdline_multi_stream_chat_to_file = 0;
 int Cmdline_freespace_no_sound = 0;
@@ -765,7 +766,8 @@ int parse_cmdline(char *cmdline)
 	if(autotest_arg.found()){
 		autotest_set_cmdline(autotest_mission_arg.found() ? autotest_mission_arg.str() : NULL, autotest_time_arg.found() ? autotest_time_arg.str() : NULL,
 			autotest_speed_arg.found() ? autotest_speed_arg.str() : NULL, autotest_pilot_arg.found() ? autotest_pilot_arg.str() : NULL,
-			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL, playernpc_arg.found());
+			autotest_skill_arg.found() ? autotest_skill_arg.str() : NULL,
+			(playernpc_arg.found() ? AUTOTEST_ASK_PLAYER_NPC : 0) | (autoplay_arg.found() ? AUTOTEST_ASK_AUTOPLAY : 0));	// Claude: -at_autoplay
 		if(autotest_menus_arg.found()){	// Claude: -at_menus
 			autotest_set_menus();
 		}

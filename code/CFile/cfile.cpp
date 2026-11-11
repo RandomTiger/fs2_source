@@ -693,6 +693,11 @@ CFILE *cfopen(char *file_path, char *mode, int type, int dir_type, bool localize
 	// Check that all the parameters make sense
 	Assert(file_path && strlen(file_path));
 	Assert( mode != NULL );
+	// Claude: longname and copy_file_path below are _MAX_PATH long, and both take a full copy of file_path.
+	// Refuse a path that does not fit instead of overrunning the stack (fix review 68).
+	if ( strlen(file_path) >= _MAX_PATH ) {
+		return NULL;
+	}
 	
 	// Can only open read-only binary files in memory mapped mode.
 	if ( (type & CFILE_MEMORY_MAPPED) && strcmp(mode,"rb") ) {
@@ -734,7 +739,7 @@ CFILE *cfopen(char *file_path, char *mode, int type, int dir_type, bool localize
 	// Search for file on disk, on cdrom, or in a packfile
 
 	int offset, size;
-	char copy_file_path[MAX_PATH_LEN];  // FIX change in memory from cf_find_file_location
+	char copy_file_path[_MAX_PATH];  // FIX change in memory from cf_find_file_location  // Claude: was MAX_PATH_LEN (128), too short for a full path (fix review 68)
 	strcpy(copy_file_path, file_path);
 
 

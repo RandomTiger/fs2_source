@@ -56,7 +56,32 @@ if ($Quick -and -not $Missions) {
 if (-not $Missions) { $Missions = $gs.Missions }
 if (-not $Missions) { throw 'No missions' }
 
-function Wait-NoGame { while (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*') -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 } }
+function Wait-NoGame {
+	# Gate pause (#214, D-20261107-094737): while %TEMP%\fs2_gate.pause exists, hold before the next launch; resume
+	# only when the marker is gone and no game runs, checked together. %TEMP%\fs2_gate.paused (time, runner, PID)
+	# confirms a hold; it never stops or changes a run, and nothing reads it to decide anything.
+	$pause = "$env:TEMP\fs2_gate.pause"
+	$paused = "$env:TEMP\fs2_gate.paused"
+	$held = $null
+	do {
+		while (Test-Path -LiteralPath $pause) {
+			if (-not $held) {
+				$held = Get-Date; $next = $held.AddMinutes(10)
+				try { Set-Content -LiteralPath $paused -Value "$($held.ToString('o')) godot_check $PID" -Encoding ascii -ErrorAction Stop } catch { }
+				Write-Host "Gate pause: $pause found at $($held.ToString('HH:mm:ss')); godot_check holds before its next launch (PID $PID). Delete that file to carry on."
+			} elseif ((Get-Date) -ge $next) {
+				$next = $next.AddMinutes(10)
+				Write-Host "Gate pause: still held by $pause at $(Get-Date -Format 'HH:mm:ss'), $([int]((Get-Date) - $held).TotalMinutes) min so far (godot_check, PID $PID). Delete that file to carry on."
+			}
+			Start-Sleep -Seconds 2
+		}
+		while (Get-Process ($FS2ProcessNames + 'fs2run', 'Godot*') -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+	} while (Test-Path -LiteralPath $pause)
+	if ($held) {
+		try { if (((Get-Content -LiteralPath $paused -TotalCount 1 -ErrorAction Stop) -split ' ')[-1] -eq "$PID") { Remove-Item -LiteralPath $paused -ErrorAction Stop } } catch { }
+		Write-Host "Gate pause: $pause gone at $(Get-Date -Format 'HH:mm:ss'); godot_check carries on after $('{0:0.0}' -f ((Get-Date) - $held).TotalMinutes) min held."
+	}
+}
 function Verdict([string]$a, [string]$b) {
 	if (-not (Test-Path $b)) { return 'NO TRACE' }
 	$o = & $td $a $b
@@ -140,7 +165,7 @@ $launch = {
 foreach ($kind in $(if ($NoHostChecks) { @() } else { 'restart', 'fatal' })) {
     $r = Test-HostRestart $gs $run $Out $td $launch $kind 'godot'
     $r | Add-Content $summary; $r
-    if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
+    if ([string]($r | Where-Object { "$_".Trim() } | Select-Object -Last 1) -notmatch '^PASS') { $fail++ } else { $pass++ }
 }
 # joystick and pad through Godot's own input (-at_input joyhost / padhost, tools\godot_input_check.ps1), once per config with the autotest set
 if (-not $NoHostChecks -and $Set -eq 'autotest') {

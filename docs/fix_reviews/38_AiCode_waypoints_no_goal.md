@@ -1,5 +1,7 @@
 # Fix review: a wing ship finishing waypoints with no goal reads goals[-1] or goals[999]
 
+GitHub issue #65.
+
 **Recommendation: TAKE.** Out-of-bounds read on a path the original comments call legal; it decides whether a whole wing's goal is marked complete. Found with `/analyze` (C6385) on 2026-10-13.
 
 ## The bug

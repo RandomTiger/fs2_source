@@ -442,6 +442,7 @@
 #include "multi_obj.h"
 #include "observer.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
+#include "cfile.h"	// Claude: Cfile_fs1_data, for the whole-ship scan below
 
 ////////////////////////////////////////////////////////////
 // Global object and other interesting player type things
@@ -1604,7 +1605,9 @@ int player_inspect_cargo(float frametime, char *outstr)
 	cargo_sp = &Ships[cargo_objp->instance];
 	cargo_sip = &Ship_info[cargo_sp->ship_info_index];
 
-	if (cargo_sip->flags & SIF_HUGE_SHIP) {
+	// Claude: FreeSpace 1 scanned a huge ship as a whole; FS2 added per-subsystem scans (2/99), which never
+	// set SF_CARGO_REVEALED, so FS1 goals such as sm2-08a's is-cargo-known Lucifer could not complete (#238)
+	if ((cargo_sip->flags & SIF_HUGE_SHIP) && !Cfile_fs1_data) {
 		return player_inspect_cap_subsys_cargo(frametime, outstr);
 	}
 
