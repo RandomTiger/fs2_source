@@ -2867,7 +2867,7 @@ int get_nearest_turret_objnum(int turret_parent_objnum, ship_subsys *turret_subs
 //	Yes, no parameters.  Based solely on skill level.
 int get_enemy_timestamp()
 {
-	return (NUM_SKILL_LEVELS - Game_skill_level) * ( (myrand() % 500) + 500);
+	return (NUM_SKILL_LEVELS - Game_skill_level) * ( (gameplay_rand() % 500) + 500);
 }
 
 // -------------------------------------------------------------------
@@ -5287,7 +5287,7 @@ void evade_ship()
 		}
 	} else {
 evade_ship_l1: ;
-		if (aip->ai_evasion > myrand()*100.0f/32767.0f) {
+		if (aip->ai_evasion > gameplay_rand()*100.0f/32767.0f) {
 			int	temp;
 			float	scale;
 			float	psrandval;	//	some value close to zero to choose whether to turn right or left.
@@ -8156,7 +8156,7 @@ void ai_chase()
 			if ((dot_to_enemy < 0.8f) && (dot_from_enemy > dot_to_enemy)) {
 				if (frand() > 0.5f) {
 					aip->submode = SM_CONTINUOUS_TURN;
-					aip->submode_parm0 = myrand() & 0x0f;
+					aip->submode_parm0 = gameplay_rand() & 0x0f;
 					aip->submode_start_time = Missiontime;
 				} else {
 					aip->submode = SM_EVADE;
@@ -8228,7 +8228,7 @@ void ai_chase()
 		} else if ((dist_to_enemy < 100.0f) && (dot_to_enemy < 0.8f) && (enemy_sip_flags & SIF_SMALL_SHIP) && (Missiontime - aip->submode_start_time > i2f(5) )) {
 			aip->ai_flags &= ~AIF_ATTACK_SLOWLY;	//	Just in case, clear here.
 
-			switch (myrand() % 5) {
+			switch (gameplay_rand() % 5) {
 			case 0:
 				aip->submode = SM_CONTINUOUS_TURN;
 				aip->submode_start_time = Missiontime;
@@ -8880,7 +8880,7 @@ void remove_farthest_attacker(int objnum)
 				aip->ignore_objnum = aip->target_objnum;
 				aip->ignore_signature = Objects[aip->target_objnum].signature;
 				aip->ai_flags |= AIF_TEMPORARY_IGNORE;
-				aip->ignore_expire_timestamp = timestamp(((myrand() % 10) + 20) * 1000);	//	OK to attack again in 20 to 24 seconds.
+				aip->ignore_expire_timestamp = timestamp(((gameplay_rand() % 10) + 20) * 1000);	//	OK to attack again in 20 to 24 seconds.
 			}
 			aip->target_objnum = -1;
 			ai_do_default_behavior(farthest_objp);
@@ -13074,7 +13074,7 @@ void ai_maybe_warp_out(object *objp)
 		if (other_sip->flags & (SIF_FIGHTER | SIF_BOMBER)) {
 			if (aip->warp_out_timestamp == 0) {
 				//if (ship_get_subsystem_strength(shipp, SUBSYSTEM_WEAPONS) == 0.0f) {
-				//	aip->warp_out_timestamp = timestamp(((myrand() % 10) + 10) * 1000);
+				//	aip->warp_out_timestamp = timestamp(((gameplay_rand() % 10) + 10) * 1000);
 				//}
 			} else if (timestamp_elapsed(aip->warp_out_timestamp)) {
 				ai_set_mode_warp_out(objp, aip);

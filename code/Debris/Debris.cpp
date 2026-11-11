@@ -700,11 +700,11 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 	// Create Debris piece n!
 	if ( hull_flag ) {
 		if (rand() < RAND_MAX/6)	// Make some pieces blow up shortly after explosion.
-			db->lifeleft = 2.0f * ((float) myrand()/(float) RAND_MAX) + 0.5f;
+			db->lifeleft = 2.0f * ((float) gameplay_rand()/(float) RAND_MAX) + 0.5f;
 		else
 			db->lifeleft = -1.0f;		// large hull pieces stay around forever
 	}	else {
-		db->lifeleft = (i2fl(myrand())/i2fl(RAND_MAX))*2.0f+0.1f;
+		db->lifeleft = (i2fl(gameplay_rand())/i2fl(RAND_MAX))*2.0f+0.1f;
 	}
 
 	// increase lifetime for vaporized debris
@@ -720,7 +720,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 	db->fire_timeout = 0;	// if not changed, timestamp_elapsed() will return false
 	db->time_started = Missiontime;
 	db->species = Ship_info[shipp->ship_info_index].species;
-	db->next_distance_check = (myrand() % 2000) + 4*DEBRIS_DISTANCE_CHECK_TIME;
+	db->next_distance_check = (gameplay_rand() % 2000) + 4*DEBRIS_DISTANCE_CHECK_TIME;
 
 	for (i=0; i<MAX_DEBRIS_ARCS; i++ )	{
 		db->arc_timestamp[i] = timestamp(-1);
@@ -729,7 +729,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 
 	if ( db->is_hull )	{
 		// Only make 1/2 of the pieces have arcs
-		if ( myrand() < RAND_MAX*2/3 )	{
+		if ( gameplay_rand() < RAND_MAX*2/3 )	{
 			db->arc_frequency = 1000;
 		} else {
 			db->arc_frequency = 0;
@@ -744,7 +744,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 		} else {
 			db->model_num = Debris_model;
 		}
-		db->submodel_num = (myrand()>>4) % Debris_num_submodels;
+		db->submodel_num = (gameplay_rand()>>4) % Debris_num_submodels;
 	} else {
 		db->model_num = model_num;
 		db->submodel_num = submodel_num;
@@ -796,7 +796,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 
 	if ( hull_flag )	{
 		float t;
-		scale = exp_force * i2fl((myrand()%20) + 10);	// for radial_vel away from location of blast center
+		scale = exp_force * i2fl((gameplay_rand()%20) + 10);	// for radial_vel away from location of blast center
 		db->sound_delay = timestamp(DEBRIS_SOUND_DELAY);
 
 		// set up physics mass and I_inv for hull debris pieces
@@ -808,7 +808,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 
 		// limit the amount of time that fireballs appear
 		// let fireball length be linked to radius of ship.  Range is .33 radius => 3.33 radius seconds.
-		t = 1000*Objects[db->source_objnum].radius/3 + myrand()%(fl2i(1000*3*Objects[db->source_objnum].radius));
+		t = 1000*Objects[db->source_objnum].radius/3 + gameplay_rand()%(fl2i(1000*3*Objects[db->source_objnum].radius));
 		db->fire_timeout = timestamp(fl2i(t));		// fireballs last from 5 - 30 seconds
 		
 		if ( Objects[db->source_objnum].radius < MIN_RADIUS_FOR_PERSISTANT_DEBRIS ) {
@@ -820,7 +820,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 		}
 	}
 	else {
-		scale = exp_force * i2fl((myrand()%20) + 10);	// for radial_vel away from blast center (non-hull)
+		scale = exp_force * i2fl((gameplay_rand()%20) + 10);	// for radial_vel away from blast center (non-hull)
 	}
 
 	if ( vm_vec_mag_squared( &to_center ) < 0.1f )	{
@@ -881,7 +881,7 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 		radius = 1.0f;
 	}
 
-	scale = ( 6.0f + i2fl(myrand()%4) ) / radius;
+	scale = ( 6.0f + i2fl(gameplay_rand()%4) ) / radius;
 
 	vm_vec_rand_vec_quick(&rotvel);
 	vm_vec_scale(&rotvel, scale);

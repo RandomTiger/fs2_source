@@ -3,9 +3,9 @@
 Every place the game draws a random number, and which stream it draws from. Cosmetic effects now have their own random stream, so effects and rendering no longer shift gameplay randomness. FRED2 and commented-out code (`/* */` blocks and `#if 0`) are left out.
 
 ## The two streams
-- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `myrand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick`, `vm_vec_random_cone`, `ship_get_random_ship` and `submodel_get_two_random_points` all draw from it through `myrand()` or `frand()`. Direct `rand()` calls draw from the same stream but are not counted.
+- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `gameplay_rand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick`, `vm_vec_random_cone`, `ship_get_random_ship` and `submodel_get_two_random_points` all draw from it through `gameplay_rand()` or `frand()`. Direct `rand()` calls draw from the same stream but are not counted.
 - **Cosmetic stream.** `cosmetic_rand()` (SystemVars.cpp) uses the same generator as the MSVC `rand()` but keeps its own seed, set from the level seed in `game_level_init`. It is not counted and not traced. The cosmetic versions of the helpers are `cosmetic_frand`, `cosmetic_frand_range`, `cosmetic_timestamp_rand`, `vm_vec_rand_vec_quick_cosmetic`, `vm_vec_random_cone_cosmetic`, `ship_get_random_ship_cosmetic` and `submodel_get_two_random_points_cosmetic`.
-- **Not on a stream.** `static_rand()` / `static_randf()` / `static_randvec()` (StaticRand.cpp) look up a fixed table. The table is filled from `myrand()` once, at startup (`init_semirand`).
+- **Not on a stream.** `static_rand()` / `static_randf()` / `static_randvec()` (StaticRand.cpp) look up a fixed table. The table is filled from `gameplay_rand()` once, at startup (`init_semirand`).
 
 ### Seeds
 Every `srand` / `cosmetic_srand` call in the game:
@@ -38,7 +38,7 @@ These look cosmetic but **stay on the gameplay stream**:
 | Debug | 6 | 0 |
 | Load | 1 | 0 |
 
-The 21 raw `rand()` calls on the gameplay stream are still not counted by the trace. Changing them to `myrand()` would not change the sequence, only the count, but that is a separate change.
+The 21 raw `rand()` calls on the gameplay stream are still not counted by the trace. Changing them to `gameplay_rand()` would not change the sequence, only the count, but that is a separate change.
 
 ## Things to note
 1. **Gameplay happens inside render code.** These draw from the gameplay stream or change simulation state while the frame is being drawn, and the port has to move them out of rendering:
@@ -86,7 +86,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 418 | `cmeasure_create` | Gameplay |  |  | `arand = myrand();` |
+| 418 | `cmeasure_create` | Gameplay |  |  | `arand = gameplay_rand();` |
 
 ### Debris/Debris.cpp
 
@@ -101,17 +101,17 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 606 | `debris_process_post` | Cosmetic |  | electrical arcs on debris | `int mr = cosmetic_rand();` |
 | 609 | `debris_process_post` | Cosmetic |  | electrical arcs on debris | `submodel_get_two_random_points_cosmetic( db->model_num, db->submodel_num, &v1, &v2 );` |
 | 702 | `debris_create` | Gameplay | yes | debris objects collide and do damage | `if (rand() < RAND_MAX/6)` |
-| 703 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = 2.0f * ((float) myrand()/(float) RAND_MAX) + 0.5f;` |
-| 707 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = (i2fl(myrand())/i2fl(RAND_MAX))*2.0f+0.1f;` |
-| 723 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->next_distance_check = (myrand() % 2000) + 4*DEBRIS_DISTANCE_CHECK_TIME;` |
-| 732 | `debris_create` | Gameplay |  | arc_frequency (which pieces get arcs); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `if ( myrand() < RAND_MAX*2/3 )` |
-| 747 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->submodel_num = (myrand()>>4) % Debris_num_submodels;` |
+| 703 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = 2.0f * ((float) gameplay_rand()/(float) RAND_MAX) + 0.5f;` |
+| 707 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->lifeleft = (i2fl(gameplay_rand())/i2fl(RAND_MAX))*2.0f+0.1f;` |
+| 723 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->next_distance_check = (gameplay_rand() % 2000) + 4*DEBRIS_DISTANCE_CHECK_TIME;` |
+| 732 | `debris_create` | Gameplay |  | arc_frequency (which pieces get arcs); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `if ( gameplay_rand() < RAND_MAX*2/3 )` |
+| 747 | `debris_create` | Gameplay |  | debris objects collide and do damage | `db->submodel_num = (gameplay_rand()>>4) % Debris_num_submodels;` |
 | 754 | `debris_create` | Gameplay |  | next_fireball (arc timing); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `db->next_fireball = timestamp_rand(500,2000);` |
-| 799 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((myrand()%20) + 10);` |
-| 811 | `debris_create` | Gameplay |  | fire_timeout (arc window); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `t = 1000*Objects[db->source_objnum].radius/3 + myrand()%(fl2i(1000*3*Objects[db->source...` |
-| 823 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((myrand()%20) + 10);` |
+| 799 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((gameplay_rand()%20) + 10);` |
+| 811 | `debris_create` | Gameplay |  | fire_timeout (arc window); only drives arcs, but all of debris_create is kept on gameplay; candidate for a later change | `t = 1000*Objects[db->source_objnum].radius/3 + gameplay_rand()%(fl2i(1000*3*Objects[db->source...` |
+| 823 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = exp_force * i2fl((gameplay_rand()%20) + 10);` |
 | 827 | `debris_create` | Gameplay |  | debris objects collide and do damage | `vm_vec_rand_vec_quick(&radial_vel);` |
-| 884 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = ( 6.0f + i2fl(myrand()%4) ) / radius;` |
+| 884 | `debris_create` | Gameplay |  | debris objects collide and do damage | `scale = ( 6.0f + i2fl(gameplay_rand()%4) ) / radius;` |
 | 886 | `debris_create` | Gameplay |  | debris objects collide and do damage | `vm_vec_rand_vec_quick(&rotvel);` |
 
 ### FREESPACE2/FreeSpace.cpp
@@ -123,13 +123,13 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 2002 | `game_init` | Wrapper |  | seeds the gameplay stream at startup | `srand( Game_init_seed );` |
 | 2824 | `game_tst_frame` | Debug |  | tst debug overlay | `switch((int)frand_range(0.0f, 3.0)){` |
 | 2860 | `game_tst_frame` | Debug |  | tst debug overlay | `tst_y = frand_range(0.0f, (float)gr_screen.max_h - h);` |
-| 3179 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
-| 3180 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
-| 3188 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
-| 3189 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 3179 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = gameplay_rand();` |
+| 3180 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = gameplay_rand();` |
+| 3188 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = gameplay_rand();` |
+| 3189 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = gameplay_rand();` |
 | 3198 | `apply_hud_shake` | Cosmetic |  | force-feedback direction; joystick output only | `vm_vec_rand_vec_quick_cosmetic(&rand_vec);` |
-| 3217 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
-| 3218 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 3217 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = gameplay_rand();` |
+| 3218 | `apply_hud_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = gameplay_rand();` |
 | 4819 | `camera_move` | Gameplay |  | warp-out chase camera angle; becomes Eye_position | `float tmp_angle = frand()*PI2;` |
 
 ### Fireball/FireBalls.cpp
@@ -143,8 +143,8 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 253 | `myrand` | Wrapper |  |  | `int myrand()` |
-| 256 | `myrand` | Wrapper | yes |  | `rval = rand();` |
+| 253 | `gameplay_rand` | Wrapper |  |  | `int gameplay_rand()` |
+| 256 | `gameplay_rand` | Wrapper | yes |  | `rval = rand();` |
 | 265 | `cosmetic_rand` | Wrapper |  | cosmetic stream | `int cosmetic_rand()` |
 | 271 | `cosmetic_srand` | Wrapper |  | cosmetic stream | `void cosmetic_srand(int seed)` |
 
@@ -181,7 +181,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 136 | `timestamp_rand` | Wrapper |  | gameplay stream (macro) | `#define timestamp_rand(a,b) timestamp((myrand()%((b)-(a)+1))+(a))` |
+| 136 | `timestamp_rand` | Wrapper |  | gameplay stream (macro) | `#define timestamp_rand(a,b) timestamp((gameplay_rand()%((b)-(a)+1))+(a))` |
 | 138 | `cosmetic_timestamp_rand` | Wrapper |  | cosmetic stream (macro) | `#define cosmetic_timestamp_rand(a,b) timestamp((cosmetic_rand()%((b)-(a)+1))+(a))` |
 
 ### Math/Floating.cpp
@@ -189,7 +189,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
 | 148 | `frand` | Wrapper |  |  | `float frand()` |
-| 151 | `frand` | Wrapper |  |  | `rval = ((float) myrand()) / (RAND_MAX + 1);` |
+| 151 | `frand` | Wrapper |  |  | `rval = ((float) gameplay_rand()) / (RAND_MAX + 1);` |
 | 156 | `frand_range` | Wrapper |  |  | `float frand_range(float min, float max)` |
 | 160 | `frand_range` | Wrapper |  |  | `rval = frand();` |
 | 167 | `cosmetic_frand` | Wrapper |  | cosmetic stream | `float cosmetic_frand()` |
@@ -204,7 +204,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 51 | `init_semirand` | Load |  | fills the static_rand table at startup | `Semirand[i] = (myrand() << 15) + myrand();` |
+| 51 | `init_semirand` | Load |  | fills the static_rand table at startup | `Semirand[i] = (gameplay_rand() << 15) + gameplay_rand();` |
 
 ### Math/VecMat.cpp
 
@@ -299,8 +299,8 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 1350 | `interp_render_lightning` | Cosmetic |  |  | `if ( (cosmetic_rand()>>4) & 1 )` |
 | 1359 | `interp_render_lightning` | Cosmetic |  |  | `if ( (cosmetic_rand()>>4) & 1 )` |
 | 2977 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `void submodel_get_two_random_points(int model_num, int submodel_num, vector *v1, vector...` |
-| 2981 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn1 = (myrand()>>5) % nv;` |
-| 2982 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn2 = (myrand()>>5) % nv;` |
+| 2981 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn1 = (gameplay_rand()>>5) % nv;` |
+| 2982 | `submodel_get_two_random_points` | Wrapper |  | callers: Beam aim, shipfx_blow_up_model debris, dying-ship fireballs | `int vn2 = (gameplay_rand()>>5) % nv;` |
 | 2996 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `void submodel_get_two_random_points_cosmetic(int model_num, int submodel_num, vector *v...` |
 | 3000 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `int vn1 = (cosmetic_rand()>>5) % nv;` |
 | 3001 | `submodel_get_two_random_points_cosmetic` | Wrapper |  | cosmetic stream | `int vn2 = (cosmetic_rand()>>5) % nv;` |
@@ -402,7 +402,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 2336 | `rand_internal` | Gameplay | yes | raw rand(); used by the rand and subsys-set-random sexps | `return (low + rand() % (diff + 1));` |
 | 2363 | `rand_sexp` | Gameplay |  | rand sexp | `rand_num = rand_internal(low, high);` |
 | 4510 | `sexp_send_one_message` | Gameplay |  | picks the sending ship; message choice kept on gameplay stream | `ship_index = ship_get_random_ship_in_wing( num, SHIP_GET_NO_PLAYERS, 1 );` |
-| 4642 | `sexp_send_random_message` | Gameplay |  | send-random-message sexp | `message_num = myrand() % num_messages;` |
+| 4642 | `sexp_send_random_message` | Gameplay |  | send-random-message sexp | `message_num = gameplay_rand() % num_messages;` |
 | 6363 | `sexp_beam_free` | Gameplay |  | turret first fire delay | `turret->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
 | 6390 | `sexp_beam_free_all` | Gameplay |  | turret first fire delay | `subsys->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
 | 6479 | `sexp_turret_free` | Gameplay |  | turret first fire delay | `turret->turret_next_fire_stamp = timestamp((int) frand_range(50.0f, 4000.0f));` |
@@ -425,8 +425,8 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
-| 592 | `physics_sim_rot` | Gameplay |  |  | `tangles.p += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
-| 593 | `physics_sim_rot` | Gameplay |  |  | `tangles.h += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
+| 592 | `physics_sim_rot` | Gameplay |  |  | `tangles.p += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
+| 593 | `physics_sim_rot` | Gameplay |  |  | `tangles.h += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;` |
 
 ### Playerman/ManagePilot.cpp
 
@@ -479,12 +479,12 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
 | 2652 | `evaluate_obj_as_target` | Gameplay |  |  | `if (frand() > (turret_stealth_find_chance + speed_mod)) {` |
-| 2864 | `get_enemy_timestamp` | Gameplay |  |  | `return (NUM_SKILL_LEVELS - Game_skill_level) * ( (myrand() % 500) + 500);` |
+| 2864 | `get_enemy_timestamp` | Gameplay |  |  | `return (NUM_SKILL_LEVELS - Game_skill_level) * ( (gameplay_rand() % 500) + 500);` |
 | 2948 | `find_turret_enemy` | Gameplay |  |  | `if ((frand() < 0.8f) && (aip->target_objnum != -1) && Use_parent_target) {` |
 | 3111 | `ai_attack_wing` | Gameplay |  |  | `index = (int) (frand() * count);` |
 | 3590 | `maybe_avoid_player` | Gameplay |  |  | `vm_vec_copy_scale(&avoid_vec, &objp->orient.rvec, frand()-0.5f);` |
 | 3591 | `maybe_avoid_player` | Gameplay |  |  | `vm_vec_scale_add2(&avoid_vec, &objp->orient.uvec, frand()-0.5f);` |
-| 5280 | `evade_ship` | Gameplay |  |  | `if (aip->ai_evasion > myrand()*100.0f/32767.0f) {` |
+| 5280 | `evade_ship` | Gameplay |  |  | `if (aip->ai_evasion > gameplay_rand()*100.0f/32767.0f) {` |
 | 5558 | `ai_fire_primary_weapon` | Gameplay |  |  | `if (frand() > 0.5f) {` |
 | 6915 | `ai_stealth_sweep` | Gameplay |  |  | `vm_vec_rand_vec_quick(&aip->stealth_velocity);` |
 | 7089 | `ai_chase_es` | Gameplay |  |  | `tvec.x += frand();` |
@@ -496,11 +496,11 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 8120 | `ai_chase` | Gameplay |  |  | `(frand() < (float) Game_skill_level/NUM_SKILL_LEVELS)) {` |
 | 8137 | `ai_chase` | Gameplay |  |  | `if ((Missiontime - aip->last_hit_target_time > i2f(5)) && (frand() < (float) (aip->ai_c...` |
 | 8146 | `ai_chase` | Gameplay |  |  | `if (frand() > 0.5f) {` |
-| 8148 | `ai_chase` | Gameplay |  |  | `aip->submode_parm0 = myrand() & 0x0f;` |
-| 8220 | `ai_chase` | Gameplay |  |  | `switch (myrand() % 5) {` |
+| 8148 | `ai_chase` | Gameplay |  |  | `aip->submode_parm0 = gameplay_rand() & 0x0f;` |
+| 8220 | `ai_chase` | Gameplay |  |  | `switch (gameplay_rand() % 5) {` |
 | 8230 | `ai_chase` | Gameplay |  |  | `if (frand() < (float) 0.5f * (aip->ai_class + Game_skill_level)/(Num_ai_classes + NUM_S...` |
 | 8427 | `ai_chase` | Gameplay |  |  | `if (frand() < 0.25f/(30.0f*hull_percent) * count)` |
-| 8872 | `remove_farthest_attacker` | Gameplay |  |  | `aip->ignore_expire_timestamp = timestamp(((myrand() % 10) + 20) * 1000);` |
+| 8872 | `remove_farthest_attacker` | Gameplay |  |  | `aip->ignore_expire_timestamp = timestamp(((gameplay_rand() % 10) + 20) * 1000);` |
 | 9664 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
 | 9673 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
 | 9714 | `ai_do_objects_repairing_stuff` | Gameplay |  |  | `stamp = timestamp((int) ((30 + 10*frand()) * 1000));` |
@@ -548,7 +548,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | 7516 | `ship_get_random_player_wing_ship` | Wrapper | yes | callers: message senders, arrival location (all gameplay stream) | `which_one = (rand() % count);` |
 | 7566 | `ship_get_random_ship_in_wing` | Wrapper | yes | callers: squad messages, arrival messages, send-message sexp (gameplay stream) | `which_one = (rand() % count);` |
 | 7624 | `ship_get_random_team_ship` | Wrapper | yes | callers: arrival location, EMP (G) | `which_one = (rand() % num);` |
-| 8335 | `ship_maybe_praise_player` | Gameplay |  | message choice; kept on gameplay stream to be safe | `if ( myrand()&1 ) {` |
+| 8335 | `ship_maybe_praise_player` | Gameplay |  | message choice; kept on gameplay stream to be safe | `if ( gameplay_rand()&1 ) {` |
 | 8368 | `ship_maybe_praise_player` | Gameplay |  | message choice; kept on gameplay stream to be safe | `Player->praise_delay_timestamp = timestamp_rand(1000, 2000);` |
 | 8491 | `ship_maybe_lament` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()%4 == 0 ) {` |
 | 8537 | `ship_maybe_scream` | Gameplay | yes | message choice; kept on gameplay stream to be safe | `if ( rand()&1 )` |
@@ -633,8 +633,8 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 | Line | Function | Stream | Raw `rand()` | Note | Code |
 |---|---|---|---|---|---|
 | 171 | `supernova_do_particles` | Cosmetic |  |  | `submodel_get_two_random_points_cosmetic(Player_ship->modelnum, 0, &ta, &tb);` |
-| 329 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = myrand();` |
-| 330 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = myrand();` |
+| 329 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r1 = gameplay_rand();` |
+| 330 | `supernova_apply_shake` | Gameplay |  | eye shake; the shaken Eye_matrix decides asteroid wrap, missile lock, the traced flyby-sound flag and fireball LOD | `int r2 = gameplay_rand();` |
 
 ### Weapon/Beam.cpp
 
@@ -689,7 +689,7 @@ The 21 raw `rand()` calls on the gameplay stream are still not counted by the tr
 |---|---|---|---|---|---|
 | 322 | `swarm_update_direction` | Gameplay |  |  | `swarmp->path_num` |
 | 338 | `swarm_update_direction` | Gameplay |  |  | `swarmp->change_time = fl2i(SWARM_CHANGE_DIR_TIME + SWARM_TIME_VARIANCE*(frand() - 0.5f)...` |
-| 390 | `swarm_update_direction` | Gameplay |  |  | `swarmp->path_num = swarmp->path_num + myrand()%3;` |
+| 390 | `swarm_update_direction` | Gameplay |  |  | `swarmp->path_num = swarmp->path_num + gameplay_rand()%3;` |
 
 ### Weapon/Weapons.cpp
 

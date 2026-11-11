@@ -48,7 +48,7 @@ void init_semirand()
 	Semirand_inited = 1;
 
 	for (i=0; i<SEMIRAND_MAX; i++)
-		Semirand[i] = (myrand() << 15) + myrand();
+		Semirand[i] = (gameplay_rand() << 15) + gameplay_rand();
 }
 
 

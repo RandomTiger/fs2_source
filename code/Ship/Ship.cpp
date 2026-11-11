@@ -8294,7 +8294,7 @@ warn_player_done:
 #define PLAYER_MAX_PRAISES					10			// max number of praises player can receive in a mission
 void ship_maybe_praise_player(ship *deader_sp)
 {
-	if ( myrand()&1 ) {
+	if ( gameplay_rand()&1 ) {
 		return;
 	}
 

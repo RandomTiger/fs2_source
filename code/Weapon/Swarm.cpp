@@ -319,7 +319,7 @@ void swarm_update_direction(object *objp, float frametime)
 		if ( swarmp->path_num == -1 ) {
 			if ( Objects[objp->parent].type != OBJ_SHIP ) {
 				//AL: parent ship died... so just pick some random paths
-				swarmp->path_num	= myrand()%4;
+				swarmp->path_num	= gameplay_rand()%4;
 			} else {
 				ship *parent_shipp;
 				parent_shipp = &Ships[Objects[objp->parent].instance];
@@ -387,7 +387,7 @@ void swarm_update_direction(object *objp, float frametime)
 
 		// pick a new path number to follow once at center
 		if ( swarmp->change_count == 1 ) {
-			swarmp->path_num = swarmp->path_num + myrand()%3;
+			swarmp->path_num = swarmp->path_num + gameplay_rand()%3;
 			if ( swarmp->path_num > 3 ) {
 				swarmp->path_num = 0;
 			}
