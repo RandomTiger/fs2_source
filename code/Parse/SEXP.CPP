@@ -2335,7 +2335,8 @@ int rand_internal(int low, int high)
 		diff = 0;
 	}
 
-	return (low + rand() % (diff + 1));
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	return (low + gameplay_rand() % (diff + 1));
 }
 
 

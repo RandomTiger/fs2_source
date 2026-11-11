@@ -3,7 +3,7 @@
 Every place the game draws a random number, and which stream it draws from. Cosmetic effects now have their own random stream, so effects and rendering no longer shift gameplay randomness. FRED2 and commented-out code (`/* */` blocks and `#if 0`) are left out.
 
 ## The two streams
-- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `gameplay_rand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick`, `vm_vec_random_cone`, `ship_get_random_ship` and `submodel_get_two_random_points` all draw from it through `gameplay_rand()` or `frand()`. Direct `rand()` calls draw from the same stream but are not counted; gameplay code no longer makes them, except `rand_internal` (#278).
+- **Gameplay stream.** The C library `rand()`, seeded from the level seed (`srand(Game_level_seed)`). `gameplay_rand()` (SystemVars.cpp) wraps it and increments `Rand_count`, which the replay trace records. `frand`, `frand_range`, `rand_chance`, `timestamp_rand`, `vm_vec_rand_vec_quick`, `vm_vec_random_cone`, `ship_get_random_ship` and `submodel_get_two_random_points` all draw from it through `gameplay_rand()` or `frand()`. Direct `rand()` calls draw from the same stream but are not counted; gameplay code no longer makes them (#278).
 - **Cosmetic stream.** `cosmetic_rand()` (SystemVars.cpp) uses the same generator as the MSVC `rand()` but keeps its own seed, set from the level seed in `game_level_init`. It is not counted and not traced. The cosmetic versions of the helpers are `cosmetic_frand`, `cosmetic_frand_range`, `cosmetic_timestamp_rand`, `vm_vec_rand_vec_quick_cosmetic`, `vm_vec_random_cone_cosmetic`, `ship_get_random_ship_cosmetic` and `submodel_get_two_random_points_cosmetic`.
 - **Not on a stream.** `static_rand()` / `static_randf()` / `static_randvec()` (StaticRand.cpp) look up a fixed table. The table is filled from `gameplay_rand()` once, at startup (`init_semirand`).
 
@@ -38,7 +38,7 @@ These look cosmetic but **stay on the gameplay stream**:
 | Debug | 6 | 0 |
 | Load | 1 | 0 |
 
-The raw `rand()` calls in gameplay code (AI, ships, ship effects, asteroids, physics, debris, mission messages, mission parse, player control) now call `gameplay_rand()`, so the trace counts them (#278, 2026-11-11). The sequence is unchanged; only the `rand_count` trace column moved. Still raw: `rand_internal` in SEXP.CPP (the rand sexps; a follow-up), and the menu, pilot, credits, FRED and multiplayer sites, which are not gameplay.
+The raw `rand()` calls in gameplay code (AI, ships, ship effects, asteroids, physics, debris, mission messages, mission parse, player control) now call `gameplay_rand()`, so the trace counts them (#278, 2026-11-11). The sequence is unchanged; only the `rand_count` trace column moved. `rand_internal` in SEXP.CPP (the rand sexp, used by ten FS2 missions) followed in its own commit. Still raw: the menu, pilot, credits, FRED and multiplayer sites, which are not gameplay.
 
 ## Things to note
 1. **Gameplay happens inside render code.** These draw from the gameplay stream or change simulation state while the frame is being drawn, and the port has to move them out of rendering:
