@@ -118,6 +118,7 @@
     <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
+      <AdditionalManifestFiles>longPathAware.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -170,6 +171,7 @@
     <!-- Claude: DPI aware, so Windows display scaling does not enlarge the fullscreen picture past the screen -->
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
+      <AdditionalManifestFiles>longPathAware.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
