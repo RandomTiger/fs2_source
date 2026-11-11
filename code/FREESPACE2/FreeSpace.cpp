@@ -2038,6 +2038,7 @@ void game_init()
 	game_time_init();	// Claude: D-055
 	rand_alt_init();	// Claude: the alternate random stream starts where a new process starts it (D-055)
 	Rand_count = 0;		// Claude: the trace counts rand calls from process start; a restarted game counts from 0 again (D-055)
+	{ extern int Player_tips_shown; Player_tips_shown = 0; }	// Claude: the main hall's tip popup draws a gameplay number once per process; a restarted game shows it again as a new process would (D-055)
 	{	// Claude: the viewer's eye starts at zero as in a new process; the trace writes it before the first mission frame sets it (D-055)
 		extern vector Eye_position;
 		extern matrix Eye_matrix;
