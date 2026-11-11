@@ -19,11 +19,11 @@ static unsigned int fs1_get32(const unsigned char *p) { return p[0] | (p[1] << 8
 // creates every folder on the way to the file at path
 static void fs1_make_folders_for(char *path)
 {
-	char tmp[MAX_PATH];
+	char tmp[DS_MAX_PATH];
 	char *p;
 
-	strncpy(tmp, path, MAX_PATH - 1);
-	tmp[MAX_PATH - 1] = 0;
+	strncpy(tmp, path, DS_MAX_PATH - 1);
+	tmp[DS_MAX_PATH - 1] = 0;
 	for (p = tmp; *p; p++) {
 		if ((*p == '\\') && (p > tmp) && (p[-1] != ':')) {
 			*p = 0;
@@ -39,14 +39,14 @@ static void fs1_make_folders_for(char *path)
 
 int dataset_fs1_detect(char *dir)
 {
-	char path[MAX_PATH];
+	char path[DS_MAX_PATH];
 	unsigned char header[16], entry[44];
 	unsigned int i, num, diroff;
 	int found = 0;
 	FILE *fp;
 
-	_snprintf(path, MAX_PATH - 1, "%s\\Data\\freespace.vp", dir);
-	path[MAX_PATH - 1] = 0;
+	_snprintf(path, DS_MAX_PATH - 1, "%s\\Data\\freespace.vp", dir);
+	path[DS_MAX_PATH - 1] = 0;
 	fp = fopen(path, "rb");
 	if (!fp) {
 		return 0;
@@ -85,19 +85,19 @@ static int fs1_entry_wanted(const char *path)
 
 int dataset_fs1_extract(char *exe_dir, char *err, int err_len)
 {
-	char installer[MAX_PATH], folder[MAX_PATH], partial[MAX_PATH], path[MAX_PATH];
+	char installer[DS_MAX_PATH], folder[DS_MAX_PATH], partial[DS_MAX_PATH], path[DS_MAX_PATH];
 	unsigned char *data, *out;
 	int len;
 	cab_archive cab;
 	FILE *fp;
 	int i, ok, taken = 0;
 
-	_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, FS1_DEMO_INSTALLER);
-	installer[MAX_PATH - 1] = 0;
-	_snprintf(folder, MAX_PATH - 1, "%s\\%s", exe_dir, FS1_DEMO_FOLDER);
-	folder[MAX_PATH - 1] = 0;
-	_snprintf(partial, MAX_PATH - 1, "%s.partial", folder);
-	partial[MAX_PATH - 1] = 0;
+	_snprintf(installer, DS_MAX_PATH - 1, "%s\\%s", exe_dir, FS1_DEMO_INSTALLER);
+	installer[DS_MAX_PATH - 1] = 0;
+	_snprintf(folder, DS_MAX_PATH - 1, "%s\\%s", exe_dir, FS1_DEMO_FOLDER);
+	folder[DS_MAX_PATH - 1] = 0;
+	_snprintf(partial, DS_MAX_PATH - 1, "%s.partial", folder);
+	partial[DS_MAX_PATH - 1] = 0;
 
 	if (GetFileAttributes(folder) != INVALID_FILE_ATTRIBUTES) {
 		// never write into a folder that is already there
@@ -126,8 +126,8 @@ int dataset_fs1_extract(char *exe_dir, char *err, int err_len)
 			free(out);
 			break;
 		}
-		_snprintf(path, MAX_PATH - 1, "%s\\%s", partial, cab.entries[i].path);
-		path[MAX_PATH - 1] = 0;
+		_snprintf(path, DS_MAX_PATH - 1, "%s\\%s", partial, cab.entries[i].path);
+		path[DS_MAX_PATH - 1] = 0;
 		fs1_make_folders_for(path);
 		fp = fopen(path, "wb");
 		ok = fp && (fwrite(out, 1, cab.entries[i].expanded, fp) == cab.entries[i].expanded);

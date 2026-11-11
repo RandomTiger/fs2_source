@@ -329,8 +329,8 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 	
 	
 	// Claude: the game's start-up, frames and shutdown are game_host_init, game_host_frame and game_host_shutdown (D-050)
-	char root_dir[1024];
-	_getcwd(root_dir, 1024);	// the exe directory, set above
+	char root_dir[CF_MAX_PATHNAME_LENGTH];	// Claude: was 1024 (fix review 73, #305)
+	_getcwd(root_dir, CF_MAX_PATHNAME_LENGTH);	// the exe directory, set above
 
 	// Claude: -replay_next <recording> -trace_next <trace>: after the first run, init, replay and shut down again in
 	// this process with that recording and trace, to test that the game restarts cleanly (D-055)
