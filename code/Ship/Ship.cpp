@@ -3160,7 +3160,8 @@ void ship_dying_frame(object *objp, int ship_num)
 				model_find_world_point(&outpnt, &pnt1, sp->modelnum, pm->detail[0], &objp->orient, &objp->pos );
 
 				float rad = objp->radius*0.1f;
-				int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
+				// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+				int fireball_type = FIREBALL_EXPLOSION_LARGE1 + gameplay_rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
 				fireball_create( &outpnt, fireball_type, OBJ_INDEX(objp), rad, 0, &objp->phys_info.vel );
 				// start the next fireball up in the next 50 - 200 ms (2-3 per frame)
 				sp->next_fireball = timestamp_rand(333,500);
@@ -3183,7 +3184,8 @@ void ship_dying_frame(object *objp, int ship_num)
 				vm_vec_add(&outpnt, &objp->pos, &rand_vec);
 
 				float rad = objp->radius*0.2f;
-				int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
+				// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+				int fireball_type = FIREBALL_EXPLOSION_LARGE1 + gameplay_rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
 				fireball_create( &outpnt, fireball_type, OBJ_INDEX(objp), rad, 0, &objp->phys_info.vel );
 				// start the next fireball up in the next 50 - 200 ms (2-3 per frame)
 				sp->next_fireball = timestamp_rand(333,500);
@@ -3326,7 +3328,8 @@ void ship_dying_frame(object *objp, int ship_num)
 				int fireball_objnum, fireball_type;
 				float explosion_life;
 				big_rad = objp->radius*1.75f;
-				fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
+				// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+				fireball_type = FIREBALL_EXPLOSION_LARGE1 + gameplay_rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
 				if (knossos_ship) {
 					big_rad = objp->radius * 1.2f;
 					fireball_type = FIREBALL_EXPLOSION_LARGE1;
@@ -7475,7 +7478,8 @@ int ship_get_random_player_wing_ship( int flags, float max_dist, int persona_ind
 	}
 
 	// now get a random one from the list
-	which_one = (rand() % count);
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	which_one = (gameplay_rand() % count);
 	ship_index = slist[which_one];
 
 	Assert ( Ships[ship_index].objnum != -1 );
@@ -7525,7 +7529,8 @@ int ship_get_random_ship_in_wing(int wingnum, int flags, float max_dist, int get
 	}
 
 	// now get a random one from the list
-	which_one = (rand() % count);
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	which_one = (gameplay_rand() % count);
 	ship_index = slist[which_one];
 
 	Assert ( Ships[ship_index].objnum != -1 );
@@ -7583,7 +7588,8 @@ int ship_get_random_team_ship( int team, int flags, float max_dist )
 	if ( num == 0 )
 		return -1;
 
-	which_one = (rand() % num);
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	which_one = (gameplay_rand() % num);
 	objp = obj_list[which_one];
 
 	Assert ( objp->instance != -1 );
@@ -8450,7 +8456,8 @@ void ship_maybe_lament()
 		return;
 	}
 
-	if ( rand()%4 == 0 ) {
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	if ( gameplay_rand()%4 == 0 ) {
 		ship_index = ship_get_random_player_wing_ship( SHIP_GET_NO_PLAYERS );
 		if ( ship_index >= 0 ) {
 			message_send_builtin_to_player(MESSAGE_PLAYED_DIED, &Ships[ship_index], MESSAGE_PRIORITY_HIGH, MESSAGE_TIME_IMMEDIATE, 0, 0, -1, -1);
@@ -8496,7 +8503,8 @@ void ship_scream(ship *sp)
 // NOTE: this is only called for ships that are in a player wing (and not player ship)
 void ship_maybe_scream(ship *sp)
 {
-	if ( rand()&1 )
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	if ( gameplay_rand()&1 )
 		return;
 
 	// First check if the player has reached the maximum number of screams for a mission
@@ -8567,7 +8575,8 @@ void ship_maybe_tell_about_rearm(ship *sp)
 	}
 
 	if ( message_type >= 0 ) {
-		if ( rand() & 1 ) {
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		if ( gameplay_rand() & 1 ) {
 			message_send_builtin_to_player(message_type, sp, MESSAGE_PRIORITY_NORMAL, MESSAGE_TIME_SOON, 0, 0, -1, multi_team_filter);
 		}
 		Player->request_repair_timestamp = timestamp(PLAYER_REQUEST_REPAIR_MSG_INTERVAL);

@@ -4147,8 +4147,9 @@ int mission_set_arrival_location(int anchor, int location, int dist, int objnum,
 			//x = cos(angle)
 			x = (float)cos(ANG_TO_RAD(45));
 			if ( Game_mode & GM_NORMAL ) {
-				r1 = rand() < RAND_MAX/2 ? -1 : 1;
-				r2 = rand() < RAND_MAX/2 ? -1 : 1;
+				// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+				r1 = gameplay_rand() < RAND_MAX/2 ? -1 : 1;
+				r2 = gameplay_rand() < RAND_MAX/2 ? -1 : 1;
 			} else {
 				// in multiplayer, use the static rand functions so that all clients can get the
 				// same information.

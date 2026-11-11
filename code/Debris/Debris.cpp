@@ -270,7 +270,8 @@ static void debris_start_death_roll(object *debris_obj, debris *debris_p)
 		if( MULTIPLAYER_MASTER )
 			send_debris_update_packet(debris_obj,DEBRIS_UPDATE_NUKE);
 
-		int fireball_type = FIREBALL_EXPLOSION_LARGE1 + rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		int fireball_type = FIREBALL_EXPLOSION_LARGE1 + gameplay_rand()%FIREBALL_NUM_LARGE_EXPLOSIONS;
 		fireball_create( &debris_obj->pos, fireball_type, OBJ_INDEX(debris_obj), debris_obj->radius*1.75f);
 
 		// only play debris destroy sound if hull piece and it has been around for at least 2 seconds
@@ -518,7 +519,8 @@ void debris_process_post(object * obj, float frame_time)
 		// start the next fireball up in the next 50 - 100 ms
 		//db->next_fireball = timestamp_rand(60,80);		
 
-		db->next_fireball = cosmetic_timestamp_rand(db->arc_frequency,db->arc_frequency*2 );
+		// Claude: gameplay stream again (retail): this draw decides when a recorded sound call happens, so it is not cosmetic (#276)
+		db->next_fireball = timestamp_rand(db->arc_frequency,db->arc_frequency*2 );
 		db->arc_frequency += 100;	
 
 		if (db->is_hull)	{
@@ -699,7 +701,8 @@ object *debris_create(object *source_obj, int model_num, int submodel_num, vecto
 
 	// Create Debris piece n!
 	if ( hull_flag ) {
-		if (rand() < RAND_MAX/6)	// Make some pieces blow up shortly after explosion.
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		if (gameplay_rand() < RAND_MAX/6)	// Make some pieces blow up shortly after explosion.
 			db->lifeleft = 2.0f * ((float) gameplay_rand()/(float) RAND_MAX) + 0.5f;
 		else
 			db->lifeleft = -1.0f;		// large hull pieces stay around forever

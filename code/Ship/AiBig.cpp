@@ -1539,7 +1539,8 @@ void ai_big_strafe_attack()
 		if ( t > 0.0f && t < 1.5f ) {
 			// set up goal_point for avoid path to turn towards
 			aip->goal_point = Pl_objp->pos;
-			switch(rand()%4) {
+			// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+			switch(gameplay_rand()%4) {
 			case 0:
 				vm_vec_scale_add(&rand_vec, &Pl_objp->orient.fvec, &Pl_objp->orient.uvec, 2.0f);
 				break;
@@ -1649,7 +1650,8 @@ void ai_big_strafe_retreat1()
 	if (Missiontime - aip->submode_start_time > fl2f(1.50f)) {
 		// set up goal_point for avoid path to turn towards
 		aip->prev_goal_point = Pl_objp->pos;
-		switch(rand()%4) {
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		switch(gameplay_rand()%4) {
 		case 0:
 			vm_vec_add(&rand_vec, &Pl_objp->orient.fvec, &Pl_objp->orient.uvec);
 			break;
