@@ -579,8 +579,9 @@ void physics_sim_rot(matrix * orient, physics_info * pi, float sim_time )
 		float	max_speed;
 
 		max_speed = vm_vec_mag_quick(&pi->max_vel);
-		tangles.p += (float) (rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;
-		tangles.h += (float) (rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;
+		// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+		tangles.p += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;
+		tangles.h += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * pi->speed/max_speed/64.0f;
 		if ( pi->flags & PF_AFTERBURNER_ON ) {
 			pi->afterburner_decay = timestamp(ABURN_DECAY_TIME);
 		}
@@ -589,8 +590,8 @@ void physics_sim_rot(matrix * orient, physics_info * pi, float sim_time )
 
 	// Make ship shake due to shockwave, decreasing in amplitude at the end of the shockwave
 	if ( pi->flags & PF_IN_SHOCKWAVE ) {
-		tangles.p += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;
-		tangles.h += (float) (myrand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;
+		tangles.p += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;
+		tangles.h += (float) (gameplay_rand()-RAND_MAX/2)/RAND_MAX * shock_amplitude;
 	}
 
 

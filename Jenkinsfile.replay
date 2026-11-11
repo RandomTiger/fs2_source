@@ -1,9 +1,9 @@
 // Headless replay test (#280). A separate Jenkins job per branch: Script Path = Jenkinsfile.replay.
 // This file is the same on every branch. What a branch runs is in build\jenkins.props; exe names come from
-// build\layer.props (tools\layer.ps1); machine paths come from the agent's environment (PATH_FS2, PATH_FS1).
+// build\layer.props (tools\layer.ps1); machine paths come from the agent's environment (PATH_FS2, PATH_FS1, PATH_FS2DEMO).
 // Builds only the game, x64 (FS2_<Layer>_r64/_d64.exe), and TraceDiff, which the replay check needs; no editor tools.
 // Replays are x64 and headless on every branch (Tom, 2026-11-09).
-// No FS2 demo replays for now: they need a separate FS2_DEMO exe (#282, #287).
+// FS2 demo replays (set fs2demo) use the same exe, copied into PATH_FS2DEMO: the exe finds the demo data at run time (#287).
 
 // MSBuild through vswhere, so no Visual Studio path is written here. A project file builds that project alone for the
 // platform (the solution has no x64 platform, as tools\gates\x64_check.ps1); a solution target builds in the x86 solution.
@@ -67,8 +67,8 @@ pipeline {
                     "ReplaySets = $($sets -join ',')"
                     $bad = @()
                     if (-not $sets) { $bad += 'build\\jenkins.props sets no ReplaySets' }
-                    $bad += @($sets | Where-Object { $_ -notin 'fs2', 'fs1' } | ForEach-Object { "unknown replay set '$_' in build\\jenkins.props" })
-                    $vars = @('PATH_FS2') + @(if ($sets -contains 'fs1') { 'PATH_FS1' })   # FS1 replays use the FS2 exes, copied in
+                    $bad += @($sets | Where-Object { $_ -notin 'fs2', 'fs1', 'fs2demo' } | ForEach-Object { "unknown replay set '$_' in build\\jenkins.props" })
+                    $vars = @('PATH_FS2') + @(if ($sets -contains 'fs1') { 'PATH_FS1' }) + @(if ($sets -contains 'fs2demo') { 'PATH_FS2DEMO' })   # FS1 and demo replays use the FS2 exes, copied in
                     foreach ($v in $vars) {
                         $p = [Environment]::GetEnvironmentVariable($v)
                         if (-not $p) { $bad += "$v is not set for this account" }
@@ -122,11 +122,12 @@ pipeline {
                     $out = Join-Path $ws 'replays\\jenkins'
                     New-Item -ItemType Directory -Force $out | Out-Null
                     $fs1Dir = $env:PATH_FS1
-                    if ($sets -contains 'fs1') {
-                        # FS1 recordings replay in the FS1 folder with the exes found there (as tools\\gates\\l1_gate.ps1 does)
+                    $demoDir = $env:PATH_FS2DEMO
+                    # FS1 and FS2 demo recordings replay in their own folders with the exes found there (as tools\\gates\\l1_gate.ps1 does)
+                    foreach ($d in @(@(if ($sets -contains 'fs1') { $fs1Dir }) + @(if ($sets -contains 'fs2demo') { $demoDir }))) {
                         foreach ($c in 'r64', 'd64') {
                             $x = Get-FS2Exe $c $ws
-                            Copy-Item -LiteralPath (Join-Path $env:PATH_FS2 $x) -Destination $fs1Dir -Force
+                            Copy-Item -LiteralPath (Join-Path $env:PATH_FS2 $x) -Destination $d -Force
                         }
                     }
 
@@ -154,11 +155,12 @@ pipeline {
                     }
 
                     $ok = $true
-                    $fs2 = @(); $fs1 = @(); $cfg = 'r64,d64'
+                    $fs2 = @(); $fs1 = @(); $demo = @(); $cfg = 'r64,d64'
                     if ($env:REPLAY_FULL) {
                         $cfg = 'r64'
                         foreach ($d in 'autotest', 'played') { $fs2 += Get-ChildItem (Join-Path $ws "recordings\\$d") -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName } }
                         $fs1 += Get-ChildItem (Join-Path $ws 'recordings\\fs1') -Filter *.fs2rec | ForEach-Object { $_.BaseName }
+                        $demo += Get-ChildItem (Join-Path $ws 'recordings\\demo') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName }
                     } else {
                         foreach ($l in Get-Content -LiteralPath "$ws\\tools\\gates\\l1_set.txt") {
                             $l = ($l -replace '#.*$', '').Trim()
@@ -168,17 +170,21 @@ pipeline {
                                 'features' { $fs2 += Get-ChildItem (Join-Path $ws 'recordings\\autotest') -Filter "$name.fs2rec" | ForEach-Object { $_.BaseName } }
                                 'fs2'      { $fs2 += $name }
                                 'fs1'      { $fs1 += $name }
-                                default    { }   # fs2demo needs the FS2_DEMO exe (#282); fs1demo has no recording (clean-run rule)
+                                'fs2demo'  { $demo += $name }
+                                default    { }   # fs1demo has no recording (clean-run rule)
                             }
                         }
-                        if ($env:REPLAY_MISSIONS) { $fs2 = @($env:REPLAY_MISSIONS -split ','); $fs1 = @() }   # hand-run proofs only
+                        if ($env:REPLAY_MISSIONS) { $fs2 = @($env:REPLAY_MISSIONS -split ','); $fs1 = @(); $demo = @() }   # hand-run proofs only
                     }
                     if ($sets -notcontains 'fs2') { $fs2 = @() }
                     if ($sets -notcontains 'fs1') { $fs1 = @() }
-                    $fs2 = @($fs2 | Sort-Object -Unique); $fs1 = @($fs1 | Sort-Object -Unique)
-                    if (-not ($fs2 + $fs1)) { Write-Host 'FAIL nothing to replay'; exit 1 }
+                    if ($sets -notcontains 'fs2demo') { $demo = @() }
+                    $fs2 = @($fs2 | Sort-Object -Unique); $fs1 = @($fs1 | Sort-Object -Unique); $demo = @($demo | Sort-Object -Unique)
+                    if (-not ($fs2 + $fs1 + $demo)) { Write-Host 'FAIL nothing to replay'; exit 1 }
                     if ($fs2) { $ok = (Run-Check 'fs2' @('-Configs', $cfg, '-Missions', ($fs2 -join ',')) '') -and $ok }
                     if ($fs1) { $ok = (Run-Check 'fs1' @('-Configs', $cfg, '-Missions', ($fs1 -join ','), '-Fs1Dir', $fs1Dir) $fs1Dir) -and $ok }
+                    # demo recordings always replay as an x64 Release and Debug pair (replay_check)
+                    if ($demo) { $ok = (Run-Check 'fs2demo' @('-Configs', $cfg, '-Missions', ($demo -join ','), '-DemoDir', $demoDir) '') -and $ok }
                     if (-not $ok) { exit 1 }
                 '''
             }

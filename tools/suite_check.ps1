@@ -11,7 +11,7 @@ The PrePort suite (decision D-042): the checks over one set of recordings.
                    tools check and the no-warnings build. Note the date and the result in STATUS.md, or it did not happen.
 
 First, the game builds in Release and Debug (incremental, into GameDir) with no compiler, linker or MSBuild warning:
-the per-commit half of the zero-warnings gate (D-20261019-235231). Then tools\build_demo.ps1 builds the FS2_DEMO exe into PATH_FS2DEMO (SKIP without it); demo recordings replay there.
+the per-commit half of the zero-warnings gate (D-20261019-235231). Then tools\build_demo.ps1 copies the game exe into PATH_FS2DEMO (SKIP without it); demo recordings replay there.
 Checks:
   replay     tools\replay_check.ps1 in Release and Debug, with sm1-01 and sm3-06 also compared across the builds
   nodraw     tools\nodraw_check.ps1, Release (retail recordings)
@@ -121,7 +121,7 @@ foreach ($c in 'Release', 'Debug') {
 	$warn | Select-Object -First 10
 	Add-Result "build $c" "exit $rc, $($warn.Count) warnings" ((-not $rc) -and ($warn.Count -eq 0))
 }
-# the FS2_DEMO exe, built from this checkout into PATH_FS2DEMO (the demo dev copy), so a demo build that does not compile fails the suite
+# the game exe (no separate FS2_DEMO build since #287), built from this checkout into PATH_FS2DEMO (the demo dev copy), so a demo build that does not compile fails the suite
 # (D-20261019-175929, 213450). Without PATH_FS2DEMO it is a SKIP, which no merge-up or branch-done claim may rest on.
 if ($env:PATH_FS2DEMO) {
 	$last = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build_demo.ps1') | Select-Object -Last 1
