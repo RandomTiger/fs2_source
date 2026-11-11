@@ -156,10 +156,11 @@ func _restart() -> void:
 		get_tree().quit(1)
 
 func _inject_tick() -> void:
-	# one synthetic event group every 120 game resumes, from game frame 600 on (the mission is running by then)
+	# one synthetic event group every 60 game resumes, from game frame 600 on (the mission is running by then). #245: at 120 the
+	# mouse click fell at frame 1320, after the end of a 90 s run that reaches only about 1100 frames, so no click was ever sent
 	if game.get_frame_count() < inject_next or inject_step >= 8:
 		return
-	inject_next += 120
+	inject_next += 60
 	var vp := get_viewport().get_visible_rect().size
 	match inject_step:
 		0, 1, 2:

@@ -1,5 +1,7 @@
 # Fix review: localize.cpp `lcl_ext_lookup` `Ts_text_size`
 
+GitHub issue #34.
+
 **Recommendation: SKIP.** It has no behavioural effect.
 
 ## The bug

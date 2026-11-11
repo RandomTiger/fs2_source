@@ -232,7 +232,7 @@ cf_pathtype Pathtypes[CF_MAX_PATH_TYPES]  = {
 int cfile_inited = 0;
 int Cfile_stack_pos = 0;
 
-char Cfile_stack[128][CFILE_STACK_MAX];
+char Cfile_stack[CFILE_STACK_MAX][CF_MAX_PATHNAME_LENGTH];  // Claude: was [128][CFILE_STACK_MAX], the dimensions were swapped so each entry was 8 bytes (fix review 73, #269)
 
 Cfile_block Cfile_block_list[MAX_CFILE_BLOCKS];
 CFILE Cfile_list[MAX_CFILE_BLOCKS];
@@ -302,7 +302,7 @@ int cfile_init(char *exe_dir, char *cdrom_dir)
 	encrypt_init();	
 
 	if ( !cfile_inited ) {
-		char buf[128];
+		char buf[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128, too short for a full path (fix review 73, #269)
 
 		cfile_inited = 1;
 
@@ -388,12 +388,12 @@ int cfile_chdrive( int DriveNum, int flag )
 int cfile_push_chdir(int type)
 {
 	int e;
-	char dir[128];
-	char OriginalDirectory[128];
+	char dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128, too short for a full path (fix review 73, #269)
+	char OriginalDirectory[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
 	char *Drive, *Path;
 	char NoDir[] = "\\.";
 
-	_getcwd(OriginalDirectory, 127);
+	_getcwd(OriginalDirectory, CF_MAX_PATHNAME_LENGTH-1);  // Claude: was 127
 	Assert(Cfile_stack_pos < CFILE_STACK_MAX);
 	strcpy(Cfile_stack[Cfile_stack_pos++], OriginalDirectory);
 
@@ -429,11 +429,11 @@ int cfile_push_chdir(int type)
 int cfile_chdir(char *dir)
 {
 	int e;
-	char OriginalDirectory[128];
+	char OriginalDirectory[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
 	char *Drive, *Path;
 	char NoDir[] = "\\.";
 
-	_getcwd(OriginalDirectory, 127);
+	_getcwd(OriginalDirectory, CF_MAX_PATHNAME_LENGTH-1);  // Claude: was 127
 	_strlwr(dir);
 
 	Drive = strchr(dir, ':');
@@ -534,7 +534,7 @@ char *cf_add_ext(char *filename, char *ext)
 // Deletes a file.
 void cf_delete( char *filename, int dir_type )
 {
-	char longname[MAX_PATH_LEN];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
@@ -553,7 +553,7 @@ void cf_delete( char *filename, int dir_type )
 // Same as _access function to read a file's access bits
 int cf_access( char *filename, int dir_type, int mode )
 {
-	char longname[MAX_PATH_LEN];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
@@ -566,7 +566,7 @@ int cf_access( char *filename, int dir_type, int mode )
 // Returns 1 if file exists, 0 if not.
 int cf_exist( char *filename, int dir_type )
 {
-	char longname[MAX_PATH_LEN];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
@@ -583,7 +583,7 @@ int cf_exist( char *filename, int dir_type )
 
 void cf_attrib(char *filename, int set, int clear, int dir_type)
 {
-	char longname[MAX_PATH_LEN];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
@@ -604,8 +604,8 @@ int cf_rename(char *old_name, char *name, int dir_type)
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
 	int ret_code;
-	char old_longname[_MAX_PATH];
-	char new_longname[_MAX_PATH];
+	char old_longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
+	char new_longname[CF_MAX_PATHNAME_LENGTH];
 	
 	cf_create_default_path_string( old_longname, dir_type, old_name );
 	cf_create_default_path_string( new_longname, dir_type, name );
@@ -632,7 +632,7 @@ void cf_create_directory( int dir_type )
 {
 	int num_dirs = 0;
 	int dir_tree[CF_MAX_PATH_TYPES];
-	char longname[MAX_PATH_LEN];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	Assert( CF_TYPE_SPECIFIED(dir_type) );
 
@@ -681,7 +681,7 @@ extern int game_cd_changed();
 
 CFILE *cfopen(char *file_path, char *mode, int type, int dir_type, bool localize)
 {
-	char longname[_MAX_PATH];
+	char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 	loadtime_scope lt_scope(LT_CFOPEN);	// Claude: -loadtimes, see LoadTimes.h
 
 //	nprintf(("CFILE", "CFILE -- trying to open %s\n", file_path ));

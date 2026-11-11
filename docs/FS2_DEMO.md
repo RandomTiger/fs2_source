@@ -398,7 +398,8 @@ The open questions from the first version of this brief, as Tom answered them.
    - `PATH_FS2DEMO_CLEAN`: the clean demo install, or the folder `tools/demo_install.py` made from the local
      installer. Only ever read.
    - `PATH_FS2DEMO`: the dev copy (its `fs2demo` folder), whose VPs `tools/make_demo_test.ps1` refreshes from the clean install.
-     `tools/build_demo.ps1` builds the `FS2_DEMO` exe into it and `tools/replay_check.ps1` replays
+     `tools/build_demo.ps1` copies the normal exe into it (from the 64-bit layer up there is no separate
+     `FS2_DEMO` build: the one exe finds the demo data at run time, #287) and `tools/replay_check.ps1` replays
      `recordings/demo` there (D-20261019-213450). Unset, the demo lines are SKIP, which no merge-up or
      branch-done claim may rest on.
 
@@ -425,7 +426,7 @@ Still to decide whether to bring it back, and how it relates to the data set pro
 ## Files
 
 - `tools/demo_install.py`: the installer replacement (section 1).
-- `tools/make_demo_test.ps1`, `tools/build_demo.ps1`, `tools/fs2demo.props`: the demo test folder and the
-  `FS2_DEMO` build into it (section 6, item 1).
+- `tools/make_demo_test.ps1`, `tools/build_demo.ps1`: the demo test folder and the normal exe copied into it
+  (section 6, item 1). `tools/fs2demo.props` (the `FS2_DEMO` define) was removed on the 64-bit layer (#287).
 - `docs/DEMO_CODE.md` and `tools/demo_blocks.py` on PrePortCleanup: the block inventory this plan
   classifies.

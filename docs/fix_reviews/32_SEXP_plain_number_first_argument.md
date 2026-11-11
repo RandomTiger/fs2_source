@@ -1,5 +1,7 @@
 # Fix review: mission expressions read and write Sexp_nodes[-1] when an argument is a plain number
 
+GitHub issue #59.
+
 **Recommendation: TAKE.** Out-of-bounds read in four operators and an out-of-bounds write in one, on a normal mission path. Found with `/analyze` (C6385/C6386) on 2026-10-13.
 
 ## The bug

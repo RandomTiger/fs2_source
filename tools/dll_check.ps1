@@ -127,7 +127,7 @@ foreach ($kind in 'restart', 'fatal') {
     Wait-NoGame
     $r = Test-HostRestart $gs $run $Out $td $launch $kind 'fs2run'
     $r | Add-Content $summary; $r
-    if ($r -notmatch '^PASS') { $fail++ } else { $pass++ }
+    if ([string]($r | Where-Object { "$_".Trim() } | Select-Object -Last 1) -notmatch '^PASS') { $fail++ } else { $pass++ }
 }
 "DONE pass=$pass fail=$fail" | Add-Content $summary
 "DONE pass=$pass fail=$fail"

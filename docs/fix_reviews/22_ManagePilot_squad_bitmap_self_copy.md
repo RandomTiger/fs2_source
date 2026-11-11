@@ -1,5 +1,7 @@
 # Fix review: player_set_squad_bitmap copies the squad file name onto itself
 
+GitHub issue #49.
+
 **Recommendation: TAKE.** No risk.
 
 Found by AddressSanitizer (strncpy-param-overlap) every time a pilot is loaded.

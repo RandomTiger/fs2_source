@@ -306,9 +306,9 @@ int PASCAL WinMainSub(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int nCm
 */
 	//=====================================================
 	// Make sure we're running in the right directory.
-	char exe_dir[1024];
+	char exe_dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 1024 (fix review 73, #269)
 
-	if ( GetModuleFileName( hInst, exe_dir, 1023 ) > 0 )	{
+	if ( GetModuleFileName( hInst, exe_dir, CF_MAX_PATHNAME_LENGTH-1 ) > 0 )	{  // Claude: was 1023
 		char *p = exe_dir + strlen(exe_dir);
 
 		// chop off the filename
@@ -410,14 +410,14 @@ void game_launch_launcher_on_exit()
 {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
-	char cmd_line[2048];
-	char original_path[1024] = "";
+	char cmd_line[CF_MAX_PATHNAME_LENGTH + 64];  // Claude: was 2048 (fix review 73, #269)
+	char original_path[CF_MAX_PATHNAME_LENGTH] = "";  // Claude: was 1024 (fix review 73, #269)
 	
 	memset( &si, 0, sizeof(STARTUPINFO) );
 	si.cb = sizeof(si);
 
 	// directory
-	_getcwd(original_path, 1023);
+	_getcwd(original_path, CF_MAX_PATHNAME_LENGTH-1);  // Claude: was 1023
 
 	// set up command line
 	strcpy(cmd_line, original_path);
@@ -491,7 +491,7 @@ uint game_get_cd_used_space(char *path)
 // if volume_name is non-null, the CD name must match that
 int find_freespace_cd(char *volume_name)
 {
-	char oldpath[MAX_PATH];
+	char oldpath[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH (fix review 73, #269)
 	char volume[256];
 	int i;
 	int cdrom_drive=-1;
@@ -499,7 +499,7 @@ int find_freespace_cd(char *volume_name)
 	_finddata_t find;
 	intptr_t find_handle;	// Claude: intptr_t, _findfirst returns one; int on x86 (D-057)
 
-	GetCurrentDirectory(MAX_PATH, oldpath);
+	GetCurrentDirectory(CF_MAX_PATHNAME_LENGTH, oldpath);  // Claude: was MAX_PATH
 
 	for (i = 0; i < 26; i++) 
 	{
