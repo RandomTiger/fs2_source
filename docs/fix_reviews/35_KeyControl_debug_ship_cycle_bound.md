@@ -1,5 +1,7 @@
 # Fix review: debug ship cycling reads Ship_info[MAX_SHIP_TYPES]
 
+GitHub issue #62.
+
 **Recommendation: TAKE.** Off-by-one in two debug key handlers; reachable only with debug keys, which Release allows once cheats are on. Found with `/analyze` (C6385) on 2026-10-13.
 
 ## The bug

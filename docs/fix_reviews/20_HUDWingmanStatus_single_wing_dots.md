@@ -1,5 +1,7 @@
 # Fix review: the single-wing wingman gauge has positions for 4 ships but draws 6
 
+GitHub issue #47.
+
 **Recommendation: TAKE.** Low risk.
 
 Found by AddressSanitizer: 26 reports across the campaign autotest.

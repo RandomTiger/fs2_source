@@ -265,7 +265,8 @@ void fs2_srand(unsigned int seed)
 	Fs2_rand_seed = seed;
 }
 
-int myrand()
+// Claude: the gameplay random stream, renamed from myrand() (Tom, 2026-11-11); every call site renamed with it
+int gameplay_rand()
 {
 	int rval;
 	rval = rand();

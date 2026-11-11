@@ -1,5 +1,7 @@
 # Fix review: player_match_target_speed reads Objects[-1] with no target
 
+GitHub issue #54.
+
 **Recommendation: TAKE.** Low risk.
 
 Found while reviewing fix 18 (the HUD target speed read), which has the same pattern. AddressSanitizer has not reported it, because the autotest never turns speed matching on.

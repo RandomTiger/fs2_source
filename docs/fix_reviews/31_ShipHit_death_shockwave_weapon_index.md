@@ -1,5 +1,7 @@
 # Fix review: ship death shockwave reads Weapon_info[-1] near a subsystem
 
+GitHub issue #58.
+
 **Recommendation: TAKE.** Out-of-bounds read that would differ between builds; affects only a rare case.
 
 Found while reviewing the earlier Unreal port (`fs2_source_ue`); confirmed in this tree.

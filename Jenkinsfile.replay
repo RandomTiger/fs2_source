@@ -1,0 +1,208 @@
+// Headless replay test (#280). A separate Jenkins job per branch: Script Path = Jenkinsfile.replay.
+// This file is the same on every branch. What a branch runs is in build\jenkins.props; exe names come from
+// build\layer.props (tools\layer.ps1); machine paths come from the agent's environment (PATH_FS2, PATH_FS1, PATH_FS2DEMO).
+// Builds only the game, x64 (FS2_<Layer>_r64/_d64.exe), and TraceDiff, which the replay check needs; no editor tools.
+// Replays are x64 and headless on every branch (Tom, 2026-11-09).
+// FS2 demo replays (set fs2demo) use the same exe, copied into PATH_FS2DEMO: the exe finds the demo data at run time (#287).
+
+// MSBuild through vswhere, so no Visual Studio path is written here. A project file builds that project alone for the
+// platform (the solution has no x64 platform, as tools\gates\x64_check.ps1); a solution target builds in the x86 solution.
+def msbuild(String what, String config, String platform) {
+    withEnv(["MSB_WHAT=${what}", "MSB_CONFIG=${config}", "MSB_PLATFORM=${platform}"]) {
+        powershell '''
+            $msb = & "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe" -latest -find 'MSBuild\\**\\Bin\\MSBuild.exe' | Select-Object -First 1
+            if (-not $msb) { Write-Host 'FAIL no MSBuild found with vswhere'; exit 1 }
+            if ($env:MSB_WHAT -like '*.vcxproj') {
+                & $msb $env:MSB_WHAT "/p:Configuration=$env:MSB_CONFIG" "/p:Platform=$env:MSB_PLATFORM" "/p:SolutionDir=$env:WORKSPACE\\" /m
+            } else {
+                & $msb freespace2.sln "/t:$env:MSB_WHAT" "/p:Configuration=$env:MSB_CONFIG" "/p:Platform=$env:MSB_PLATFORM" /m
+            }
+            exit $LASTEXITCODE
+        '''
+    }
+}
+
+pipeline {
+    // the job's name with no spaces: tools\build_demo.ps1 cannot build from a path with one (#281)
+    agent { node { label ''; customWorkspace "${env.JOB_NAME.replaceAll('[^A-Za-z0-9_-]', '_')}" } }
+
+    options {
+        // one copy of the game at a time: two builds would fight over the game folders and the exe link target
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        booleanParam(name: 'FULL_SET', defaultValue: false, description: 'Replay every recording (the nightly run) instead of the L1 set')
+    }
+
+    triggers {
+        pollSCM('H/15 * * * *')
+        cron('H 1 * * *')   // nightly: full recording set
+    }
+
+    stages {
+
+        stage('Clean') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Checked out ${env.GIT_BRANCH} @ ${env.GIT_COMMIT}"
+            }
+        }
+
+        stage('Check settings and game folders') {
+            steps {
+                powershell '''
+                    $set = @{}
+                    foreach ($l in Get-Content -LiteralPath "$env:WORKSPACE\\build\\jenkins.props") {
+                        $l = ($l -replace '#.*$', '').Trim()
+                        if ($l -match '^(\\w+)\\s*=\\s*(.*)$') { $set[$matches[1]] = $matches[2].Trim() }
+                    }
+                    $sets = @($set['ReplaySets'] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+                    "ReplaySets = $($sets -join ',')"
+                    $bad = @()
+                    if (-not $sets) { $bad += 'build\\jenkins.props sets no ReplaySets' }
+                    $bad += @($sets | Where-Object { $_ -notin 'fs2', 'fs1', 'fs2demo' } | ForEach-Object { "unknown replay set '$_' in build\\jenkins.props" })
+                    $vars = @('PATH_FS2') + @(if ($sets -contains 'fs1') { 'PATH_FS1' }) + @(if ($sets -contains 'fs2demo') { 'PATH_FS2DEMO' })   # FS1 and demo replays use the FS2 exes, copied in
+                    foreach ($v in $vars) {
+                        $p = [Environment]::GetEnvironmentVariable($v)
+                        if (-not $p) { $bad += "$v is not set for this account" }
+                        elseif (-not (Test-Path -LiteralPath $p)) { $bad += "$v = $p does not exist" }
+                        else { "$v = $p" }
+                    }
+                    if ($bad) { $bad | ForEach-Object { Write-Host "FAIL $_" }; exit 1 }
+                '''
+            }
+        }
+
+        stage('Build Release x64') {
+            steps {
+                script { msbuild('Freespace2.vcxproj', 'Release', 'x64') }
+            }
+        }
+
+        stage('Build Debug x64') {
+            steps {
+                script { msbuild('Freespace2.vcxproj', 'Debug', 'x64') }
+            }
+        }
+
+        stage('Build TraceDiff') {
+            steps {
+                script { msbuild('TraceDiff', 'Release', 'x86') }
+            }
+        }
+
+        // Per commit: the L1 set from tools\\gates\\l1_set.txt (read here, so the manager's edits take effect), x64
+        // Release and Debug. Nightly or FULL_SET: every recording of the sets, x64 Release. -CrossCheck none: the
+        // check's cross-check replays in the x86 exes, which this job does not build.
+        // Only the sets build\\jenkins.props names. Red on the script's exit code, and also when a summary is missing or has
+        // no DONE line (#196, #231), or skips a recording.
+        stage('Replay headless') {
+            steps {
+                script {
+                    def timer = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
+                    env.REPLAY_FULL = (params.FULL_SET || timer) ? '1' : ''
+                }
+                powershell '''
+                    $ErrorActionPreference = 'Stop'
+                    $ws = $env:WORKSPACE
+                    . "$ws\\tools\\layer.ps1"
+                    $set = @{}
+                    foreach ($l in Get-Content -LiteralPath "$ws\\build\\jenkins.props") {
+                        $l = ($l -replace '#.*$', '').Trim()
+                        if ($l -match '^(\\w+)\\s*=\\s*(.*)$') { $set[$matches[1]] = $matches[2].Trim() }
+                    }
+                    $sets = @($set['ReplaySets'] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+                    $out = Join-Path $ws 'replays\\jenkins'
+                    New-Item -ItemType Directory -Force $out | Out-Null
+                    $fs1Dir = $env:PATH_FS1
+                    $demoDir = $env:PATH_FS2DEMO
+                    # FS1 and FS2 demo recordings replay in their own folders with the exes found there (as tools\\gates\\l1_gate.ps1 does)
+                    foreach ($d in @(@(if ($sets -contains 'fs1') { $fs1Dir }) + @(if ($sets -contains 'fs2demo') { $demoDir }))) {
+                        foreach ($c in 'r64', 'd64') {
+                            $x = Get-FS2Exe $c $ws
+                            Copy-Item -LiteralPath (Join-Path $env:PATH_FS2 $x) -Destination $d -Force
+                        }
+                    }
+
+                    function Run-Check([string]$label, [string[]]$a, [string]$fs1) {
+                        $o = Join-Path $out $label
+                        Write-Host "replay $label start $((Get-Date).ToString('HH:mm'))"
+                        # an empty PATH_FS1 keeps same-named FS1 recordings out of the FS2 run
+                        $env:PATH_FS1 = $fs1
+                        $ErrorActionPreference = 'Continue'   # the check's own errors land in the log, not here
+                        & powershell -NoProfile -ExecutionPolicy Bypass -File "$ws\\tools\\replay_check.ps1" -Headless -CrossCheck none -Out $o @a
+                        $code = $LASTEXITCODE
+                        $env:PATH_FS1 = $fs1Dir
+                        $sum = Join-Path $o 'summary.txt'
+                        $done = $null
+                        if (Test-Path -LiteralPath $sum) {
+                            $lines = Get-Content -LiteralPath $sum
+                            $lines | Where-Object { $_ -match '^(FAIL|SKIP)' -or $_ -match 'NOT HEADLESS' } | ForEach-Object { Write-Host $_ }
+                            $done = $lines | Where-Object { $_ -match '^DONE pass=\\d+ fail=\\d+' } | Select-Object -Last 1
+                        }
+                        Write-Host "replay $label end $((Get-Date).ToString('HH:mm')) exit=$code $done"
+                        if (-not $done) { Write-Host "FAIL replay $label left no DONE line in $sum"; return $false }
+                        if ($code -ne 0 -or $done -notmatch 'fail=0$') { return $false }
+                        if ($lines -match '^SKIP') { Write-Host "FAIL replay $label skipped a recording (a skip is not green)"; return $false }
+                        return $true
+                    }
+
+                    $ok = $true
+                    $fs2 = @(); $fs1 = @(); $demo = @(); $cfg = 'r64,d64'
+                    if ($env:REPLAY_FULL) {
+                        $cfg = 'r64'
+                        foreach ($d in 'autotest', 'played') { $fs2 += Get-ChildItem (Join-Path $ws "recordings\\$d") -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName } }
+                        $fs1 += Get-ChildItem (Join-Path $ws 'recordings\\fs1') -Filter *.fs2rec | ForEach-Object { $_.BaseName }
+                        $demo += Get-ChildItem (Join-Path $ws 'recordings\\demo') -Filter *.fs2rec -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName }
+                    } else {
+                        foreach ($l in Get-Content -LiteralPath "$ws\\tools\\gates\\l1_set.txt") {
+                            $l = ($l -replace '#.*$', '').Trim()
+                            if (-not $l) { continue }
+                            $kind, $name = -split $l
+                            switch ($kind) {
+                                'features' { $fs2 += Get-ChildItem (Join-Path $ws 'recordings\\autotest') -Filter "$name.fs2rec" | ForEach-Object { $_.BaseName } }
+                                'fs2'      { $fs2 += $name }
+                                'fs1'      { $fs1 += $name }
+                                'fs2demo'  { $demo += $name }
+                                default    { }   # fs1demo has no recording (clean-run rule)
+                            }
+                        }
+                        if ($env:REPLAY_MISSIONS) { $fs2 = @($env:REPLAY_MISSIONS -split ','); $fs1 = @(); $demo = @() }   # hand-run proofs only
+                    }
+                    if ($sets -notcontains 'fs2') { $fs2 = @() }
+                    if ($sets -notcontains 'fs1') { $fs1 = @() }
+                    if ($sets -notcontains 'fs2demo') { $demo = @() }
+                    $fs2 = @($fs2 | Sort-Object -Unique); $fs1 = @($fs1 | Sort-Object -Unique); $demo = @($demo | Sort-Object -Unique)
+                    if (-not ($fs2 + $fs1 + $demo)) { Write-Host 'FAIL nothing to replay'; exit 1 }
+                    if ($fs2) { $ok = (Run-Check 'fs2' @('-Configs', $cfg, '-Missions', ($fs2 -join ',')) '') -and $ok }
+                    if ($fs1) { $ok = (Run-Check 'fs1' @('-Configs', $cfg, '-Missions', ($fs1 -join ','), '-Fs1Dir', $fs1Dir) $fs1Dir) -and $ok }
+                    # demo recordings always replay as an x64 Release and Debug pair (replay_check)
+                    if ($demo) { $ok = (Run-Check 'fs2demo' @('-Configs', $cfg, '-Missions', ($demo -join ','), '-DemoDir', $demoDir) '') -and $ok }
+                    if (-not $ok) { exit 1 }
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'replays/jenkins/**/summary.txt, replays/jenkins/**/*.replay.log, replays/jenkins/**/*.autotest.log', allowEmptyArchive: true
+                }
+                failure {
+                    archiveArtifacts artifacts: 'replays/jenkins/**/*.trace', allowEmptyArchive: true
+                }
+            }
+        }
+
+    }
+
+    post {
+        always {
+            echo "Pipeline finished with status: ${currentBuild.currentResult}"
+        }
+    }
+}

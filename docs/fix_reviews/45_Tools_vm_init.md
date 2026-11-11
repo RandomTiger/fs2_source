@@ -1,5 +1,7 @@
 # Fix review: Pofview and Nebedit never set up the memory heap
 
+Note (2026-11-08): this fix was later landed on VS2022 as well (a3ac8f9), so a diff of this branch against VS2022 no longer shows the code change; the review stays here as its record.
+
 **Recommendation: TAKE.** Tools only; the game is not touched. Steward decision D-20261017-234807. GitHub issue #11.
 
 ## The bug

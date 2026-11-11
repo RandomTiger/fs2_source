@@ -415,7 +415,7 @@ int cmeasure_create( object * source_obj, vector * pos, int cm_type, int rand_va
 
 	// Create Debris piece n!
 	if ( rand_val == -1 )
-		arand = myrand();				// use a random number to get lifeleft, and random vector for displacement from ship
+		arand = gameplay_rand();				// use a random number to get lifeleft, and random vector for displacement from ship
 	else
 		arand = rand_val;
 
