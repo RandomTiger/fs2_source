@@ -2042,7 +2042,8 @@ void player_maybe_play_all_alone_msg()
 	}
 
 	// met all the requirements, now only play 50% of the time :)
-	if ( rand()&1 ) {
+	// Claude: gameplay_rand(), so Rand_count counts this gameplay draw (#278)
+	if ( gameplay_rand()&1 ) {
 		message_send_builtin_to_player(MESSAGE_ALL_ALONE, NULL, MESSAGE_PRIORITY_HIGH, MESSAGE_TIME_ANYTIME, 0, 0, -1, -1);
 	}
 	Player->flags |= PLAYER_FLAGS_NO_CHECK_ALL_ALONE_MSG;
