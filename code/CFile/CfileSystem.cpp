@@ -208,7 +208,7 @@ cf_root *cf_create_root()
 // return the # of packfiles which exist
 int cf_get_packfile_count(cf_root *root)
 {
-	char filespec[MAX_PATH_LEN];
+	char filespec[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 	int i;
 	int packfile_count;
 
@@ -263,7 +263,7 @@ int cf_packfile_sort_func(const void *elem1, const void *elem2)
 // Go through a root and look for pack files
 void cf_build_pack_list( cf_root *root )
 {
-	char filespec[MAX_PATH_LEN];
+	char filespec[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 	int i;
 	cf_root_sort *temp_roots_sort, *rptr_sort;
 	int temp_root_count, root_index;
@@ -694,7 +694,7 @@ int cf_find_file_location( char *filespec, int pathtype, char *pack_filename, in
 	}
 
 	for (i=0; i<num_search_dirs; i++ )	{
-		char longname[MAX_PATH_LEN];
+		char longname[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 		cf_create_default_path_string( longname, search_order[i], filespec, localize );
 
@@ -834,7 +834,7 @@ int cf_get_file_list( int max, char **list, int pathtype, char *filter, int sort
 		own_flag = 1;
 	}
 
-	char filespec[MAX_PATH_LEN];
+	char filespec[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	cf_create_default_path_string( filespec, pathtype, filter );
 
@@ -972,7 +972,7 @@ int cf_get_file_list_preallocated( int max, char arr[][MAX_FILENAME_LEN], char *
 		own_flag = 1;
 	}
 
-	char filespec[MAX_PATH_LEN];
+	char filespec[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 
 	cf_create_default_path_string( filespec, pathtype, filter );
 
@@ -1103,7 +1103,7 @@ void cf_create_default_path_string( char *path, int pathtype, char *filename, bo
 			// localize filename
 			if (localize) {
 				// create copy of path
-				char temp_path[MAX_PATH_LEN];
+				char temp_path[CF_MAX_PATHNAME_LENGTH];  // Claude: was MAX_PATH_LEN (fix review 73, #269)
 				strcpy(temp_path, path);
 
 				// localize the path
