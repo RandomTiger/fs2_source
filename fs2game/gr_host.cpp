@@ -599,7 +599,9 @@ int glow_tex_get(int bitmap_id)
 	HostTex &t = H.tex[key];
 	t.sink_id = H.next_sink_id++;
 	t.type = TCACHE_TYPE_NORMAL; t.w = pw; t.h = ph;
-	H.sink->texture_create(H.sink->user, t.sink_id, pw, ph, FS2_SINK_TEX_RGBA8, FS2_SINK_TEXF_LINEAR, px.data());
+	// Claude: D3D wraps every texture (its default texture address mode), and the glow pass is drawn with the hull's own uvs. A tiling hull
+	// Claude: texture (the Ravana's minertile2a) has uvs outside 0..1; clamped, they smeared the edge texel into a solid line (D3D: dots).
+	H.sink->texture_create(H.sink->user, t.sink_id, pw, ph, FS2_SINK_TEX_RGBA8, FS2_SINK_TEXF_LINEAR | FS2_SINK_TEXF_REPEAT, px.data());
 	return t.sink_id;
 }
 
