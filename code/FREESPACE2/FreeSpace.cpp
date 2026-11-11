@@ -2043,7 +2043,7 @@ void game_init()
 	int s1, e1;
 	// int s2, e2;
 
-	char whee[1024];
+	char whee[CF_MAX_PATHNAME_LENGTH];  // Claude: was 1024 (fix review 73, #269)
 	strcpy(whee, Game_root_dir);	// Claude: from the host (game_host_init), was the current directory (D-050)
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
@@ -2152,8 +2152,8 @@ void game_init()
 	int has_sparky_hi = 0;
 
 	// check if sparky_hi exists -- access mode 0 means does file exist
-	char dir[128];
-	_getcwd(dir, 128);
+	char dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
+	_getcwd(dir, CF_MAX_PATHNAME_LENGTH);
 	if ( _access("sparky_hi_fs2.vp", 0) == 0) {
 		has_sparky_hi = 1;
 	} else {
