@@ -3,7 +3,7 @@ The merge-in check for FS1Demo (D-20261020-211001, docs/FS1_DEMO.md section 5), 
 gate is fs1demo_run.ps1 -Configs r,d. In one run:
 
   1. the FS2 retail recordings and recordings\fs1, Release and Debug (replay_check -Configs r,d);
-  2. the FS2 demo recordings, from an FS2_DEMO build (build_demo.ps1, replay_check);
+  2. the FS2 demo recordings, with the same exe copied into the demo folder (build_demo.ps1, replay_check);
   3. the four FS1 demo missions, Release and Debug (fs1demo_run.ps1).
 
   tools\fs1demo_gate.ps1 [-Fs2Dir <dir>] [-Fs1Dir <dir>] [-DemoDir <dir>] [-Fs1DemoDir <dir>] [-Out <dir>]
