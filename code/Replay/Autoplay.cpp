@@ -31,6 +31,7 @@
 #include "Supernova.h"
 #include "Afterburner.h"
 #include "cfile.h"
+#include "Encrypt.h"
 
 int Autoplay_on = 0;
 int Autoplay_scan = 0;
@@ -1036,6 +1037,20 @@ static int ap_branch_read(char *filename)
 	len = cfread(text, 1, len, fp);
 	cfclose(fp);
 	text[(len > 0) ? len : 0] = 0;
+	if ((len >= 10) && is_encrpyted(text)) {
+		// scrambled, as Silent Threat's campaign files are: unscramble as read_file_text does (7 bytes hold 8 characters)
+		int plain_len = 0;
+		char *plain = (char *)malloc(len * 2 + 16);
+		if (plain == NULL) {
+			free(text);
+			return 0;
+		}
+		unencrypt(text, len, plain, &plain_len);
+		free(text);
+		text = plain;
+		len = plain_len;
+		text[(len > 0) ? len : 0] = 0;
+	}
 	end = text + ((len > 0) ? len : 0);
 
 	for (p = strstr(text, "$Mission:"); p != NULL; p = strstr(block_end, "$Mission:")) {
