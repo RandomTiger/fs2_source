@@ -509,11 +509,11 @@ static int write_whole_file(char *path, const unsigned char *data, int len)
 // creates every folder on the way to path (a file's path when is_file)
 static void make_folders(char *path, int is_file)
 {
-	char buf[MAX_PATH];
+	char buf[DS_MAX_PATH];
 	char *p;
 
-	strncpy(buf, path, MAX_PATH - 1);
-	buf[MAX_PATH - 1] = 0;
+	strncpy(buf, path, DS_MAX_PATH - 1);
+	buf[DS_MAX_PATH - 1] = 0;
 	for (p = buf + 3; *p; p++) {
 		if ((*p == '\\') || (*p == '/')) {
 			*p = 0;
@@ -534,7 +534,7 @@ static int zip_extract(char *installer, char *folder, char *title, char *err, in
 	int zip_len, i, entries, cd_size, cd_offset, base, n_len, x_len, c_len, method, csize, usize, ok = 1;
 	unsigned int crc;
 	double total = 0;
-	char name[MAX_PATH], path[MAX_PATH], *q;
+	char name[DS_MAX_PATH], path[DS_MAX_PATH], *q;
 
 	zip = read_whole_file(installer, &zip_len);
 	if (!zip) {
@@ -573,8 +573,8 @@ static int zip_extract(char *installer, char *folder, char *title, char *err, in
 			break;
 		}
 		n_len = get16(p + 28);
-		_snprintf(name, MAX_PATH - 1, "%.*s", n_len, (const char *)(p + 46));
-		name[MAX_PATH - 1] = 0;
+		_snprintf(name, DS_MAX_PATH - 1, "%.*s", n_len, (const char *)(p + 46));
+		name[DS_MAX_PATH - 1] = 0;
 		if (zip_entry_wanted(name)) {
 			total += get32(p + 24);
 		}
@@ -595,16 +595,16 @@ static int zip_extract(char *installer, char *folder, char *title, char *err, in
 		n_len = get16(p + 28);
 		x_len = get16(p + 30);
 		c_len = get16(p + 32);
-		_snprintf(name, MAX_PATH - 1, "%.*s", n_len, (const char *)(p + 46));
-		name[MAX_PATH - 1] = 0;
+		_snprintf(name, DS_MAX_PATH - 1, "%.*s", n_len, (const char *)(p + 46));
+		name[DS_MAX_PATH - 1] = 0;
 		lh = zip + base + get32(p + 42);
 		p += 46 + n_len + x_len + c_len;
 		if (!zip_entry_wanted(name)) {
 			continue;
 		}
 
-		_snprintf(path, MAX_PATH - 1, "%s\\%s", folder, name);
-		path[MAX_PATH - 1] = 0;
+		_snprintf(path, DS_MAX_PATH - 1, "%s\\%s", folder, name);
+		path[DS_MAX_PATH - 1] = 0;
 		for (q = path; *q; q++) {
 			if (*q == '/') {
 				*q = '\\';
@@ -767,12 +767,12 @@ static int file_exists(char *path)
 
 static int folder_has_vps(char *folder)
 {
-	char pattern[MAX_PATH];
+	char pattern[DS_MAX_PATH];
 	WIN32_FIND_DATA fd;
 	HANDLE h;
 
-	_snprintf(pattern, MAX_PATH - 1, "%s\\*.vp", folder);
-	pattern[MAX_PATH - 1] = 0;
+	_snprintf(pattern, DS_MAX_PATH - 1, "%s\\*.vp", folder);
+	pattern[DS_MAX_PATH - 1] = 0;
 	h = FindFirstFile(pattern, &fd);
 	if (h == INVALID_HANDLE_VALUE) {
 		return 0;
@@ -793,12 +793,12 @@ static int folder_has_dataset(dataset_info *ds, char *folder)
 static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err, int err_len)
 {
 	dataset_info *ds = &Datasets[idx];
-	char folder[MAX_PATH], partial[MAX_PATH], installer[MAX_PATH], title[128];
+	char folder[DS_MAX_PATH], partial[DS_MAX_PATH], installer[DS_MAX_PATH], title[128];
 
-	_snprintf(folder, MAX_PATH - 1, "%s\\%s", exe_dir, ds->name);
-	folder[MAX_PATH - 1] = 0;
-	_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, ds->installer);
-	installer[MAX_PATH - 1] = 0;
+	_snprintf(folder, DS_MAX_PATH - 1, "%s\\%s", exe_dir, ds->name);
+	folder[DS_MAX_PATH - 1] = 0;
+	_snprintf(installer, DS_MAX_PATH - 1, "%s\\%s", exe_dir, ds->installer);
+	installer[DS_MAX_PATH - 1] = 0;
 	strncpy(dir, folder, dir_len - 1);
 	dir[dir_len - 1] = 0;
 
@@ -823,8 +823,8 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 		return dataset_fs1_extract(exe_dir, err, err_len);
 	}
 
-	_snprintf(partial, MAX_PATH - 1, "%s.partial", folder);
-	partial[MAX_PATH - 1] = 0;
+	_snprintf(partial, DS_MAX_PATH - 1, "%s.partial", folder);
+	partial[DS_MAX_PATH - 1] = 0;
 	make_folders(partial, 0);
 	_snprintf(title, sizeof(title) - 1, "Extracting the game files from %s (first start only)", ds->installer);
 	title[sizeof(title) - 1] = 0;
@@ -840,7 +840,7 @@ static int use_dataset(char *exe_dir, int idx, char *dir, int dir_len, char *err
 
 int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *dir, int dir_len, char *err, int err_len)
 {
-	char folder[MAX_PATH], installer[MAX_PATH];
+	char folder[DS_MAX_PATH], installer[DS_MAX_PATH];
 	int i, found = -1, count = 0;
 
 	strncpy(dir, exe_dir, dir_len - 1);
@@ -868,10 +868,10 @@ int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *di
 	if (recorded == DATA_SET_FS2_DEMO) {
 		// a flat demo install (the VPs next to the exe) is fine too; the data set check after cfile_init
 		// still refuses the wrong data
-		_snprintf(folder, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[DATASET_DEFAULT].name);
-		folder[MAX_PATH - 1] = 0;
-		_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[DATASET_DEFAULT].installer);
-		installer[MAX_PATH - 1] = 0;
+		_snprintf(folder, DS_MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[DATASET_DEFAULT].name);
+		folder[DS_MAX_PATH - 1] = 0;
+		_snprintf(installer, DS_MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[DATASET_DEFAULT].installer);
+		installer[DS_MAX_PATH - 1] = 0;
 		if (folder_has_vps(folder) || file_exists(installer) || !folder_has_vps(exe_dir)) {
 			return use_dataset(exe_dir, DATASET_DEFAULT, dir, dir_len, err, err_len);
 		}
@@ -885,10 +885,10 @@ int dataset_select_folder(char *exe_dir, char *requested, int recorded, char *di
 
 	// 4. the only set there is, or can be made; with more than one, the default
 	for (i = 0; i < NUM_DATASETS; i++) {
-		_snprintf(folder, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].name);
-		folder[MAX_PATH - 1] = 0;
-		_snprintf(installer, MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].installer);
-		installer[MAX_PATH - 1] = 0;
+		_snprintf(folder, DS_MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].name);
+		folder[DS_MAX_PATH - 1] = 0;
+		_snprintf(installer, DS_MAX_PATH - 1, "%s\\%s", exe_dir, Datasets[i].installer);
+		installer[DS_MAX_PATH - 1] = 0;
 		if (folder_has_dataset(&Datasets[i], folder) || (Datasets[i].can_extract && file_exists(installer))) {
 			found = i;
 			count++;

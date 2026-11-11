@@ -952,7 +952,7 @@ char Game_CDROM_dir[MAX_PATH_LEN];
 int init_cdrom();
 
 // Claude: the game's root directory, the exe directory, from the host (game_host_init, D-050)
-static char Game_root_dir[1024] = "";
+static char Game_root_dir[CF_MAX_PATHNAME_LENGTH] = "";  // Claude: was 1024; the host passes the root in, so it can be as long as Windows allows (fix review 73, #305)
 
 // How much RAM is on this machine. Set in WinMain
 uint Freespace_total_ram = 0;
@@ -7361,7 +7361,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 	/*
 	HMODULE hMod;
 	DWORD bogus_handle;
-	char myname[_MAX_PATH];
+	char myname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 	int namelen, major, minor, build, waste;
 	unsigned int buf_size;
 	DWORD version_size;
@@ -7371,7 +7371,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 
 	// Find my EXE file name
 	hMod = GetModuleHandle(NULL);
-	namelen = GetModuleFileName( hMod, myname, _MAX_PATH );
+	namelen = GetModuleFileName( hMod, myname, CF_MAX_PATHNAME_LENGTH );  // Claude: was _MAX_PATH
 
 	version_size = GetFileVersionInfoSize(myname, &bogus_handle );
 	infop = (char *)malloc(version_size);
@@ -8031,7 +8031,7 @@ int game_host_init(char *szCmdLine, char *root_dir)
 
 	parse_cmdline(szCmdLine);	
 	{	// Claude: the data set folder, made from a demo installer on the first start, becomes the root; everything after this reads and writes there (D-20261018-221704)
-		char ds_dir[1024], ds_err[512];	// Claude
+		char ds_dir[CF_MAX_PATHNAME_LENGTH], ds_err[512];	// Claude: ds_dir was 1024 (fix review 73, #305)
 		if (dataset_select_folder(Game_root_dir, Cmdline_dataset, replay_peek_data_set(game_is_volition_mission), ds_dir, sizeof(ds_dir), ds_err, sizeof(ds_err))) {	// Claude
 			Error(LOCATION, "%s", ds_err);	// Claude
 			return 0;	// Claude
