@@ -1199,8 +1199,10 @@ void d3d_tcache_init(int use_sections)
 		}
 	}
 
-	if ( !os_config_read_uint( NULL, NOX("D3DUseLargeTextures"), 0 ))	{
-		mprintf(( "No large texture flag specified, so using max of 256\n" ));
+	// Claude: D-20261112-073200 (Tom): retail clamps model textures to 256x256 unless D3DUseLargeTextures is set;
+	// Enhanced keeps them full size by default. Setting the value to 0 restores the retail clamp.
+	if ( !os_config_read_uint( NULL, NOX("D3DUseLargeTextures"), 1 ))	{
+		mprintf(( "D3DUseLargeTextures is 0, so using max of 256\n" ));	// Claude: D-20261112-073200, default is now on
 		if ( D3D_max_texture_width > 256 )	{
 			D3D_max_texture_width = 256;
 		}
