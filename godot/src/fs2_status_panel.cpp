@@ -80,7 +80,7 @@ static bool panel_mouse_found()
 	return found;
 }
 
-void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void), int (*left_column_shown)(void))
+void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void), int (*left_column_shown)(void), void (*game_canvas_info)(int *, int *, int *, int *))
 {
 	wchar_t path[MAX_PATH];
 	const DWORD len = GetModuleFileNameW(dll, path, MAX_PATH);
@@ -95,6 +95,7 @@ void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_fon
 	font_text = text_in_font;
 	voice_enabled = voice_is_enabled;
 	column_shown = left_column_shown;
+	canvas_info = game_canvas_info;
 	text_rect = memnew(TextureRect);
 	text_rect->set_position(Vector2(PANEL_MARGIN, PANEL_MARGIN));
 	text_rect->set_self_modulate(Color(0.75f, 0.75f, 0.75f));
@@ -155,5 +156,10 @@ void Fs2StatusPanel::refresh()
 	scale = scale < 1 ? 1 : scale;
 	text_rect->set_size(Vector2((float)(text_w * scale), (float)(text_h * scale)));
 	// only on the game's two column screens; a picture wide enough to leave no room for the text hides it rather than covering the game
-	text_rect->set_visible(column_shown() != 0 && text_w > 0 && (float)(text_w * scale) + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width());
+	// a wide DisplayResolution makes the canvas the whole window and the game draws the bars itself: the base screen's corner gives the column (#310)
+	int vw = 0, vh = 0, cx = 0, cy = 0;
+	if (canvas_info != nullptr) {
+		canvas_info(&vw, &vh, &cx, &cy);
+	}
+	text_rect->set_visible(column_shown() != 0 && text_w > 0 && (float)(text_w * scale) + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width(cx, vw));
 }
