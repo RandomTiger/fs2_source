@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include <vector>
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
@@ -54,6 +55,26 @@ static String panel_build_time(const wchar_t *path)
 	return String(text);
 }
 
+// The port's own version the build stamped into the DLL's ProductVersion (#311): "<milestone>.<commits> <layer> <hash>".
+// Shown as the number on one line and the layer and hash on the next, so it fits the column. Empty for a DLL without one.
+static String panel_port_version(const wchar_t *path)
+{
+	DWORD unused = 0;
+	const DWORD size = GetFileVersionInfoSizeW(path, &unused);
+	if (size == 0) {
+		return String();
+	}
+	std::vector<unsigned char> block(size);
+	wchar_t *value = NULL;
+	UINT value_len = 0;
+	if (!GetFileVersionInfoW(path, 0, size, block.data()) || !VerQueryValueW(block.data(), L"\\StringFileInfo\\040904b0\\ProductVersion", (void **)&value, &value_len) || value_len == 0) {
+		return String();
+	}
+	String v = String(value).strip_edges();
+	const int space = v.find(" ");
+	return space > 0 ? v.substr(0, space) + "\n" + v.substr(space + 1) : v;
+}
+
 // A remote desktop session always lists a stand-in mouse, which is not a mouse here.
 static bool panel_mouse_found()
 {
@@ -89,7 +110,8 @@ void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_fon
 		version = String("unknown");
 	} else {
 		const wchar_t *slash = wcsrchr(path, L'\\');
-		version = panel_branch(slash != NULL ? slash + 1 : path) + "\n" + panel_build_time(path);
+		const String port_version = panel_port_version(path);	// #311; a DLL built before the stamp shows the layer from its name
+		version = (port_version.is_empty() ? panel_branch(slash != NULL ? slash + 1 : path) : port_version) + "\n" + panel_build_time(path);
 	}
 	screen = on_screen;
 	font_text = text_in_font;
