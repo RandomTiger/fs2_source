@@ -39,7 +39,9 @@ public:
 	bool save_png(const String &path);
 	// The window as this node shows into it, and the width of the black column left of the game picture.
 	Vector2 get_window_size() const;
-	float get_left_column_width() const;
+	// base_x, canvas_w: where the game puts its base screen in a canvas wider than it (fs2_canvas_info's cx and vw). The game draws
+	// that strip black itself, so it counts as column too (#310); 0, 0 for a canvas the size of the base screen.
+	float get_left_column_width(int base_x = 0, int canvas_w = 0) const;
 };
 
 } // namespace godot
