@@ -45,7 +45,7 @@ Vector2 Fs2Screen::get_window_size() const
 	return view != nullptr ? view->get_size() : Vector2();
 }
 
-float Fs2Screen::get_left_column_width() const
+float Fs2Screen::get_left_column_width(int base_x, int canvas_w) const
 {
 	if (viewport == nullptr || view == nullptr) {
 		return 0.0f;
@@ -58,7 +58,8 @@ float Fs2Screen::get_left_column_width() const
 	const float scale_x = shown.x / (float)game.x;
 	const float scale_y = shown.y / (float)game.y;
 	const float scale = scale_x < scale_y ? scale_x : scale_y;
-	return (shown.x - ((float)game.x * scale)) * 0.5f;
+	const float base_left = (canvas_w > 0 && base_x > 0) ? (float)base_x * ((float)game.x / (float)canvas_w) * scale : 0.0f;
+	return ((shown.x - ((float)game.x * scale)) * 0.5f) + base_left;
 }
 
 Ref<Image> Fs2Screen::get_image()
