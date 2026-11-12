@@ -33,6 +33,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup Label="UserMacros" />
   <Import Project="$(MSBuildThisFileDirectory)..\build\layer.props" /><!-- Claude: layer name for the DLL names (D-20261101-064106) -->
+  <Import Project="$(MSBuildThisFileDirectory)..\build\version.props" /><!-- Claude: the port's own version in the DLL (#311) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>$(RepoDir)x64\Debug\fs2game\</IntDir>
@@ -110,6 +111,9 @@
     <ClCompile Include="..\code\FREESPACE2\LevelPaging.cpp" />
     <ClCompile Include="fs2_api.cpp" />
     <ClCompile Include="gr_host.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="fs2game.rc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fs2_api.h" />
