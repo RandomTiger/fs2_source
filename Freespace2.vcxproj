@@ -79,6 +79,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <Import Project="$(MSBuildThisFileDirectory)build\layer.props" /><!-- Claude: layer name for the exe names (D-20261101-064106) -->
+  <Import Project="$(MSBuildThisFileDirectory)build\version.props" /><!-- Claude: the port's own version in the exe (#311) -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(PATH_FS2)\</OutDir>
     <IntDir>.\Debug\Freespace2\</IntDir>
