@@ -8,7 +8,7 @@ Initialize-Fs2DemoScratch	# FS2_PROCDUMP (optional) = procdump.exe, for crash du
 $env:CL = $null; $env:_CL_ = $null; $env:_LINK_ = $null
 Get-ChildItem $Repo -Recurse -Filter code.lib | Remove-Item
 & "$sp\build.ps1" -Repo $Repo -TraceDiff -Configs @() 2>&1 | Select-String 'exit'
-$f = if ($Full) { @('-Full') } else { @() }
+$f = @(if ($Full) { '-Full' })	# always an array: an if expression unrolls @('-Full') to a string, and splatting a string passed one letter per argument (#307)
 $out = & powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\tools\suite_check.ps1" @f -Out "$env:TEMP\$Label"
 $out
 $bad = @()
