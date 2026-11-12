@@ -1182,7 +1182,7 @@ BOOL WaveFile::Open (LPSTR pszFilename)
 	WORD cbExtra = 0;
 	BOOL fRtn = SUCCESS;    // assume success
 	PCMWAVEFORMAT pcmwf;
-	char fullpath[_MAX_PATH];
+	char fullpath[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 
 	m_total_uncompressed_bytes_read = 0;
 	m_max_uncompressed_bytes_to_read = AS_HIGHEST_MAX;

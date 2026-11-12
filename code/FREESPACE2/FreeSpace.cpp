@@ -949,7 +949,7 @@ char Game_CDROM_dir[MAX_PATH_LEN];
 int init_cdrom();
 
 // Claude: the game's root directory, the exe directory, from the host (game_host_init, D-050)
-static char Game_root_dir[1024] = "";
+static char Game_root_dir[CF_MAX_PATHNAME_LENGTH] = "";  // Claude: was 1024; the host passes the root in, so it can be as long as Windows allows (fix review 73, #305)
 
 // How much RAM is on this machine. Set in WinMain
 uint Freespace_total_ram = 0;
@@ -2004,6 +2004,7 @@ void game_init()
 	game_time_init();	// Claude: D-055
 	rand_alt_init();	// Claude: the alternate random stream starts where a new process starts it (D-055)
 	Rand_count = 0;		// Claude: the trace counts rand calls from process start; a restarted game counts from 0 again (D-055)
+	{ extern int Player_tips_shown; Player_tips_shown = 0; }	// Claude: the main hall's tip popup draws a gameplay number once per process; a restarted game shows it again as a new process would (D-055)
 	{	// Claude: the viewer's eye starts at zero as in a new process; the trace writes it before the first mission frame sets it (D-055)
 		extern vector Eye_position;
 		extern matrix Eye_matrix;
@@ -2044,7 +2045,7 @@ void game_init()
 	int s1, e1;
 	// int s2, e2;
 
-	char whee[1024];
+	char whee[CF_MAX_PATHNAME_LENGTH];  // Claude: was 1024 (fix review 73, #269)
 	strcpy(whee, Game_root_dir);	// Claude: from the host (game_host_init), was the current directory (D-050)
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
@@ -2153,8 +2154,8 @@ void game_init()
 	int has_sparky_hi = 0;
 
 	// check if sparky_hi exists -- access mode 0 means does file exist
-	char dir[128];
-	_getcwd(dir, 128);
+	char dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
+	_getcwd(dir, CF_MAX_PATHNAME_LENGTH);
 	if ( _access("sparky_hi_fs2.vp", 0) == 0) {
 		has_sparky_hi = 1;
 	} else {
@@ -7236,7 +7237,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 	/*
 	HMODULE hMod;
 	DWORD bogus_handle;
-	char myname[_MAX_PATH];
+	char myname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 	int namelen, major, minor, build, waste;
 	unsigned int buf_size;
 	DWORD version_size;
@@ -7246,7 +7247,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 
 	// Find my EXE file name
 	hMod = GetModuleHandle(NULL);
-	namelen = GetModuleFileName( hMod, myname, _MAX_PATH );
+	namelen = GetModuleFileName( hMod, myname, CF_MAX_PATHNAME_LENGTH );  // Claude: was _MAX_PATH
 
 	version_size = GetFileVersionInfoSize(myname, &bogus_handle );
 	infop = (char *)malloc(version_size);
@@ -7906,7 +7907,7 @@ int game_host_init(char *szCmdLine, char *root_dir)
 
 	parse_cmdline(szCmdLine);	
 	{	// Claude: the data set folder, made from a demo installer on the first start, becomes the root; everything after this reads and writes there (D-20261018-221704)
-		char ds_dir[1024], ds_err[512];	// Claude
+		char ds_dir[CF_MAX_PATHNAME_LENGTH], ds_err[512];	// Claude: ds_dir was 1024 (fix review 73, #305)
 		if (dataset_select_folder(Game_root_dir, Cmdline_dataset, replay_peek_data_set(game_is_volition_mission), ds_dir, sizeof(ds_dir), ds_err, sizeof(ds_err))) {	// Claude
 			Error(LOCATION, "%s", ds_err);	// Claude
 			return 0;	// Claude
