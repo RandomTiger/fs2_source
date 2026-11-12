@@ -2017,8 +2017,8 @@ void game_init()
 	int s1, e1;
 	// int s2, e2;
 
-	char whee[1024];
-	_getcwd(whee, 1024);
+	char whee[CF_MAX_PATHNAME_LENGTH];  // Claude: was 1024 (fix review 73, #269)
+	_getcwd(whee, CF_MAX_PATHNAME_LENGTH - 32);  // Claude: was 1024; room left for the exe name
 	strcat(whee, "\\");
 	strcat(whee, EXE_FNAME);
 
@@ -2126,8 +2126,8 @@ void game_init()
 	int has_sparky_hi = 0;
 
 	// check if sparky_hi exists -- access mode 0 means does file exist
-	char dir[128];
-	_getcwd(dir, 128);
+	char dir[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128 (fix review 73, #269)
+	_getcwd(dir, CF_MAX_PATHNAME_LENGTH);
 	if ( _access("sparky_hi_fs2.vp", 0) == 0) {
 		has_sparky_hi = 1;
 	} else {
@@ -7165,7 +7165,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 	/*
 	HMODULE hMod;
 	DWORD bogus_handle;
-	char myname[_MAX_PATH];
+	char myname[CF_MAX_PATHNAME_LENGTH];  // Claude: was _MAX_PATH (fix review 73, #269)
 	int namelen, major, minor, build, waste;
 	unsigned int buf_size;
 	DWORD version_size;
@@ -7175,7 +7175,7 @@ if ( FS_VERSION_BUILD == 0 ) {
 
 	// Find my EXE file name
 	hMod = GetModuleHandle(NULL);
-	namelen = GetModuleFileName( hMod, myname, _MAX_PATH );
+	namelen = GetModuleFileName( hMod, myname, CF_MAX_PATHNAME_LENGTH );  // Claude: was _MAX_PATH
 
 	version_size = GetFileVersionInfoSize(myname, &bogus_handle );
 	infop = (char *)malloc(version_size);
