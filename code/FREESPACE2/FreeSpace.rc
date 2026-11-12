@@ -304,6 +304,7 @@ END
 // Version
 //
 
+#include "..\..\build\version_build.h"	// Claude: the port's own version, written at build time (#311)
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 1,0,0,1
  PRODUCTVERSION 1,0,0,1
@@ -328,7 +329,7 @@ BEGIN
             VALUE "LegalCopyright", "Copyright © 1998\0"
             VALUE "OriginalFilename", "fs.exe\0"
             VALUE "ProductName", "FreeSpace\0"
-            VALUE "ProductVersion", "1.03.01\0"
+            VALUE "ProductVersion", FS2_PORT_VERSION	// Claude: was "1.03.01\0"; the port's own version (#311)
         END
     END
     BLOCK "VarFileInfo"
