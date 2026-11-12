@@ -8362,7 +8362,7 @@ void ai_chase()
 			aip->submode = SM_STEALTH_FIND;
 			aip->submode_start_time = Missiontime;
 			aip->submode_parm0 = SM_SF_AHEAD;
-		} else if ( /*(Missiontime - aip->submode_start_time) > i2f(30) || */(aip->submode_parm0 == SM_SS_DONE) ) {
+		} else if ( /*(Missiontime - aip->submode_start_time) > i2f(30) || */(aip->submode_parm0 >= SM_SS_DONE) ) {	// Claude: was ==; the sweep can step its point twice in one frame (reached it, then avoided a big ship) and skip past SM_SS_DONE, leaving goal_pt unset every frame after (fix review 74, #309)
 			// set target objnum = -1
 			set_target_objnum(aip, -1);
 
