@@ -350,7 +350,7 @@ void os_check_debugger()
 {
 	HMODULE hMod;
 	char search_string[256];
-	char myname[128];
+	char myname[CF_MAX_PATHNAME_LENGTH];  // Claude: was 128, an exe path of 128 or more was cut short (fix review 73, #269)
 	int namelen;
 	char * p;
 
@@ -359,7 +359,7 @@ void os_check_debugger()
 	// Find my EXE file name
 	hMod = GetModuleHandle(NULL);
 	if ( !hMod ) return;
-	namelen = GetModuleFileName( hMod, myname, 127 );	
+	namelen = GetModuleFileName( hMod, myname, CF_MAX_PATHNAME_LENGTH );	
 	if ( namelen < 1 ) return;
 	
 	// Strip off the .EXE
