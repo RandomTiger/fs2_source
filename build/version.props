@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The port's own version (#311): build\version_stamp.ps1 writes build\version_build.h before the resource compiler runs;
+     FreeSpace.rc puts it in the exe's ProductVersion. Import after build\layer.props (it needs FS2Layer). -->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="FS2VersionStamp" BeforeTargets="ResourceCompile;ClCompile">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)version_stamp.ps1&quot; -Layer $(FS2Layer)" />
+  </Target>
+</Project>
