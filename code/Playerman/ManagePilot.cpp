@@ -215,6 +215,7 @@
 #include "Autotest.h"	// Claude
 #include "DataSetProfile.h"	// Claude
 #include "DataSetInstall.h"	// Claude: data_set_name for the 141 tag
+#include "Replay.h"	// Claude: Replay_mode, live play only
 
 // update this when altering data that is read/written to .PLR file
 #define CURRENT_PLAYER_FILE_VERSION					141	// Claude: was 140; 141 adds the data-set tag and the medal count (batch 5, D-20261023-201347, D-20261023-201747)
@@ -1451,6 +1452,9 @@ void init_new_pilot(player *p, int reset)
 		detail_level_load_config();	// Claude: the settings file decides the detail levels, not the pilot
 
 		Game_skill_level = game_get_default_skill_level();
+		if ( (Replay_mode == REPLAY_OFF) && !Autotest_harness ) {	// Claude: a pilot made in live play starts on Medium; autotest's keeps Easy, a replay takes the recording's (D-20261113-142050)
+			Game_skill_level = 2;
+		}
 
 		mprintf(( "Setting detail level to %d because of new pilot\n", cur_speed ));
 		Use_mouse_to_fly = 0;
