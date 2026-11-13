@@ -679,9 +679,29 @@ void detail_level_set(int level)
 	neb2_set_detail_level(Detail.nebula_detail);	// Claude: was level, the same in FS2 data
 }
 
+// Claude: every detail option at its top and every on/off option on, as the Options screen's Detail page shows its maximum (not
+// the Highest preset, which leaves three sliders one short); the page shows it as Custom (D-20261113-142051)
+void detail_level_set_max()
+{
+	Detail = Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS - 1];
+	Detail.setting = -1;
+	Detail.nebula_detail = MAX_DETAIL_LEVEL;
+	Detail.detail_distance = MAX_DETAIL_LEVEL;
+	Detail.hardware_textures = MAX_DETAIL_LEVEL;
+	Detail.num_small_debris = MAX_DETAIL_LEVEL;
+	Detail.num_particles = MAX_DETAIL_LEVEL;
+	Detail.num_stars = MAX_DETAIL_LEVEL;
+	Detail.shield_effects = MAX_DETAIL_LEVEL;
+	Detail.lighting = MAX_DETAIL_LEVEL;
+	Detail.targetview_model = 1;
+	Detail.planets_suns = 1;
+	Detail.weapon_extras = 1;
+	neb2_set_detail_level(Detail.nebula_detail);
+}
+
 // Claude: the detail levels come from the [Detail] section of the settings file (OsRegistry.cpp) for
-// every pilot, instead of the pilot file.  If the section is missing it is written with the highest
-// preset.  The options screen saves changes back to it.
+// every pilot, instead of the pilot file.  If the section is missing it is written with every option
+// at its maximum.  The options screen saves changes back to it.
 #define DETAIL_SECTION	"Detail"
 
 static struct { char *name; int offset; } Detail_config_keys[] = {
@@ -720,8 +740,7 @@ void detail_level_load_config()
 	int i;
 
 	if (os_config_read_string(DETAIL_SECTION, "Setting", NULL) == NULL) {
-		Detail = Detail_defaults[NUM_DEFAULT_DETAIL_LEVELS - 1];
-		detail_level_fs1_max(&Detail);
+		detail_level_set_max();	// Claude: was the Highest preset (D-20261113-142051)
 		detail_level_save_config();
 		return;
 	}
