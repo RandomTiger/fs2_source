@@ -8,7 +8,7 @@
 #
 # The gate harness and developers keep the environment of runner.gd: FS2_CMD, FS2_DLL, FS2_ROOT. FS2_CMD set means a scripted
 # run: it takes FS2_ROOT and FS2_DLL when set, else the folder and DLL the rules above find. Without FS2_CMD this is live play:
-# the game's own `-window`, drawn through the host renderer, the game on a fiber (what runner.gd's FS2_GR_HOST, FS2_FIBER do).
+# the game's own `-window` plus the game's flags given on the exe's command line, drawn through the host renderer, the game on a fiber (what runner.gd's FS2_GR_HOST, FS2_FIBER do).
 #
 # Window mode (live play only): fullscreen by default, the borderless kind at the display's own resolution (Godot's WINDOW_MODE_FULLSCREEN;
 # it alt-tabs, shows the launcher's message box and suits the Steam Deck's 1280x800 panel and gamescope). The game keeps its aspect and the
@@ -62,12 +62,33 @@ func _ready() -> void:
 	OS.set_environment("FS2_DLL", dll.replace("/", "\\"))
 	print("fs2 DLL: " + dll)
 	if OS.get_environment("FS2_CMD") == "":
-		OS.set_environment("FS2_CMD", "-window")	# the game's flag; the host renderer ignores it, the window mode is set below
+		OS.set_environment("FS2_CMD", "-window" + _game_args())	# the game's flag (the host renderer ignores it, the window mode is set below), then the game's own flags from the exe's command line
 		OS.set_environment("FS2_GR_HOST", "1")
 		OS.set_environment("FS2_FIBER", "1")
 		_set_window_mode(_has_window_switch())
 	var runner: PackedScene = load("res://runner.tscn")
 	add_child(runner.instantiate())
+
+# The game's own flags on the exe's command line (for example -bastion), passed on to the game in live play. Left out: --fs2-root
+# and its folder, -window / --window (the host's window switch) and anything starting with -- (Godot's or the host's own). A value
+# with a space is quoted.
+func _game_args() -> String:
+	var args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	var out := ""
+	var skip := false
+	for a in args:
+		if skip:
+			skip = false
+			continue
+		if a == "--fs2-root":
+			skip = true
+			continue
+		if a.begins_with("--") or a == "-window":
+			continue
+		out += " " + ("\"" + a + "\"" if a.contains(" ") else a)
+	if out != "":
+		print("fs2 game flags:" + out)
+	return out
 
 func _has_window_switch() -> bool:
 	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
