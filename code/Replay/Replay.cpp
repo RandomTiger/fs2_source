@@ -1822,10 +1822,11 @@ void replay_set_pace(int on)
 // -replay_pace: flFrametime is the game frame time after time compression, so a frame took flFrametime divided by
 // the compression in real time.  The performance counter is read directly, not through the hooked timers, so the
 // game sees nothing of the waiting.
+fix spectator_time_scale();	// MissionPause.cpp
 static void replay_pace_wait()
 {
 	LARGE_INTEGER now;
-	float compression = f2fl(Game_time_compression);
+	float compression = f2fl(Game_time_compression) * f2fl(spectator_time_scale());	// spectator mode (#313): its speed too
 
 	if (Replay_pace_frames++ == 0) {
 		QueryPerformanceFrequency(&Replay_pace_freq);

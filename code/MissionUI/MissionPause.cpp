@@ -49,6 +49,13 @@
 #include "3d.h"		// Claude: debug camera (#125)
 #include "timer.h"
 #include "mouse.h"
+#include "ship.h"			// Claude: spectator mode (#313)
+#include "ai.h"
+#include "player.h"
+#include "physics.h"
+#include "GameView.h"
+#include "GameOptions.h"
+#include "Replay.h"
 
 // ----------------------------------------------------------------------------------------------------------------
 // PAUSE DEFINES/VARS
@@ -146,6 +153,290 @@ static vector Dc_save_view_position, Dc_save_light_base, Dc_save_eye_position, D
 static float Dc_save_view_zoom;
 static ubyte Dc_save_rendered[MAX_OBJECTS];
 
+// Claude: spectator mode (#313).  Alt+Pause in a single-player mission watches it from a free camera while it plays
+// on.  W/S forward and back, A/D strafe, R/F up and down, the mouse looks, Shift moves faster; comma and full stop halve
+// and double the game speed (1/8x to 8x), slash puts it back to 1x; Tab and Shift+Tab follow the next or previous ship,
+// T follows the player's target, G lets go; Alt+Pause or Esc leaves.  Shift+Pause freezes the scene in the debug
+// camera, starting where this camera is.  No HUD is drawn.
+//
+// Gameplay sees two things, both driven by recorded keys, so a recording replays the same: while it is on, the keys and
+// mouse move the camera instead of flying the ship (it flies on at its throttle setting; with -playernpc the AI flies it
+// as before), and the speed scales the frame time.  The camera itself is drawing only: the game view stays the player's,
+// and the camera reads only the unrecorded clock.  The option (GameOptionList.h: -spectator, the Options row and the
+// console) turns it on by pressing Alt+Pause, so that also reaches gameplay as a recorded key.
+#define SPECTATOR_SPEED_STEPS		3			// 2^3: 1/8x to 8x
+
+static int Sp_on = 0;
+static int Sp_want = 0;					// the option: on or off for this mission
+static int Sp_pressed = 0;				// Alt+Pause already pressed for it, or toggled by hand, this mission
+static int Sp_speed = 0;				// log2 of the game speed
+static vector Sp_pos;
+static angles Sp_angles;
+static int Sp_last_ms = -1;
+static int Sp_follow = -1;				// the object followed, or -1
+static int Sp_follow_sig = 0;
+static vector Sp_offset;				// from the followed object to the camera, in world axes
+
+int spectator_active()
+{
+	return Sp_on;
+}
+
+void spectator_level_init()
+{
+	Sp_on = 0;
+	Sp_speed = 0;
+	Sp_follow = -1;
+	Sp_want = game_option(GO_OPT_SPECTATOR);
+	Sp_pressed = 0;
+}
+
+void spectator_request(int on)
+{
+	Sp_want = on ? 1 : 0;
+	Sp_pressed = 0;
+}
+
+fix spectator_time_scale()
+{
+	if (!Sp_on || (Sp_speed == 0)) {
+		return F1_0;
+	}
+	return (Sp_speed > 0) ? (F1_0 << Sp_speed) : (F1_0 >> -Sp_speed);
+}
+
+static int spectator_follow_valid()
+{
+	if (Sp_follow < 0) {
+		return 0;
+	}
+	if ((Objects[Sp_follow].type == OBJ_NONE) || (Objects[Sp_follow].signature != Sp_follow_sig)) {
+		Sp_follow = -1;
+		return 0;
+	}
+	return 1;
+}
+
+// behind the object and a little above it, looking at it
+static void spectator_follow_start(int objnum)
+{
+	object *objp = &Objects[objnum];
+	float r = (objp->radius > 10.0f) ? objp->radius : 10.0f;
+	vector to;
+	matrix m;
+
+	Sp_follow = objnum;
+	Sp_follow_sig = objp->signature;
+	vm_vec_scale_add(&Sp_pos, &objp->pos, &objp->orient.fvec, -3.0f * r);
+	vm_vec_scale_add2(&Sp_pos, &objp->orient.uvec, 0.8f * r);
+	vm_vec_sub(&to, &objp->pos, &Sp_pos);
+	vm_vector_2_matrix(&m, &to, &objp->orient.uvec, NULL);
+	vm_extract_angles_matrix(&Sp_angles, &m);
+	Sp_angles.b = 0.0f;
+	vm_vec_sub(&Sp_offset, &Sp_pos, &objp->pos);
+}
+
+// the next ship in the object list after from, in direction dir, or -1
+static int spectator_next_ship(int from, int dir)
+{
+	int i, n;
+
+	if (from < 0) {
+		from = (dir > 0) ? MAX_OBJECTS - 1 : 0;
+	}
+	n = from;
+	for (i = 0; i < MAX_OBJECTS; i++) {
+		n = (n + dir + MAX_OBJECTS) % MAX_OBJECTS;
+		if ((Objects[n].type == OBJ_SHIP) && !(Objects[n].flags & OF_SHOULD_BE_DEAD)) {
+			return n;
+		}
+	}
+	return -1;
+}
+
+void spectator_toggle()
+{
+	matrix m;
+
+	if (Game_mode & GM_MULTIPLAYER) {
+		return;
+	}
+	Sp_on = !Sp_on;
+	Sp_pressed = 1;
+	Sp_speed = 0;
+	Sp_follow = -1;
+	Sp_last_ms = -1;
+	if (!Sp_on) {
+		return;
+	}
+	if ((Player_obj != NULL) && (Player_obj->type == OBJ_SHIP)) {
+		spectator_follow_start(OBJ_INDEX(Player_obj));
+	} else {
+		game_view_eye(&Sp_pos, &m);
+		vm_extract_angles_matrix(&Sp_angles, &m);
+	}
+}
+
+void spectator_mission_frame()
+{
+	if (Sp_pressed || (Sp_want == Sp_on) || (Game_mode & GM_MULTIPLAYER)) {
+		return;
+	}
+	// a recorded key, as autotest presses keys: a replay takes the recording's instead
+	Sp_pressed = 1;
+	key_mark(KEY_LALT, 1, 0);
+	key_mark(KEY_PAUSE, 1, 0);
+	key_mark(KEY_PAUSE, 0, 0);
+	key_mark(KEY_LALT, 0, 0);
+}
+
+int spectator_process_key(int k)
+{
+	int key, n;
+
+	if (!Sp_on || (k == 0)) {
+		return 0;
+	}
+	key = k & ~KEY_DEBUGGED;
+	switch (key) {
+	case KEY_PAUSE:
+	case KEY_SHIFTED | KEY_PAUSE:
+		return 0;			// the pause keys work as always
+	case KEY_ESC:
+	case KEY_ALTED | KEY_PAUSE:
+		spectator_toggle();
+		break;
+	case KEY_COMMA:
+		if (Sp_speed > -SPECTATOR_SPEED_STEPS) {
+			Sp_speed--;
+		}
+		break;
+	case KEY_PERIOD:
+		if (Sp_speed < SPECTATOR_SPEED_STEPS) {
+			Sp_speed++;
+		}
+		break;
+	case KEY_SLASH:
+		Sp_speed = 0;
+		break;
+	case KEY_TAB:
+	case KEY_SHIFTED | KEY_TAB:
+		n = spectator_next_ship(spectator_follow_valid() ? Sp_follow : -1, (key == KEY_TAB) ? 1 : -1);
+		if (n >= 0) {
+			spectator_follow_start(n);
+		}
+		break;
+	case KEY_T:
+		if ((Player_ai != NULL) && (Player_ai->target_objnum >= 0)) {
+			spectator_follow_start(Player_ai->target_objnum);
+		}
+		break;
+	case KEY_G:
+		Sp_follow = -1;
+		break;
+	}
+	return 1;
+}
+
+void spectator_controls(control_info *ci)
+{
+	ci->pitch = 0.0f;
+	ci->vertical = 0.0f;
+	ci->heading = 0.0f;
+	ci->sideways = 0.0f;
+	ci->bank = 0.0f;
+	ci->forward = 0.0f;
+	ci->fire_primary_count = 0;
+	ci->fire_secondary_count = 0;
+	ci->fire_countermeasure_count = 0;
+	ci->fire_debug_count = 0;
+	ci->afterburner_start = 0;
+	ci->afterburner_stop = 0;
+}
+
+int spectator_follow_object()
+{
+	return spectator_follow_valid() ? Sp_follow : -1;
+}
+
+void spectator_camera(vector *pos, matrix *orient)
+{
+	*pos = Sp_pos;
+	vm_angles_2_matrix(orient, &Sp_angles);
+}
+
+// in the logic phase, so it moves the same drawn or headless; it reads only the unrecorded clock, the mouse delta the
+// flip already read, and the key states, so it adds nothing to a recording
+void spectator_camera_frame()
+{
+	int now, dx, dy;
+	float dt, speed;
+	vector move;
+	matrix m, *orient = &m;
+
+	if (!Sp_on) {
+		return;
+	}
+	replay_push();					// drawing only: kept out of the recording
+	now = timer_get_milliseconds();
+	replay_pop();
+	dt = (Sp_last_ms < 0) ? 0.0f : (now - Sp_last_ms) / 1000.0f;
+	Sp_last_ms = now;
+	if (dt < 0.0f) {
+		dt = 0.0f;
+	} else if (dt > 0.1f) {
+		dt = 0.1f;
+	}
+
+	// mouse look: right turns right, down looks down
+	mouse_get_delta(&dx, &dy, NULL);
+	Sp_angles.h += dx * DEBUG_CAMERA_LOOK;
+	Sp_angles.p += dy * DEBUG_CAMERA_LOOK;
+	if (Sp_angles.p > PI/2 - 0.01f) {
+		Sp_angles.p = PI/2 - 0.01f;
+	} else if (Sp_angles.p < -PI/2 + 0.01f) {
+		Sp_angles.p = -PI/2 + 0.01f;
+	}
+	vm_angles_2_matrix(orient, &Sp_angles);
+
+	speed = DEBUG_CAMERA_SPEED * dt;
+	if (keyd_pressed[KEY_LSHIFT] || keyd_pressed[KEY_RSHIFT]) {
+		speed *= DEBUG_CAMERA_FAST;
+	}
+	vm_vec_zero(&move);
+	vm_vec_scale_add2(&move, &orient->fvec, (float)(keyd_pressed[KEY_W] - keyd_pressed[KEY_S]) * speed);
+	vm_vec_scale_add2(&move, &orient->rvec, (float)(keyd_pressed[KEY_D] - keyd_pressed[KEY_A]) * speed);
+	vm_vec_scale_add2(&move, &orient->uvec, (float)(keyd_pressed[KEY_R] - keyd_pressed[KEY_F]) * speed);
+	if (spectator_follow_valid()) {
+		vm_vec_add2(&Sp_offset, &move);
+		vm_vec_add(&Sp_pos, &Objects[Sp_follow].pos, &Sp_offset);
+	} else {
+		vm_vec_add2(&Sp_pos, &move);
+	}
+}
+
+void spectator_draw_text()
+{
+	char text[160], speed[16];
+	int w, h;
+
+	if (Sp_speed >= 0) {
+		sprintf(speed, "%dx", 1 << Sp_speed);
+	} else {
+		sprintf(speed, "1/%dx", 1 << -Sp_speed);
+	}
+	if (spectator_follow_valid() && (Objects[Sp_follow].type == OBJ_SHIP)) {
+		sprintf(text, NOX("Spectator   speed %s   following %s"), speed, Ships[Objects[Sp_follow].instance].ship_name);
+	} else {
+		sprintf(text, NOX("Spectator   speed %s"), speed);
+	}
+	gr_set_color_fast(&Color_normal);
+	gr_set_font(FONT1);
+	gr_get_string_size(&w, &h, text);
+	gr_string(10, 10, text);
+	gr_string(10, 10 + h + 2, NOX("W/S/A/D/R/F move, mouse look, Shift faster   , . / speed   Tab, T follow, G free   Shift+Pause freeze   Esc leaves"));
+}
+
 static void debug_camera_init()
 {
 	int i;
@@ -166,6 +457,10 @@ static void debug_camera_init()
 	// start where the player's view was
 	Dc_pos = Eye_position;
 	vm_extract_angles_matrix(&Dc_angles, &Eye_matrix);
+	if (Sp_on) {		// Claude: spectator mode (#313): where the spectator camera is
+		Dc_pos = Sp_pos;
+		Dc_angles = Sp_angles;
+	}
 	Dc_last_ms = timer_get_milliseconds();
 }
 
@@ -190,6 +485,13 @@ static void debug_camera_close()
 		}
 	}
 	Keep_mouse_centered = 0;
+	if (Sp_on) {		// Claude: spectator mode (#313): it carries on from where the debug camera was
+		Sp_pos = Dc_pos;
+		Sp_angles = Dc_angles;
+		if (spectator_follow_valid()) {
+			vm_vec_sub(&Sp_offset, &Sp_pos, &Objects[Sp_follow].pos);
+		}
+	}
 }
 
 static void debug_camera_do()

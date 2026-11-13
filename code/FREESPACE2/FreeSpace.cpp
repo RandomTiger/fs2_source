@@ -1403,6 +1403,7 @@ void game_level_close()
 	beam_level_close();
 	mflash_level_close();
 	loadtime_level_close();	// Claude: writes the late texture load totals, see LoadTimes.h
+	spectator_level_init();	// Claude: spectator mode (#313): off, 1x
 
 	audiostream_unpause_all();
 	Game_paused = 0;
@@ -1432,6 +1433,7 @@ void game_level_init(int seed)
 	Game_level_seed = replay_level_seed( Game_level_seed );
 	srand( Game_level_seed );
 	cosmetic_srand( Game_level_seed );	// Claude: Cosmetic stream starts from the same seed each level.
+	spectator_level_init();	// Claude: spectator mode (#313): off, 1x, the option read again
 
 	// semirand function needs to get re-initted every time in multiplayer
 	if ( Game_mode & GM_MULTIPLAYER ){
@@ -3589,10 +3591,12 @@ void game_render_frame( vector * eye_pos, matrix * eye_orient )
 
 	//================ END OF 3D RENDERING STUFF ====================
 
-	hud_show_radar();
+	if ( !spectator_active() ) {	// Claude: spectator mode (#313), no HUD
+		hud_show_radar();
+	}
 
 	if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
-		if (Render_show[RS_HUD]) {	// Claude: GodotOptions, the show check and the double size HUD
+		if (Render_show[RS_HUD] && !spectator_active()) {	// Claude: GodotOptions, the show check and the double size HUD; spectator mode (#313), no HUD
 			gr_virtual_hud_double_begin();
 			hud_maybe_clear_head_area();
 			anim_render_all(0, flFrametime);
@@ -4063,6 +4067,11 @@ void game_render_hud_2d()
 		return;
 	}
 	
+	if ( spectator_active() ) {	// Claude: spectator mode (#313): its lines instead of the HUD
+		spectator_draw_text();
+		return;
+	}
+
 	gr_virtual_hud_double_begin();	// Claude: GodotOptions
 	HUD_render_2d(flFrametime);
 	gr_virtual_hud_double_end();	// Claude: GodotOptions
@@ -4076,7 +4085,7 @@ void game_render_hud_3d(vector *eye_pos, matrix *eye_orient)
 	g3_set_view_matrix( eye_pos, eye_orient, Viewer_zoom );
 
 	if ( (Game_detail_flags & DETAIL_FLAG_HUD) && (supernova_active() < 3)/* && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) )*/ ) {
-		if (Render_show[RS_HUD]) {	// Claude: GodotOptions, the show check
+		if (Render_show[RS_HUD] && !spectator_active()) {	// Claude: GodotOptions, the show check; spectator mode (#313), no HUD
 			HUD_render_3d(flFrametime);
 		}
 	}
@@ -4106,6 +4115,25 @@ static void game_drawing_end()
 	model_instance_state_restore();
 	Cosmetic_rand_drawing = 0;
 	gr_virtual_hud_end();	// Claude: GodotResolution
+}
+
+// Claude: spectator mode (#313): the scene from the spectator camera, the player's ship drawn too. Drawing only: the game view
+// set before this stays the player's.
+static void game_render_frame_spectator(vector *eye_pos, matrix *eye_orient)
+{
+	vector sp_pos;
+	matrix sp_orient;
+	object *viewer;
+
+	if ( !spectator_active() ) {
+		game_render_frame(eye_pos, eye_orient);
+		return;
+	}
+	spectator_camera(&sp_pos, &sp_orient);
+	viewer = Viewer_obj;
+	Viewer_obj = NULL;
+	game_render_frame(&sp_pos, &sp_orient);
+	Viewer_obj = viewer;
 }
 
 void game_frame()
@@ -4162,6 +4190,7 @@ void game_frame()
 		if (! (Game_mode & GM_STANDALONE_SERVER) ) {
 
 			if( (!popup_running_state()) && (!popupdead_is_active()) ){
+				spectator_mission_frame();	// Claude: spectator mode (#313): the option presses Alt+Pause
 				game_process_keys();
 
 				if(!Autotest_player_npc){	// Claude: with -playernpc the AI flies the player ship; demo playback guard removed (#70)
@@ -4217,6 +4246,7 @@ void game_frame()
 			// OF_WAS_RENDERED from obj_render_all. Set here, at the same point in the frame, without drawing.
 			game_view_set(&eye_pos, &eye_orient, Viewer_zoom);
 			game_view_update_was_rendered();
+			spectator_camera_frame();	// Claude: spectator mode (#313): moves its camera, which only drawing reads
 			weapon_update_flyby_consider();	// Claude: logic phase of the laser flyby sound, which weapon_render decided while drawing
 			// Claude: logic phase of the HUD anims (talking heads, which messages wait for), same condition as in game_render_frame
 			if( (Game_detail_flags & DETAIL_FLAG_HUD) && !(Game_mode & GM_MULTIPLAYER) || ( (Game_mode & GM_MULTIPLAYER) && !(Net_player->flags & NETINFO_FLAG_OBSERVER) ) ) {
@@ -4225,7 +4255,7 @@ void game_frame()
 			nebl_update_all();	// Claude: logic phase of the lightning (timers, jitter, thunder, EMP), where game_render_frame drew it
 			neb2_update_player();	// Claude: logic phase of the nebula poofs, which the lightning starts and ends at
 			hud_update_radar();	// Claude: logic phase of the radar (static and its sound), same conditions as hud_show_radar in game_render_frame
-			if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_frame( &eye_pos, &eye_orient ); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
+			if ( !Cmdline_nodraw ) { game_drawing_begin(); game_render_frame_spectator( &eye_pos, &eye_orient ); game_drawing_end(); }	// Claude: spectator mode (#313)		// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 
 			// save the eye position and orientation
 			if ( Game_mode & GM_MULTIPLAYER ) {
@@ -4233,7 +4263,7 @@ void game_frame()
 				Net_player->s_info.eye_orient = eye_orient;
 			}
 
-			if ( !Cmdline_nodraw ) { game_drawing_begin(); hud_show_target_model(); game_drawing_end(); }	// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
+			if ( !Cmdline_nodraw && !spectator_active() ) { game_drawing_begin(); hud_show_target_model(); game_drawing_end(); }	// Claude: spectator mode (#313), no HUD		// Claude: test: skip drawing the mission, to check that gameplay does not depend on drawing	// Claude: drawing uses its own cosmetic random stream, and leaves the model state as it found it
 
 			// check to see if we should display the death died popup
 			if(Game_mode & GM_DEAD_BLEW_UP){				
@@ -4489,6 +4519,9 @@ void game_set_frametime(int state)
 	}
 
 	Frametime = fixmul(Frametime, Game_time_compression);
+	if ( spectator_active() ) {	// Claude: spectator mode (#313), its game speed
+		Frametime = fixmul(Frametime, spectator_time_scale());
+	}
 
 	Last_time = thistime;
 	//mprintf(("Frame %i, Last_time = %7.3f\n", Framecount, f2fl(Last_time)));
@@ -4544,7 +4577,7 @@ void game_do_frame()
 
 	last_single_step = game_single_step;
 
-	if ((gameseq_get_state() == GS_STATE_GAME_PLAY) && Use_mouse_to_fly){
+	if ((gameseq_get_state() == GS_STATE_GAME_PLAY) && (Use_mouse_to_fly || spectator_active())){	// Claude: spectator mode (#313): its mouse look
 		Keep_mouse_centered = 1;  // force mouse to center of our window (so we don't hit movement limits)
 	}
 	game_frame();

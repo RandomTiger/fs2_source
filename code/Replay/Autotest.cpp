@@ -839,6 +839,11 @@ static int Autotest_debugcam_look = 0;	// -at_debugcam: the cursor is moved off 
 
 void autotest_cursor_pos(long *x, long *y)
 {
+	if (Autotest_debugcam_look == 2) {	// the spectator test holds the view still (#313)
+		*x = gr_screen.max_w / 2;
+		*y = gr_screen.max_h / 2;
+		return;
+	}
 	if (Autotest_debugcam_look) {	// the debug camera test turns the view (#125)
 		*x = gr_screen.max_w / 2 + 8;
 		*y = gr_screen.max_h / 2 + 3;
@@ -1097,6 +1102,189 @@ static void autotest_debugcam_paused(int state)
 				Autotest_debugcam_phase = AUTOTEST_DEBUGCAM_LEFT;
 			}
 			Autotest_debugcam_frames = 0;
+			break;
+	}
+}
+
+// -at_spectator: the spectator mode test (#313).  AUTOTEST_SPECTATOR_TIME seconds into the mission, Alt+Pause is
+// pressed; the mission plays on while full stop is pressed twice (4x), W is held, then D, then the mouse moves right and
+// down, Tab follows the next ship and comma is pressed three times (1/2x); then Alt+Pause leaves and the mission plays
+// on to its time limit.  The keys and the cursor go through the recorder, so a recording of the test replays it.  With
+// -at_shots: spectator/before, start, moved, follow and after.  Run it at -at_speed 1 so the mission outlasts it.
+#define AUTOTEST_SPECTATOR_TIME		5.0f
+#define AUTOTEST_SPECTATOR_WAIT		1
+#define AUTOTEST_SPECTATOR_IN			2
+#define AUTOTEST_SPECTATOR_LEFT		3
+#define AUTOTEST_SPECTATOR_DONE		4
+static int Autotest_spectator = 0;			// -at_spectator
+static int Autotest_spectator_phase = 0;
+static int Autotest_spectator_frames = 0;
+static int Autotest_spectator_step = 0;
+static DWORD Autotest_spectator_ms;
+static vector Autotest_spectator_from_pos;
+static matrix Autotest_spectator_from_orient;
+
+void autotest_set_spectator()
+{
+	Autotest_spectator = 1;
+}
+
+static void autotest_spectator_fail(char *why)
+{
+	autotest_logf("FAILED: spectator test: %s\n", why);
+	Autotest_missions_failed++;
+	Autotest_spectator_phase = AUTOTEST_SPECTATOR_DONE;
+	Autotest_debugcam_look = 0;
+}
+
+static void autotest_alt_pause()
+{
+	key_mark(KEY_LALT, 1, 0);
+	key_mark(KEY_PAUSE, 1, 0);
+	key_mark(KEY_PAUSE, 0, 0);
+	key_mark(KEY_LALT, 0, 0);
+}
+
+// each gameplay frame, from autotest_frame
+static void autotest_spectator_play()
+{
+	vector pos;
+	matrix orient;
+	float moved, turned;
+	DWORD ms;
+	int n;
+
+	if (!Autotest_spectator || (Replay_mode == REPLAY_PLAY)) {
+		return;
+	}
+	switch (Autotest_spectator_phase) {
+	case 0:
+		if (f2fl(Missiontime - Autotest_mission_start) >= AUTOTEST_SPECTATOR_TIME) {
+			autotest_shot("spectator/before");
+			autotest_alt_pause();
+			autotest_logf("Spectator test: Alt+Pause pressed at mission time %.2f\n", f2fl(Missiontime));
+			Autotest_spectator_phase = AUTOTEST_SPECTATOR_WAIT;
+			Autotest_spectator_frames = 0;
+		}
+		return;
+	case AUTOTEST_SPECTATOR_WAIT:
+		if (spectator_active()) {
+			Autotest_spectator_phase = AUTOTEST_SPECTATOR_IN;
+			Autotest_spectator_frames = 0;
+			Autotest_spectator_step = 0;
+			Autotest_spectator_ms = Autotest_frame_ms;
+			autotest_logf("Spectator test: in spectator mode at mission time %.2f\n", f2fl(Missiontime));
+		} else if (++Autotest_spectator_frames > 5) {
+			autotest_spectator_fail("Alt+Pause did not start spectator mode");
+		}
+		return;
+	case AUTOTEST_SPECTATOR_LEFT:
+		if (++Autotest_spectator_frames == 20) {
+			if (spectator_active()) {
+				autotest_spectator_fail("Alt+Pause did not leave spectator mode");
+				return;
+			}
+			autotest_shot("spectator/after");
+			autotest_logf("Spectator test: PASS, back in the cockpit at mission time %.2f\n", f2fl(Missiontime));
+			Autotest_spectator_phase = AUTOTEST_SPECTATOR_DONE;
+		}
+		return;
+	case AUTOTEST_SPECTATOR_IN:
+		break;
+	default:
+		return;
+	}
+	if (!spectator_active()) {
+		autotest_spectator_fail("spectator mode ended by itself");
+		return;
+	}
+
+	// the camera moves by real time and turns per frame, as the debug camera test
+	Autotest_spectator_frames++;
+	ms = Autotest_frame_ms - Autotest_spectator_ms;
+	switch (Autotest_spectator_step) {
+		case 0:
+			if (Autotest_spectator_frames >= 2) {
+				autotest_shot("spectator/start");
+				spectator_camera(&Autotest_spectator_from_pos, &Autotest_spectator_from_orient);
+				autotest_press(KEY_PERIOD);
+				autotest_press(KEY_PERIOD);
+				key_mark(KEY_W, 1, 0);
+				Autotest_spectator_step++;
+			}
+			break;
+		case 1:
+			if (ms >= 1000) {
+				if (spectator_time_scale() != F1_0 * 4) {
+					autotest_spectator_fail("two full stops did not give 4x");
+				}
+				key_mark(KEY_W, 0, 0);
+				key_mark(KEY_D, 1, 0);
+				Autotest_spectator_step++;
+			}
+			break;
+		case 2:
+			if (ms >= 1500) {
+				key_mark(KEY_D, 0, 0);
+				Autotest_debugcam_look = 1;
+				Autotest_spectator_frames = 0;
+				Autotest_spectator_step++;
+			}
+			break;
+		case 3:
+			if (Autotest_spectator_frames >= 40) {
+				Autotest_debugcam_look = 2;		// the cursor held at the centre: the camera stops turning
+				Autotest_spectator_frames = 0;
+				Autotest_spectator_step++;
+			}
+			break;
+		case 4:
+			if (Autotest_spectator_frames < 3) {
+				break;
+			}
+			autotest_shot("spectator/moved");
+			spectator_camera(&pos, &orient);
+			moved = vm_vec_dist(&pos, &Autotest_spectator_from_pos);
+			turned = vm_vec_dot(&orient.fvec, &Autotest_spectator_from_orient.fvec);
+			autotest_logf("Spectator test: the camera moved %.1f m, facing dot %.3f\n", moved, turned);
+			if (moved < 1.0f) {
+				autotest_spectator_fail("the camera did not move");
+				break;
+			} else if (turned > 0.99f) {
+				autotest_spectator_fail("the camera did not turn");
+				break;
+			}
+			autotest_press(KEY_TAB);
+			autotest_press(KEY_COMMA);
+			autotest_press(KEY_COMMA);
+			autotest_press(KEY_COMMA);
+			Autotest_spectator_frames = 0;
+			Autotest_spectator_step++;
+			break;
+		case 5:
+			if (Autotest_spectator_frames < 5) {
+				break;
+			}
+			autotest_shot("spectator/follow");
+			n = spectator_follow_object();
+			autotest_logf("Spectator test: following %s, speed %.3fx\n", ((n >= 0) && (Objects[n].type == OBJ_SHIP)) ? Ships[Objects[n].instance].ship_name : "nothing", f2fl(spectator_time_scale()));
+			if ((n < 0) || (Objects[n].type != OBJ_SHIP) || (&Objects[n] == Player_obj)) {
+				autotest_spectator_fail("Tab did not follow another ship");
+				break;
+			} else if (spectator_time_scale() != F1_0 / 2) {
+				autotest_spectator_fail("three commas from 4x did not give 1/2x");
+				break;
+			}
+			Autotest_spectator_step++;
+			break;
+		case 6:
+			autotest_alt_pause();
+			Autotest_debugcam_look = 0;
+			autotest_logf("Spectator test: Alt+Pause pressed to leave\n");
+			if (Autotest_spectator_phase == AUTOTEST_SPECTATOR_IN) {
+				Autotest_spectator_phase = AUTOTEST_SPECTATOR_LEFT;
+			}
+			Autotest_spectator_frames = 0;
 			break;
 	}
 }
@@ -1856,6 +2044,7 @@ void autotest_frame()
 	}
 
 	autotest_debugcam_play();
+	autotest_spectator_play();	// Claude: spectator mode (#313)
 
 	autotest_log_events();
 	input_test_frame();	// Claude: scripted input tests
@@ -1987,6 +2176,11 @@ int autotest_exit_code(int code)
 
 	if (!Autotest_harness) {
 		return code;
+	}
+
+	// Claude: -at_spectator: a mission that ends first (its time limit, at the test's 4x) has not tested it all (#313)
+	if (Autotest_spectator && (Replay_mode != REPLAY_PLAY) && (Autotest_spectator_phase != AUTOTEST_SPECTATOR_DONE)) {
+		autotest_spectator_fail("the mission ended before the test finished");
 	}
 
 	// Claude: a Warning fails the run too, as D-029 says recordings have none (#6, D-20261017-223435)

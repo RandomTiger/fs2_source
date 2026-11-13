@@ -264,6 +264,7 @@ cmdline_parm no_force_glow_arg("-noforceglow", NULL);	// Claude: turn off forced
 cmdline_parm autotest_skill_arg("-at_skill", NULL);
 cmdline_parm autotest_menus_arg("-at_menus", NULL);	// Claude: a tour of every screen, see Autotest.h
 cmdline_parm autotest_debugcam_arg("-at_debugcam", NULL);	// Claude: the debug camera test, see Autotest.h (#125)
+cmdline_parm autotest_spectator_arg("-at_spectator", NULL);	// Claude: the spectator mode test, see Autotest.h (#313)
 cmdline_parm autotest_padmenu_arg("-at_padmenu", NULL);	// Claude: the pad's menu test, see PadMenuTest.cpp
 cmdline_parm autotest_shots_arg("-at_shots", NULL);	// Claude: a screenshot of each screen of the tour, see Autotest.h
 cmdline_parm autotest_input_arg("-at_input", NULL);	// Claude: scripted joystick, see InputTest.h
@@ -802,6 +803,9 @@ int parse_cmdline(char *cmdline)
 		}
 		if(autotest_debugcam_arg.found()){	// Claude: -at_debugcam (#125)
 			autotest_set_debugcam();
+		}
+		if(autotest_spectator_arg.found()){	// Claude: -at_spectator (#313)
+			autotest_set_spectator();
 		}
 		if(autotest_padmenu_arg.found()){	// Claude: -at_padmenu
 			autotest_set_padmenu();

@@ -95,6 +95,8 @@ typedef struct go_option {
 } go_option;
 
 #define GO_OPTION(id, name, key, label, dflt, host_only) { name, key, label, dflt, host_only },
+void spectator_request(int on);	// MissionPause.cpp: spectator mode (#313)
+
 static go_option Go_options[GO_OPT_COUNT] = {
 #include "GameOptionList.h"
 };
@@ -107,6 +109,9 @@ static void go_option_apply(int id)
 {
 	if (id == GO_OPT_BIG_HUD) {
 		gr_virtual_set_hud_double(Go_option_value[id]);
+	}
+	if (id == GO_OPT_SPECTATOR) {	// in a mission, Alt+Pause is pressed to match (#313)
+		spectator_request(Go_option_value[id]);
 	}
 }
 

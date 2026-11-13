@@ -11,3 +11,4 @@
 
 GO_OPTION(GO_OPT_SUBTITLES, "subtitles", "Subtitles", "Subtitles", 0, 0)
 GO_OPTION(GO_OPT_BIG_HUD, "big_hud", "BigHud", "Big HUD", 0, 1)
+GO_OPTION(GO_OPT_SPECTATOR, "spectator", "Spectator", "Spectator camera", 0, 0)	// #313: missions start in spectator mode

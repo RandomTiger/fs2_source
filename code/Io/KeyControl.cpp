@@ -1787,6 +1787,10 @@ void game_process_keys()
 			continue;
 		}
 
+		if ( spectator_process_key(k) ) {	// Claude: spectator mode (#313): while it is on, the keys are the camera's, not the ship's
+			continue;
+		}
+
 		game_process_cheats( k );
 
 		// mwa -- 4/5/97 Moved these two function calls before the switch statement.  I don't think
@@ -1854,6 +1858,11 @@ void game_process_keys()
 					Pause_debug_camera = 1;
 					gameseq_post_event( GS_EVENT_PAUSE_GAME );
 				}
+				break;
+
+			// Claude: Alt+Pause watches the mission from the spectator camera, single player only (#313)
+			case KEY_ALTED | KEY_PAUSE:
+				spectator_toggle();
 				break;
 		} // end switch
 	} while (k);

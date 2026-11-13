@@ -443,6 +443,7 @@
 #include "observer.h"
 #include "../Pad/PadGame.h"	// Claude: control pad
 #include "cfile.h"	// Claude: Cfile_fs1_data, for the whole-ship scan below
+#include "MissionPause.h"	// Claude: spectator mode (#313)
 
 ////////////////////////////////////////////////////////////
 // Global object and other interesting player type things
@@ -1103,6 +1104,10 @@ void read_player_controls(object *objp, float frametime)
 			break;
 
 		case PCM_NORMAL:
+			if ( spectator_active() ) {	// Claude: spectator mode (#313): the keys and mouse move the camera, not the ship
+				spectator_controls(&(Player->ci));
+				break;
+			}
 	      read_keyboard_controls(&(Player->ci), frametime, &objp->phys_info );
 			break;
 		case PCM_WARPOUT_STAGE1:	// Accelerate to 40 km/s

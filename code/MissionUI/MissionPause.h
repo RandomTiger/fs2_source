@@ -58,6 +58,21 @@ void pause_debug_do();
 // debug pause close
 void pause_debug_close();
 
+// Claude: spectator mode (#313), see MissionPause.cpp
+struct control_info;
+int  spectator_active();
+void spectator_level_init();						// a mission starts or ends: off, 1x, the option read again
+void spectator_toggle();							// Alt+Pause
+int  spectator_process_key(int k);				// game_process_keys: 1 if the key was the spectator's (while on, all but the pause keys)
+void spectator_request(int on);					// the option changed: the next mission frame presses Alt+Pause if it differs
+void spectator_mission_frame();					// each mission frame, before the keys are read
+fix  spectator_time_scale();						// multiplies the frame time
+void spectator_controls(control_info *ci);	// the ship's controls while on
+void spectator_camera_frame();					// each mission frame, after the game view is set: moves the camera (unrecorded reads only)
+void spectator_camera(vector *pos, matrix *orient);	// where the camera is
+int  spectator_follow_object();					// the object the camera follows, or -1
+void spectator_draw_text();						// drawing: the lines shown in place of the HUD
+
 // Claude: set before GS_EVENT_PAUSE_GAME to pause with the debug camera (Shift+Pause, #125)
 extern int Pause_debug_camera;
 
