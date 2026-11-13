@@ -248,6 +248,7 @@
 #define OPTIONS_TAB						0
 #define MULTIPLAYER_TAB					1
 #define DETAIL_LEVELS_TAB 				2
+#define ENHANCED_TAB					3	// Claude: EnhancedOptions, the Enhanced page (MenuUI/GameOptions.cpp); a Tab value past the art's three, drawn on the Options page's background and mask
 #define ABORT_GAME_BUTTON				3
 #define CONTROL_CONFIG_BUTTON			4
 #define HUD_CONFIG_BUTTON				5
@@ -419,6 +420,20 @@ static struct {
 };
 
 static int Tab = 0;
+// Claude: EnhancedOptions, the page whose background and mask are in force: the Enhanced page uses the Options page's
+static int options_bg_tab()
+{
+	return (Tab == ENHANCED_TAB) ? OPTIONS_TAB : Tab;
+}
+// Claude: EnhancedOptions, the tabs the arrow keys and Tab cycle through: the Enhanced page last, where it is offered
+static int options_tab_count()
+{
+	return game_options_enhanced_available() ? NUM_TABS + 1 : NUM_TABS;
+}
+int game_switch_gr_mode(int res);	// Claude: EnhancedOptions, FreeSpace.cpp: the live GR mode switch
+static int Options_fs1_exit_lit[2] = { -2, -2 };	// Claude: EnhancedOptions, FS1's Exit Game highlight and pressed frames, set aside (-2: none)
+#define B_HIGHLIGHT_INDEX	1	// Claude: UI_BUTTON's B_HIGHLIGHT and B_PRESSED (private to the class)
+#define B_PRESSED_INDEX		2
 static int Options_menu_inited = 0;
 static int Options_multi_inited = 0;
 static int Options_detail_inited = 0;
@@ -838,8 +853,8 @@ void options_tab_setup(int set_palette)
 	int flags[256];
 
 	if (Tab != MULTIPLAYER_TAB) {
-		Assert(Backgrounds[gr_screen.res][Tab].mask >= 0);
-		Ui_window.set_mask_bmap(Backgrounds[gr_screen.res][Tab].mask, Backgrounds[gr_screen.res][Tab].mask_filename);
+		Assert(Backgrounds[gr_screen.res][options_bg_tab()].mask >= 0);	// Claude: EnhancedOptions, was [Tab]
+		Ui_window.set_mask_bmap(Backgrounds[gr_screen.res][options_bg_tab()].mask, Backgrounds[gr_screen.res][options_bg_tab()].mask_filename);	// Claude: EnhancedOptions, was [Tab]
 	}
 
 	for (i=0; i<256; i++){
@@ -902,6 +917,10 @@ void options_tab_setup(int set_palette)
 		case DETAIL_LEVELS_TAB:
 			options_detail_unhide_stuff();	
 			break;
+
+		case ENHANCED_TAB:	// Claude: EnhancedOptions
+			game_options_panel_open();
+			break;
 	}
 }
 
@@ -917,6 +936,10 @@ void options_tab_close()
 
 		case DETAIL_LEVELS_TAB:
 			options_detail_hide_stuff();
+			break;
+
+		case ENHANCED_TAB:	// Claude: EnhancedOptions
+			game_options_panel_close();
 			break;
 	}
 }
@@ -977,7 +1000,7 @@ void options_change_tab(int n)
 		}
 	}
 
-	if (n != MULTIPLAYER_TAB) {
+	if ((n != MULTIPLAYER_TAB) && (n != ENHANCED_TAB)) {	// Claude: EnhancedOptions, the Enhanced page has no mask of its own
 		if (Backgrounds[gr_screen.res][n].mask < 0) {
 			gamesnd_play_iface(SND_GENERAL_FAIL);
 			return;
@@ -1068,6 +1091,11 @@ void options_button_pressed(int n)
 			break;
 
 		case ABORT_GAME_BUTTON:
+			if (game_options_enhanced_available()) {	// Claude: EnhancedOptions, the Enhanced page, and back (was Exit Game; the main hall still has Exit)
+				gamesnd_play_iface(SND_USER_SELECT);
+				options_change_tab((Tab == ENHANCED_TAB) ? OPTIONS_TAB : ENHANCED_TAB);
+				break;
+			}
 			gamesnd_play_iface(SND_USER_SELECT);
 			choice = popup( PF_NO_NETWORKING | PF_BODY_BIG, 2, POPUP_NO, POPUP_YES, XSTR( "Exit Game?", 374));
 			if ( choice == 1 )
@@ -1318,7 +1346,19 @@ void options_menu_init()
 
 	// add all xstr text
 	for(i=0; i<OPTIONS_NUM_TEXT; i++){
-		Ui_window.add_XSTR(&Options_text[gr_screen.res][i]);
+		UI_XSTR *xs = &Options_text[gr_screen.res][i];
+		if (game_options_enhanced_available() && (xs->assoc == &Buttons[gr_screen.res][ABORT_GAME_BUTTON].button)) {	// Claude: EnhancedOptions, Exit Game is the Enhanced button
+			UI_XSTR enh = *xs;
+			if (xs->xstr_id != 1059) {	// "Game" goes; "Exit" becomes "Enhanced"
+				continue;
+			}
+			enh.xstr = "Enhanced";
+			enh.xstr_id = -1;
+			enh.y += (gr_screen.res == GR_1024) ? 6 : 6;	// one line where there were two
+			Ui_window.add_XSTR(&enh);
+			continue;
+		}
+		Ui_window.add_XSTR(xs);
 	}
 
 	// bogus controls
@@ -1342,6 +1382,14 @@ void options_menu_init()
 	}
 
 	options_load_background_and_mask(OPTIONS_TAB);
+	game_options_enhanced_init(Backgrounds[gr_screen.res][OPTIONS_TAB].bitmap);	// Claude: EnhancedOptions, its art is cut from this background
+	if ( Cfile_fs1_data && game_options_enhanced_available() ) {	// Claude: EnhancedOptions, FS1's Exit Game lit frames (a lit X and plate) would show
+		UI_BUTTON *eb = &Buttons[gr_screen.res][ABORT_GAME_BUTTON].button;	// round the Enhanced button's icon: off while the screen is open
+		Options_fs1_exit_lit[0] = eb->bmap_ids[B_HIGHLIGHT_INDEX];
+		Options_fs1_exit_lit[1] = eb->bmap_ids[B_PRESSED_INDEX];
+		eb->bmap_ids[B_HIGHLIGHT_INDEX] = -1;
+		eb->bmap_ids[B_PRESSED_INDEX] = -1;
+	}
 	options_tab_setup(0);
 
 	Backup_skill_level = Game_skill_level;
@@ -1401,7 +1449,7 @@ void options_menu_close()
 		if (Backgrounds[gr_screen.res][i].bitmap >= 0){
 			bm_unload(Backgrounds[gr_screen.res][i].bitmap);
 		}
-		if ((Backgrounds[gr_screen.res][i].mask >= 0) && (i != Tab)){  // Ui_window.destroy() expects to release current tab's mask.
+		if ((Backgrounds[gr_screen.res][i].mask >= 0) && (i != options_bg_tab())){	// Claude: EnhancedOptions, was (i != Tab)  // Ui_window.destroy() expects to release current tab's mask.
 			bm_unload(Backgrounds[gr_screen.res][i].mask);
 		}
 	}
@@ -1415,6 +1463,13 @@ void options_menu_close()
 	options_multi_close();
 #endif
 
+	if ( Options_fs1_exit_lit[0] != -2 ) {	// Claude: EnhancedOptions, FS1's Exit Game lit frames back, for the window to free
+		UI_BUTTON *eb = &Buttons[gr_screen.res][ABORT_GAME_BUTTON].button;
+		eb->bmap_ids[B_HIGHLIGHT_INDEX] = Options_fs1_exit_lit[0];
+		eb->bmap_ids[B_PRESSED_INDEX] = Options_fs1_exit_lit[1];
+		Options_fs1_exit_lit[0] = Options_fs1_exit_lit[1] = -2;
+	}
+	game_options_enhanced_close();	// Claude: EnhancedOptions
 	Ui_window.destroy();
 	common_free_interface_palette();		// restore game palette
 	write_pilot_file();
@@ -1512,13 +1567,22 @@ void options_menu_do_frame(float frametime)
 	int i, k, x, y;	
 
 	Assert(Options_menu_inited);
+	{	// Claude: EnhancedOptions, a GR mode the Enhanced page asked for: the screen closes, the mode switches, it opens again on that page
+		int gr = game_options_panel_gr_request();
+		if (gr >= 0) {
+			options_menu_close();
+			game_switch_gr_mode(gr);
+			options_menu_init();
+			options_change_tab(ENHANCED_TAB);
+		}
+	}
 	k = Ui_window.process() & ~KEY_DEBUGGED;
 	switch (k) {
 		case KEY_SHIFTED | KEY_TAB:
 		case KEY_LEFT:  // activate previous tab
 			i = Tab - 1;
 			if (i < 0)
-				i = NUM_TABS - 1;
+				i = options_tab_count() - 1;	// Claude: EnhancedOptions, was NUM_TABS - 1
 
 			options_change_tab(i);
 			break;
@@ -1533,7 +1597,7 @@ void options_menu_do_frame(float frametime)
 			}
 
 			i = Tab + 1;
-			if (i >= NUM_TABS)
+			if (i >= options_tab_count())	// Claude: EnhancedOptions, was NUM_TABS
 				i = 0;
 
 			options_change_tab(i);
@@ -1590,7 +1654,7 @@ void options_menu_do_frame(float frametime)
 	if(Tab == MULTIPLAYER_TAB){
 		i = options_multi_background_bitmap();
 	} else {
-		i = Backgrounds[gr_screen.res][Tab].bitmap;
+		i = Backgrounds[gr_screen.res][options_bg_tab()].bitmap;	// Claude: EnhancedOptions, was [Tab]
 	}
 
 	GR_MAYBE_CLEAR_RES(i);
@@ -1628,8 +1692,18 @@ void options_menu_do_frame(float frametime)
 		}
 	}
 
-	if ((i == NUM_TABS) /*&& (Tab != MULTIPLAYER_TAB)*/ ){
+	if ((i == NUM_TABS) && (Tab < NUM_TABS) /*&& (Tab != MULTIPLAYER_TAB)*/ ){	// Claude: EnhancedOptions, the Enhanced tab draws itself
 		Buttons[gr_screen.res][Tab].button.draw_forced(2);
+	}
+
+	if (game_options_enhanced_available()) {	// Claude: EnhancedOptions, the Exit Game button is the Enhanced button
+		if (!Cfile_fs1_data && (Tab == ENHANCED_TAB) && !Buttons[gr_screen.res][ABORT_GAME_BUTTON].button.button_down()) {	// FS1's lit frames are off
+			Buttons[gr_screen.res][ABORT_GAME_BUTTON].button.draw_forced(2);
+		}
+		game_options_enhanced_entry_do(Tab == ENHANCED_TAB, Buttons[gr_screen.res][ABORT_GAME_BUTTON].button.button_hilighted());
+	}
+	if (Tab == ENHANCED_TAB) {	// Claude: EnhancedOptions
+		game_options_panel_do();
 	}
 
 	if (Tab == OPTIONS_TAB) {
