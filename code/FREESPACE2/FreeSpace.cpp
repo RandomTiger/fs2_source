@@ -1640,6 +1640,7 @@ void game_loading_callback(int count)
 
 		bm_release(cbitmap);
 	
+		game_version_corner_draw();	// Claude: EnhancedOptions, the version line on the loading screen
 		gr_flip();
 	}
 }

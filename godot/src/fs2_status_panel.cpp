@@ -183,5 +183,7 @@ void Fs2StatusPanel::refresh()
 	if (canvas_info != nullptr) {
 		canvas_info(&vw, &vh, &cx, &cy);
 	}
-	text_rect->set_visible(column_shown() != 0 && text_w > 0 && (float)(text_w * scale) + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width(cx, vw));
+	// EnhancedOptions: made only with -status, and then shown on every screen, top left of the window, over the game
+	(void)vw; (void)cx;
+	text_rect->set_visible(text_w > 0);
 }

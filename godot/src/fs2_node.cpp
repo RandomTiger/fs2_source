@@ -127,7 +127,20 @@ bool Fs2Game::start(const String &dll_path, const String &root_dir, const String
 		const bool shown = nds != nullptr && nds->get_name() != "headless" && screen != nullptr;
 		fs2sink::g_nebfog = (!scripted && shown) ? fs2sink::kNebFogGpu : fs2sink::kNebFogOff;
 		fs2console::attach(screen, &api, !scripted && shown);	// GodotOptions: live play only
-		if (!scripted && shown) {
+		// EnhancedOptions (Tom, 2026-11-12): the status text is on the Options screen's Enhanced page now; -status (or --status) on
+		// Godot's command line, or in the game's, still draws it, top left over the game. Off by default.
+		bool status_wanted = cmd_padded.contains(" -status ");
+		{
+			const PackedStringArray host_args = OS::get_singleton()->get_cmdline_args();
+			const PackedStringArray user_args = OS::get_singleton()->get_cmdline_user_args();
+			for (int64_t ai = 0; ai < host_args.size(); ai++) {
+				status_wanted = status_wanted || host_args[ai] == "-status" || host_args[ai] == "--status";
+			}
+			for (int64_t ai = 0; ai < user_args.size(); ai++) {
+				status_wanted = status_wanted || user_args[ai] == "-status" || user_args[ai] == "--status";
+			}
+		}
+		if (!scripted && shown && status_wanted) {
 			status_panel.create(static_cast<Fs2Screen *>(screen), api.module, api.font_text, api.voice_enabled, api.left_column_shown, api.canvas_info);
 		}
 		const String ov = OS::get_singleton()->get_environment("FS2_NEBFOG");

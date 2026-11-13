@@ -31,6 +31,7 @@ $map = [ordered]@{
 	'GodotRender3D'         = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-111802 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotResolution'        = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261102-200801 (off Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotOptions'           = @{ Kind = 'feature'; Parent = 'GodotResolution'; Target = 'GodotPlus'; Src = 'D-20261102-200808 (child of GodotResolution); D-20261105-171620 (merges into GodotPlus)' }
+	'EnhancedOptions'        = @{ Kind = 'feature'; Parent = 'GodotOptions'; Target = 'GodotPlus'; Src = 'D-20261113-142916 (child of GodotOptions, merges only into GodotPlus)' }
 	'SteamIntegration'       = @{ Kind = 'feature'; Parent = 'Godot'; Target = 'GodotPlus'; Src = 'D-20261031-090335 (direct child of Godot); D-20261105-171620 (merges into GodotPlus)' }
 	'GodotRender3D-tex'      = @{ Kind = 'feature'; Parent = 'GodotRender3D'; Target = $null; Src = 'D-20261107-071934 d (sub-branch of GodotRender3D; its merge is Tom''s, no target written)' }
 }
