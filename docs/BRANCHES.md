@@ -64,5 +64,8 @@ The recordings check "original game plus `OriginalSourceBugFixes`", because the 
 
 Recordings replay a stream of OS reads, so they can referee every layer up to `PrePort64`. The Godot port will not make the same reads, so it will need the traces (game state) compared another way. When `Godot` replaces the engine, tag that point; after it, merging the C++ layers upward stops making sense and fixes are carried across by hand.
 
+## EnhancedOptions (Tom, 2026-11-13, D-20261113-142916)
+`EnhancedOptions` is a Godot feature branch off `GodotOptions` (GodotResolution > GodotOptions > EnhancedOptions): the Options screen's Enhanced page, live play only. Like the other Godot feature branches it merges only into `GodotPlus`, never into `GodotOptions`, `GodotResolution` or `Godot`.
+
 ## In Perforce terms
 A branch is a stream, a merge is an integrate, a push is a submit. Unlike Perforce, commits are local until pushed, and pushed history must never be rewritten.
