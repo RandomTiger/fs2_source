@@ -1450,6 +1450,10 @@ void init_new_pilot(player *p, int reset)
 
 		detail_level_set(cur_speed);
 		detail_level_load_config();	// Claude: the settings file decides the detail levels, not the pilot
+		if ( (Replay_mode == REPLAY_OFF) && !Autotest_harness ) {	// Claude: a pilot made in live play gets every detail option at its maximum, saved for every pilot; autotest's leaves the settings alone (D-20261113-142051)
+			detail_level_set_max();
+			detail_level_save_config();
+		}
 
 		Game_skill_level = game_get_default_skill_level();
 		if ( (Replay_mode == REPLAY_OFF) && !Autotest_harness ) {	// Claude: a pilot made in live play starts on Medium; autotest's keeps Easy, a replay takes the recording's (D-20261113-142050)

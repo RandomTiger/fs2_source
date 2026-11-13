@@ -335,6 +335,7 @@ void detail_level_set(int level);
 // Claude: the detail levels are kept in the settings file for every pilot (see SystemVars.cpp)
 void detail_level_load_config();
 void detail_level_save_config();
+void detail_level_set_max();	// Claude: every detail option at its maximum (D-20261113-142051)
 
 // Returns the current detail level or -1 if custom.
 int current_detail_level();
