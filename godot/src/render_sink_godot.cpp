@@ -2453,7 +2453,7 @@ bool GodotSink::bb_same_run(const BbDraw &a, const BbDraw &b) const
 {
 	const unsigned zm = FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE;
 	if (a.b.kind == FS2_SINK_BB_STARS || b.b.kind == FS2_SINK_BB_STARS) { return false; }	// one call = one run
-	return a.b.kind == b.b.kind && a.b.orient == b.b.orient && a.b.blend == b.b.blend && (a.arr >= 0 ? a.arr == b.arr : (b.arr < 0 && a.b.texture == b.b.texture)) && (a.b.flags & zm) == (b.b.flags & zm)
+	return a.b.kind == b.b.kind && (a.b.kind != FS2_SINK_BB_TRI3 || (a.b.orient & 14) == (b.b.orient & 14)) && a.b.blend == b.b.blend && (a.arr >= 0 ? a.arr == b.arr : (b.arr < 0 && a.b.texture == b.b.texture)) && (a.b.flags & zm) == (b.b.flags & zm)
 		&& a.b.bw == b.b.bw && a.b.bh == b.b.bh && std::memcmp(a.b.clip, b.b.clip, sizeof(a.b.clip)) == 0
 		&& a.epoch == b.epoch && a.cw == b.cw && a.ch == b.ch && a.ox == b.ox && a.oy == b.oy
 		&& a.scale[0] == b.scale[0] && a.scale[1] == b.scale[1]
