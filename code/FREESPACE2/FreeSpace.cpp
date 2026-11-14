@@ -2745,6 +2745,7 @@ void game_set_view_clip()
 		//	Numeric constants encouraged by J "pig farmer" S, who shall remain semi-anonymous.
 		// J.S. I've changed my ways!! See the new "no constants" code!!!
 		gr_set_clip(0, yborder, gr_screen.max_w, gr_screen.max_h - yborder*2 );	
+		gr_virtual_wide_letterbox_clip();	// Claude: GodotResolution, the letterbox spans the whole canvas width, centred (no-op at the base size)
 	} else {
 		// Set the clip region for normal view
 		if ( View_percent >= 100 )	{
