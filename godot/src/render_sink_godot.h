@@ -13,6 +13,7 @@
 #ifndef FS2_RENDER_SINK_GODOT_H
 #define FS2_RENDER_SINK_GODOT_H
 
+#include <array>
 #include <map>
 #include <set>
 #include <utility>
@@ -337,6 +338,11 @@ private:
 	std::vector<godot::RID> bb_mm_pool[kBbBuckets * 3];	// [bucket] on bb_quad, [kBbBuckets + bucket] on bb_fan5 (QUAD4), [2 * kBbBuckets + bucket] on bb_fan5 with instance colours (TRI3)
 	std::vector<godot::RID> spare_bb_instances;
 	std::vector<size_t> bb_run_idx;
+	using BbMatKey = std::array<int64_t, 30>;
+	static constexpr size_t kBbMatCap = 1024;	// distinct cached billboard materials; past it a run takes a pooled one as before
+	std::map<BbMatKey, godot::RID> bb_mats;	// a billboard run's material, kept across frames
+	std::vector<std::vector<size_t>> bb_buckets;	// end_run: the runs of one additive span
+	bool bb_additive(const BbDraw &d) const;
 	bool bb_same_run(const BbDraw &a, const BbDraw &b) const;
 	void add_bb_run(Layer &l, const std::vector<size_t> &idx, int order);
 	static int s_billboard_draw(void *u, const fs2_sink_billboard *b);
