@@ -76,6 +76,9 @@ int gr_virtual_gauge_anchor(int gauge_index);	// the table entry, HUD_ANCHOR_TOP
 // Mission frame, full view: widen the clip to the whole virtual canvas. gr_screen.offset_x/y go negative by the
 // centring so base-coordinate code still lands centred. No-op when not active.
 void gr_virtual_wide_clip();
+// The letterbox view (player dead, supernova): after the base letterbox clip, widen the band to the canvas width,
+// centred, so the 3D view goes edge to edge Hor+. No-op unless the canvas is wider than the base.
+void gr_virtual_wide_letterbox_clip();
 int gr_virtual_in_wide_clip();	// 1 while the clip is wider or taller than the base screen
 void gr_virtual_set_clip_listener(void (*fn)());	// the backend's "clip changed" call, made by gr_virtual_wide_clip
 
