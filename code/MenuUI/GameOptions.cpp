@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "pstypes.h"
 #include "GameOptions.h"
@@ -34,6 +35,7 @@
 #include "Scoring.h"
 #include "cmdline.h"
 #include "Timer.h"
+#include "PcxUtils.h"
 
 #define GAME_OPTIONS_KEY_FLIGHT		"FlightControl"
 #define GAME_OPTIONS_KEY_GR			"GraphicsMode"
@@ -493,6 +495,7 @@ static void game_options_res_list()
 // drawn row, so the menu tour and the replays see the screen they always did.
 static int Go_dropdown_on = 0;
 static int Go_from_pilot_screen = 0;	// opened by the pilot screen's button: Back returns there
+static int Go_res_x = 0, Go_res_y = 0, Go_res_w = 0;	// Claude: EnhancedOptions, the host drop-down's place, set by the layout in force
 
 static int game_options_dropdown_ok()
 {
@@ -515,7 +518,7 @@ static void game_options_dropdown_show()
 	}
 	gr_set_font(FONT1);
 	h = gr_get_font_height() + 8;
-	Host_hooks.dropdown_show(gr_screen.max_w / 2, game_options_res_y() - 4, gr_screen.max_w * 30 / 100, h, labels, Go_num_res, Go_res_shown);
+	Host_hooks.dropdown_show(Go_res_x, Go_res_y - 4, Go_res_w, h, labels, Go_num_res, Go_res_shown);	// Claude: EnhancedOptions, the place the layout in force gives
 }
 
 static void game_options_dropdown_hide()
@@ -644,6 +647,9 @@ static void game_options_layout()
 	}
 	// Resolution: Classic and Desktop on the first line, the sizes on the second; or the host's drop-down instead
 	yr = game_options_res_y();
+	Go_res_x = cx;	// Claude: EnhancedOptions, the drop-down's place on this screen
+	Go_res_y = yr;
+	Go_res_w = w * 30 / 100;
 	for (i = 0; !Go_dropdown_on && (i < Go_num_res); i++) {
 		if (i < 2) {
 			game_options_add(GO_ITEM_RES, i, cx + i * step * 3 / 2, yr, Go_res[i].text);
@@ -951,7 +957,7 @@ static void game_options_pilot_button_click()
 
 void game_options_pilot_button_init()
 {
-	Go_button_on = game_options_keys_active();
+	Go_button_on = 0;	// Claude: EnhancedOptions, the button is gone: the Options screen's Enhanced page has its rows (was game_options_keys_active())
 	Go_from_pilot_screen = 0;
 	Go_button_in_hall = 0;	// Claude: #212
 	Go_button_clicked = 0;	// Claude: #212
@@ -976,6 +982,9 @@ void game_options_pilot_button_do()
 {
 	int w = 0, h = 0, x, y, mx, my, over, down, now;
 
+	if (!Go_button_in_hall) {
+		game_version_corner_draw();	// Claude: EnhancedOptions, the version line on the pilot screen
+	}
 	if (!Go_button_on) {
 		return;
 	}
@@ -1309,4 +1318,996 @@ int game_options_console_command(const char *line, char *out, int out_size)
 		return 1;
 	}
 	return 0;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Claude: EnhancedOptions (Tom, 2026-11-12, reworked 2026-11-13). The Options screen's Enhanced page. Its way in is the Options
+// screen's Exit Game button, called Enhanced (the main hall keeps Exit). The page holds this screen's rows and the status that was in the Godot host's black column, and replaces the
+// pilot screen's and main hall's Options button. Live play only (game_options_keys_active): a compared run sees the Options
+// screen it always did. No art is added: the page is drawn with lines and text over the Options background.
+
+#include "../Pad/PadState.h"
+#include "../Voice/VoiceGame.h"
+
+#define GO_PANEL_MAX_ROWS	8
+#define GO_PANEL_MAX_HEADS	4
+
+static int Go_panel_on = 0;
+static int Go_panel_gr_request = -1;
+static int Go_panel_rows = 0;
+static int Go_panel_row_y[GO_PANEL_MAX_ROWS];
+static char *Go_panel_row_label[GO_PANEL_MAX_ROWS];
+static int Go_panel_heads = 0;
+static int Go_panel_head_y[GO_PANEL_MAX_HEADS];
+static char *Go_panel_head_text[GO_PANEL_MAX_HEADS];
+static int Go_panel_gr_note_x = -1, Go_panel_gr_note_y = 0;
+
+// the layout, in this art mode's pixels
+static int Go_lay_px0, Go_lay_py0, Go_lay_px1, Go_lay_py1, Go_lay_cut;		// the page's panel and its corner cut
+static int Go_lay_title_y, Go_lay_rule_y, Go_lay_top;
+static int Go_lay_label_x, Go_lay_row_x, Go_lay_choice_x, Go_lay_right, Go_lay_step, Go_lay_line, Go_lay_gap, Go_lay_sect;
+static int Go_lay_col_x, Go_lay_text_x, Go_lay_value_x;
+
+// the status, read when the page opens (a pad plugged in later shows when the page is opened again)
+static int Go_status_mouse = 0, Go_status_stick = 0, Go_status_pad = 0, Go_status_voice = 0;
+
+static int Go_enh_bg = -1;				// the Options page's background (the screen's own handle)
+#define GO_ICON_MAX		64
+static int Go_icon_core = -1, Go_icon_glow = -1, Go_icon_n = 0;	// the Enhanced button's icon: the Options tab's four diamonds
+static ubyte Go_icon_core_data[GO_ICON_MAX * GO_ICON_MAX], Go_icon_glow_data[GO_ICON_MAX * GO_ICON_MAX];
+static color Go_c_label, Go_c_choice, Go_c_current, Go_c_over, Go_c_head, Go_c_box, Go_c_dim, Go_c_title;
+static color Go_c_corner;
+
+static int go_s(int v)
+{
+	return (gr_screen.res == GR_1024) ? v : (v * 5 + 4) / 8;	// 1024 x 768 coordinates to this art mode's
+}
+
+static void go_alpha(color *c, int r, int g, int b)
+{
+	gr_init_alphacolor(c, r, g, b, 255);
+}
+
+#pragma comment(lib, "version.lib")
+
+
+// the exe or DLL holding this code (the exe natively, the game DLL under the Godot host)
+static HMODULE go_own_module()
+{
+	HMODULE mod = NULL;
+
+	GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&go_own_module, &mod);
+	return mod;
+}
+
+// the port's version the build stamped into the module's ProductVersion (#311): "<number> <layer> <hash>", or "unknown"
+static void go_version_text(char *out, int size)
+{
+	char path[MAX_PATH];
+	DWORD unused = 0, len;
+	char *value = NULL;
+	UINT value_len = 0;
+	void *block;
+
+	strncpy(out, "unknown", size);
+	out[size - 1] = 0;
+	if (!GetModuleFileNameA(go_own_module(), path, MAX_PATH)) {
+		return;
+	}
+	len = GetFileVersionInfoSizeA(path, &unused);
+	if (len == 0) {
+		return;
+	}
+	block = malloc(len);
+	if (block == NULL) {
+		return;
+	}
+	if (GetFileVersionInfoA(path, 0, len, block) && VerQueryValueA(block, "\\StringFileInfo\\040904b0\\ProductVersion", (void **)&value, &value_len) && (value_len > 0)) {
+		strncpy(out, value, size);
+		out[size - 1] = 0;
+	}
+	free(block);
+}
+
+// "<number> <layer> <hash>" from the build's stamp
+static void go_version_parts(char *num, char *layer, char *hash)
+{
+	char text[96];
+	char *a, *b;
+
+	go_version_text(text, sizeof(text));
+	num[0] = layer[0] = hash[0] = 0;
+	a = strchr(text, ' ');
+	if (a == NULL) {
+		strcpy(num, text);
+		return;
+	}
+	*a++ = 0;
+	strcpy(num, text);
+	b = strchr(a, ' ');
+	if (b != NULL) {
+		*b++ = 0;
+		strncpy(hash, b, 23);
+		hash[23] = 0;
+	}
+	strncpy(layer, a, 31);
+	layer[31] = 0;
+}
+
+// the modified time of the exe or DLL holding this code: the build's time, as the Godot host's status panel shows it
+static void go_build_time(char *out)
+{
+	char path[MAX_PATH];
+	WIN32_FILE_ATTRIBUTE_DATA info;
+	FILETIME local;
+	SYSTEMTIME st;
+
+	strcpy(out, "unknown");
+	if (!GetModuleFileNameA(go_own_module(), path, MAX_PATH) || !GetFileAttributesExA(path, GetFileExInfoStandard, &info) ||
+		!FileTimeToLocalFileTime(&info.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &st)) {
+		return;
+	}
+	sprintf(out, "%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute);
+}
+
+// A remote desktop session always lists a stand-in mouse, which is not a mouse here (as the host's status panel).
+static int go_mouse_found()
+{
+	UINT count = 0, got, i;
+	int found = 0;
+	RAWINPUTDEVICELIST *list;
+
+	if ((GetRawInputDeviceList(NULL, &count, sizeof(RAWINPUTDEVICELIST)) != 0) || (count == 0)) {
+		return 0;
+	}
+	list = (RAWINPUTDEVICELIST *)malloc(count * sizeof(RAWINPUTDEVICELIST));
+	if (list == NULL) {
+		return 0;
+	}
+	got = GetRawInputDeviceList(list, &count, sizeof(RAWINPUTDEVICELIST));
+	for (i = 0; (got != (UINT)-1) && (i < got) && !found; i++) {
+		if (list[i].dwType == RIM_TYPEMOUSE) {
+			char name[512];
+			UINT name_len = sizeof(name);
+			UINT copied = GetRawInputDeviceInfoA(list[i].hDevice, RIDI_DEVICENAME, name, &name_len);
+			found = (copied == (UINT)-1) || (strstr(name, "RDP_MOU") == NULL);
+		}
+	}
+	free(list);
+	return found;
+}
+
+extern int joy_num_sticks;	// Joy.cpp: the sticks joy_init found
+
+static void go_status_read()
+{
+	pad_state ps;
+
+	Go_status_mouse = go_mouse_found();
+	Go_status_stick = (joy_num_sticks > 0) ? 1 : 0;
+	memset(&ps, 0, sizeof(ps));
+	Go_status_pad = (Host_hooks.pad_poll != NULL) ? (Host_hooks.pad_poll(&ps) ? 1 : 0) : 0;
+	Go_status_voice = voice_game_enabled();
+}
+
+// -status (or --status) on the command line: the Godot host draws the status top left, so the version here would clash with it.
+// The process's command line has the host's and the user's arguments; FS2_CMD has the game's when a script starts it.
+static int go_status_forced()
+{
+	static int forced = -1;
+	char *lines[2];
+	int i;
+
+	if (forced >= 0) {
+		return forced;
+	}
+	forced = 0;
+	lines[0] = GetCommandLineA();
+	lines[1] = getenv("FS2_CMD");
+	for (i = 0; i < 2; i++) {
+		char *p = lines[i];
+		while ((p != NULL) && ((p = strstr(p, "-status")) != NULL)) {
+			char before = (p == lines[i]) ? ' ' : p[-1];
+			char after = p[7];
+			if (before == '-') {
+				before = (p - 1 == lines[i]) ? ' ' : p[-2];
+			}
+			if (((before == ' ') || (before == '\t') || (before == '"')) && ((after == 0) || (after == ' ') || (after == '\t') || (after == '"'))) {
+				forced = 1;
+			}
+			p += 7;
+		}
+	}
+	return forced;
+}
+
+// The version on the pilot screen and the loading screen, top left inside the picture: number, layer, build time, one per line.
+void game_version_corner_draw()
+{
+	char num[32], layer[32], hash[24], built[32], text[128];
+	int w = 0, h = 0, m;
+
+	if (!game_options_keys_active() || go_status_forced()) {
+		return;
+	}
+	go_version_parts(num, layer, hash);
+	go_build_time(built);
+	go_alpha(&Go_c_corner, 150, 150, 150);
+	gr_set_font(FONT1);
+	gr_set_color_fast(&Go_c_corner);
+	// stacked, top left (Tom): the bottom of the pilot screen has the copyright lines, which run far to the right at 640 and on FS1
+	{
+		char *lines[3];
+		int i, y;
+
+		sprintf(text, "v%s", num);
+		lines[0] = text;
+		lines[1] = layer;
+		lines[2] = built;
+		gr_get_string_size(&w, &h, "0");
+		m = go_s(10);
+		y = m;
+		for (i = 0; i < 3; i++) {
+			gr_string(m, y, lines[i]);
+			y += h + 2;
+		}
+	}
+}
+
+// ---- the page's layout ----
+
+static void go_panel_place(int kind, int value, char *text, int *x, int *y)
+{
+	int w = 0, h = 0;
+
+	gr_get_string_size(&w, &h, text);
+	if ((*x + w > Go_lay_right) && (*x > Go_lay_choice_x)) {
+		*x = Go_lay_choice_x;
+		*y += Go_lay_line;
+	}
+	game_options_add(kind, value, *x, *y, text);
+	*x += w + Go_lay_gap;
+}
+
+static void go_panel_row(char *label, int y)
+{
+	if (Go_panel_rows < GO_PANEL_MAX_ROWS) {
+		Go_panel_row_label[Go_panel_rows] = label;
+		Go_panel_row_y[Go_panel_rows] = y;
+		Go_panel_rows++;
+	}
+}
+
+// a heading's height with the space under it
+static int go_head_step()
+{
+	return gr_get_font_height() + (Cfile_fs1_data ? 7 : go_s(14));
+}
+
+// a section's heading at y; returns the y of its first row
+static int go_panel_head(char *text, int y)
+{
+	if (Go_panel_heads < GO_PANEL_MAX_HEADS) {
+		Go_panel_head_text[Go_panel_heads] = text;
+		Go_panel_head_y[Go_panel_heads] = y;
+		Go_panel_heads++;
+	}
+	return y + go_head_step();
+}
+
+static void go_panel_layout()
+{
+	int i, x, y, lh, margin, text_base;
+
+	gr_set_font(FONT1);
+	lh = gr_get_font_height();
+	if (Cfile_fs1_data) {	// FS1's 640 layout, inside the Options frame under the tabs' plate, above the config buttons' plate
+		Go_lay_px0 = 30;	Go_lay_py0 = 82;	Go_lay_px1 = 608;	Go_lay_py1 = 328;	Go_lay_cut = 10;
+		Go_lay_title_y = Go_lay_py0 + 9;	Go_lay_rule_y = Go_lay_title_y + lh + 6;	Go_lay_top = Go_lay_rule_y + 12;
+		Go_lay_label_x = 44;	Go_lay_row_x = 52;	Go_lay_choice_x = 150;	Go_lay_step = 20;	Go_lay_sect = 10;	Go_lay_gap = 16;
+		text_base = 420;	margin = 14;
+	} else {
+		Go_lay_px0 = go_s(24);	Go_lay_py0 = go_s(82);	Go_lay_px1 = go_s(1000);	Go_lay_py1 = go_s(606);	Go_lay_cut = go_s(18);
+		Go_lay_title_y = Go_lay_py0 + go_s(16);	Go_lay_rule_y = Go_lay_title_y + lh + go_s(10);	Go_lay_top = Go_lay_rule_y + go_s(24);
+		Go_lay_label_x = go_s(48);	Go_lay_row_x = go_s(66);	Go_lay_choice_x = go_s(250);	Go_lay_step = go_s(36);	Go_lay_sect = go_s(20);	Go_lay_gap = go_s(30);
+		text_base = go_s(680);	margin = go_s(28);
+	}
+	Go_lay_line = lh + 6;
+	Go_num_items = 0;
+	Go_panel_rows = 0;
+	Go_panel_heads = 0;
+	Go_panel_gr_note_x = -1;
+
+	// the columns from the text itself: the font is the same size in both art modes, so fixed fractions crowd at 640
+	{
+		static char *labels[] = { "Flight Control", "Graphics Mode", "Resolution" };
+		static char *names[] = { "Mouse", "Joystick", "Joypad", "Voice Control" };
+		static char *values[] = { "Detected", "Undetected", "Enabled", "Disabled" };
+		char num[32], layer[32], hash[24], built[32], text[96];
+		int max_label = 0, max_name = 0, max_value = 0, inner, pad = Go_lay_gap / 2, w;
+
+		for (i = 0; i < 3; i++) {
+			gr_get_string_size(&w, NULL, labels[i]);
+			max_label = (w > max_label) ? w : max_label;
+		}
+		for (i = 0; i < GO_OPT_COUNT; i++) {
+			gr_get_string_size(&w, NULL, Go_options[i].label);
+			max_label = (w > max_label) ? w : max_label;
+		}
+		for (i = 0; i < 4; i++) {
+			gr_get_string_size(&w, NULL, names[i]);
+			max_name = (w > max_name) ? w : max_name;
+			gr_get_string_size(&w, NULL, values[i]);
+			max_value = (w > max_value) ? w : max_value;
+		}
+		inner = max_name + pad + max_value;
+		go_version_parts(num, layer, hash);
+		go_build_time(built);
+		sprintf(text, "%s  %s", layer, hash);
+		gr_get_string_size(&w, NULL, text);
+		inner = (w > inner) ? w : inner;
+		sprintf(text, "Built %s", built);
+		gr_get_string_size(&w, NULL, text);
+		inner = (w > inner) ? w : inner;
+
+		if (Go_lay_choice_x < Go_lay_row_x + max_label + Go_lay_gap) {
+			Go_lay_choice_x = Go_lay_row_x + max_label + Go_lay_gap;
+		}
+		Go_lay_text_x = (Go_lay_px1 - margin - inner < text_base) ? Go_lay_px1 - margin - inner : text_base;
+		Go_lay_value_x = Go_lay_text_x + max_name + pad;
+		Go_lay_col_x = Go_lay_text_x - margin;
+		Go_lay_right = Go_lay_col_x - margin;
+	}
+
+	y = go_panel_head("Controls", Go_lay_top);
+	go_panel_row("Flight Control", y);
+	x = Go_lay_choice_x;
+	go_panel_place(GO_ITEM_FLIGHT, GAME_OPTIONS_FLIGHT_PAD, "Pad", &x, &y);
+	go_panel_place(GO_ITEM_FLIGHT, GAME_OPTIONS_FLIGHT_JOYSTICK, "Joystick", &x, &y);
+	go_panel_place(GO_ITEM_FLIGHT, GAME_OPTIONS_FLIGHT_MOUSE, "Mouse", &x, &y);
+	y += Go_lay_step + Go_lay_sect;
+
+	y = go_panel_head("Display", y);
+	if (Game_profile->gr_mode_choice) {
+		go_panel_row("Graphics Mode", y);
+		x = Go_lay_choice_x;
+		go_panel_place(GO_ITEM_GR, GR_1024, "1024 x 768", &x, &y);
+		go_panel_place(GO_ITEM_GR, GR_640, "640 x 480", &x, &y);
+		if (!gr_live_mode_change() || (Game_mode & GM_IN_MISSION)) {
+			Go_panel_gr_note_x = x;
+			Go_panel_gr_note_y = y;
+		}
+		y += Go_lay_step;
+	}
+
+	go_panel_row("Resolution", y);
+	if (Go_dropdown_on) {
+		Go_res_x = Go_lay_choice_x;
+		Go_res_y = y;
+		Go_res_w = Go_lay_right - Go_lay_choice_x;
+	} else {
+		x = Go_lay_choice_x;
+		for (i = 0; i < Go_num_res; i++) {
+			go_panel_place(GO_ITEM_RES, i, Go_res[i].text, &x, &y);
+		}
+	}
+	y += Go_lay_step + Go_lay_sect;
+
+	for (i = 0; i < GO_OPT_COUNT; i++) {
+		if (go_option_on_screen(i)) {
+			if ((Go_panel_heads < 3)) {
+				y = go_panel_head("Interface", y);
+			}
+			go_panel_row(Go_options[i].label, y);
+			x = Go_lay_choice_x;
+			go_panel_place(GO_ITEM_OPTION, i * 2 + 1, "On", &x, &y);
+			go_panel_place(GO_ITEM_OPTION, i * 2, "Off", &x, &y);
+			y += Go_lay_step;
+		}
+	}
+}
+
+static void go_panel_colors()
+{
+	if (Cfile_fs1_data) {
+		go_alpha(&Go_c_title, 230, 50, 50);
+		go_alpha(&Go_c_head, 200, 30, 30);
+		go_alpha(&Go_c_label, 175, 175, 182);
+		go_alpha(&Go_c_choice, 135, 135, 142);
+		go_alpha(&Go_c_current, 245, 245, 250);
+		go_alpha(&Go_c_over, 255, 210, 210);
+		go_alpha(&Go_c_box, 96, 102, 112);
+		go_alpha(&Go_c_dim, 135, 135, 142);
+	} else {
+		go_alpha(&Go_c_title, 205, 240, 195);
+		go_alpha(&Go_c_head, 170, 220, 160);
+		go_alpha(&Go_c_label, 140, 160, 140);
+		go_alpha(&Go_c_choice, 115, 135, 118);
+		go_alpha(&Go_c_current, 220, 245, 215);
+		go_alpha(&Go_c_over, 255, 255, 255);
+		go_alpha(&Go_c_box, 72, 98, 88);
+		go_alpha(&Go_c_dim, 115, 135, 118);
+	}
+}
+
+// ---- the Enhanced button's icon: the Options tab's four diamonds, drawn as two alpha bitmaps (shape and glow) ----
+
+// spacing: from the icon's middle to each diamond's; radius: each diamond's half diagonal (pixels)
+static void go_icon_build(float spacing, float radius)
+{
+	static const float dx[4] = { 0.0f, -1.0f, 1.0f, 0.0f }, dy[4] = { -1.0f, 0.0f, 0.0f, 1.0f };
+	int n = (int)(2.0f * (spacing + radius)) + 8, x, y, i;
+	float c, d, best, a;
+
+	n = (n > GO_ICON_MAX) ? GO_ICON_MAX : n;
+	c = (n - 1) * 0.5f;
+	for (y = 0; y < n; y++) {
+		for (x = 0; x < n; x++) {
+			best = 1.0e9f;
+			for (i = 0; i < 4; i++) {
+				d = fl_abs(x - c - dx[i] * spacing) + fl_abs(y - c - dy[i] * spacing);
+				d = (d - radius) * 0.7071f;	// to a pixel distance from the diamond's edge
+				best = (d < best) ? d : best;
+			}
+			a = 0.5f - best;	// one pixel of soft edge
+			a = (a < 0.0f) ? 0.0f : ((a > 1.0f) ? 1.0f : a);
+			Go_icon_core_data[y * n + x] = (ubyte)(a * 14.0f + 0.5f);	// 15 draws nearly clear (gr_host.cpp aa_to_a8)
+			a = 1.0f - best / 3.5f;
+			a = (a < 0.0f) ? 0.0f : ((a > 1.0f) ? 1.0f : a);
+			Go_icon_glow_data[y * n + x] = (ubyte)(a * a * 11.0f + 0.5f);
+		}
+	}
+	Go_icon_n = n;
+	Go_icon_core = bm_create(8, n, n, Go_icon_core_data, BMP_AABITMAP);
+	Go_icon_glow = bm_create(8, n, n, Go_icon_glow_data, BMP_AABITMAP);
+}
+
+// lit: 2 the page is open or the button is held (lit, with its glow), 1 the mouse is over it (lit, dimmer, no glow), 0 cut into the
+// metal like the X was
+static void go_icon_draw(int cx, int cy, int lit)
+{
+	color c;
+	int x = cx - Go_icon_n / 2, y = cy - Go_icon_n / 2;
+
+	if (Go_icon_core < 0) {
+		return;
+	}
+	if (lit == 1) {
+		if (Cfile_fs1_data) go_alpha(&c, 225, 110, 110); else go_alpha(&c, 140, 190, 128);
+		gr_set_color_fast(&c);
+		gr_set_bitmap(Go_icon_core);
+		gr_aabitmap(x, y);
+		return;
+	}
+	if (lit) {
+		if (Cfile_fs1_data) go_alpha(&c, 230, 50, 50); else go_alpha(&c, 110, 190, 100);
+		gr_set_color_fast(&c);
+		gr_set_bitmap(Go_icon_glow);
+		gr_aabitmap(x, y);
+		if (Cfile_fs1_data) go_alpha(&c, 255, 235, 235); else go_alpha(&c, 210, 245, 190);
+		gr_set_color_fast(&c);
+		gr_set_bitmap(Go_icon_core);
+		gr_aabitmap(x, y);
+		return;
+	}
+	gr_set_bitmap(Go_icon_core);
+	if (!Cfile_fs1_data) {	// FS2's are cut in, with a lit lower left edge
+		go_alpha(&c, 74, 78, 62);
+		gr_set_color_fast(&c);
+		gr_aabitmap(x - 1, y + 1);
+	}
+	if (Cfile_fs1_data) go_alpha(&c, 125, 18, 18); else go_alpha(&c, 14, 16, 10);
+	gr_set_color_fast(&c);
+	gr_aabitmap(x, y);
+}
+
+// ---- the Options screen's calls ----
+
+int game_options_enhanced_available()
+{
+	return game_options_keys_active();
+}
+
+// FS1's Exit Game icon and label are painted into the Options background. Only their own pixels are filled, each from the nearest
+// art beside it (along the row or the column, whichever gap is shorter), so the plate and its bevels keep their grain and no
+// patch edge shows. Built once from the background file, drawn as runs of one colour.
+#define GO_ERASE_MAX	2048
+typedef struct { short x, y, w; ubyte r, g, b; } go_erase_run;
+static go_erase_run Go_erase[GO_ERASE_MAX];
+static int Go_erase_n = 0;
+static int Go_erase_page = 0;	// the runs from here on are the page's (Brightness), the ones before it the button's
+
+static int go_erase_red(ubyte *p)
+{
+	return (p[0] >= 40) && (p[0] >= p[1] + 16) && (p[0] >= p[2] + 16);
+}
+
+static void go_erase_build_area(ubyte *data, ubyte *pal, int bw, int bh, int x0, int y0, int x1, int y1)
+{
+	static ubyte mask[64 * 128], rgb[64 * 128][3];
+	int w = x1 - x0, h = y1 - y0, x, y, i, k;
+
+	if ((w <= 0) || (h <= 0) || (w > 128) || (h > 64) || (x1 > bw) || (y1 > bh)) {
+		return;
+	}
+	for (y = 0; y < h; y++) {	// the red pixels and those next to them (their soft edges)
+		for (x = 0; x < w; x++) {
+			int dx, dy, m = 0;
+			for (dy = -1; (dy <= 1) && !m; dy++) {
+				for (dx = -1; (dx <= 1) && !m; dx++) {
+					int xx = x + dx, yy = y + dy;
+					if ((xx >= 0) && (yy >= 0) && (xx < w) && (yy < h) && go_erase_red(&pal[3 * data[(y0 + yy) * bw + x0 + xx]])) {
+						m = 1;
+					}
+				}
+			}
+			mask[y * w + x] = (ubyte)m;
+		}
+	}
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < w; x++) {
+			int l = x, r = x, u = y, d = y, hx, vy;
+			ubyte *a, *b;
+			float t;
+
+			if (!mask[y * w + x]) {
+				continue;
+			}
+			while ((l >= 0) && mask[y * w + l]) l--;
+			while ((r < w) && mask[y * w + r]) r++;
+			while ((u >= 0) && mask[u * w + x]) u--;
+			while ((d < h) && mask[d * w + x]) d++;
+			hx = (l >= 0) && (r < w);
+			vy = (u >= 0) && (d < h);
+			if (hx && (!vy || (r - l <= d - u))) {
+				a = &pal[3 * data[(y0 + y) * bw + x0 + l]];
+				b = &pal[3 * data[(y0 + y) * bw + x0 + r]];
+				t = (float)(x - l) / (float)(r - l);
+			} else if (vy) {
+				a = &pal[3 * data[(y0 + u) * bw + x0 + x]];
+				b = &pal[3 * data[(y0 + d) * bw + x0 + x]];
+				t = (float)(y - u) / (float)(d - u);
+			} else {
+				a = b = &pal[3 * data[(y0 + y) * bw + x0 + ((l >= 0) ? l : r)]];
+				t = 0.0f;
+			}
+			for (k = 0; k < 3; k++) {
+				rgb[y * w + x][k] = (ubyte)(a[k] + (b[k] - a[k]) * t + 0.5f);
+			}
+		}
+	}
+	for (y = 0; y < h; y++) {	// runs of one colour along each row
+		for (x = 0; x < w; x = i) {
+			i = x + 1;
+			if (!mask[y * w + x]) {
+				continue;
+			}
+			while ((i < w) && mask[y * w + i] && !memcmp(rgb[y * w + i], rgb[y * w + x], 3)) i++;
+			if (Go_erase_n < GO_ERASE_MAX) {
+				go_erase_run *e = &Go_erase[Go_erase_n++];
+				e->x = (short)(x0 + x);
+				e->y = (short)(y0 + y);
+				e->w = (short)(i - x);
+				e->r = rgb[y * w + x][0];
+				e->g = rgb[y * w + x][1];
+				e->b = rgb[y * w + x][2];
+			}
+		}
+	}
+}
+
+static void go_fs1_erase_build()
+{
+	char *name;
+	int w, h;
+	ubyte pal[768], *data;
+
+	Go_erase_n = 0;
+	Go_erase_page = 0;
+	name = (Go_enh_bg >= 0) ? bm_get_filename(Go_enh_bg) : NULL;
+	if (!name || (pcx_read_header(name, &w, &h, pal) != PCX_ERROR_NONE) || (w != 640) || (h != 480)) {
+		return;
+	}
+	data = (ubyte *)malloc(w * h);
+	if (!data) {
+		return;
+	}
+	if (pcx_read_bitmap_8bpp(name, data, pal) == PCX_ERROR_NONE) {
+		go_erase_build_area(data, pal, w, h, 26, 380, 68, 424);		// the X on the button's plate
+		go_erase_build_area(data, pal, w, h, 0, 427, 104, 448);		// "Exit Game" under it
+		Go_erase_page = Go_erase_n;
+		go_erase_build_area(data, pal, w, h, 374, 50, 498, 72);		// the Brightness label, when the Enhanced page is up
+	}
+	free(data);
+}
+
+extern float Gr_gamma;	// 2d.cpp
+
+// the value that comes out as v once a drawn colour has its gamma (Gr_gamma) applied, which the art does not
+static int go_ungamma(int v)
+{
+	if (Gr_gamma <= 0.0f) {
+		return v;
+	}
+	return (int)(pow((float)v / 255.0f, Gr_gamma) * 255.0f + 0.5f);
+}
+
+static void go_fs1_erase_draw(int from, int to)
+{
+	int i;
+	color c;
+
+	for (i = from; i < to; i++) {
+		go_erase_run *e = &Go_erase[i];
+		go_alpha(&c, go_ungamma(e->r), go_ungamma(e->g), go_ungamma(e->b));
+		gr_set_color_fast(&c);
+		gr_rect(e->x, e->y, e->w, 1);
+	}
+}
+
+// FS2's Exit Game X is covered with plain plate from the Control Config button's plate, further right on the same row. The plate's
+// shade changes across the screen, so the copy is shaded to match the art around it (the difference just outside the square on its
+// left, right and top, carried in by distance) and blended into the art over its last few pixels on those sides, so no edge shows.
+// Built once from the background file into a bitmap, which keeps the art's own colours (a drawn colour has the gamma applied).
+static int Go_fs2_patch = -1, Go_fs2_patch_x = 0, Go_fs2_patch_y = 0;
+static void *Go_fs2_patch_data = NULL;
+
+static void go_fs2_patch_build()
+{
+	char *name;
+	int w, h, x0 = go_s(19), y0 = go_s(712), x1 = go_s(74), y1, dx = go_s(693), r = go_s(4), f = go_s(6);
+	int pw, ph, x, y, c, k, bpp = (gr_screen.texture_bpp == 32) ? 32 : 16;
+	ubyte pal[768], *data;
+	float *side[3], v;
+
+	Go_fs2_patch = -1;
+	name = (Go_enh_bg >= 0) ? bm_get_filename(Go_enh_bg) : NULL;
+	if (!name || (pcx_read_header(name, &w, &h, pal) != PCX_ERROR_NONE) || (w != gr_screen.max_w) || (h != gr_screen.max_h)) {
+		return;
+	}
+	y1 = h;
+	pw = x1 - x0;
+	ph = y1 - y0;
+	if ((x0 < 4) || (x1 + dx + 4 > w) || (y0 < 4) || (pw <= 0) || (ph <= 0)) {
+		return;
+	}
+	data = (ubyte *)malloc(w * h);
+	side[0] = (float *)malloc(sizeof(float) * 3 * ph);	// left, per row and channel
+	side[1] = (float *)malloc(sizeof(float) * 3 * ph);	// right
+	side[2] = (float *)malloc(sizeof(float) * 3 * pw);	// top, per column and channel
+	Go_fs2_patch_data = malloc(pw * ph * (bpp / 8));
+	if (!data || !side[0] || !side[1] || !side[2] || !Go_fs2_patch_data || (pcx_read_bitmap_8bpp(name, data, pal) != PCX_ERROR_NONE)) {
+		free(data); free(side[0]); free(side[1]); free(side[2]);
+		free(Go_fs2_patch_data);
+		Go_fs2_patch_data = NULL;
+		return;
+	}
+#define GO_PX(px, py, ch)	((float)pal[3 * data[(py) * w + (px)] + (ch)])
+	// the art minus the copy's source, just outside the square (three pixels deep), smoothed along each side
+	{
+		float *raw = (float *)malloc(sizeof(float) * 3 * ((ph > pw) ? ph : pw));
+		int s, n, i, j;
+		for (s = 0; s < 3; s++) {
+			n = (s < 2) ? ph : pw;
+			for (i = 0; i < n; i++) {
+				for (c = 0; c < 3; c++) {
+					v = 0.0f;
+					for (k = 1; k <= 3; k++) {
+						int ax = (s == 0) ? x0 - k : ((s == 1) ? x1 - 1 + k : x0 + i), ay = (s < 2) ? y0 + i : y0 - k;
+						v += GO_PX(ax, ay, c) - GO_PX(ax + dx, ay, c);
+					}
+					raw[i * 3 + c] = v / 3.0f;
+				}
+			}
+			for (i = 0; i < n; i++) {
+				for (c = 0; c < 3; c++) {
+					float sum = 0.0f;
+					int cnt = 0;
+					for (j = i - r; j <= i + r; j++) {
+						if ((j >= 0) && (j < n)) { sum += raw[j * 3 + c]; cnt++; }
+					}
+					side[s][i * 3 + c] = sum / cnt;
+				}
+			}
+		}
+		free(raw);
+	}
+	if (bpp == 16) {
+		if (Gr_bitmap_poly) {
+			BM_SELECT_TEX_FORMAT();
+		} else {
+			BM_SELECT_SCREEN_FORMAT();
+		}
+	}
+	for (y = 0; y < ph; y++) {
+		for (x = 0; x < pw; x++) {
+			float wl = 1.0f / (x + 1), wr = 1.0f / (pw - x), wt = 1.0f / (y + 1), a, out[3];
+			int edge = x + 1;
+			ubyte rgb[3], al = 255;
+
+			edge = (pw - x < edge) ? pw - x : edge;
+			edge = (y + 1 < edge) ? y + 1 : edge;
+			a = (float)edge / (float)f;
+			a = (a > 1.0f) ? 1.0f : a;
+			for (c = 0; c < 3; c++) {
+				float corr = (wl * side[0][y * 3 + c] + wr * side[1][y * 3 + c] + wt * side[2][x * 3 + c]) / (wl + wr + wt);
+				float copy = GO_PX(x0 + x + dx, y0 + y, c) + corr;
+				out[c] = GO_PX(x0 + x, y0 + y, c) * (1.0f - a) + copy * a;
+				out[c] = (out[c] < 0.0f) ? 0.0f : ((out[c] > 255.0f) ? 255.0f : out[c]);
+				rgb[c] = (ubyte)(out[c] + 0.5f);
+			}
+			if (bpp == 32) {
+				((uint *)Go_fs2_patch_data)[y * pw + x] = 0xff000000 | (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+			} else {
+				uint px = 0;
+				bm_set_components((ubyte *)&px, &rgb[0], &rgb[1], &rgb[2], &al);
+				((ushort *)Go_fs2_patch_data)[y * pw + x] = (ushort)px;
+			}
+		}
+	}
+#undef GO_PX
+	if (bpp == 16) {
+		BM_SELECT_SCREEN_FORMAT();
+	}
+	free(data); free(side[0]); free(side[1]); free(side[2]);
+	Go_fs2_patch = bm_create(bpp, pw, ph, Go_fs2_patch_data, 0);
+	Go_fs2_patch_x = x0;
+	Go_fs2_patch_y = y0;
+	if (Go_fs2_patch < 0) {
+		free(Go_fs2_patch_data);
+		Go_fs2_patch_data = NULL;
+	}
+}
+
+void game_options_enhanced_init(int options_bg)
+{
+	Go_enh_bg = options_bg;
+	Go_panel_on = 0;
+	Go_panel_gr_request = -1;
+	if (game_options_enhanced_available()) {
+		go_panel_colors();
+		if (Cfile_fs1_data) {
+			go_icon_build(8.0f, 4.8f);
+			go_fs1_erase_build();
+		} else {
+			go_icon_build((float)go_s(13), (float)go_s(72) / 10.0f);
+			go_fs2_patch_build();
+		}
+	}
+}
+
+void game_options_enhanced_close()
+{
+	if (Go_panel_on) {
+		game_options_panel_close();
+	}
+	if (Go_icon_core >= 0) {
+		bm_release(Go_icon_core);
+		Go_icon_core = -1;
+	}
+	if (Go_icon_glow >= 0) {
+		bm_release(Go_icon_glow);
+		Go_icon_glow = -1;
+	}
+	if (Go_fs2_patch >= 0) {
+		bm_release(Go_fs2_patch);
+		Go_fs2_patch = -1;
+	}
+	if (Go_fs2_patch_data) {
+		free(Go_fs2_patch_data);
+		Go_fs2_patch_data = NULL;
+	}
+	Go_enh_bg = -1;
+}
+
+// The way in: the Options screen's Exit Game button, called Enhanced. FS2's label is the screen's own text (OptionsMenu.cpp); FS1's
+// is painted into its art, so here its pixels are filled from the art around them and it is drawn: lit when selected (the page is open) or the
+// mouse is over the button. The button's own press opens the page (OptionsMenu.cpp).
+void game_options_enhanced_entry_do(int selected, int over)
+{
+	int lit = (selected || (over && mouse_down(MOUSE_LEFT_BUTTON))) ? 2 : (over ? 1 : 0);
+
+	if (!game_options_enhanced_available() || (Go_enh_bg < 0)) {
+		return;
+	}
+	// the old icon gives way (FS2: plain plate from the Control Config plate, shaded to match; FS1: its own pixels filled from the
+	// art beside them), the four diamonds over it
+	gr_set_bitmap(Go_enh_bg);
+	if (Cfile_fs1_data) {
+		go_fs1_erase_draw(0, Go_erase_page);
+		go_icon_draw(46, 401, lit);
+	} else {
+		if (Go_fs2_patch >= 0) {
+			gr_set_bitmap(Go_fs2_patch);
+			gr_bitmap(Go_fs2_patch_x, Go_fs2_patch_y);
+		} else {
+			gr_bitmap_ex(go_s(19), go_s(712), go_s(55), go_s(56), go_s(712), go_s(712));
+		}
+		go_icon_draw(go_s(46), go_s(739), lit);
+	}
+	if (Cfile_fs1_data) {
+		color c;
+
+		gr_set_font(FONT1);
+		if (selected) {
+			go_alpha(&c, 255, 70, 70);
+		} else if (over) {
+			go_alpha(&c, 230, 120, 120);
+		} else {
+			go_alpha(&c, 160, 24, 24);
+		}
+		gr_set_color_fast(&c);
+		{
+			int w = 0;
+			gr_get_string_size(&w, NULL, "Enhanced");
+			gr_string(47 - w / 2, 432, "Enhanced");	// under the button's middle
+		}
+	}
+}
+
+// the page's panel: a filled shape with the UI's cut corners (top left, bottom right), its title and the line under it
+static void go_panel_frame()
+{
+	int i, c = Go_lay_cut, x0 = Go_lay_px0, y0 = Go_lay_py0, x1 = Go_lay_px1, y1 = Go_lay_py1;
+
+	if (Cfile_fs1_data) {
+		gr_set_color(0, 0, 0);
+	} else {
+		gr_set_color(5, 10, 12);
+	}
+	for (i = 0; i < c; i++) {
+		gr_rect(x0 + c - i, y0 + i, x1 - x0 + 1 - (c - i), 1);			// top band, cut on the left
+		gr_rect(x0, y1 - i, x1 - x0 + 1 - (c - i), 1);					// bottom band, cut on the right
+	}
+	gr_rect(x0, y0 + c, x1 - x0 + 1, y1 - y0 + 1 - 2 * c);
+
+	gr_set_color_fast(&Go_c_box);
+	gr_line(x0 + c, y0, x1, y0);
+	gr_line(x1, y0, x1, y1 - c);
+	gr_line(x1, y1 - c, x1 - c, y1);
+	gr_line(x1 - c, y1, x0, y1);
+	gr_line(x0, y1, x0, y0 + c);
+	gr_line(x0, y0 + c, x0 + c, y0);
+
+	gr_set_font(FONT1);
+	gr_set_color_fast(&Go_c_title);
+	gr_string(Go_lay_label_x, Go_lay_title_y, "Enhanced Options");
+	gr_set_color_fast(&Go_c_box);
+	gr_line(Go_lay_label_x, Go_lay_rule_y, x1 - (Go_lay_label_x - x0), Go_lay_rule_y);
+	gr_line(Go_lay_col_x, Go_lay_top, Go_lay_col_x, y1 - (Go_lay_top - Go_lay_rule_y));
+}
+
+void game_options_panel_open()
+{
+	int gr = game_options_gr_key();
+
+	Go_panel_on = 1;
+	Go_gr_shown = (gr >= 0) ? gr : gr_screen.res;
+	Go_mouse_was_down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+	game_options_res_list();
+	Go_dropdown_on = game_options_dropdown_ok();
+	Host_dropdown_chosen = -1;
+	go_status_read();
+	go_panel_layout();
+	game_options_dropdown_show();
+}
+
+void game_options_panel_close()
+{
+	game_options_dropdown_hide();
+	Go_dropdown_on = 0;
+	Host_dropdown_chosen = -1;
+	Go_num_items = 0;
+	Go_panel_on = 0;
+}
+
+int game_options_panel_gr_request()
+{
+	int gr = Go_panel_gr_request;
+
+	Go_panel_gr_request = -1;
+	return gr;
+}
+
+static void go_panel_status_line(int y, char *name, int on, char *yes, char *no)
+{
+	gr_set_color_fast(&Go_c_dim);
+	gr_string(Go_lay_text_x, y, name);
+	gr_set_color_fast(on ? &Go_c_current : &Go_c_dim);
+	gr_string(Go_lay_value_x, y, on ? yes : no);
+}
+
+void game_options_panel_do()
+{
+	int mx, my, over, down, i, y, lh, row;
+	go_item *it;
+	char num[32], layer[32], hash[24], built[32], text[96];
+
+	if (!Go_panel_on) {
+		return;
+	}
+	if (Host_dropdown_chosen >= 0) {
+		i = Host_dropdown_chosen;
+		Host_dropdown_chosen = -1;
+		if (Go_dropdown_on && (i != Go_res_shown)) {
+			game_options_res_choose(i);
+		}
+	}
+	mouse_get_pos(&mx, &my);
+	over = game_options_item_at(mx, my);
+	down = mouse_down(MOUSE_LEFT_BUTTON) ? 1 : 0;
+	if (!down && Go_mouse_was_down && (over >= 0)) {
+		it = &Go_items[over];
+		if (it->kind == GO_ITEM_GR) {
+			int gr = it->value;
+			game_options_pick(it);	// writes the key; 'it' is stale after this
+			if (gr_live_mode_change() && !(Game_mode & GM_IN_MISSION) && (gr != gr_screen.res)) {
+				Go_panel_gr_request = gr;	// the Options screen switches the mode and opens again on this page
+			}
+		} else {
+			game_options_pick(it);
+		}
+		go_panel_layout();	// the resolution list may have changed with the mode
+		over = -1;
+	}
+	Go_mouse_was_down = down;
+
+	if (Cfile_fs1_data) {
+		go_fs1_erase_draw(Go_erase_page, Go_erase_n);
+	}
+	go_panel_frame();	// over the Options screen as it is: its tabs stay and work
+	gr_set_font(FONT1);
+	lh = gr_get_font_height();
+	for (i = 0; i < Go_panel_heads; i++) {
+		gr_set_color_fast(&Go_c_head);
+		gr_string(Go_lay_label_x, Go_panel_head_y[i], Go_panel_head_text[i]);
+	}
+	for (i = 0; i < Go_panel_rows; i++) {
+		gr_set_color_fast(&Go_c_label);
+		gr_string(Go_lay_row_x, Go_panel_row_y[i], Go_panel_row_label[i]);
+	}
+	for (i = 0; i < Go_num_items; i++) {
+		it = &Go_items[i];
+		if (game_options_item_current(it)) {
+			gr_set_color_fast(&Go_c_current);
+			gr_string(it->x, it->y, it->text);
+			gr_line(it->x, it->y + it->h + 1, it->x + it->w - 1, it->y + it->h + 1);
+		} else {
+			gr_set_color_fast((i == over) ? &Go_c_over : &Go_c_choice);
+			gr_string(it->x, it->y, it->text);
+		}
+	}
+	if (Go_panel_gr_note_x >= 0) {
+		gr_set_color_fast(&Go_c_dim);
+		gr_string(Go_panel_gr_note_x, Go_panel_gr_note_y, "(next start)");
+	}
+
+	// the build and the devices, in the right column
+	row = Cfile_fs1_data ? 4 : go_s(6);
+	go_version_parts(num, layer, hash);
+	go_build_time(built);
+	y = Go_lay_top + go_head_step();
+	gr_set_color_fast(&Go_c_head);
+	gr_string(Go_lay_text_x, Go_lay_top, "Version");
+	gr_set_color_fast(&Go_c_current);
+	sprintf(text, "v%s", num);
+	gr_string(Go_lay_text_x, y, text);
+	y += lh + row;
+	gr_set_color_fast(&Go_c_dim);
+	sprintf(text, "%s  %s", layer, hash);
+	gr_string(Go_lay_text_x, y, text);
+	y += lh + row;
+	sprintf(text, "Built %s", built);
+	gr_string(Go_lay_text_x, y, text);
+	y += lh + row + Go_lay_step;
+	gr_set_color_fast(&Go_c_head);
+	gr_string(Go_lay_text_x, y, "Status");
+	y += go_head_step();
+	go_panel_status_line(y, "Mouse", Go_status_mouse, "Detected", "Undetected");
+	y += lh + row;
+	go_panel_status_line(y, "Joystick", Go_status_stick, "Detected", "Undetected");
+	y += lh + row;
+	go_panel_status_line(y, "Joypad", Go_status_pad, "Detected", "Undetected");
+	y += lh + row;
+	go_panel_status_line(y, "Voice Control", Go_status_voice, "Enabled", "Disabled");
 }

@@ -73,3 +73,4 @@ HelpEdRelease/
 /godot/bin/
 /godot/.godot/
 /godot/fs2_layer.txt
+build/version_build.h

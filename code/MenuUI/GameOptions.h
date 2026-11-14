@@ -78,6 +78,20 @@ void game_options_pilot_button_close();
 // 1 if the screen is closing because the button was clicked: Back returns to the pilot screen
 int game_options_pilot_button_leaving();
 
+// Claude: EnhancedOptions (Tom, 2026-11-12): the Options screen's Enhanced page, reached from its Exit Game button (called
+// Enhanced), with this screen's rows and the build and device status; live play only. The pilot screen's and main hall's
+// Options button is gone.
+int game_options_enhanced_available();			// 1 where the page is offered (live play)
+void game_options_enhanced_init(int options_bg);	// from options_menu_init: the Options page's background
+void game_options_enhanced_close();
+void game_options_enhanced_entry_do(int selected, int over);	// the Enhanced button's label (FS1); 1 when the page should open
+void game_options_panel_open();
+void game_options_panel_close();
+void game_options_panel_do();						// takes clicks on the rows and draws them, and the status box
+int game_options_panel_gr_request();				// a live GR switch the page asks for (GR_640 / GR_1024), else -1
+// the version line on the pilot screen and the loading screen (live play only)
+void game_version_corner_draw();
+
 // the Godot host's console (fs2_console_command): "resolution ..." and "unlock missions".  Returns 0 for any other line.
 int game_options_console_command(const char *line, char *out, int out_size);
 

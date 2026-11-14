@@ -30,7 +30,7 @@ add_library(fs2godot SHARED src/register_types.cpp src/fs2_node.cpp src/fs2_node
 target_include_directories(fs2godot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../fs2game ${CMAKE_CURRENT_SOURCE_DIR}/render_sink)
 target_link_libraries(fs2godot PRIVATE godot-cpp)
 if(WIN32)
-	target_link_libraries(fs2godot PRIVATE dbghelp psapi)
+	target_link_libraries(fs2godot PRIVATE dbghelp psapi version)	# version: the status panel reads the DLL's ProductVersion (#311)
 endif()
 set_target_properties(fs2godot PROPERTIES
 	CXX_STANDARD 17

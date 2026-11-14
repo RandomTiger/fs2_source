@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include <vector>
 
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
@@ -54,6 +55,26 @@ static String panel_build_time(const wchar_t *path)
 	return String(text);
 }
 
+// The port's own version the build stamped into the DLL's ProductVersion (#311): "<milestone>.<commits> <layer> <hash>".
+// Shown as the number on one line and the layer and hash on the next, so it fits the column. Empty for a DLL without one.
+static String panel_port_version(const wchar_t *path)
+{
+	DWORD unused = 0;
+	const DWORD size = GetFileVersionInfoSizeW(path, &unused);
+	if (size == 0) {
+		return String();
+	}
+	std::vector<unsigned char> block(size);
+	wchar_t *value = NULL;
+	UINT value_len = 0;
+	if (!GetFileVersionInfoW(path, 0, size, block.data()) || !VerQueryValueW(block.data(), L"\\StringFileInfo\\040904b0\\ProductVersion", (void **)&value, &value_len) || value_len == 0) {
+		return String();
+	}
+	String v = String(value).strip_edges();
+	const int space = v.find(" ");
+	return space > 0 ? v.substr(0, space) + "\n" + v.substr(space + 1) : v;
+}
+
 // A remote desktop session always lists a stand-in mouse, which is not a mouse here.
 static bool panel_mouse_found()
 {
@@ -80,7 +101,7 @@ static bool panel_mouse_found()
 	return found;
 }
 
-void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void), int (*left_column_shown)(void))
+void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_font)(const char *, unsigned char *, int *, int *), int (*voice_is_enabled)(void), int (*left_column_shown)(void), void (*game_canvas_info)(int *, int *, int *, int *))
 {
 	wchar_t path[MAX_PATH];
 	const DWORD len = GetModuleFileNameW(dll, path, MAX_PATH);
@@ -89,12 +110,14 @@ void Fs2StatusPanel::create(Fs2Screen *on_screen, HMODULE dll, int (*text_in_fon
 		version = String("unknown");
 	} else {
 		const wchar_t *slash = wcsrchr(path, L'\\');
-		version = panel_branch(slash != NULL ? slash + 1 : path) + "\n" + panel_build_time(path);
+		const String port_version = panel_port_version(path);	// #311; a DLL built before the stamp shows the layer from its name
+		version = (port_version.is_empty() ? panel_branch(slash != NULL ? slash + 1 : path) : port_version) + "\n" + panel_build_time(path);
 	}
 	screen = on_screen;
 	font_text = text_in_font;
 	voice_enabled = voice_is_enabled;
 	column_shown = left_column_shown;
+	canvas_info = game_canvas_info;
 	text_rect = memnew(TextureRect);
 	text_rect->set_position(Vector2(PANEL_MARGIN, PANEL_MARGIN));
 	text_rect->set_self_modulate(Color(0.75f, 0.75f, 0.75f));
@@ -155,5 +178,12 @@ void Fs2StatusPanel::refresh()
 	scale = scale < 1 ? 1 : scale;
 	text_rect->set_size(Vector2((float)(text_w * scale), (float)(text_h * scale)));
 	// only on the game's two column screens; a picture wide enough to leave no room for the text hides it rather than covering the game
-	text_rect->set_visible(column_shown() != 0 && text_w > 0 && (float)(text_w * scale) + (PANEL_MARGIN * 2.0f) <= screen->get_left_column_width());
+	// a wide DisplayResolution makes the canvas the whole window and the game draws the bars itself: the base screen's corner gives the column (#310)
+	int vw = 0, vh = 0, cx = 0, cy = 0;
+	if (canvas_info != nullptr) {
+		canvas_info(&vw, &vh, &cx, &cy);
+	}
+	// EnhancedOptions: made only with -status, and then shown on every screen, top left of the window, over the game
+	(void)vw; (void)cx;
+	text_rect->set_visible(text_w > 0);
 }
