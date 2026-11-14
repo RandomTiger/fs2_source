@@ -73,5 +73,8 @@ Recordings replay a stream of OS reads, so they can referee every layer up to `P
 ## EnhancedOptions (Tom, 2026-11-13, D-20261113-142916)
 `EnhancedOptions` is a Godot feature branch off `GodotOptions` (GodotResolution > GodotOptions > EnhancedOptions): the Options screen's Enhanced page, live play only. Like the other Godot feature branches it merges only into `GodotPlus`, never into `GodotOptions`, `GodotResolution` or `Godot`.
 
+## TextureFiltering (Tom, 2026-11-14, #315)
+`TextureFiltering` is a Godot feature branch off `GodotPlus`: optional mipmaps, trilinear and anisotropic texture filtering in the Godot renderer, default the original bilinear with no mips. It merges back into `GodotPlus` once gated, and into nothing else.
+
 ## In Perforce terms
 A branch is a stream, a merge is an integrate, a push is a submit. Unlike Perforce, commits are local until pushed, and pushed history must never be rewritten.
