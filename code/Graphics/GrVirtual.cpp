@@ -228,6 +228,30 @@ void gr_virtual_wide_clip()
 	}
 }
 
+void gr_virtual_wide_letterbox_clip()
+{
+	int vw, vh;
+	virtual_size(&vw, &vh);
+	if (vw <= gr_screen.max_w) {
+		return;
+	}
+	// the base letterbox band (game_set_view_clip), widened to the canvas width; the band stays centred
+	// vertically, with the base screen's black above and below it
+	int yborder = gr_screen.max_h / 4;
+	int h = gr_screen.max_h - yborder * 2;
+	gr_screen.offset_x = -((vw - gr_screen.max_w) / 2);
+	gr_screen.offset_y = yborder;
+	gr_screen.clip_left = 0;
+	gr_screen.clip_top = 0;
+	gr_screen.clip_right = vw - 1;
+	gr_screen.clip_bottom = h - 1;
+	gr_screen.clip_width = vw;
+	gr_screen.clip_height = h;
+	if (Clip_listener != NULL) {
+		Clip_listener();
+	}
+}
+
 int gr_virtual_wide_shift_x() { return gr_virtual_in_wide_clip() ? -gr_screen.offset_x : 0; }
 int gr_virtual_wide_shift_y() { return gr_virtual_in_wide_clip() ? -gr_screen.offset_y : 0; }
 

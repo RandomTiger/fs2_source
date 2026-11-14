@@ -178,7 +178,7 @@ void g3_start_frame_func(int zbuffer_flag, char * filename, int lineno)
 	// height * 4/3 / 2, as on the base screen, so the view widens instead of zooming in. Scaling z keeps every
 	// size taken from Canv_w2 and Matrix_scale in step. Never true on the base screen.
 	if ( (Canvas_width > gr_screen.max_w) && ((float)Canvas_width * (float)gr_screen.max_h > (float)Canvas_height * (float)gr_screen.max_w) ) {
-		Window_scale.z = ((float)Canvas_width * (float)gr_screen.max_h) / ((float)Canvas_height * (float)gr_screen.max_w);
+		Window_scale.z = (float)Canvas_width / (float)gr_screen.max_w;	// Claude: GodotResolution, the base pixel scale at any band height: the full view, and the letterbox band (half height)
 	}
 
 	init_free_points();
