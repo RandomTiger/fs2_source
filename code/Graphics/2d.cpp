@@ -598,6 +598,12 @@ void gr_host_texture_filter(int filter, int bias)
 	if (Gr_host_backend && Gr_host_backend->texture_filter) { Gr_host_backend->texture_filter(filter, bias); }
 }
 
+// Claude: TextureFiltering, see 2d.h
+void gr_host_antialias(int samples)
+{
+	if (Gr_host_backend && Gr_host_backend->antialias) { Gr_host_backend->antialias(samples); }
+}
+
 void gr_close()
 {
 	if ( !Gr_inited )	return;

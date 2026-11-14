@@ -16,3 +16,5 @@ GO_OPTION(GO_OPT_BIG_HUD, "big_hud", "BigHud", "Big HUD", 0, 1, NULL)
 // TextureFiltering (#315): Original is the game's own bilinear with no mipmaps; the others build mipmaps for the 3D textures
 GO_OPTION(GO_OPT_TEXTURE_FILTER, "texture_filter", "TextureFilter", "Texture Filter", 0, 1, "Original|Trilinear|Aniso 2x|Aniso 4x|Aniso 8x|Aniso 16x")
 GO_OPTION(GO_OPT_MIP_BIAS, "mip_bias", "MipBias", "Texture Sharpness", 2, 1, "Sharpest|Sharper|Normal|Softer|Softest")
+// multisampling of the 3D views; the game itself never antialiased (Off)
+GO_OPTION(GO_OPT_ANTIALIAS, "antialiasing", "Antialiasing", "Antialiasing", 0, 1, "Off|MSAA 2x|MSAA 4x|MSAA 8x")

@@ -272,6 +272,10 @@ typedef struct fs2_render_sink {
 	 * mip_bias: added to the mip level the sink picks (- sharper, + softer), about -1..1. Allowed in or out of a frame. The host drops its
 	 * textures when mipmaps start or stop being needed, so the sink gets them again with or without. NULL = always ORIGINAL. */
 	void (*texture_filter)(void *user, int filter, int anisotropy, float mip_bias);
+
+	/* TextureFiltering, optional (appended): multisampling of the depth-run (3D) draws: samples 0 = off (the game's own look, and a sink's
+	 * default), else 2, 4 or 8. 2D draws outside depth runs are not multisampled. Allowed in or out of a frame. NULL = always off. */
+	void (*antialias)(void *user, int samples);
 } fs2_render_sink;
 
 #ifdef __cplusplus

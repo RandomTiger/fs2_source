@@ -1930,6 +1930,12 @@ static void h_texture_filter(int filter, int bias)
 	H.sink->texture_filter(H.sink->user, mode, (filter >= 2) ? (1 << (filter - 1)) : 0, (float)bias * 0.5f);
 }
 
+// TextureFiltering: the Antialiasing option, to a sink that multisamples
+static void h_antialias(int samples)
+{
+	if (H.sink != nullptr && H.sink->antialias != nullptr) { H.sink->antialias(H.sink->user, samples); }
+}
+
 uint h_lock() { return 1; }						// dummy's value; every caller discards it (R1_checks 1a)
 void h_unlock() { }
 
@@ -2185,6 +2191,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.fog_mark_end = h_fog_mark_end;
 	Backend.fog_mark_hit = h_fog_mark_hit;
 	Backend.texture_filter = h_texture_filter;	// TextureFiltering
+	Backend.antialias = h_antialias;
 	gr_host_backend_register(&Backend);
 	return 1;
 }

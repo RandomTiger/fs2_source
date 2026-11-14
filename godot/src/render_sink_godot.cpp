@@ -79,6 +79,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.billboard_draw = &GodotSink::s_billboard_draw;
 	sink.mesh_fog_mark = &GodotSink::s_mesh_fog_mark;
 	sink.texture_filter = &GodotSink::s_texture_filter;	// TextureFiltering
+	sink.antialias = &GodotSink::s_antialias;
 	{
 		// the shared unit quad of the billboard draws, made here (no lazy creation): the vertex shader moves its four corners
 		RenderingServer *rs = RenderingServer::get_singleton();
@@ -652,6 +653,14 @@ void GodotSink::s_texture_filter(void *u, int filter, int anisotropy, float mip_
 			: anisotropy >= 4 ? RenderingServer::VIEWPORT_ANISOTROPY_4X : RenderingServer::VIEWPORT_ANISOTROPY_2X;
 	}
 	s->tf_bias = (s->tf_mode == FS2_SINK_TEXFILTER_ORIGINAL) ? 0.0f : std::max(-2.0f, std::min(2.0f, mip_bias));
+}
+
+void GodotSink::s_antialias(void *u, int samples)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->batcher.flush();
+	s->aa_msaa = samples >= 8 ? RenderingServer::VIEWPORT_MSAA_8X : samples >= 4 ? RenderingServer::VIEWPORT_MSAA_4X
+		: samples >= 2 ? RenderingServer::VIEWPORT_MSAA_2X : RenderingServer::VIEWPORT_MSAA_DISABLED;
 }
 
 const char *GodotSink::tf_hint(bool lin) const
@@ -1326,6 +1335,10 @@ GodotSink::Layer GodotSink::acquire_layer()
 		l.tf_aniso = -1;	// TextureFiltering: not set yet
 	}
 	tf_apply(l.viewport, l.tf_aniso, l.tf_bias);
+	if (l.aa_msaa != aa_msaa) {	// TextureFiltering: the layer composites premultiplied, so the resolved edges blend right
+		rs->viewport_set_msaa_3d(l.viewport, (RenderingServer::ViewportMSAA)aa_msaa);
+		l.aa_msaa = aa_msaa;
+	}
 	if (l.w != width || l.h != height) {
 		l.w = width;
 		l.h = height;

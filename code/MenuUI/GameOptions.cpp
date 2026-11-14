@@ -201,6 +201,9 @@ static void go_option_apply(int id)
 	if ((id == GO_OPT_TEXTURE_FILTER) || (id == GO_OPT_MIP_BIAS)) {	// TextureFiltering: the host's sampling; a backend without it ignores it
 		gr_host_texture_filter(Go_option_value[GO_OPT_TEXTURE_FILTER], Go_option_value[GO_OPT_MIP_BIAS] - 2);
 	}
+	if (id == GO_OPT_ANTIALIAS) {	// TextureFiltering: 0 off, else 2, 4 or 8 samples
+		gr_host_antialias(Go_option_value[id] ? (1 << Go_option_value[id]) : 0);
+	}
 }
 
 void game_options_settings_init()
@@ -368,6 +371,7 @@ int game_options_gr_mode(int mode)
 #define GO_ITEM_BACK		2
 #define GO_ITEM_RES			3		// value: an index in Go_res
 #define GO_ITEM_OPTION		4		// Claude: GodotOptions, value: option id * GO_MAX_CHOICES + the value (TextureFiltering)
+#define GO_ITEM_CYCLE		5		// Claude: TextureFiltering, value: a choice option's id; a click takes the next choice
 #define GO_MAX_ITEMS		48		// Claude: GodotOptions, was 16; TextureFiltering, was 24
 
 typedef struct go_item {
@@ -716,7 +720,7 @@ static int game_options_res_y()
 // Claude: GodotOptions, the line of the nth option row
 static int go_option_row_y(int row)
 {
-	return gr_screen.max_h * (66 + row * 6) / 100;	// TextureFiltering: was 72, room for four rows above Back
+	return gr_screen.max_h * (64 + row * 5) / 100;	// TextureFiltering: was 72 + row * 6, room for five rows above Back
 }
 
 // TextureFiltering: a value's label on the screen: On / Off, or the choice's
@@ -729,23 +733,24 @@ static char *go_option_value_label(int id, int value)
 	return Go_choice_label[id][value];
 }
 
-// the screen's items of an option's row: On then Off, or the choices in order, wrapping under x0 at the screen's right edge
+// a choice option's one item: "< value >", a click takes the next choice (one line however many choices)
+static char Go_cycle_text[GO_OPT_COUNT][GO_CHOICE_LEN + 8];
+
+static char *go_cycle_text(int id)
+{
+	sprintf(Go_cycle_text[id], "< %s >", go_option_value_label(id, game_option(id)));
+	return Go_cycle_text[id];
+}
+
+// the screen's items of an option's row: On then Off, or the choice option's cycling item
 static void go_option_row_items(int id, int x0, int y)
 {
-	int k, v, n = go_option_values(id), x = x0, w;
-	char *text;
-
-	for (k = 0; k < n; k++) {
-		v = Go_options[id].choices ? k : (1 - k);
-		text = go_option_value_label(id, v);
-		gr_get_string_size(&w, NULL, text);
-		if ((x > x0) && (x + w > gr_screen.max_w * 96 / 100)) {
-			x = x0;
-			y += gr_get_font_height() + 4;
-		}
-		game_options_add(GO_ITEM_OPTION, id * GO_MAX_CHOICES + v, x, y, text);
-		x += (Go_options[id].choices ? (w + gr_screen.max_w / 40) : (gr_screen.max_w / 8));
+	if (Go_options[id].choices) {
+		game_options_add(GO_ITEM_CYCLE, id, x0, y, go_cycle_text(id));
+		return;
 	}
+	game_options_add(GO_ITEM_OPTION, id * GO_MAX_CHOICES + 1, x0, y, "On");
+	game_options_add(GO_ITEM_OPTION, id * GO_MAX_CHOICES, x0 + gr_screen.max_w / 8, y, "Off");
 }
 
 // lays the screen out for this art mode: fractions of the screen, so GR_640 and GR_1024 match
@@ -811,6 +816,9 @@ static int game_options_item_current(go_item *it)
 	if (it->kind == GO_ITEM_RES) {
 		return it->value == Go_res_shown;
 	}
+	if (it->kind == GO_ITEM_CYCLE) {	// Claude: TextureFiltering, it shows the value in force
+		return 1;
+	}
 	if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
 		return game_option(it->value / GO_MAX_CHOICES) == (it->value % GO_MAX_CHOICES);	// TextureFiltering
 	}
@@ -857,6 +865,11 @@ static void game_options_pick(go_item *it)
 		game_options_gr_choose(it->value);	// Claude: GodotOptions. 'it' is stale after this
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
+	} else if (it->kind == GO_ITEM_CYCLE) {	// Claude: TextureFiltering, the next choice; the caller lays the items out again
+		game_option_set(it->value, (game_option(it->value) + 1) % go_option_values(it->value));
+		if (gameseq_get_state() == GS_STATE_GAME_OPTIONS) {
+			game_options_layout();
+		}
 	} else if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
 		game_option_set(it->value / GO_MAX_CHOICES, it->value % GO_MAX_CHOICES);	// TextureFiltering
 	}
@@ -1466,7 +1479,7 @@ int game_options_console_command(const char *line, char *out, int out_size)
 #include "../Pad/PadState.h"
 #include "../Voice/VoiceGame.h"
 
-#define GO_PANEL_MAX_ROWS	8
+#define GO_PANEL_MAX_ROWS	10	// Claude: TextureFiltering, was 8
 #define GO_PANEL_MAX_HEADS	4
 
 static int Go_panel_on = 0;
@@ -1721,6 +1734,10 @@ static int go_panel_option_row(int id, int y)
 	int k, v, x = Go_lay_choice_x;
 
 	go_panel_row(Go_options[id].label, y);
+	if (Go_options[id].choices) {
+		go_panel_place(GO_ITEM_CYCLE, id, go_cycle_text(id), &x, &y);
+		return y + Go_lay_step;
+	}
 	for (k = 0; k < go_option_values(id); k++) {
 		v = Go_options[id].choices ? k : (1 - k);
 		go_panel_place(GO_ITEM_OPTION, id * GO_MAX_CHOICES + v, go_option_value_label(id, v), &x, &y);
@@ -1754,7 +1771,7 @@ static void go_panel_layout()
 	if (Cfile_fs1_data) {	// FS1's 640 layout, inside the Options frame under the tabs' plate, above the config buttons' plate
 		Go_lay_px0 = 30;	Go_lay_py0 = 82;	Go_lay_px1 = 608;	Go_lay_py1 = 328;	Go_lay_cut = 10;
 		Go_lay_title_y = Go_lay_py0 + 9;	Go_lay_rule_y = Go_lay_title_y + lh + 6;	Go_lay_top = Go_lay_rule_y + 12;
-		Go_lay_label_x = 44;	Go_lay_row_x = 52;	Go_lay_choice_x = 150;	Go_lay_step = 20;	Go_lay_sect = 10;	Go_lay_gap = 16;
+		Go_lay_label_x = 44;	Go_lay_row_x = 52;	Go_lay_choice_x = 150;	Go_lay_step = 18;	Go_lay_sect = 6;	Go_lay_gap = 16;	// TextureFiltering: step was 20, sect 10 (three more rows)
 		text_base = 420;	margin = 14;
 	} else {
 		Go_lay_px0 = go_s(24);	Go_lay_py0 = go_s(82);	Go_lay_px1 = go_s(1000);	Go_lay_py1 = go_s(606);	Go_lay_cut = go_s(18);

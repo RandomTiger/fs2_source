@@ -166,6 +166,7 @@ private:
 	uint32_t tf_key(bool lin) const { return lin ? (uint32_t)tf_mode : 0u; }	// the hint's part of a shader key (2 bits)
 	godot::RenderingServer::CanvasItemTextureFilter tf_canvas(bool lin) const;
 	void tf_apply(godot::RID viewport, int &aniso, float &bias);	// sets a viewport's anisotropy and mip bias when they changed
+	int aa_msaa = 0;		// RenderingServer::ViewportMSAA of the depth-run viewports (antialias); 0 = off
 	godot::RID shaders[12], materials[12];	// by blend + 3 * (a8 + 2 * perspective)
 	std::vector<godot::RID> pending_meshes, shown_meshes, spare_meshes;
 	TriBatcher batcher;
@@ -186,6 +187,7 @@ private:
 		int w = 0, h = 0;
 		int tf_aniso = 0;		// TextureFiltering: what its viewport was last given (setting them reallocates its buffers)
 		float tf_bias = 0.0f;
+		int aa_msaa = 0;		// its MSAA (likewise only on a change)
 		bool probe_parent = false;	// its parent viewport is a fog probe slot (fog lag), not the game viewport
 		std::vector<godot::RID> instances;
 		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
@@ -317,6 +319,7 @@ private:
 	};
 	static void s_mesh_fog_mark(void *u, const float *xy, int n);
 	static void s_texture_filter(void *u, int filter, int anisotropy, float mip_bias);	// TextureFiltering
+	static void s_antialias(void *u, int samples);
 	bool mesh_thr_on = false;
 	float mesh_thr[2] = {};
 	static void s_mesh_thrust(void *u, const float t[2]);
