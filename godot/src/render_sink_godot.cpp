@@ -178,6 +178,7 @@ void GodotSink::shutdown()
 		for (auto &pool : bb_mm_pool) { for (RID &r : pool) { rs->free_rid(r); } pool.clear(); }
 		for (RID &r : mesh_mat_pool) { rs->free_rid(r); }
 		mesh_mat_pool.clear();
+		for (auto &m : bb_mats) { rs->free_rid(m.second); }
 		if (bb_quad.is_valid()) { rs->free_rid(bb_quad); bb_quad = RID(); }
 		if (bb_fan5.is_valid()) { rs->free_rid(bb_fan5); bb_fan5 = RID(); }
 		for (auto &pool : mesh_col_pool) { for (RID &r : pool.second) { rs->free_rid(r); } }
@@ -199,6 +200,7 @@ void GodotSink::shutdown()
 	batcher.set_depth_run(false, 0, 0, 0, 0, 0);
 	spare_layers.clear();
 	spatial_materials.clear();
+	bb_mats.clear();
 	spatial_shaders.clear();
 	composite_material = RID();
 	composite_shader = RID();
@@ -1349,6 +1351,14 @@ void GodotSink::free_layer(Layer &l)
 void GodotSink::drop_materials_of(const RID &tex)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
+	for (auto it = bb_mats.begin(); it != bb_mats.end();) {
+		if (it->first[10] == (int64_t)tex.get_id()) {
+			rs->free_rid(it->second);
+			it = bb_mats.erase(it);
+		} else {
+			++it;
+		}
+	}
 	for (auto it = spatial_materials.begin(); it != spatial_materials.end();) {
 		if (it->first.second == (int64_t)tex.get_id()) {
 			rs->free_rid(it->second);
@@ -2560,8 +2570,20 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 	rs->multimesh_set_buffer(mm, buf);
 	rs->multimesh_set_visible_instances(mm, n);
 	l.bb_multimeshes.push_back(std::make_pair(pool, mm));
+	// everything the material holds (shader and parameters) is a function of this key; the per-draw data is in the multimesh, the sorting offset on the instance
+	const bool rep = !st && (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, aff = d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0, nc = d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 8) != 0;
+	BbMatKey mk = {};
 	RID mat;
-	if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
+	bool have_mat = false;
+	if (!st) {
+		auto fbits = [](float f) { int32_t i; std::memcpy(&i, &f, sizeof(i)); return (int64_t)i; };
+		mk = { d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, rep, aff, nc, (int64_t)(use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid).get_id(), d.b.bw, d.b.bh, fbits(d.scale[0]), fbits(d.scale[1]),
+			d.b.clip[0], d.b.clip[1], d.b.clip[2], d.b.clip[3], d.cw, d.ch, d.ox, d.oy, epoch, d.crect ? d.cr[0] : 0, d.crect ? d.cr[1] : 0, d.crect ? d.cr[2] : 0, d.crect ? d.cr[3] : 0, width, height };
+		auto mit = bb_mats.find(mk);
+		if (mit != bb_mats.end()) { mat = mit->second; have_mat = true; }
+	}
+	if (have_mat) { /* the cached material is as it was */ }
+	else if (!mesh_mat_pool.empty()) { mat = mesh_mat_pool.back(); mesh_mat_pool.pop_back(); } else { mat = rs->material_create(); }
 	if (st) {
 		rs->material_set_shader(mat, billboard_shader(FS2_SINK_BB_STARS, FS2_SINK_BLEND_ALPHA, 0, false, false, false, false));
 		l.mesh_materials.push_back(mat);
@@ -2590,16 +2612,18 @@ void GodotSink::add_bb_run(Layer &l, const std::vector<size_t> &idx, int order)
 		l.bb_instances.push_back(sinst);
 		return;
 	}
-	rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, (ti->second.flags & FS2_SINK_TEXF_REPEAT) != 0 && d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 2) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 4) != 0, d.b.kind == FS2_SINK_BB_TRI3 && (d.b.orient & 8) != 0));
-	l.mesh_materials.push_back(mat);
-	rs->material_set_param(mat, "tex", use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid);
-	rs->material_set_param(mat, "bwh", Vector2((float)d.b.bw, (float)d.b.bh));
-	rs->material_set_param(mat, "sc", Vector4(d.scale[0], d.scale[1], 0.0f, 0.0f));
-	rs->material_set_param(mat, "bcl", Vector4((float)d.b.clip[0], (float)d.b.clip[1], (float)d.b.clip[2], (float)d.b.clip[3]));
-	const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
-	rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, 0.0f));
-	rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
-	if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
+	if (!have_mat) {
+		rs->material_set_shader(mat, billboard_shader(d.b.kind, d.b.blend, zmode, a8, lin, d.crect, use_arr, rep, aff, nc));
+		rs->material_set_param(mat, "tex", use_arr ? arr_chunks[(size_t)d.arr].rid : ti->second.rid);
+		rs->material_set_param(mat, "bwh", Vector2((float)d.b.bw, (float)d.b.bh));
+		rs->material_set_param(mat, "sc", Vector4(d.scale[0], d.scale[1], 0.0f, 0.0f));
+		rs->material_set_param(mat, "bcl", Vector4((float)d.b.clip[0], (float)d.b.clip[1], (float)d.b.clip[2], (float)d.b.clip[3]));
+		const float cw = d.cw > 0 ? (float)d.cw : (float)width, ch = d.ch > 0 ? (float)d.ch : (float)height;
+		rs->material_set_param(mat, "cfg", Vector4(0.5f * cw, 0.5f * ch, dbase, 0.0f));
+		rs->material_set_param(mat, "org", Vector4((float)d.ox + 0.5f * cw - 0.5f * (float)width + FS2_SINK_D3D_PIXEL_CENTRE, -((float)d.oy + 0.5f * ch - 0.5f * (float)height + FS2_SINK_D3D_PIXEL_CENTRE), 0.0f, 0.0f));
+		if (d.crect) { rs->material_set_param(mat, "crc", Vector4((float)d.cr[0], (float)d.cr[1], (float)(d.cr[0] + d.cr[2]), (float)(d.cr[1] + d.cr[3]))); }
+		if (bb_mats.size() < kBbMatCap) { bb_mats[mk] = mat; } else { l.mesh_materials.push_back(mat); }
+	}
 	RID inst;
 	if (kInstancePool && !spare_bb_instances.empty()) {
 		inst = spare_bb_instances.back();
