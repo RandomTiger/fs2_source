@@ -1197,6 +1197,30 @@ void GodotSink::end_run()
 		fs2perf::count(fs2perf::C_LAYERS);
 		for (int i = first; i <= last; i++) {
 			if (run_batches[i].key.texture <= -kBbBase) {
+				// a span of additive, depth-read-only billboard draws commutes: one run per state (bucket), whatever the draw order in the span
+				const size_t d0 = (size_t)(-(int64_t)run_batches[i].key.texture - kBbBase - 1);
+				if (d0 < bb_draws.size() && bb_additive(bb_draws[d0])) {
+					int j = i, nb = 0, lastb = -1;
+					for (; j <= last && run_batches[j].key.texture <= -kBbBase; j++) {
+						const size_t di = (size_t)(-(int64_t)run_batches[j].key.texture - kBbBase - 1);
+						if (di >= bb_draws.size() || !bb_additive(bb_draws[di])) { break; }
+						int bi = -1;
+						if (lastb >= 0 && (int)bb_buckets[lastb].size() < kBbBucketCap[kBbBuckets - 1] && bb_same_run(bb_draws[bb_buckets[lastb][0]], bb_draws[di])) { bi = lastb; }
+						for (int k = 0; bi < 0 && k < nb; k++) {
+							if ((int)bb_buckets[k].size() < kBbBucketCap[kBbBuckets - 1] && bb_same_run(bb_draws[bb_buckets[k][0]], bb_draws[di])) { bi = k; }
+						}
+						if (bi < 0) {
+							if ((int)bb_buckets.size() <= nb) { bb_buckets.emplace_back(); }
+							bb_buckets[nb].clear();
+							bi = nb++;
+						}
+						bb_buckets[bi].push_back(di);
+						lastb = bi;
+					}
+					for (int k = 0; k < nb; k++) { add_bb_run(l, bb_buckets[k], i - first); }
+					i = j - 1;
+					continue;
+				}
 				// a run of adjacent billboard draws of one state is one instance (kept in game order inside it)
 				bb_run_idx.clear();
 				int j = i;
@@ -2447,6 +2471,12 @@ int GodotSink::s_billboard_draw(void *u, const fs2_sink_billboard *b)
 	bt.key.depth = 1; bt.key.zmode = 2; bt.key.epoch = d.epoch;
 	s->run_batches.push_back(bt);
 	return 1;
+}
+
+// Additive and depth-read-only: no depth write, ONE:ONE blend, so the order among such draws does not change the picture.
+bool GodotSink::bb_additive(const BbDraw &d) const
+{
+	return d.b.kind != FS2_SINK_BB_STARS && d.b.blend == FS2_SINK_BLEND_ADD && (d.b.flags & (FS2_SINK_DRAWF_ZREAD | FS2_SINK_DRAWF_ZWRITE)) == FS2_SINK_DRAWF_ZREAD;
 }
 
 bool GodotSink::bb_same_run(const BbDraw &a, const BbDraw &b) const
