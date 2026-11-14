@@ -54,6 +54,8 @@ static void show_help(void)
 	print_line("unlock missions       unlock every mission in the current campaign");
 	print_line("subtitles [on|off]    subtitles");
 	print_line("big_hud [on|off]      the big HUD");
+	print_line("texture_filter [name] original, trilinear, aniso2x, aniso4x, aniso8x, aniso16x");	// TextureFiltering (#315)
+	print_line("mip_bias [name]       texture sharpness: sharpest, sharper, normal, softer, softest");
 	print_line("show                  list what can be switched off, for testing");
 	print_line("show <name> [on|off]  switch it; show all on or off");
 }
