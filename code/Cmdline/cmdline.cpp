@@ -292,15 +292,15 @@ int Cmdline_gimme_all_medals = 0;
 int Cmdline_allmedals = 0;	// Claude: -allmedals (#124)
 
 // Claude: GodotOptions, the options in GameOptionList.h: -<name>, or -<name> 0 for off
-#define GO_OPTION(id, name, key, label, dflt, host_only) static cmdline_parm id##_arg("-" name, NULL);
+#define GO_OPTION(id, name, key, label, dflt, host_only, choices) static cmdline_parm id##_arg("-" name, NULL);	// Claude: TextureFiltering, choices
 #include "GameOptionList.h"
 #undef GO_OPTION
-#define GO_OPTION(id, name, key, label, dflt, host_only) &id##_arg,
+#define GO_OPTION(id, name, key, label, dflt, host_only, choices) &id##_arg,	// Claude: TextureFiltering, choices
 static cmdline_parm *Go_option_args[GO_OPT_COUNT] = {
 #include "GameOptionList.h"
 };
 #undef GO_OPTION
-int Cmdline_game_option[GO_OPT_COUNT];	// -1 not given, else 0 or 1
+int Cmdline_game_option[GO_OPT_COUNT];	// -1 not given, else the value (Claude: TextureFiltering, a choice's index)
 int Cmdline_use_last_pilot = 0;
 int Cmdline_multi_protocol = -1;
 int Cmdline_cd_check = 1;
@@ -718,7 +718,7 @@ int parse_cmdline(char *cmdline)
 	{	// Claude: GodotOptions
 		int go;
 		for (go = 0; go < GO_OPT_COUNT; go++) {
-			Cmdline_game_option[go] = !Go_option_args[go]->found() ? -1 : (Go_option_args[go]->args[0] ? (atoi(Go_option_args[go]->args) != 0) : 1);
+			Cmdline_game_option[go] = !Go_option_args[go]->found() ? -1 : game_option_parse(go, Go_option_args[go]->args, 1);	// Claude: TextureFiltering, choices by name
 		}
 	}
 	if(allmedals_arg.found()){

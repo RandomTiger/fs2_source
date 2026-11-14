@@ -115,6 +115,7 @@ struct Host {
 	std::vector<int> release_pending;	// sink textures of released bitmaps, freed at the start of the next accepted frame (bm_release hook)
 	std::vector<int> capture_pending;	// save_screen ids asked for in a skipped frame: captured at the start of the next accepted frame
 	bool flush_pending = false;		// drop every sink texture at the start of the next accepted frame (flush, gamma change)
+	bool tex_mips = false;			// TextureFiltering: the sink builds mipmaps (a filter other than Original): a change drops the textures
 	int gamma_lookup[256];			// the host's own gamma table; gr_gamma_lookup stays untouched, as with the dummy
 	float inv_gamma = 1.0f;			// the exponent the table was built with
 	// fog state kept here (R1_checks 1c); the dummy writes none of gr_screen's fog fields
@@ -1918,6 +1919,17 @@ void build_gamma(float gamma)
 }
 void h_set_gamma(float g) { build_gamma(g); }
 
+// TextureFiltering (#315): the Texture Filter and Texture Sharpness options, to a sink that samples with them. Textures uploaded without
+// mipmaps are dropped (as on a gamma change) when a filter that needs them is chosen, and the other way round, so they come back as needed.
+static void h_texture_filter(int filter, int bias)
+{
+	if (H.sink == nullptr || H.sink->texture_filter == nullptr) { return; }
+	const bool mips = filter > 0;
+	if (mips != H.tex_mips) { H.tex_mips = mips; H.flush_pending = true; }
+	const int mode = (filter <= 0) ? FS2_SINK_TEXFILTER_ORIGINAL : ((filter == 1) ? FS2_SINK_TEXFILTER_TRILINEAR : FS2_SINK_TEXFILTER_ANISO);
+	H.sink->texture_filter(H.sink->user, mode, (filter >= 2) ? (1 << (filter - 1)) : 0, (float)bias * 0.5f);
+}
+
 uint h_lock() { return 1; }						// dummy's value; every caller discards it (R1_checks 1a)
 void h_unlock() { }
 
@@ -2172,6 +2184,7 @@ int gr_host_attach_sink(const fs2_render_sink *sink)
 	Backend.fog_mark_begin = h_fog_mark_begin;
 	Backend.fog_mark_end = h_fog_mark_end;
 	Backend.fog_mark_hit = h_fog_mark_hit;
+	Backend.texture_filter = h_texture_filter;	// TextureFiltering
 	gr_host_backend_register(&Backend);
 	return 1;
 }

@@ -98,7 +98,7 @@ int game_options_console_command(const char *line, char *out, int out_size);
 // GodotOptions: an option from one line of GameOptionList.h has its command line, its Options screen row and its console
 // command from this one table. The key is read at the start; the command line, if given, wins for that run and is not saved.
 // A compared run (autotest, record, replay) ignores the key, so only an explicit command line changes it.
-#define GO_OPTION(id, name, key, label, dflt, host_only) id,
+#define GO_OPTION(id, name, key, label, dflt, host_only, choices) id,
 enum {
 #include "GameOptionList.h"
 	GO_OPT_COUNT
@@ -108,6 +108,9 @@ enum {
 void game_options_settings_init();
 int game_option(int id);
 void game_option_set(int id, int value);
+// TextureFiltering (#315): a value from the command line's or the console's word for option id (see GameOptionList.h); arg "" gives
+// 'empty'. Returns -1 when the word is not one of the option's.
+int game_option_parse(int id, const char *arg, int empty);
 int game_option_hud_lift();	// pixels the head box and directives move up with subtitles off
 int game_option_hud_lines_x();	// pixels the top message lines start further right with subtitles off
 int game_option_voiced_text_shown();	// the Subtitles option: a compared run always shows the line

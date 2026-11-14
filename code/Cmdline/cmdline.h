@@ -194,7 +194,7 @@ extern int Cmdline_no_ship_glow;	// Claude: -noshipglow
 extern int Cmdline_no_force_glow;	// Claude: -noforceglow
 extern int Cmdline_all_cutscenes;	// Claude: -allcutscenes
 extern int Cmdline_bastion;	// Claude: -bastion, the Vasudan (Bastion) main hall (D-20261031-084800)
-extern int Cmdline_game_option[];	// Claude: GodotOptions, -1 not given, else 0 or 1; GameOptionList.h
+extern int Cmdline_game_option[];	// Claude: GodotOptions, -1 not given, else the value (TextureFiltering: a choice's index); GameOptionList.h
 extern char *Cmdline_mission;	// Claude: -mission, see MainHallMenu.cpp
 
 #endif

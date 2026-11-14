@@ -646,6 +646,7 @@ typedef struct gr_host_backend {
 	int (*fog_mark_end)(void);										// Claude: R3 row 9, ends the replay; 1 = a poly reached the tmapper
 	int (*fog_mark_hit)(void);										// Claude: R3 row 9, 1 once a replayed poly has reached the fog-only tmapper
 	int live_mode_change;											// Claude: GodotResolution, nonzero when gr_init may run again for another GR mode while the game runs
+	void (*texture_filter)(int filter, int bias);					// Claude: TextureFiltering (#315), the 3D textures' sampling: filter 0 = the game's bilinear without mipmaps, 1 = trilinear, 2..5 = anisotropic 2x..16x; bias = mip bias in half steps (-2..2, + softer)
 } gr_host_backend;
 extern int gr_host_mesh_ready();
 extern int gr_host_mesh_create(int key, const float *vtx, int nv, const gr_host_mesh_group *g, int ng, const unsigned *idx, int ni, const int *poly_nv, int npoly);
@@ -665,6 +666,7 @@ extern void gr_host_model_page_in(int modelnum);	// Claude: load hook, no-op whe
 extern void gr_host_level_loaded();		// Claude: load hook, no-op when the backend has no level_loaded
 extern int gr_live_mode_change();		// Claude: GodotResolution, 1 when the backend takes a GR mode change while the game runs (GR_HOST with a device; never native D3D or headless)
 extern int gr_host_no_device();		// Claude: P7-4, 1 when gr_screen.mode is GR_HOST and the registered backend says it has no device
+extern void gr_host_texture_filter(int filter, int bias);	// Claude: TextureFiltering, to a registered backend that samples textures itself; any time, before gr_init too; no-op otherwise
 
 // resolution constants   - always keep resolutions in ascending order and starting from 0  
 #define GR_NUM_RESOLUTIONS			2

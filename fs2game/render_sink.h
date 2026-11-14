@@ -90,6 +90,9 @@ typedef struct fs2_sink_mesh_group {
 /* texture flags */
 #define FS2_SINK_TEXF_REPEAT	1	/* wrap u and v (TILED polys); otherwise clamp */
 #define FS2_SINK_TEXF_LINEAR	2	/* bilinear; otherwise nearest (UI text keeps integer texels) */
+#define FS2_SINK_TEXFILTER_ORIGINAL		0	/* texture_filter (TextureFiltering) */
+#define FS2_SINK_TEXFILTER_TRILINEAR	1
+#define FS2_SINK_TEXFILTER_ANISO		2
 
 /* blend modes of a draw */
 #define FS2_SINK_BLEND_OPAQUE	0	/* replace */
@@ -262,6 +265,13 @@ typedef struct fs2_render_sink {
 	 * colour (a textured thruster: it is not marked and keeps the stale one). A sink without it makes the host keep a fogged textured thruster on
 	 * the CPU path. */
 	void (*mesh_fog_mark)(void *user, const float *xy, int n);
+
+	/* TextureFiltering (#315), optional (appended at the end; no earlier entry or field moves): how the sink samples the textures created with
+	 * FS2_SINK_TEXF_LINEAR. filter FS2_SINK_TEXFILTER_ORIGINAL = bilinear without mipmaps (the game's own D3D sampling, and a sink's default);
+	 * TRILINEAR = mipmaps built at upload, blended between levels; ANISO = as TRILINEAR, anisotropic at `anisotropy` (2, 4, 8 or 16).
+	 * mip_bias: added to the mip level the sink picks (- sharper, + softer), about -1..1. Allowed in or out of a frame. The host drops its
+	 * textures when mipmaps start or stop being needed, so the sink gets them again with or without. NULL = always ORIGINAL. */
+	void (*texture_filter)(void *user, int filter, int anisotropy, float mip_bias);
 } fs2_render_sink;
 
 #ifdef __cplusplus

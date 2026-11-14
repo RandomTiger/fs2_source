@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/sub_viewport.hpp>
 #include <godot_cpp/variant/rid.hpp>
 
@@ -111,12 +112,14 @@ private:
 		int w = 0, h = 0, format = 0;
 		uint32_t flags = 0;
 		int arr = -1, layer = 0;	// a layer of texture array chunk `arr` (billboards), or -1
+		bool mip = false;	// TextureFiltering: uploaded with mipmaps
 	};
 	struct Dying {
 		godot::RID rid;
 		int age = 0;
 		int w = 0, h = 0, format = 0;
 		int arr = -1, layer = 0;
+		bool mip = false;
 	};
 	// Texture arrays for billboards: textures up to kArrMaxDim a side also live as a layer of a Texture2DArray chunk of their (w, h, format, linear)
 	// group, built at texture_create time (never at draw time), so one billboard run can span every texture of a chunk. A freed texture's layer is
@@ -125,6 +128,7 @@ private:
 		godot::RID rid;
 		int w = 0, h = 0, format = 0;
 		bool lin = false;
+		bool mip = false;	// TextureFiltering: its layers carry mipmaps (part of the group)
 		std::vector<int> free_layers;
 	};
 	static constexpr int kArrCap = 64;
@@ -141,17 +145,27 @@ private:
 	};
 	std::map<int32_t, AnimArr> anim_arrays;
 	bool arr_off = false;	// FS2_BB_ARR_OFF=1: billboards keep one texture per run (proof baseline)
-	bool arr_alloc(int w, int h, int format, bool lin, int &chunk, int &layer);
+	bool arr_alloc(int w, int h, int format, bool lin, bool mip, int &chunk, int &layer);
 	// Pool of dead textures (perf group 2 fix 2): a texture that has aged out is kept, not freed, and the next create of the
 	// same size and format re-uploads into it (texture_2d_update) instead of making a new GPU texture. Nebula missions free
 	// and re-create 48-80 bitmaps every drawn frame. kTexPoolMax bounds it; the oldest entry is freed beyond that.
 	struct Pooled {
 		godot::RID rid;
 		int w = 0, h = 0, format = 0;
+		bool mip = false;
 	};
 	std::vector<Pooled> tex_pool;
 	std::map<int32_t, Tex> textures;
 	std::vector<Dying> dying;
+	// TextureFiltering (#315, texture_filter): how FS2_SINK_TEXF_LINEAR textures are sampled. Original: bilinear, no mipmaps (the default).
+	int tf_mode = FS2_SINK_TEXFILTER_ORIGINAL;
+	int tf_aniso = 0;		// RenderingServer::ViewportAnisotropicFiltering of the depth-run viewports
+	float tf_bias = 0.0f;	// their texture mipmap bias
+	bool tf_mips() const { return tf_mode != FS2_SINK_TEXFILTER_ORIGINAL; }	// linear textures are uploaded with mipmaps
+	const char *tf_hint(bool lin) const;	// the sampler hint of a texture uniform, with its trailing ", "
+	uint32_t tf_key(bool lin) const { return lin ? (uint32_t)tf_mode : 0u; }	// the hint's part of a shader key (2 bits)
+	godot::RenderingServer::CanvasItemTextureFilter tf_canvas(bool lin) const;
+	void tf_apply(godot::RID viewport, int &aniso, float &bias);	// sets a viewport's anisotropy and mip bias when they changed
 	godot::RID shaders[12], materials[12];	// by blend + 3 * (a8 + 2 * perspective)
 	std::vector<godot::RID> pending_meshes, shown_meshes, spare_meshes;
 	TriBatcher batcher;
@@ -170,6 +184,8 @@ private:
 	struct Layer {
 		godot::RID viewport, scenario, camera, texture;
 		int w = 0, h = 0;
+		int tf_aniso = 0;		// TextureFiltering: what its viewport was last given (setting them reallocates its buffers)
+		float tf_bias = 0.0f;
 		bool probe_parent = false;	// its parent viewport is a fog probe slot (fog lag), not the game viewport
 		std::vector<godot::RID> instances;
 		std::vector<godot::RID> mesh_materials;	// v4 mesh draws: one material and one colour table per draw, back to the pools when the layer goes
@@ -300,6 +316,7 @@ private:
 		bool sprev = false;			// those cells are of the frame before: look up on its pre-render
 	};
 	static void s_mesh_fog_mark(void *u, const float *xy, int n);
+	static void s_texture_filter(void *u, int filter, int anisotropy, float mip_bias);	// TextureFiltering
 	bool mesh_thr_on = false;
 	float mesh_thr[2] = {};
 	static void s_mesh_thrust(void *u, const float t[2]);

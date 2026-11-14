@@ -78,6 +78,7 @@ bool GodotSink::init(SubViewport *viewport)
 	sink.mesh_fog = &GodotSink::s_mesh_fog;
 	sink.billboard_draw = &GodotSink::s_billboard_draw;
 	sink.mesh_fog_mark = &GodotSink::s_mesh_fog_mark;
+	sink.texture_filter = &GodotSink::s_texture_filter;	// TextureFiltering
 	{
 		// the shared unit quad of the billboard draws, made here (no lazy creation): the vertex shader moves its four corners
 		RenderingServer *rs = RenderingServer::get_singleton();
@@ -446,6 +447,7 @@ void GodotSink::retire(const Tex &t)
 	d.rid = t.rid;
 	d.w = t.w; d.h = t.h; d.format = t.format;
 	d.arr = t.arr; d.layer = t.layer;
+	d.mip = t.mip;
 	dying.push_back(d);
 }
 
@@ -462,6 +464,7 @@ void GodotSink::age_dying(bool force_all)
 			if (kTexturePool && !force_all) {
 				Pooled p;
 				p.rid = dying[i].rid; p.w = dying[i].w; p.h = dying[i].h; p.format = dying[i].format;
+				p.mip = dying[i].mip;
 				tex_pool.push_back(p);
 			} else {
 				rs->free_rid(dying[i].rid);
@@ -494,6 +497,8 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	bytes.resize(n);
 	std::memcpy(bytes.ptrw(), pixels, (size_t)n);
 	Ref<Image> img = Image::create_from_data(w, h, false, a8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8, bytes);
+	const bool mip = s->tf_mips() && (flags & FS2_SINK_TEXF_LINEAR) != 0;	// TextureFiltering: built here, at upload, never at draw time
+	if (mip) { img->generate_mipmaps(); }
 	auto it = s->textures.find(id);
 	if (it != s->textures.end()) {
 		s->retire(it->second);
@@ -503,7 +508,7 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	bool reused = false;
 	if (kTexturePool) {
 		for (size_t i = s->tex_pool.size(); i-- > 0;) {
-			if (s->tex_pool[i].w == w && s->tex_pool[i].h == h && s->tex_pool[i].format == format) {
+			if (s->tex_pool[i].w == w && s->tex_pool[i].h == h && s->tex_pool[i].format == format && s->tex_pool[i].mip == mip) {
 				t.rid = s->tex_pool[i].rid;
 				s->tex_pool.erase(s->tex_pool.begin() + (std::ptrdiff_t)i);
 				rs->texture_2d_update(t.rid, img, 0);
@@ -515,34 +520,34 @@ void GodotSink::s_texture_create(void *u, int32_t id, int w, int h, int format, 
 	if (!reused) {
 		t.rid = rs->texture_2d_create(img);
 	}
-	t.w = w; t.h = h; t.format = format; t.flags = flags;
-	if (w <= kArrMaxDim && h <= kArrMaxDim && s->arr_alloc(w, h, format, (flags & FS2_SINK_TEXF_LINEAR) != 0, t.arr, t.layer)) {
+	t.w = w; t.h = h; t.format = format; t.flags = flags; t.mip = mip;
+	if (w <= kArrMaxDim && h <= kArrMaxDim && s->arr_alloc(w, h, format, (flags & FS2_SINK_TEXF_LINEAR) != 0, mip, t.arr, t.layer)) {
 		rs->texture_2d_update(s->arr_chunks[(size_t)t.arr].rid, img, t.layer);
 	}
 	s->textures[id] = t;
 }
 
 // A free layer of a chunk of this group, or a new chunk (all layers blank until a texture is uploaded into one). False with arrays off.
-bool GodotSink::arr_alloc(int w, int h, int format, bool lin, int &chunk, int &layer)
+bool GodotSink::arr_alloc(int w, int h, int format, bool lin, bool mip, int &chunk, int &layer)
 {
 	if (arr_off) { return false; }
 	for (size_t i = 0; i < arr_chunks.size(); i++) {
 		ArrChunk &c = arr_chunks[i];
-		if (c.w == w && c.h == h && c.format == format && c.lin == lin && !c.free_layers.empty()) {
+		if (c.w == w && c.h == h && c.format == format && c.lin == lin && c.mip == mip && !c.free_layers.empty()) {
 			chunk = (int)i; layer = c.free_layers.back(); c.free_layers.pop_back();
 			return true;
 		}
 	}
 	int nsame = 0;	// chunks of this group so far: each new one is twice the last (8, 16, 32, 64), so a small group wastes little
-	for (const ArrChunk &o : arr_chunks) { if (o.w == w && o.h == h && o.format == format && o.lin == lin) { nsame++; } }
+	for (const ArrChunk &o : arr_chunks) { if (o.w == w && o.h == h && o.format == format && o.lin == lin && o.mip == mip) { nsame++; } }
 	const int cap = std::min(kArrCap, 8 << std::min(nsame, 3));
 	TypedArray<Ref<Image>> layers;
 	for (int i = 0; i < cap; i++) {
-		layers.push_back(Image::create(w, h, false, format == FS2_SINK_TEX_A8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8));
+		layers.push_back(Image::create(w, h, mip, format == FS2_SINK_TEX_A8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8));	// TextureFiltering: mip
 	}
 	ArrChunk c;
 	c.rid = RenderingServer::get_singleton()->texture_2d_layered_create(layers, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
-	c.w = w; c.h = h; c.format = format; c.lin = lin;
+	c.w = w; c.h = h; c.format = format; c.lin = lin; c.mip = mip;
 	for (int i = cap - 1; i >= 1; i--) { c.free_layers.push_back(i); }
 	fs2perf::count(fs2perf::C_ARR_BYTES, (uint64_t)w * h * cap * (format == FS2_SINK_TEX_A8 ? 1 : 4));
 	arr_chunks.push_back(c);
@@ -570,6 +575,7 @@ void GodotSink::s_texture_array_create(void *u, int32_t array_id, int w, int h, 
 	GodotSink *s = static_cast<GodotSink *>(u);
 	if (array_id == 0 || w <= 0 || h <= 0 || nlayers <= 0 || pixels == nullptr || s->anim_arrays.count(array_id) != 0) { return; }
 	const bool as_array = !s->arr_off && w <= kArrMaxDim && h <= kArrMaxDim;	// otherwise the frames become single textures, as texture_create would make them
+	const bool mip = s->tf_mips() && (flags & FS2_SINK_TEXF_LINEAR) != 0;	// TextureFiltering
 	fs2perf::Zone _pz(fs2perf::Z_TEX_CREATE);
 	if (s->in_frame) { fs2perf::count(fs2perf::C_TEX_LATE); }
 	s->batcher.flush();
@@ -582,6 +588,7 @@ void GodotSink::s_texture_array_create(void *u, int32_t array_id, int w, int h, 
 		bytes.resize(fb);
 		std::memcpy(bytes.ptrw(), pixels + (size_t)fb * (size_t)i, (size_t)fb);
 		Ref<Image> img = Image::create_from_data(w, h, false, a8 ? Image::FORMAT_R8 : Image::FORMAT_RGBA8, bytes);
+		if (mip) { img->generate_mipmaps(); }
 		layers.push_back(img);
 		a.imgs.push_back(img);
 	}
@@ -589,7 +596,7 @@ void GodotSink::s_texture_array_create(void *u, int32_t array_id, int w, int h, 
 	if (as_array) {
 		ArrChunk c;
 		c.rid = RenderingServer::get_singleton()->texture_2d_layered_create(layers, RenderingServer::TEXTURE_LAYERED_2D_ARRAY);
-		c.w = w; c.h = h; c.format = format; c.lin = (flags & FS2_SINK_TEXF_LINEAR) != 0;
+		c.w = w; c.h = h; c.format = format; c.lin = (flags & FS2_SINK_TEXF_LINEAR) != 0; c.mip = mip;
 		fs2perf::count(fs2perf::C_ARR_BYTES, (uint64_t)fb * (uint64_t)nlayers);
 		s->arr_chunks.push_back(c);
 		a.chunk = (int)s->arr_chunks.size() - 1;
@@ -610,6 +617,7 @@ void GodotSink::s_texture_layer(void *u, int32_t id, int32_t array_id, int layer
 	t.rid = RenderingServer::get_singleton()->texture_2d_create(a.imgs[(size_t)layer]);
 	t.w = a.w; t.h = a.h; t.format = a.format; t.flags = a.flags;
 	t.arr = a.chunk; t.layer = layer;
+	t.mip = a.imgs[(size_t)layer]->has_mipmaps();
 	s->textures[id] = t;
 	if (++a.claimed >= (int)a.imgs.size()) { s->anim_arrays.erase(it); }
 }
@@ -629,6 +637,51 @@ void GodotSink::s_texture_free_all(void *u)
 		s->retire(t.second);
 	}
 	s->textures.clear();
+}
+
+// TextureFiltering (#315). Mipmaps are built when a texture is uploaded, so the host drops its textures when they start or stop being
+// needed (gr_host.cpp). Shaders and materials carry the filter in their keys; the depth-run viewports take anisotropy and mip bias.
+void GodotSink::s_texture_filter(void *u, int filter, int anisotropy, float mip_bias)
+{
+	GodotSink *s = static_cast<GodotSink *>(u);
+	s->batcher.flush();	// pending draws pick their shader at emit: they keep the filter they were made under
+	s->tf_mode = (filter == FS2_SINK_TEXFILTER_TRILINEAR || filter == FS2_SINK_TEXFILTER_ANISO) ? filter : FS2_SINK_TEXFILTER_ORIGINAL;
+	s->tf_aniso = 0;
+	if (s->tf_mode == FS2_SINK_TEXFILTER_ANISO) {
+		s->tf_aniso = anisotropy >= 16 ? RenderingServer::VIEWPORT_ANISOTROPY_16X : anisotropy >= 8 ? RenderingServer::VIEWPORT_ANISOTROPY_8X
+			: anisotropy >= 4 ? RenderingServer::VIEWPORT_ANISOTROPY_4X : RenderingServer::VIEWPORT_ANISOTROPY_2X;
+	}
+	s->tf_bias = (s->tf_mode == FS2_SINK_TEXFILTER_ORIGINAL) ? 0.0f : std::max(-2.0f, std::min(2.0f, mip_bias));
+}
+
+const char *GodotSink::tf_hint(bool lin) const
+{
+	if (!lin) { return "filter_nearest, "; }
+	if (tf_mode == FS2_SINK_TEXFILTER_TRILINEAR) { return "filter_linear_mipmap, "; }
+	if (tf_mode == FS2_SINK_TEXFILTER_ANISO) { return "filter_linear_mipmap_anisotropic, "; }
+	return "filter_linear, ";
+}
+
+RenderingServer::CanvasItemTextureFilter GodotSink::tf_canvas(bool lin) const
+{
+	if (!lin) { return RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST; }
+	if (tf_mode == FS2_SINK_TEXFILTER_TRILINEAR) { return RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS; }
+	if (tf_mode == FS2_SINK_TEXFILTER_ANISO) { return RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC; }
+	return RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
+}
+
+// Setting either reconfigures the viewport's render buffers, so only on a change. Original leaves a new viewport as it was made
+void GodotSink::tf_apply(RID viewport, int &aniso, float &bias)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (aniso != tf_aniso && (aniso >= 0 || tf_mode == FS2_SINK_TEXFILTER_ANISO)) {
+		rs->viewport_set_anisotropic_filtering_level(viewport, (RenderingServer::ViewportAnisotropicFiltering)tf_aniso);
+		aniso = tf_aniso;
+	}
+	if (bias != tf_bias) {
+		rs->viewport_set_texture_mipmap_bias(viewport, tf_bias);
+		bias = tf_bias;
+	}
 }
 
 // One shader per (blend, A8, perspective). Plain alpha blending of an RGBA texture needs none: the canvas default does it.
@@ -708,14 +761,14 @@ void GodotSink::emit_canvas(const Batch &b)
 		tflags = it->second.flags;
 	}
 	// Consecutive batches with the same material and sampling share one canvas item (one draw command each): thousands of items per frame lose draws in Godot's canvas renderer.
-	const uint32_t sig = ((uint32_t)b.key.blend << 8) | (a8 ? 4u : 0u) | (b.key.perspective != 0 ? 2u : 0u) | 0x10000u | ((tflags & FS2_SINK_TEXF_LINEAR) ? 0x20000u : 0u) | ((tflags & FS2_SINK_TEXF_REPEAT) ? 0x40000u : 0u);
+	const uint32_t sig = ((uint32_t)b.key.blend << 8) | (a8 ? 4u : 0u) | (b.key.perspective != 0 ? 2u : 0u) | 0x10000u | ((tflags & FS2_SINK_TEXF_LINEAR) ? 0x20000u : 0u) | ((tflags & FS2_SINK_TEXF_REPEAT) ? 0x40000u : 0u) | (tf_key((tflags & FS2_SINK_TEXF_LINEAR) != 0) << 19);
 	RID item;
 	if (cur_item.is_valid() && cur_sig == sig && cur_parent == parent && !pending_items.empty() && pending_items.back() == cur_item) {
 		item = cur_item;
 	} else {
 		item = new_item(parent);
 		pending_items.push_back(item);
-		rs->canvas_item_set_default_texture_filter(item, (tflags & FS2_SINK_TEXF_LINEAR) ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+		rs->canvas_item_set_default_texture_filter(item, tf_canvas((tflags & FS2_SINK_TEXF_LINEAR) != 0));	// TextureFiltering
 		rs->canvas_item_set_default_texture_repeat(item, (tflags & FS2_SINK_TEXF_REPEAT) ? RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED : RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
 		rs->canvas_item_set_material(item, material_for(b.key.blend, a8, b.key.perspective != 0));
 		cur_item = item;
@@ -1270,7 +1323,9 @@ GodotSink::Layer GodotSink::acquire_layer()
 		}
 		rs->viewport_set_active(l.viewport, true);
 		l.texture = rs->viewport_get_texture(l.viewport);
+		l.tf_aniso = -1;	// TextureFiltering: not set yet
 	}
+	tf_apply(l.viewport, l.tf_aniso, l.tf_bias);
 	if (l.w != width || l.h != height) {
 		l.w = width;
 		l.h = height;
@@ -1342,7 +1397,7 @@ RID GodotSink::spatial_material(int blend, int zmode, bool a8, uint32_t texflags
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	const bool lin = (texflags & FS2_SINK_TEXF_LINEAR) != 0, rpt = (texflags & FS2_SINK_TEXF_REPEAT) != 0;
-	uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
+	uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u) | (tf_key(lin) << 9);
 	const int parity = (g_nebfog == kNebFogGpu && fog) ? (committed & 1) : 0;	// fog gpu: the material reads the fog slot and table of its frame parity
 	skey |= parity ? 256u : 0u;
 	const std::pair<uint32_t, int64_t> mkey(skey, (int64_t)tex.get_id());
@@ -1380,7 +1435,7 @@ RID GodotSink::white_texture()
 RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bool fog)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u);
+	const uint32_t skey = (uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (fog ? 128u : 0u) | (tf_key(lin) << 9);
 	RID sh;
 	auto sit = spatial_shaders.find(skey);
 	if (sit != spatial_shaders.end()) {
@@ -1393,7 +1448,7 @@ RID GodotSink::spatial_shader(int blend, int zmode, bool a8, bool lin, bool rpt,
 			code += ", depth_test_disabled";
 		}
 		code += ";\nuniform sampler2D tex : ";
-		code += lin ? "filter_linear, " : "filter_nearest, ";
+		code += tf_hint(lin);	// TextureFiltering
 		code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 		code += "varying vec4 vcol;\nvarying vec3 pc;\n";
 		if (fog && g_nebfog == kNebFogGpu) {
@@ -1779,7 +1834,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	stale = stale && fog && g_nebfog == kNebFogGpu;
-	const uint32_t skey = (stale ? 16384u : 0u) | (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u);
+	const uint32_t skey = (stale ? 16384u : 0u) | (crect ? 8192u : 0u) |(uint32_t)(blend & 3) | ((uint32_t)(zmode & 3) << 2) | (a8 ? 16u : 0u) | (lin ? 32u : 0u) | (rpt ? 64u : 0u) | (cull ? 128u : 0u) | (lit ? 256u : 0u) | (uclip ? 512u : 0u) | (fog ? 1024u : 0u) | (ovl ? 2048u : 0u) | (thr ? 4096u : 0u) | (tf_key(lin) << 15);
 	auto it = mesh_shaders.find(skey);
 	if (it != mesh_shaders.end()) { return it->second; }
 	String code = "shader_type spatial;\nrender_mode unshaded, shadows_disabled, fog_disabled, ";
@@ -1789,7 +1844,7 @@ RID GodotSink::mesh_shader(int blend, int zmode, bool a8, bool lin, bool rpt, bo
 	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
 	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
 	code += ";\nuniform sampler2D tex : ";
-	code += lin ? "filter_linear, " : "filter_nearest, ";
+	code += tf_hint(lin);	// TextureFiltering
 	code += rpt ? "repeat_enable;\n" : "repeat_disable;\n";
 	code += "uniform sampler2D cols : filter_nearest, repeat_disable;\nuniform float zbias = 0.0;\nuniform vec4 r0;\nuniform vec4 r1;\nuniform vec4 r2;\nuniform vec4 cfg;\nuniform vec4 org;\nvarying vec3 pc;\nvarying vec3 vcol;\nvarying float wv;\n";
 	if (uclip) { code += "uniform vec4 clipp;\nvarying float cz;\n"; }	// the game's user clip plane (eye space), kept where cz > 0
@@ -2233,7 +2288,7 @@ void GodotSink::add_mesh_to_layer(Layer &l, const MeshDraw &d, int order)
 RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool lin, bool crect, bool arr, bool rep, bool aff, bool nc)
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
-	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u) | (nc ? 16384u : 0u);
+	const uint32_t skey = ((uint32_t)(kind & 7) << 9) | ((uint32_t)(blend & 3) << 1) | ((uint32_t)(zmode & 3) << 3) | (a8 ? 32u : 0u) | (lin ? 64u : 0u) | (crect ? 128u : 0u) | (arr ? 256u : 0u) | (rep ? 4096u : 0u) | (aff ? 8192u : 0u) | (nc ? 16384u : 0u) | (tf_key(lin) << 15);
 	auto it = bb_shaders.find(skey);
 	if (it != bb_shaders.end()) { return it->second; }
 	if (kind == FS2_SINK_BB_STARS) {
@@ -2320,7 +2375,7 @@ RID GodotSink::billboard_shader(int kind, int blend, int zmode, bool a8, bool li
 	code += (zmode == 2 || zmode == 3) ? "depth_draw_always" : "depth_draw_never";
 	if (zmode == 0 || zmode == 3) { code += ", depth_test_disabled"; }
 	code += arr ? ";\nuniform sampler2DArray tex : " : ";\nuniform sampler2D tex : ";
-	code += lin ? "filter_linear, " : "filter_nearest, ";
+	code += tf_hint(lin);	// TextureFiltering
 	code += rep ? "repeat_enable;\n" : "repeat_disable;\n";	// rep: the subspace tunnel's tiled polys (R3 row 6)
 	// one draw call per run of draws that share this state: per run bwh = bw, bh; sc = Matrix_scale x, y; bcl = the scaler clip l, t, r, b; cfg = canvas/2, dbase;
 	// per draw, in the instance's 3x4 transform (read back from MODEL_MATRIX, which is exact: the instance transform is the identity) and its custom data:

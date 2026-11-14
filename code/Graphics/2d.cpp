@@ -592,6 +592,12 @@ int gr_host_no_device()
 	return (gr_screen.mode == GR_HOST) && Gr_host_backend && Gr_host_backend->no_device;
 }
 
+// Claude: TextureFiltering (#315), see 2d.h. Not gated on gr_screen.mode: the options apply at start, before gr_init
+void gr_host_texture_filter(int filter, int bias)
+{
+	if (Gr_host_backend && Gr_host_backend->texture_filter) { Gr_host_backend->texture_filter(filter, bias); }
+}
+
 void gr_close()
 {
 	if ( !Gr_inited )	return;

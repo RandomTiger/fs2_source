@@ -94,9 +94,10 @@ static void game_options_load()
 typedef struct go_option {
 	char *name, *key, *label;
 	int dflt, host_only;
+	char *choices;		// TextureFiltering: NULL for on/off, else the choices' labels split by |
 } go_option;
 
-#define GO_OPTION(id, name, key, label, dflt, host_only) { name, key, label, dflt, host_only },
+#define GO_OPTION(id, name, key, label, dflt, host_only, choices) { name, key, label, dflt, host_only, choices },
 static go_option Go_options[GO_OPT_COUNT] = {
 #include "GameOptionList.h"
 };
@@ -104,11 +105,101 @@ static go_option Go_options[GO_OPT_COUNT] = {
 
 static int Go_option_value[GO_OPT_COUNT];
 
+// TextureFiltering (#315): a choice option's labels (the screen's) and names (the console's and command line's: the label in lower
+// case without spaces), split out of its choices string once
+#define GO_MAX_CHOICES		8
+#define GO_CHOICE_LEN		24
+static char Go_choice_label[GO_OPT_COUNT][GO_MAX_CHOICES][GO_CHOICE_LEN];
+static char Go_choice_name[GO_OPT_COUNT][GO_MAX_CHOICES][GO_CHOICE_LEN];
+static int Go_choice_count[GO_OPT_COUNT];	// 0 for an on/off option
+static int Go_choices_split = 0;
+
+static void go_choices_split()
+{
+	int i, n, k, j;
+	const char *s;
+
+	if (Go_choices_split) {
+		return;
+	}
+	Go_choices_split = 1;
+	for (i = 0; i < GO_OPT_COUNT; i++) {
+		Go_choice_count[i] = 0;
+		for (s = Go_options[i].choices; s && *s && (Go_choice_count[i] < GO_MAX_CHOICES); ) {
+			n = Go_choice_count[i]++;
+			for (k = 0; *s && (*s != '|'); s++) {
+				if (k < GO_CHOICE_LEN - 1) {
+					Go_choice_label[i][n][k++] = *s;
+				}
+			}
+			Go_choice_label[i][n][k] = 0;
+			for (k = 0, j = 0; Go_choice_label[i][n][k]; k++) {
+				if (Go_choice_label[i][n][k] != ' ') {
+					Go_choice_name[i][n][j++] = (char)tolower((unsigned char)Go_choice_label[i][n][k]);
+				}
+			}
+			Go_choice_name[i][n][j] = 0;
+			if (*s == '|') {
+				s++;
+			}
+		}
+	}
+}
+
+// the number of values the option takes: 2 for on/off
+static int go_option_values(int id)
+{
+	go_choices_split();
+	return Go_choice_count[id] ? Go_choice_count[id] : 2;
+}
+
+static int go_option_clamp(int id, int value)
+{
+	if (!Go_options[id].choices) {
+		return value ? 1 : 0;
+	}
+	return ((value < 0) || (value >= go_option_values(id))) ? Go_options[id].dflt : value;
+}
+
+int game_option_parse(int id, const char *arg, int empty)
+{
+	int i;
+
+	if ((id < 0) || (id >= GO_OPT_COUNT) || !arg) {
+		return -1;
+	}
+	if (arg[0] == 0) {
+		return empty;
+	}
+	if (!Go_options[id].choices) {
+		if (!stricmp(arg, "on")) {
+			return 1;
+		}
+		if (!stricmp(arg, "off")) {
+			return 0;
+		}
+		return isdigit((unsigned char)arg[0]) ? (atoi(arg) != 0) : -1;
+	}
+	go_choices_split();
+	for (i = 0; i < Go_choice_count[id]; i++) {
+		if (!stricmp(arg, Go_choice_name[id][i])) {
+			return i;
+		}
+	}
+	if (isdigit((unsigned char)arg[0]) && (atoi(arg) < Go_choice_count[id])) {
+		return atoi(arg);
+	}
+	return -1;
+}
+
 // what a change does beyond the value: only what cannot read game_option as it goes
 static void go_option_apply(int id)
 {
 	if (id == GO_OPT_BIG_HUD) {
 		gr_virtual_set_hud_double(Go_option_value[id]);
+	}
+	if ((id == GO_OPT_TEXTURE_FILTER) || (id == GO_OPT_MIP_BIAS)) {	// TextureFiltering: the host's sampling; a backend without it ignores it
+		gr_host_texture_filter(Go_option_value[GO_OPT_TEXTURE_FILTER], Go_option_value[GO_OPT_MIP_BIAS] - 2);
 	}
 }
 
@@ -119,10 +210,10 @@ void game_options_settings_init()
 	for (i = 0; i < GO_OPT_COUNT; i++) {
 		Go_option_value[i] = Go_options[i].dflt;
 		if (game_options_keys_active()) {
-			Go_option_value[i] = os_config_read_uint(NULL, Go_options[i].key, Go_options[i].dflt) ? 1 : 0;
+			Go_option_value[i] = go_option_clamp(i, (int)os_config_read_uint(NULL, Go_options[i].key, Go_options[i].dflt));
 		}
 		if (Cmdline_game_option[i] >= 0) {
-			Go_option_value[i] = Cmdline_game_option[i];
+			Go_option_value[i] = go_option_clamp(i, Cmdline_game_option[i]);
 		}
 		go_option_apply(i);
 	}
@@ -152,7 +243,7 @@ int game_option_hud_lines_x()
 
 void game_option_set(int id, int value)
 {
-	Go_option_value[id] = value ? 1 : 0;
+	Go_option_value[id] = go_option_clamp(id, value);
 	if (game_options_keys_active()) {
 		os_config_write_uint(NULL, Go_options[id].key, Go_option_value[id]);
 	}
@@ -276,8 +367,8 @@ int game_options_gr_mode(int mode)
 #define GO_ITEM_GR			1
 #define GO_ITEM_BACK		2
 #define GO_ITEM_RES			3		// value: an index in Go_res
-#define GO_ITEM_OPTION		4		// Claude: GodotOptions, value: option id * 2 + the choice
-#define GO_MAX_ITEMS		24		// Claude: GodotOptions, was 16
+#define GO_ITEM_OPTION		4		// Claude: GodotOptions, value: option id * GO_MAX_CHOICES + the value (TextureFiltering)
+#define GO_MAX_ITEMS		48		// Claude: GodotOptions, was 16; TextureFiltering, was 24
 
 typedef struct go_item {
 	int kind, value;
@@ -625,7 +716,36 @@ static int game_options_res_y()
 // Claude: GodotOptions, the line of the nth option row
 static int go_option_row_y(int row)
 {
-	return gr_screen.max_h * (72 + row * 6) / 100;
+	return gr_screen.max_h * (66 + row * 6) / 100;	// TextureFiltering: was 72, room for four rows above Back
+}
+
+// TextureFiltering: a value's label on the screen: On / Off, or the choice's
+static char *go_option_value_label(int id, int value)
+{
+	if (!Go_options[id].choices) {
+		return value ? "On" : "Off";
+	}
+	go_choices_split();
+	return Go_choice_label[id][value];
+}
+
+// the screen's items of an option's row: On then Off, or the choices in order, wrapping under x0 at the screen's right edge
+static void go_option_row_items(int id, int x0, int y)
+{
+	int k, v, n = go_option_values(id), x = x0, w;
+	char *text;
+
+	for (k = 0; k < n; k++) {
+		v = Go_options[id].choices ? k : (1 - k);
+		text = go_option_value_label(id, v);
+		gr_get_string_size(&w, NULL, text);
+		if ((x > x0) && (x + w > gr_screen.max_w * 96 / 100)) {
+			x = x0;
+			y += gr_get_font_height() + 4;
+		}
+		game_options_add(GO_ITEM_OPTION, id * GO_MAX_CHOICES + v, x, y, text);
+		x += (Go_options[id].choices ? (w + gr_screen.max_w / 40) : (gr_screen.max_w / 8));
+	}
 }
 
 // lays the screen out for this art mode: fractions of the screen, so GR_640 and GR_1024 match
@@ -659,8 +779,7 @@ static void game_options_layout()
 	}
 	for (i = 0, yr = 0; i < GO_OPT_COUNT; i++) {	// Claude: GodotOptions
 		if (go_option_on_screen(i)) {
-			game_options_add(GO_ITEM_OPTION, i * 2 + 1, cx, go_option_row_y(yr), "On");
-			game_options_add(GO_ITEM_OPTION, i * 2, cx + step, go_option_row_y(yr), "Off");
+			go_option_row_items(i, cx, go_option_row_y(yr));	// Claude: TextureFiltering, choices
 			yr++;
 		}
 	}
@@ -693,7 +812,7 @@ static int game_options_item_current(go_item *it)
 		return it->value == Go_res_shown;
 	}
 	if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
-		return game_option(it->value / 2) == (it->value & 1);
+		return game_option(it->value / GO_MAX_CHOICES) == (it->value % GO_MAX_CHOICES);	// TextureFiltering
 	}
 	return 0;
 }
@@ -739,7 +858,7 @@ static void game_options_pick(go_item *it)
 	} else if (it->kind == GO_ITEM_RES) {
 		game_options_apply_res(it->value);
 	} else if (it->kind == GO_ITEM_OPTION) {	// Claude: GodotOptions
-		game_option_set(it->value / 2, it->value & 1);
+		game_option_set(it->value / GO_MAX_CHOICES, it->value % GO_MAX_CHOICES);	// TextureFiltering
 	}
 }
 
@@ -1218,12 +1337,30 @@ static const char *go_console_word(const char *line, const char *word)
 // Claude: GodotOptions, an option of GameOptionList.h: 1 if the line was one
 static int go_console_option(const char *line, char *out, int out_size)
 {
-	char text[64];
+	char text[256];
 	const char *arg;
-	int i, v;
+	int i, v, k;
 
 	for (i = 0; i < GO_OPT_COUNT; i++) {
 		arg = go_console_word(line, Go_options[i].name);
+		if (arg && Go_options[i].choices) {	// TextureFiltering: a choice option; no word shows the value and the choices
+			go_choices_split();
+			v = game_option_parse(i, arg, -2);
+			if (v >= 0) {
+				game_option_set(i, v);
+			}
+			sprintf(text, "%s%s %s", (v == -1) ? "unknown; " : "", Go_options[i].name, Go_choice_name[i][game_option(i)]);
+			if (v < 0) {
+				strcat(text, " (");
+				for (k = 0; k < Go_choice_count[i]; k++) {
+					strcat(text, k ? ", " : "");
+					strcat(text, Go_choice_name[i][k]);
+				}
+				strcat(text, ")");
+			}
+			go_console_print(out, out_size, text);
+			return 1;
+		}
 		if (arg) {
 			v = go_console_on_off(arg, game_option(i));
 			if (v < 0) {
@@ -1578,6 +1715,19 @@ static void go_panel_row(char *label, int y)
 	}
 }
 
+// an option's row: On then Off, or the choices in order (TextureFiltering); returns the next row's line
+static int go_panel_option_row(int id, int y)
+{
+	int k, v, x = Go_lay_choice_x;
+
+	go_panel_row(Go_options[id].label, y);
+	for (k = 0; k < go_option_values(id); k++) {
+		v = Go_options[id].choices ? k : (1 - k);
+		go_panel_place(GO_ITEM_OPTION, id * GO_MAX_CHOICES + v, go_option_value_label(id, v), &x, &y);
+	}
+	return y + Go_lay_step;
+}
+
 // a heading's height with the space under it
 static int go_head_step()
 {
@@ -1691,18 +1841,20 @@ static void go_panel_layout()
 			go_panel_place(GO_ITEM_RES, i, Go_res[i].text, &x, &y);
 		}
 	}
-	y += Go_lay_step + Go_lay_sect;
+	y += Go_lay_step;
+	for (i = 0; i < GO_OPT_COUNT; i++) {	// TextureFiltering: the choice options (texture sampling) are Display rows
+		if (go_option_on_screen(i) && Go_options[i].choices) {
+			y = go_panel_option_row(i, y);
+		}
+	}
+	y += Go_lay_sect;
 
 	for (i = 0; i < GO_OPT_COUNT; i++) {
-		if (go_option_on_screen(i)) {
+		if (go_option_on_screen(i) && !Go_options[i].choices) {
 			if ((Go_panel_heads < 3)) {
 				y = go_panel_head("Interface", y);
 			}
-			go_panel_row(Go_options[i].label, y);
-			x = Go_lay_choice_x;
-			go_panel_place(GO_ITEM_OPTION, i * 2 + 1, "On", &x, &y);
-			go_panel_place(GO_ITEM_OPTION, i * 2, "Off", &x, &y);
-			y += Go_lay_step;
+			y = go_panel_option_row(i, y);
 		}
 	}
 }
